@@ -13,8 +13,8 @@ INCLUDES = -Idep/glad/include \
 LINKER_FLAGS = -lGL -lGLU -lglfw3  -lX11 -lXxf86vm -lXrandr -lpthread -lXi -lXinerama -ldl -lXcursor -lopenal -lm
 WIN_LINKER_FLAGS = -lopengl32 -lglfw3 -lgdi32 -lm
 OSX_LINKER_FLAGS = -lGL -lGLU -lglfw3  -lX11 -lXxf86vm -lXrandr -lpthread -lXi -lXinerama -ldl -lXcursor -lopenal -lm
-EXEC_NAME = lost
-WIN_EXEC_NAME = lost.exe
+EXEC_NAME = engine
+WIN_EXEC_NAME = $(EXEC_NAME).exe
 OSX_EXEC_NAME = $(EXEC_NAME)
 
 ifeq ($(OS),Windows_NT)
