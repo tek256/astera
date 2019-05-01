@@ -1,4 +1,4 @@
-OBJS = src/main.c
+OBJS = src/main.c src/audio.c src/input.c src/render.c src/sys.c src/math.c src/debug.c src/game.c
 
 CC = gcc
 WIN_CC = mingw32-gcc
@@ -7,12 +7,11 @@ COMPILER_FLAGS = -w
 WIN_COMPILER_FLAGS = -w
 OSX_COMPILER_FLAGS = -w
 
-INCLUDES = -Idep/glad/include \
-		   -Idep/stb
+INCLUDES = -Idep/
 
-LINKER_FLAGS = -lGL -lGLU -lglfw3  -lX11 -lXxf86vm -lXrandr -lpthread -lXi -lXinerama -ldl -lXcursor -lopenal -lm
-WIN_LINKER_FLAGS = -lopengl32 -lglfw3 -lgdi32 -lm
-OSX_LINKER_FLAGS = -lGL -lGLU -lglfw3  -lX11 -lXxf86vm -lXrandr -lpthread -lXi -lXinerama -ldl -lXcursor -lopenal -lm
+LINKER_FLAGS = -lglfw3 -lGL -lGLU -lX11 -lXi -lXrandr -lXxf86vm -lXinerama -lpthread -ldl -lXcursor -lopenal -lm -lGLU
+WIN_LINKER_FLAGS = -lopengl32 -lglfw3 -lgdi32 -lm 
+OSX_LINKER_FLAGS = -lGL -lGLU -lglfw3  -lX11 -lXxf86vm -lXrandr -lpthread -lXi -lXinerama -ldl -lXcursor -lopenal -lm 
 EXEC_NAME = engine
 WIN_EXEC_NAME = $(EXEC_NAME).exe
 OSX_EXEC_NAME = $(EXEC_NAME)
