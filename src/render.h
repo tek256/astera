@@ -9,14 +9,9 @@
 
 #include "math.h"
 
-#ifndef STD_BOOL_H
-#define STD_BOOL_H
-typedef enum{false=0,true=1} bool;
-#endif
-
 typedef struct {
     int width, height;
-    bool fullscreen, vsync, borderless;
+    int fullscreen, vsync, borderless;
     int refreshRate;
     char* title;
 } r_window_info;
@@ -24,8 +19,8 @@ typedef struct {
 typedef struct {
     int width, height;
     int x, y;
-    bool fullscreen, vsync;
-    bool close_requested;
+    int fullscreen, vsync;
+    int close_requested;
     int refreshRate;
     GLFWwindow* glfw;
 } r_window;
@@ -103,7 +98,7 @@ void r_set_quati(int loc, quat val);
 void r_set_mat4i(int loc, mat4 val);
 
 static void r_create_modes();
-static bool r_window_info_valid(r_window_info info);
+static int  r_window_info_valid(r_window_info info);
 static const GLFWvidmode* r_find_closest_mode(r_window_info info);
 static const GLFWvidmode* r_find_best_mode();
 
@@ -120,14 +115,14 @@ static void glfw_scroll_cb(GLFWwindow* window, double dx, double dy);
 static void glfw_joy_cb(int joystick, int action);
 static void glfw_char_cb(GLFWwindow* window, unsigned int c);
 
-bool r_create_window(r_window_info info);
+int  r_create_window(r_window_info info);
 void r_destroy_window();
 void r_request_close();
 
 void r_center_window();
 void r_set_window_pos(int x, int y);
 
-bool r_should_close();
+int r_should_close();
 
 void r_swap_buffers();
 void r_clear_window();

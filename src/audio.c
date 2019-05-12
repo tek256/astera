@@ -47,7 +47,7 @@ a_file* a_get_file(const char* fp){
     if(index != -1){
         return &audio_files[index];
     }
-    return NULL;
+    return 0;
 }
 
 void a_destroy_file(const char* fp){
@@ -96,7 +96,7 @@ void a_destroy_file_cache(){
 }
 #endif
 
-bool a_load_devices(){
+int a_load_devices(){
     char* device_list;
 
     if(alcIsExtensionPresent(NULL, "ALC_ENUMERATE_ALL_EXT") != AL_FALSE){
@@ -135,10 +135,10 @@ bool a_load_devices(){
     a_device_list = list;
     a_device_list_count = count;
 
-    return true;
+    return 1;
 }
 
-bool a_create_context(const char* deviceName){
+int a_create_context(const char* deviceName){
     ALCdevice* device = NULL;
 
     if(deviceName != NULL){
@@ -151,7 +151,7 @@ bool a_create_context(const char* deviceName){
 
     if(!alcMakeContextCurrent(context)){
         printf("Error creating OpenAL Context\n");
-        return false;
+        return 0;
     }
     _a_ctx = (a_ctx){context, device};
 
@@ -160,7 +160,7 @@ bool a_create_context(const char* deviceName){
         a_qsfx[i].source = a_create_source((vec3){0.f}, 10.f, 0);
     }
 
-    return true;
+    return 1;
 }
 
 void a_destroy_context(){
@@ -186,7 +186,7 @@ const char** a_get_devices(int* count){
 }
 
 void a_swap_device(const char* deviceName){
-    a_allow = false;
+    a_allow = 0;
 
     alcDestroyContext(_a_ctx.context);
     alcCloseDevice(_a_ctx.device);
@@ -209,7 +209,7 @@ void a_swap_device(const char* deviceName){
     _a_ctx.context = context;
     _a_ctx.device = device;
 
-    a_allow = true;
+    a_allow = 1;
 }
 
 void a_clean_sources(a_src* sources, int count){
@@ -227,7 +227,7 @@ void a_clean_buffers(a_buf* buffers, int count){
 a_buf a_create_buffer(const char* path){
     if(path == NULL){
         printf("NULL Audio Buffer.\n");
-        return (a_buf){0, false, 0, 0, 0};
+        return (a_buf){0, 0, 0, 0, 0};
     }
     int id;
 
@@ -277,7 +277,7 @@ a_buf a_create_buffer(const char* path){
     }
 
     uint total_samples;
-    bool loop = false;
+    int loop = 0;
 
     total_samples = (uint)stb_vorbis_stream_length_in_samples(vorbis);
     int sample_count = (MAX_MUSIC_RUNTIME > total_samples) ? total_samples : MAX_MUSIC_RUNTIME;
@@ -292,18 +292,18 @@ a_buf a_create_buffer(const char* path){
 
     stb_vorbis_close(vorbis);
 
-    return (a_buf){id, true, channels, len, rate};
+    return (a_buf){id, 1, channels, len, rate};
 }
 
 a_buf* a_create_buffers(const char** paths, int p_count, int* b_count){
     if(p_count == 0){
-        return NULL;
+        return 0;
     }
 
     int buffered_count;
     a_buf* buffered = malloc(sizeof(a_buf) * p_count);
     for(int i=0;i<p_count;i++){
-        if(buffered->buffered == true){
+        if(buffered->buffered == 1){
             buffered_count ++;
         }
     }
@@ -402,20 +402,20 @@ a_music* a_create_music(const char* path){
 
         music->total_samples = (uint)stb_vorbis_stream_length_in_samples(music->vorbis);
         music->samples_left = music->total_samples;
-        music->loop = false;
+        music->loop = 0;
     }
 
     return music;
 }
 
-bool a_update_music(a_music* music){
+int a_update_music(a_music* music){
     ALenum state;
     ALint processed = 0;
     alGetSourcei(music->stream.source, AL_SOURCE_STATE, &state);
     alGetSourcei(music->stream.source, AL_BUFFERS_PROCESSED, &processed);
 
     if(processed > 0){
-        bool ending = false;
+        int ending = 0;
         void* pcm = calloc(MAX_MUSIC_RUNTIME * music->stream.sample_size/8*music->stream.channels, 1);
         int num_left = processed;
         int sample_count = 0;
@@ -432,7 +432,7 @@ bool a_update_music(a_music* music){
             music->samples_left -= sample_count;
 
             if(music->samples_left <= 0){
-                ending = true;
+                ending = 1;
                 break;
             }
         }
@@ -504,9 +504,9 @@ a_src a_create_source(vec3 position, float range, uint buffer){
 
     if(buffer != 0){
         alSourcei(id, AL_BUFFER, buffer);
-        return (a_src){id, position, range, 1.0f, true};
+        return (a_src){id, position, range, 1.0f, 1};
     }
-    return (a_src){id, position, range, 1.0f, false};
+    return (a_src){id, position, range, 1.0f, 0};
 }
 
 void a_destroy_source(a_src source){
@@ -562,7 +562,7 @@ int a_play_sfx(a_buf* buffer, a_sound* qs){
     }
 
     alSourcei(a_qsfx[sfx_slot].source.id, AL_BUFFER, buffer->id);
-    a_qsfx[sfx_slot].source.has_sound = true;
+    a_qsfx[sfx_slot].source.has_sound = 1;
     a_play_source(&a_qsfx[sfx_slot].source);
 
     return sfx_slot;
@@ -576,7 +576,7 @@ void a_stop_sfx(int sfx_slot){
     a_stop_source(&a_qsfx[sfx_slot].source);
 }
 
-bool a_is_sfx_buffer(int index, a_buf* buffer){
+int a_is_sfx_buffer(int index, a_buf* buffer){
     int buf;
     alGetSourcei(a_qsfx[index].source.id, AL_BUFFER, &buf);
     return buf == buffer->id;
@@ -596,7 +596,7 @@ void a_update_sfx(){
             alGetSourcei(a_qsfx[i].source.id, AL_BUFFER, &buffer);
             if(buffer != 0){
                 alSourcei(a_qsfx[i].source.id, AL_BUFFER, 0);
-                a_qsfx[i].source.has_sound = false;
+                a_qsfx[i].source.has_sound = 0;
             }
         }
     }

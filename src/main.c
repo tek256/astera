@@ -14,8 +14,10 @@
 #define DEBUG_OUTPUT
 
 #ifndef DEBUG_OUTPUT
+#ifdef  _MSC_VER
 #undef  _WIN32_WINNT
 #define _WIN32_WINNT 0x0500
+#endif
 #endif
 
 int target_fps = 60;
@@ -27,7 +29,6 @@ int main(int argc, char** argv){
 	FreeConsole();
 #endif
 #endif
-
 	double timeframe = MS_PER_SEC / (double) target_fps;
 	double curr = t_get_time();
 	double last = curr;
@@ -49,11 +50,11 @@ int main(int argc, char** argv){
 		curr = t_get_time(); 
 		delta = curr - last;
 		accum = timeframe;
-		
+
 		r_clear_window();
 		g_render();
 		r_swap_buffers();
-		
+
 		i_update();
 		glfwPollEvents();
 		g_input(delta);
@@ -61,11 +62,11 @@ int main(int argc, char** argv){
 
 		check = t_get_time(); 
 		accum = (long)(check - curr);
-		
+
 		double n_time_frame = timeframe;
 		int t_fps;
 		int l_fps = target_fps;
-		
+
 		if(accum > 0){
 			n_time_frame -= accum;
 			t_fps = (int)((double)MS_PER_SEC / n_time_frame);

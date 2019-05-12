@@ -1,9 +1,0 @@
-[submodule "dep/glfw"]
-	path = dep/glfw
-	url = https://github.com/glfw/glfw
-[submodule "dep/openal-soft"]
-	path = dep/openal-soft
-	url = https://github.com/kcat/openal-soft
-[submodule "dep/miniz"]
-	path = dep/miniz
-	url = https://github.com/richgel999/miniz

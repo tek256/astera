@@ -5,10 +5,6 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb/stb_image.h>
 
-#define ASPECT_16x10 16.f / 10.f
-#define ASPECT_16x9 16.f / 9.f
-#define ASPECT_4x3 4.f / 3.f
-
 #include "input.h"
 #include "sys.h"
 #include "debug.h"
@@ -21,15 +17,23 @@ static GLFWmonitor* r_default_monitor;
 static const GLFWvidmode* r_vidmodes;
 static int r_vidmode_count;
 static vec2 r_res;
-static bool r_allowed = false;
-static bool r_scale_flag = false;
+static int r_allowed = 0;
+static int r_scale_flag = 0;
 static const char* r_window_title = "Untitled";
+
+static int r_create_default_quad();
 
 int r_init(){
 	if(!r_create_window((r_window_info){1280, 720, 0, 1, 0, 60, "TEST"})){
 		dbg_log("Unable to create window.\n");
 		return 0;
 	}
+
+	r_create_default_quad();
+	return 1;
+}
+
+static int r_create_default_quad() {
 	return 1;
 }
 
@@ -39,7 +43,7 @@ void r_exit(){
 }
 
 void r_update(long delta){
-
+	
 }
 
 vec3 r_get_hex_color(const char* hex){
@@ -279,7 +283,7 @@ static void r_create_modes(){
     r_vidmodes = glfwGetVideoModes(r_default_monitor, &r_vidmode_count);
 }
 
-static bool r_window_info_valid(r_window_info info){
+static int r_window_info_valid(r_window_info info){
     return info.width > 0 && info.height > 0;
 }
 
@@ -325,18 +329,16 @@ static const GLFWvidmode* r_find_best_mode(){
     return selected;
 }
 
-bool r_create_window(r_window_info info){
+int r_create_window(r_window_info info){
     if(!info.fullscreen && !r_window_info_valid(info)){
-        return false;
+        return 0;
     }
 
 	dbg_log("Loading GLFW.\n");
 
     if(!glfwInit()){
-//#ifdef DEBUG_OUTPUT
         printf("Unable to initialize GLFW\n");
-//#endif
-        return false;
+        return 0;
     }
 
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -364,7 +366,7 @@ bool r_create_window(r_window_info info){
         g_window.refreshRate = selected_mode->refreshRate;
         g_window.width = selected_mode->width;
         g_window.height = selected_mode->height;
-        g_window.fullscreen = true;
+        g_window.fullscreen = 1;
         window = glfwCreateWindow(selected_mode->width, selected_mode->height, info.title, r_default_monitor, NULL);
     }else{
         glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
@@ -380,8 +382,8 @@ bool r_create_window(r_window_info info){
 
         r_res = (vec2){info.width, info.height};
 
-        g_window.fullscreen = false;
-        g_window.vsync = false;
+        g_window.fullscreen = 0;
+        g_window.vsync = 0;
 
         window = glfwCreateWindow(info.width, info.height, info.title, NULL, NULL);
     }
@@ -391,7 +393,7 @@ bool r_create_window(r_window_info info){
     if(!window){
         dbg_log("Error: Unable to create GLFW window.\n");
         glfwTerminate();
-        return false;
+        return 0;
     }
 
     g_window.glfw = window;
@@ -402,7 +404,7 @@ bool r_create_window(r_window_info info){
 	dbg_log("Loading GL\n");
 	gladLoadGL(glfwGetProcAddress);
 
-    r_allowed = true;
+    r_allowed = 1;
 
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
@@ -435,7 +437,7 @@ bool r_create_window(r_window_info info){
 	dbg_log("setting default bindings.\n");
     i_default_bindings();
 
-    return false;
+    return 1;
 }
 
 void r_center_window(){
@@ -477,7 +479,7 @@ void r_set_window_pos(int x, int y){
 }
 
 void r_destroy_window(){
-    r_allowed = false;
+    r_allowed = 0;
 
     glfwDestroyWindow(g_window.glfw);
 
@@ -485,15 +487,15 @@ void r_destroy_window(){
     g_window.width = -1;
     g_window.height = -1;
     g_window.refreshRate = -1;
-    g_window.fullscreen = false;
-    g_window.vsync = false;
+    g_window.fullscreen = 0;
+    g_window.vsync = 0;
 }
 
 void r_request_close(){
-    g_window.close_requested = true;
+    g_window.close_requested = 1;
 }
 
-bool r_should_close(){
+int r_should_close(){
     return g_window.close_requested;
 }
 
@@ -518,21 +520,21 @@ static void glfw_window_size_cb(GLFWwindow* window, int w, int h){
     g_window.width = w;
     g_window.height = h;
     glViewport(0, 0, w, h);
-    r_scale_flag = true;
+    r_scale_flag = 1;
 }
 
 static void glfw_window_close_cb(GLFWwindow* window){
-    g_window.close_requested = true;
+    g_window.close_requested = 1;
 }
 
 static void glfw_key_cb(GLFWwindow* window, int key, int scancode, int action, int mods){
     if(action == GLFW_PRESS || action == GLFW_REPEAT){
-        i_key_callback(key, scancode, true);
-        if(i_binding_track() == true){
+        i_key_callback(key, scancode, 1);
+        if(i_binding_track()){
             i_binding_track_callback(key, KEY_BINDING_KEY);
         }
     }else if(action == GLFW_RELEASE){
-        i_key_callback(key, scancode, false);
+        i_key_callback(key, scancode, 0);
     }
 }
 
@@ -547,7 +549,7 @@ static void glfw_mouse_pos_cb(GLFWwindow* window, double x, double y){
 static void glfw_mouse_button_cb(GLFWwindow* window, int button, int action, int mods){
     if(action == GLFW_PRESS || action == GLFW_REPEAT){
         i_mouse_button_callback(button);
-        if(i_binding_track() == true){
+        if(i_binding_track()){
             i_binding_track_callback(button, KEY_BINDING_MOUSE_BUTTON);
         }
     }

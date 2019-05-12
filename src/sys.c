@@ -44,21 +44,21 @@ time_s t_get_time_diff(time_s t){
     return t - c;
 }
 
-bool t_is_time_before(time_s a, time_s b){
+int t_is_time_before(time_s a, time_s b){
     return a < b;
 }
 
-bool t_is_time_after(time_s a, time_s b){
+int t_is_time_after(time_s a, time_s b){
     return a > b;
 }
 
-bool t_cmp_timer_names(const char a[TIMER_NAME_LENGTH], const char b[TIMER_NAME_LENGTH]){
+int t_cmp_timer_names(const char a[TIMER_NAME_LENGTH], const char b[TIMER_NAME_LENGTH]){
     for(int i=0;i<TIMER_NAME_LENGTH;++i){
         if(a[i] != b[i]){
-            return false;
+            return 0;
         }
     }
-    return true;
+    return 1;
 }
 
 void t_cpy_timer_names(char dst[TIMER_NAME_LENGTH], const char src[TIMER_NAME_LENGTH]){

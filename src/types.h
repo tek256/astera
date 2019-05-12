@@ -3,11 +3,6 @@
 
 #define R_SHADER_NAME_SIZE 8
 
-#ifndef STD_BOOL_H
-#define STD_BOOL_H
-typedef enum {false=0,true=1} bool;
-#endif
-
 typedef union {
     float v[4];
     struct {
