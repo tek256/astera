@@ -1,3 +1,6 @@
+#define DEBUG_OUTPUT
+#include "platform.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -9,26 +12,19 @@
 #include "input.h"
 #include "render.h"
 #include "types.h"
-#include "math.h"
+#include "geom.h"
 
-#define DEBUG_OUTPUT
-
-#ifndef DEBUG_OUTPUT
-#ifdef  _MSC_VER
-#undef  _WIN32_WINNT
-#define _WIN32_WINNT 0x0500
-#endif
-#endif
 
 int target_fps = 60;
 int max_fps = 60;
 
 int main(int argc, char** argv){
-#ifdef __MINGW32__
-#ifndef DEBUG_OUTPUT
-	FreeConsole();
-#endif
-#endif
+	#ifdef __MINGW32__
+		#ifndef DEBUG_OUTPUT
+			FreeConsole();
+		#endif
+	#endif
+
 	double timeframe = MS_PER_SEC / (double) target_fps;
 	double curr = t_get_time();
 	double last = curr;

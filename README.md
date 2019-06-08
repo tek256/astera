@@ -12,8 +12,8 @@
 		<ul>
 			<li>Basic Rendering</li>
 			<li>Basic Audio</li>
-			<li>Input</li>
-			<li>Basic Debugging</li>
+			<li><strike>Input</strike></li>
+			<li><strike>Basic Debugging</strike></li>
 		</ul></li>
 	<li><p>v0.2</p>
 		<ul>

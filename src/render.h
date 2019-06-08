@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "math.h"
+#include "geom.h"
 
 typedef struct {
     int width, height;
@@ -32,9 +32,9 @@ typedef struct {
 } r_quad;
 
 typedef struct {
-    vec3 pos, rot;
-    mat4 view, proj;
-    vec2 size;
+    v3 pos, rot;
+    m4 view, proj;
+    v2 size;
     float fov;
     float near;
     float far;
@@ -54,12 +54,42 @@ typedef struct {
     unsigned int subwidth, subheight;
 } r_sheet;
 
+typedef struct {
+	r_sheet* sheet;
+	int frame_count;
+	int* frames;
+	int frame_rate;	
+} r_anim;
+
+typedef struct {
+	r_anim* anim;
+	long time; 
+	int state, pstate;
+} r_animv;
+
+typedef struct {
+	r_animv* anim;
+	v2 size;
+	v3 position;
+} r_drawable;
+
+typedef struct {
+	r_drawable* val;
+	r_drawable* next;
+} r_leaf;
+
+typedef struct {
+	r_leaf* root;
+	int count;
+} r_list;
+
 static r_window g_window;
 static r_quad quad;
 
 int  r_init();
 void r_exit();
-void r_update(long delta);
+void r_update(long delta, r_list* list, int r_count);
+void r_draw(r_list* list, int r_count);
 
 r_tex*      r_get_tex(char* name);
 void        r_bind_tex(r_tex tex);
@@ -79,23 +109,23 @@ int           r_get_uniform_loc(r_shader shader, const char* name);
 
 int  r_hex_number(char v);
 int  r_hex_multi(char* v, int len);
-vec3 r_get_color(char* v);
+v3 r_get_color(char* v);
 
 void r_set_uniformf(r_shader shader, const char* name, float value);
 void r_set_uniformi(r_shader shader, const char* name, int value);
-void r_set_vec4(r_shader shader, const char* name, vec4 value);
-void r_set_vec3(r_shader shader, const char* name, vec3 value);
-void r_set_vec2(r_shader shader, const char* name, vec2 value);
+void r_set_v4(r_shader shader, const char* name, v4 value);
+void r_set_v3(r_shader shader, const char* name, v3 value);
+void r_set_v2(r_shader shader, const char* name, v2 value);
 void r_set_quat(r_shader shader, const char* name, quat value);
-void r_set_mat4(r_shader shader, const char* name, mat4 value);
+void r_set_m4(r_shader shader, const char* name, m4 value);
 
 void r_set_uniformfi(int loc, float val);
 void r_set_uniformii(int loc, int val);
-void r_set_vec4i(int loc, vec4 val);
-void r_set_vec3i(int loc, vec3 val);
-void r_set_vec2i(int loc, vec2 val);
+void r_set_v4i(int loc, v4 val);
+void r_set_v3i(int loc, v3 val);
+void r_set_v2i(int loc, v2 val);
 void r_set_quati(int loc, quat val);
-void r_set_mat4i(int loc, mat4 val);
+void r_set_m4i(int loc, m4 val);
 
 static void r_create_modes();
 static int  r_window_info_valid(r_window_info info);

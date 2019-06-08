@@ -157,7 +157,7 @@ int a_create_context(const char* deviceName){
 
     for(int i=0;i<MAX_QUICK_SFX;++i){
         a_qsfx[i].id = i;
-        a_qsfx[i].source = a_create_source((vec3){0.f}, 10.f, 0);
+        a_qsfx[i].source = a_create_source((v3){0.f}, 10.f, 0);
     }
 
     return 1;
@@ -490,12 +490,12 @@ int a_get_music_state(a_music* music){
     return state;
 }
 
-a_src a_create_source(vec3 position, float range, uint buffer){
+a_src a_create_source(v3 position, float range, uint buffer){
     uint id;
     alGenSources(1, &id);
 
     if(&position == NULL){
-        position = (vec3){0.0f, 0.0f, 0.0f};
+        position = (v3){0.0f, 0.0f, 0.0f};
     }
 
     alSourcefv(id, AL_POSITION, &position.v[0]);

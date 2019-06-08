@@ -16,7 +16,7 @@ static r_window_info g_window_info;
 static GLFWmonitor* r_default_monitor;
 static const GLFWvidmode* r_vidmodes;
 static int r_vidmode_count;
-static vec2 r_res;
+static v2 r_res;
 static int r_allowed = 0;
 static int r_scale_flag = 0;
 static const char* r_window_title = "Untitled";
@@ -42,11 +42,13 @@ void r_exit(){
 	glfwTerminate();
 }
 
-void r_update(long delta){
-	
+void r_update(long delta, r_list* r, int r_count){
+	for(int i=0;i<r_count;++i){
+		
+	}
 }
 
-vec3 r_get_hex_color(const char* hex){
+v3 r_get_hex_color(const char* hex){
     int len = strlen(hex);
     int start = 0;
 
@@ -58,7 +60,7 @@ vec3 r_get_hex_color(const char* hex){
         start = 1;
     }
 
-    vec3 val = {0.f};
+    v3 val = {0.f};
 
     if(len == 6){
         for(int i=start;i<len;i+=2){
@@ -189,7 +191,7 @@ int r_hex_multi(char* v, int len){
   }
 }
 
-vec3 r_get_color(char* v){
+v3 r_get_color(char* v){
   int len = strlen(v);
   int offset = 0;
   if(len == 4){
@@ -200,7 +202,7 @@ vec3 r_get_color(char* v){
       len = 6;
   }
 
-  vec3 val = {0.f};
+  v3 val = {0.f};
 
   if(len == 3){
       val.x = r_hex_multi(&v[offset], 1)   / 255.f;
@@ -235,27 +237,27 @@ inline void r_set_uniformii(int loc, int val){
 	glUniform1i(loc, val);
 }
 
-inline void r_set_vec4(r_shader shader, const char* name, vec4 value){
+inline void r_set_v4(r_shader shader, const char* name, v4 value){
     glUniform4f(r_get_uniform_loc(shader, name), value.x, value.y, value.z, value.w);
 }
 
-inline void r_set_vec4i(int loc, vec4 value){
+inline void r_set_v4i(int loc, v4 value){
 	glUniform4f(loc, value.x, value.y, value.z, value.w);
 }
 
-inline void r_set_vec3(r_shader shader, const char* name, vec3 value){
+inline void r_set_v3(r_shader shader, const char* name, v3 value){
     glUniform3f(r_get_uniform_loc(shader, name), value.x, value.y, value.z);
 }
 
-inline void r_set_vec3i(int loc, vec3 val){
+inline void r_set_v3i(int loc, v3 val){
 	glUniform3f(loc, val.x, val.y, val.z);
 }
 
-inline void r_set_vec2(r_shader shader, const char* name, vec2 value){
+inline void r_set_v2(r_shader shader, const char* name, v2 value){
     glUniform2f(r_get_uniform_loc(shader, name), value.x, value.y);
 }
 
-inline void r_set_vec2i(int loc, vec2 val){
+inline void r_set_v2i(int loc, v2 val){
 	glUniform2f(loc, val.x, val.y);
 }
 
@@ -267,11 +269,11 @@ inline void r_set_quati(int loc, quat val){
 	glUniform4f(loc, val.x, val.y, val.z, val.w);
 }
 
-inline void r_set_mat4(r_shader shader, const char* name, mat4 value){
+inline void r_set_m4(r_shader shader, const char* name, m4 value){
     glUniformMatrix4fv(r_get_uniform_loc(shader, name), 1, GL_FALSE, &value.v[0][0]);
 }
 
-inline void r_set_mat4i(int loc, mat4 val){
+inline void r_set_m4i(int loc, m4 val){
 	glUniformMatrix4fv(loc, 1, GL_FALSE, &val.v[0][0]);
 }
 
@@ -380,7 +382,7 @@ int r_create_window(r_window_info info){
         g_window.width = info.width;
         g_window.height = info.height;
 
-        r_res = (vec2){info.width, info.height};
+        r_res = (v2){info.width, info.height};
 
         g_window.fullscreen = 0;
         g_window.vsync = 0;
@@ -419,7 +421,7 @@ int r_create_window(r_window_info info){
 
     glDisable(GL_CULL_FACE);
 
-    vec3 color = r_get_color("FFF");
+    v3 color = r_get_color("FFF");
     glClearColor(color.r, color.g, color.b, 1.f);
 	
 	dbg_log("Setting Callbacks.\n");

@@ -1,4 +1,4 @@
-OBJS = src/main.c src/audio.c src/input.c src/render.c src/sys.c src/math.c src/debug.c src/game.c
+OBJS = src/main.c src/audio.c src/input.c src/render.c src/sys.c src/geom.c src/debug.c src/game.c
 
 CC = gcc
 WIN_CC = mingw32-gcc

@@ -3,7 +3,7 @@
 
 #include <AL/alc.h>
 #include <AL/al.h>
-#include "math.h"
+#include "geom.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -65,7 +65,7 @@ typedef struct {
 
 typedef struct {
     uint  id;
-    vec3  position;
+    v3  position;
     float range, gain;
     int   has_sound;
     int   loop;
@@ -78,8 +78,8 @@ typedef struct {
 
 typedef struct {
     float gain;
-    vec3 position;
-    vec3 velocity;
+    v3 position;
+    v3 velocity;
     float range;
 } a_sound;
 
@@ -146,7 +146,7 @@ void         a_stop_music(a_music* music);
 void         a_resume_music(a_music* music);
 void         a_pause_music(a_music* music);
 ALenum       a_get_music_state(a_music* music);
-a_src        a_create_source(vec3 position, float range, uint buffer);
+a_src        a_create_source(v3 position, float range, uint buffer);
 
 void         a_destroy_source(a_src source);
 void         a_play_source(a_src* source);

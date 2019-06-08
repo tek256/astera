@@ -11,7 +11,7 @@ typedef union {
     struct {
         float r, g, b, a;
     };
-} vec4;
+} v4;
 
 typedef union {
     float v[3];
@@ -21,7 +21,7 @@ typedef union {
     struct {
         float r, g, b;
     };
-} vec3;
+} v3;
 
 typedef union {
     float v[2];
@@ -31,7 +31,7 @@ typedef union {
     struct {
         float s, t;
     };
-} vec2;
+} v2;
 
 typedef union {
     float v[4][4];
@@ -41,7 +41,7 @@ typedef union {
         float m02, m12, m22, m32;
         float m03, m13, m23, m33;
     };
-} mat4;
+} m4;
 
 typedef union {
     float v[0];
