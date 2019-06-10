@@ -19,7 +19,7 @@ int target_fps = 60;
 int max_fps = 60;
 
 int main(int argc, char** argv){
-	#ifdef __MINGW32__
+	#if defined(PLAT_MSFT_64) || defined(PLAT_MSFT)
 		#ifndef DEBUG_OUTPUT
 			FreeConsole();
 		#endif

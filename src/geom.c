@@ -1,9 +1,10 @@
 #ifndef MATH_C
 #define MATH_C
 
+#include "platform.h"
 #include "geom.h"
 
-#if defined(_MSC_VER)
+#if defined(PLAT_MSFT) || defined(PLAT_MSFT_64)
 //Force M_PI definition on MS platforms
 #define _USE_MATH_DEFINES
 #endif

@@ -11,7 +11,7 @@ void g_exit(){
 }
 
 void g_input(long delta){
-	if(i_key_down('a')){
+	if(i_key_down('A')){
 		dbg_log("AAAAAAAAAAAAAAAAAH\n");
 	}
 

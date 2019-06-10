@@ -1,23 +1,26 @@
-OBJS = src/main.c src/audio.c src/input.c src/render.c src/sys.c src/geom.c src/debug.c src/game.c
+OBJS = src/main.c src/audio.c src/input.c src/render.c src/sys.c src/geom.c src/debug.c src/game.c src/platform.c
 
 CC = gcc
 WIN_CC = mingw32-gcc
 
-COMPILER_FLAGS = -w
-WIN_COMPILER_FLAGS = -w
-OSX_COMPILER_FLAGS = -w
+COMPILER_FLAGS = -w -std=c11
+WIN_COMPILER_FLAGS = -w -std=c11
+OSX_COMPILER_FLAGS = -w -std=c11
 
 INCLUDES = -Idep/
 
 LINKER_FLAGS = -lglfw3 -lGL -lGLU -lX11 -lXi -lXrandr -lXxf86vm -lXinerama -lpthread -ldl -lXcursor -lopenal -lm -lGLU
-WIN_LINKER_FLAGS = -lopengl32 -lglfw3 -lgdi32 -lm 
+WIN_LINKER_FLAGS = -lopengl32 -lglfw3 -lgdi32 -lm -lopenal32
 OSX_LINKER_FLAGS = -lGL -lGLU -lglfw3  -lX11 -lXxf86vm -lXrandr -lpthread -lXi -lXinerama -ldl -lXcursor -lopenal -lm 
 EXEC_NAME = engine
 WIN_EXEC_NAME = $(EXEC_NAME).exe
 OSX_EXEC_NAME = $(EXEC_NAME)
 
+RM_CMD = -rm
+
 ifeq ($(OS),Windows_NT)
     CC_FLAGS += -D WIN32
+    RM_CMD = -del
 	TARGET_LINKER_FLAGS := $(WIN_LINKER_FLAGS)
 	TARGET_COMPILER_FLAGS := $(WIN_COMPILER_FLAGS)
 	TARGET_CC := $(WIN_CC)
@@ -65,4 +68,4 @@ all : $(OBJS)
 
 .PHONY: clean
 clean :
-		-rm $(TARGET_EXEC_NAME)
+		$(RM_CMD) $(TARGET_EXEC_NAME)
