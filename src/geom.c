@@ -1,15 +1,14 @@
 #ifndef MATH_C
 #define MATH_C
 
-#include "platform.h"
 #include "geom.h"
 
-#if defined(PLAT_MSFT) || defined(PLAT_MSFT_64)
-//Force M_PI definition on MS platforms
 #define _USE_MATH_DEFINES
-#endif
-
 #include <math.h>
+
+#ifndef M_PI
+    #define M_PI 3.14159265358979323846
+#endif
 
 void v2_zero(v2* dst){
     dst->x = 0.f;

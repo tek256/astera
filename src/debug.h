@@ -13,6 +13,7 @@ int  dbg_cleanup();
 void dbg_enable_log(int log);
 int  dbg_get_logging();
 void dbg_set_log_fp(const char* fp);
-int dbg_log(const char* format, ...);
+int _l(const char* format, ...);
+int _e(const char* format, ...);
 int dbg_post_to_err();
 #endif

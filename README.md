@@ -7,6 +7,7 @@
     </p>
 </div>
 
+<p><b>roadmap</b></p>
 <ul id="roadmap">
 	<li><p>v0.1</p>
 		<ul>
@@ -14,23 +15,34 @@
 			<li>Basic Audio</li>
 			<li><strike>Input</strike></li>
 			<li><strike>Basic Debugging</strike></li>
-		</ul></li>
+		</ul>
+	</li>
 	<li><p>v0.2</p>
 		<ul>
 			<li>Animations</li>
 			<li>Collision</li>
 			<li>Asset Management</li>
-		</ul></li>
+		</ul>
+	</li>
 	<li><p>v0.3</p>
 		<ul>
 			<li>Level Loading</li>
 			<li>UI Management</li>
-			<li>Debugging</li>
-		</ul></li>
+			<li>Debugging Utilities</li>
+		</ul>
+	</li>
 	<li><p>v0.4</p>
 		<ul>
-			<li>Basic Editor</li>
+			<li>Player Controller</li>
+			<li>Enemy / AI</li>
+			<li>Title Screen</li>
+		</ul>
+	<li>
+	<li><p>v0.5</p>
+		<ul>
+			<li>(?) Basic Editor</li>
 			<li>Unit Tests</li>
 			<li>Wiki</li>
-		</ul></li>
+		</ul>
+	</li>
 </ul>

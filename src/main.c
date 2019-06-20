@@ -7,19 +7,20 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "debug.h"
 #include "audio.h"
 #include "sys.h"
 #include "input.h"
 #include "render.h"
 #include "types.h"
 #include "geom.h"
-
+#include "game.h"
 
 int target_fps = 60;
 int max_fps = 60;
 
 int main(int argc, char** argv){
-	#if defined(PLAT_MSFT_64) || defined(PLAT_MSFT)
+	#ifdef __MINGW32__
 		#ifndef DEBUG_OUTPUT
 			FreeConsole();
 		#endif
@@ -34,11 +35,11 @@ int main(int argc, char** argv){
 	double accum = timeframe;
 
 	if(!r_init()){
-		dbg_log("Unable to initialize rendering system.\n");	
+		_e("Unable to initialize rendering system.\n");	
 	}
 
 	if(!a_init()){
-		dbg_log("Unable to initialize audio system.\n");
+		_e("Unable to initialize audio system.\n");
 	}
 
 	while(!r_should_close()){
@@ -48,12 +49,13 @@ int main(int argc, char** argv){
 		accum = timeframe;
 
 		r_clear_window();
-		g_render();
+		g_render(delta);
 		r_swap_buffers();
 
 		i_update();
 		glfwPollEvents();
 		g_input(delta);
+		
 		g_update(delta);
 
 		check = t_get_time(); 

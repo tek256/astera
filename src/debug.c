@@ -41,7 +41,7 @@ void dbg_enable_log(int log){
                 FILE* chk = fopen(log_fp, "a");
                 if(!chk){
                     logging = 0;
-                    dbg_log("Unable to open file: %s, file doesn't exist.\n", log_fp);
+                    _l("Unable to open file: %s, file doesn't exist.\n", log_fp);
                 }
 				fclose(chk);
             }
@@ -50,7 +50,7 @@ void dbg_enable_log(int log){
 }
 
 static char strbuff[STR_BUFF_SIZE];
-int dbg_log(const char* format, ...){
+int _l(const char* format, ...){
     va_list args;
     va_start(args, format);
 
@@ -68,6 +68,25 @@ int dbg_log(const char* format, ...){
     va_end(args);
     
     return 1;
+}
+
+int _e(const char* format, ...){
+	va_list args;
+	va_start(args, format);
+	if(logging){
+		vsprintf(strbuff, format, args);
+
+		FILE* f = fopen(log_fp, "a");
+		fwrite(strbuff, sizeof(char), strlen(strbuff), f);
+		fclose(f);
+
+		memset(strbuff, 0, sizeof(char) * STR_BUFF_SIZE);
+	}
+
+	vfprintf(stderr, format, args);
+	va_end(args);
+
+	return 1;
 }
 
 int dbg_post_to_err(){
@@ -95,7 +114,7 @@ int dbg_post_to_err(){
     FILE* i = fopen(log_fp, "r");
 
     if(!o){
-        dbg_log("Unable to open, %s for error output.\n", log_fp);
+        _l("Unable to open, %s for error output.\n", log_fp);
         fclose(o);
         fclose(i);
         memset(str_buff, 0, sizeof(char) * STR_BUFF_SIZE);
@@ -103,7 +122,7 @@ int dbg_post_to_err(){
     }
 
     if(!i){
-        dbg_log("Unable to open, %s for error output.\n", strbuff);
+        _l("Unable to open, %s for error output.\n", strbuff);
         fclose(o);
         fclose(i);
         memset(str_buff, 0, sizeof(char) * STR_BUFF_SIZE);

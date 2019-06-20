@@ -9,7 +9,7 @@
 		#define PLAT_MSFT
 	#endif
 #elif defined(__APPLE__)
-	#ifdef defined(TARGET_IPHONE_SIMULATOR)
+	#if defined(TARGET_IPHONE_SIMULATOR)
 		#define PLAT_IOS_SIM
 	#elif defined(TARGET_OS_IPHONE)
 		#define PLAT_IOS
@@ -44,7 +44,7 @@
 #endif
 
 #ifndef DEBUG_OUTPUT
-	#ifdef  defined(PLAT_MSFT) || defined(PLAT_MSFT_64)
+	#if defined(PLAT_MSFT) || defined(PLAT_MSFT_64)
 		#undef  _WIN32_WINNT
 		#define _WIN32_WINNT 0x0500
 	#endif

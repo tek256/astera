@@ -40,6 +40,7 @@ typedef struct {
     float far;
 } r_camera;
 
+//TODO: refactor r_shader to just typedef unsigned int not struct
 typedef struct {
     unsigned int id;
 } r_shader;
@@ -63,7 +64,8 @@ typedef struct {
 
 typedef struct {
 	r_anim* anim;
-	long time; 
+	long time;
+	int frame;	
 	int state, pstate;
 } r_animv;
 
@@ -71,15 +73,31 @@ typedef struct {
 	r_animv* anim;
 	v2 size;
 	v3 position;
+	m4 model;
 } r_drawable;
 
-typedef struct {
+typedef struct r_leaf r_leaf;
+struct r_leaf {
 	r_drawable* val;
-	r_drawable* next;
-} r_leaf;
+	r_leaf* next;
+};
+
+typedef struct r_tleaf r_tleaf;
+struct r_tleaf {
+	r_sheet* val;
+	r_tleaf* next;
+	r_leaf* leafs;
+};
+
+typedef struct r_sleaf r_sleaf;
+struct r_sleaf {
+	r_shader*  val;
+	r_sleaf* next;
+	r_tleaf* texs;
+};
 
 typedef struct {
-	r_leaf* root;
+	r_sleaf* root;
 	int count;
 } r_list;
 
@@ -88,16 +106,22 @@ static r_quad quad;
 
 int  r_init();
 void r_exit();
-void r_update(long delta, r_list* list, int r_count);
-void r_draw(r_list* list, int r_count);
+void r_update(long delta, r_list* list);
 
-r_tex*      r_get_tex(char* name);
-void        r_bind_tex(r_tex tex);
+r_list      r_create_list(r_shader* shader, r_sheet* sheet);
+void        r_add_to_list(r_list* list, r_drawable* drawable);
+void        r_remove_from_list(r_list* list, r_drawable* drawable);
 
-r_sheet r_create_tex_sheet(r_tex* tex, unsigned int subwidth, unsigned int subheight);
+r_tex       r_get_tex(const char* fp);
+void        r_bind_tex(r_tex* tex);
+
+r_sheet r_create_sheet(r_tex* tex, unsigned int subwidth, unsigned int subheight);
 void r_get_sub_texcoords(r_sheet* sheet, unsigned int id, float* coords);
 
+void r_ins_list(r_list* list, r_drawable* drawable);
+void r_draw_def_quad();
 void r_draw_quad(r_quad* quad);
+void r_draw_tx(r_drawable* drawable);
 
 static GLuint r_get_sub_shader(const char* filePath, int type);
 r_shader      r_create_shader(const char* vert, const char* frag);
@@ -105,19 +129,22 @@ void          r_assign_shader(r_shader* shader, char* name);
 void          r_bind_shader(r_shader* shader);
 void          r_destroy_shader(r_shader* shader);
 
-int           r_get_uniform_loc(r_shader shader, const char* name);
+int           r_get_uniform_loc(r_shader* shader, const char* name);
 
 int  r_hex_number(char v);
 int  r_hex_multi(char* v, int len);
 v3 r_get_color(char* v);
 
-void r_set_uniformf(r_shader shader, const char* name, float value);
-void r_set_uniformi(r_shader shader, const char* name, int value);
-void r_set_v4(r_shader shader, const char* name, v4 value);
-void r_set_v3(r_shader shader, const char* name, v3 value);
-void r_set_v2(r_shader shader, const char* name, v2 value);
-void r_set_quat(r_shader shader, const char* name, quat value);
-void r_set_m4(r_shader shader, const char* name, m4 value);
+void r_create_camera(r_camera* camera, v2 size, v2 position);
+void r_update_camera(r_camera* camera);
+
+void r_set_uniformf(r_shader* shader, const char* name, float value);
+void r_set_uniformi(r_shader* shader, const char* name, int value);
+void r_set_v4(r_shader* shader, const char* name, v4 value);
+void r_set_v3(r_shader* shader, const char* name, v3 value);
+void r_set_v2(r_shader* shader, const char* name, v2 value);
+void r_set_quat(r_shader* shader, const char* name, quat value);
+void r_set_m4(r_shader* shader, const char* name, m4 value);
 
 void r_set_uniformfi(int loc, float val);
 void r_set_uniformii(int loc, int val);

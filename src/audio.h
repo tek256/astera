@@ -16,8 +16,6 @@
 #define MAX_AUDIO_SOURCES_PER_LAYER 32
 #define MAX_AUDIO_LAYERS 4
 
-typedef unsigned int uint;
-
 #define LAYER_STOPPED 1
 #define LAYER_PLAYING 2
 #define LAYER_PAUSED  3
@@ -34,7 +32,7 @@ typedef struct {
 } a_ctx;
 
 typedef struct {
-    uint id;
+    unsigned int id;
     int  buffered;
     int  channels;
     int  length;
@@ -42,29 +40,28 @@ typedef struct {
 } a_buf;
 
 typedef struct {
-    uint sample_rate;
-    uint sample_size;
-    uint channels;
+    unsigned int sample_rate;
+    unsigned int sample_size;
+    unsigned int channels;
 
     int format;
-    uint source;
-    uint buffers[2];
+    unsigned int source;
+    unsigned int buffers[2];
 } a_stream;
 
-//just to make things clearer when loading
 typedef char* a_music_ptr;
 typedef char* a_sfx_ptr;
 
 typedef struct {
     a_stream stream;
-    uint samples_left;
-    uint total_samples;
+    unsigned int samples_left;
+    unsigned int total_samples;
     stb_vorbis* vorbis;
     int loop;
 } a_music;
 
 typedef struct {
-    uint  id;
+    unsigned int id;
     v3  position;
     float range, gain;
     int   has_sound;
@@ -72,7 +69,7 @@ typedef struct {
 } a_src;
 
 typedef struct {
-    uint id;
+    unsigned int id;
     a_src source;
 } a_sfx;
 
@@ -109,6 +106,7 @@ static int    audio_file_count = 0;
 
 int          a_init();
 void		 a_update(long delta);
+void         a_exit();
 
 a_file*      a_gen_file(const char* fp, a_buf* buffer);
 int          a_get_file_index(const char* fp);
@@ -146,7 +144,7 @@ void         a_stop_music(a_music* music);
 void         a_resume_music(a_music* music);
 void         a_pause_music(a_music* music);
 ALenum       a_get_music_state(a_music* music);
-a_src        a_create_source(v3 position, float range, uint buffer);
+a_src        a_create_source(v3 position, float range, unsigned int buffer);
 
 void         a_destroy_source(a_src source);
 void         a_play_source(a_src* source);

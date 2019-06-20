@@ -276,10 +276,10 @@ a_buf a_create_buffer(const char* path){
         }
     }
 
-    uint total_samples;
+    unsigned int total_samples;
     int loop = 0;
 
-    total_samples = (uint)stb_vorbis_stream_length_in_samples(vorbis);
+    total_samples = (unsigned int)stb_vorbis_stream_length_in_samples(vorbis);
     int sample_count = (MAX_MUSIC_RUNTIME > total_samples) ? total_samples : MAX_MUSIC_RUNTIME;
 
     void* pcm = calloc(total_samples * sample_size/8*info.channels, 1);
@@ -400,7 +400,7 @@ a_music* a_create_music(const char* path){
             printf("Unable to create music stream for: %s\n", path);
         }
 
-        music->total_samples = (uint)stb_vorbis_stream_length_in_samples(music->vorbis);
+        music->total_samples = (unsigned int)stb_vorbis_stream_length_in_samples(music->vorbis);
         music->samples_left = music->total_samples;
         music->loop = 0;
     }
@@ -455,7 +455,7 @@ void a_destroy_music(a_music* music){
 }
 
 float a_get_music_time(a_music* music){
-    uint samples = music->total_samples - music->samples_left;
+    unsigned int samples = music->total_samples - music->samples_left;
     return (float)samples / music->stream.sample_rate;
 }
 
@@ -490,8 +490,8 @@ int a_get_music_state(a_music* music){
     return state;
 }
 
-a_src a_create_source(v3 position, float range, uint buffer){
-    uint id;
+a_src a_create_source(v3 position, float range, unsigned int buffer){
+    unsigned id;
     alGenSources(1, &id);
 
     if(&position == NULL){
@@ -504,9 +504,9 @@ a_src a_create_source(v3 position, float range, uint buffer){
 
     if(buffer != 0){
         alSourcei(id, AL_BUFFER, buffer);
-        return (a_src){id, position, range, 1.0f, 1};
+        return (a_src){id, position, range, 1.0f, 1, 0};
     }
-    return (a_src){id, position, range, 1.0f, 0};
+    return (a_src){id, position, range, 1.0f, 0, 0};
 }
 
 void a_destroy_source(a_src source){

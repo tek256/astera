@@ -24,8 +24,8 @@ static const char* r_window_title = "Untitled";
 static int r_create_default_quad();
 
 int r_init(){
-	if(!r_create_window((r_window_info){1280, 720, 0, 1, 0, 60, "TEST"})){
-		dbg_log("Unable to create window.\n");
+	if(!r_create_window((r_window_info){1280, 720, 0, 1, 0, 60, "Untitled"})){
+		_e("Unable to create window.\n");
 		return 0;
 	}
 
@@ -33,19 +33,113 @@ int r_init(){
 	return 1;
 }
 
+void r_create_camera(r_camera* cam, v2 size, v2 position){
+	*cam = (r_camera){0};
+	m4_identity(&cam->view);	
+	m4_identity(&cam->proj);
+
+	m4_ortho(&cam->proj, 0, size.x, size.y, 0, 0.01f, 10.f);
+	m4_translate(&cam->view, position.x, position.y, 0.f);
+	cam->size = size;
+	cam->near = 0.01f;
+	cam->far = 10.f;
+	cam->pos = (v3){position.x, position.y, 0.f};
+	cam->fov = 0.f;
+}
+
+void r_update(long delta, r_list* r){
+}
+
+r_tex r_get_tex(const char* fp){
+	
+}
+
+r_sheet r_create_sheet(r_tex* tex, unsigned int subwidth, unsigned int subheight){
+	return (r_sheet){tex, subwidth, subheight};
+}
+
 static int r_create_default_quad() {
+	int vao, vbo, vto, vboi;
+	
+	float verts[12] = {
+		0.5f, 0.5f, 0.f,
+		0.5f, -0.5f, 0.f,
+		-0.5f, -0.5f, 0.f,
+		-0.5f, 0.5f, 0.f,
+	};
+
+	float texc[8] = {
+		0.f, 1.f,
+		0.f, 0.f,
+		1.f, 0.f,
+		1.f, 1.f,
+	};
+
+	int inds[6] = {
+		0, 1, 2,
+		2, 3, 0
+	};
+
+	glGenVertexArrays(1, &vao);
+	glGenBuffers(1, &vbo);
+	glGenBuffers(1, &vto);
+	glGenBuffers(1, &vboi);
+	
+	glBindVertexArray(vao);	
+
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glBufferData(GL_ARRAY_BUFFER, 12 * sizeof(float), &verts[0], GL_STATIC_DRAW);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+
+	glBindBuffer(GL_ARRAY_BUFFER, vto);
+	glBufferData(GL_ARRAY_BUFFER, 8 * sizeof(float), &texc[0], GL_STATIC_DRAW);
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, 0);
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vboi);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, 6 * sizeof(int), &inds[0], GL_STATIC_DRAW);
+
+	glBindVertexArray(0);
+			
 	return 1;
+}
+
+r_list r_create_list(r_shader* shader, r_sheet* sheet){
+	r_list l = (r_list){0};
+	r_sleaf r = (r_sleaf){0};
+	r_tleaf t = (r_tleaf){0};
+	
+	l.root = r;
+	r.val = &t;
+	
+	l.count = 1;
+	
+	t.val = sheet;
+
+	return l;
+}
+
+void r_add_to_list(r_list* list, r_drawable* drawable){
+
+}
+
+void r_remove_from_list(r_list* list, r_drawable* drawable){
+
+}
+
+void r_draw_def_quad(){
+	//pass thru static default quad
+	r_draw_quad(&quad);
+}
+
+void r_draw_quad(r_quad* quad){
+	glBindVertexArray(quad->vao);
+	glDrawElements(GL_TRIANGLES, 16, GL_UNSIGNED_INT, 0);	
+	glBindVertexArray(0);
 }
 
 void r_exit(){
 	r_destroy_window(g_window);
 	glfwTerminate();
-}
-
-void r_update(long delta, r_list* r, int r_count){
-	for(int i=0;i<r_count;++i){
-		
-	}
 }
 
 v3 r_get_hex_color(const char* hex){
@@ -159,6 +253,10 @@ void r_destroy_shader(r_shader* shader){
     glDeleteProgram(shader->id);
 }
 
+void r_bind_tex(r_tex* tex){
+	glBindTexture(GL_TEXTURE_2D, tex->id);
+}
+
 void r_bind_shader(r_shader* shader){
     if(shader == NULL){
         glUseProgram(0);
@@ -217,11 +315,11 @@ v3 r_get_color(char* v){
   return val;
 }
 
-inline int r_get_uniform_loc(r_shader shader, const char* uniform){
-    return glGetUniformLocation(shader.id, uniform);
+inline int r_get_uniform_loc(r_shader* shader, const char* uniform){
+    return glGetUniformLocation(shader->id, uniform);
 }
 
-inline void r_set_uniformf(r_shader shader, const char* name, float value){
+inline void r_set_uniformf(r_shader* shader, const char* name, float value){
     glUniform1f(r_get_uniform_loc(shader, name), value);
 }
 
@@ -229,7 +327,7 @@ inline void r_set_uniformfi(int loc, float value){
 	glUniform1f(loc, value);
 }
 
-inline void r_set_uniformi(r_shader shader, const char* name, int value){
+inline void r_set_uniformi(r_shader* shader, const char* name, int value){
     glUniform1i(r_get_uniform_loc(shader, name), value);
 }
 
@@ -237,7 +335,7 @@ inline void r_set_uniformii(int loc, int val){
 	glUniform1i(loc, val);
 }
 
-inline void r_set_v4(r_shader shader, const char* name, v4 value){
+inline void r_set_v4(r_shader* shader, const char* name, v4 value){
     glUniform4f(r_get_uniform_loc(shader, name), value.x, value.y, value.z, value.w);
 }
 
@@ -245,7 +343,7 @@ inline void r_set_v4i(int loc, v4 value){
 	glUniform4f(loc, value.x, value.y, value.z, value.w);
 }
 
-inline void r_set_v3(r_shader shader, const char* name, v3 value){
+inline void r_set_v3(r_shader* shader, const char* name, v3 value){
     glUniform3f(r_get_uniform_loc(shader, name), value.x, value.y, value.z);
 }
 
@@ -253,7 +351,7 @@ inline void r_set_v3i(int loc, v3 val){
 	glUniform3f(loc, val.x, val.y, val.z);
 }
 
-inline void r_set_v2(r_shader shader, const char* name, v2 value){
+inline void r_set_v2(r_shader* shader, const char* name, v2 value){
     glUniform2f(r_get_uniform_loc(shader, name), value.x, value.y);
 }
 
@@ -261,7 +359,7 @@ inline void r_set_v2i(int loc, v2 val){
 	glUniform2f(loc, val.x, val.y);
 }
 
-inline void r_set_quat(r_shader shader, const char* name, quat value){
+inline void r_set_quat(r_shader* shader, const char* name, quat value){
     glUniform4f(r_get_uniform_loc(shader, name), value.x, value.y, value.z, value.w);
 }
 
@@ -269,7 +367,7 @@ inline void r_set_quati(int loc, quat val){
 	glUniform4f(loc, val.x, val.y, val.z, val.w);
 }
 
-inline void r_set_m4(r_shader shader, const char* name, m4 value){
+inline void r_set_m4(r_shader* shader, const char* name, m4 value){
     glUniformMatrix4fv(r_get_uniform_loc(shader, name), 1, GL_FALSE, &value.v[0][0]);
 }
 
@@ -336,7 +434,7 @@ int r_create_window(r_window_info info){
         return 0;
     }
 
-	dbg_log("Loading GLFW.\n");
+	_l("Loading GLFW.\n");
 
     if(!glfwInit()){
         printf("Unable to initialize GLFW\n");
@@ -350,7 +448,7 @@ int r_create_window(r_window_info info){
     GLFWwindow* window = NULL;
 	g_window = (r_window){0};
 	
-	dbg_log("Loading Window Settings.\n");
+	_l("Loading Window Settings.\n");
 
     if(info.fullscreen){
         const GLFWvidmode* selected_mode;
@@ -390,20 +488,20 @@ int r_create_window(r_window_info info){
         window = glfwCreateWindow(info.width, info.height, info.title, NULL, NULL);
     }
 
-	dbg_log("Loaded window settings.\n");
+	_l("Loaded window settings.\n");
 
     if(!window){
-        dbg_log("Error: Unable to create GLFW window.\n");
+        _e("Error: Unable to create GLFW window.\n");
         glfwTerminate();
         return 0;
     }
 
     g_window.glfw = window;
 	
-	dbg_log("Attaching GL Context.\n");
+	_l("Attaching GL Context.\n");
     glfwMakeContextCurrent(window);
 
-	dbg_log("Loading GL\n");
+	_l("Loading GL\n");
 	gladLoadGL(glfwGetProcAddress);
 
     r_allowed = 1;
@@ -424,7 +522,7 @@ int r_create_window(r_window_info info){
     v3 color = r_get_color("FFF");
     glClearColor(color.r, color.g, color.b, 1.f);
 	
-	dbg_log("Setting Callbacks.\n");
+	_l("Setting Callbacks.\n");
 
     glfwSetWindowPosCallback(g_window.glfw, glfw_window_pos_cb);
     glfwSetWindowSizeCallback(g_window.glfw, glfw_window_size_cb);
@@ -436,7 +534,7 @@ int r_create_window(r_window_info info){
     glfwSetScrollCallback(g_window.glfw, glfw_scroll_cb);
     glfwSetJoystickCallback(glfw_joy_cb);
 	
-	dbg_log("setting default bindings.\n");
+	_l("Setting default bindings.\n");
     i_default_bindings();
 
     return 1;
