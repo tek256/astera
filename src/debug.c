@@ -5,20 +5,25 @@
 #include <stdarg.h>
 #include <time.h>
 #include <string.h>
+#include <unistd.h>
 
 #define STR_BUFF_SIZE 128
 
-static int logging = 0;
+static int logging = -1;
+static int timestamp = 1;
 static char* log_fp;
 
 static int refresh_rate = 5;
 static int changes_made = 0;
 
+static char time_buff[64];
+
 void dbg_set_log_fp(const char* fp){
    log_fp = fp; 
-   FILE* f = fopen(fp, "w");
-   fwrite("\0", sizeof(char), 1, f); 
-   fclose(f);
+}
+
+void dbg_set_timestamp(int enabled){
+	timestamp = enabled;
 }
 
 int dbg_get_logging(){
@@ -32,21 +37,25 @@ int dbg_cleanup(){
     return 1;
 }
 
-void dbg_enable_log(int log){
-    if(log != logging){
-        logging = log;
+void dbg_enable_log(int log, const char* fp){
+	if(log != logging){
+		logging = log;
+	}
 
-        if(log_fp){
-            if(logging){
-                FILE* chk = fopen(log_fp, "a");
-                if(!chk){
-                    logging = 0;
-                    _l("Unable to open file: %s, file doesn't exist.\n", log_fp);
-                }
-				fclose(chk);
-            }
-        }
-    }
+	if(fp && log){
+		if(access(fp, F_OK) != -1){
+			remove(fp);
+		}
+
+		FILE* chk = fopen(fp, "a");
+		if(!chk){
+			logging = 0;
+			_e("Unable to open file: %s\n", fp);
+		}
+		fclose(chk);
+
+		log_fp = fp;
+	}
 }
 
 static char strbuff[STR_BUFF_SIZE];
@@ -54,18 +63,34 @@ int _l(const char* format, ...){
     va_list args;
     va_start(args, format);
 
-    if(logging){
-        vsprintf(strbuff, format, args);
+	vsprintf(strbuff, format, args);
+	fprintf(stdout, "%s", strbuff);
+	int len = strlen(strbuff);
 
-        FILE* f = fopen(log_fp, "a");        
-        fwrite(strbuff, sizeof(char), strlen(strbuff), f);    
-        fclose(f);
+	if(logging){
+		if(timestamp){
+			time_t raw;
+			struct tm* ti;
+			time(&raw);
+			ti = localtime(&raw);
 
-        memset(strbuff, 0, sizeof(char) * STR_BUFF_SIZE);
-    }
+			strftime(time_buff, 64, "%H:%M:%S ", ti);
 
-    vprintf(format, args);
-    va_end(args);
+			int ts_len = strlen(time_buff);
+			
+			FILE* f = fopen(log_fp, "a");
+			fwrite(time_buff, sizeof(char), ts_len, f);
+			fwrite(strbuff, sizeof(char), len, f);
+			fclose(f);
+		}else{
+			FILE* f = fopen(log_fp, "a");        
+			fwrite(strbuff, sizeof(char), len, f);    
+			fclose(f);
+		}
+	}
+
+	memset(strbuff, 0, sizeof(char) * STR_BUFF_SIZE);
+	va_end(args);
     
     return 1;
 }
@@ -73,78 +98,81 @@ int _l(const char* format, ...){
 int _e(const char* format, ...){
 	va_list args;
 	va_start(args, format);
+	
+	vsprintf(strbuff, format, args);
+	fprintf(stderr, "%s", strbuff);
+
+	int len = strlen(strbuff);
+
 	if(logging){
-		vsprintf(strbuff, format, args);
-
 		FILE* f = fopen(log_fp, "a");
-		fwrite(strbuff, sizeof(char), strlen(strbuff), f);
+		fwrite(strbuff, sizeof(char), len, f);
 		fclose(f);
-
-		memset(strbuff, 0, sizeof(char) * STR_BUFF_SIZE);
 	}
 
-	vfprintf(stderr, format, args);
+	memset(strbuff, 0, sizeof(char) * STR_BUFF_SIZE);
 	va_end(args);
 
 	return 1;
 }
 
 int dbg_post_to_err(){
-    char str_buff[STR_BUFF_SIZE];
+    char err_buff[STR_BUFF_SIZE];
     //no logging set up
     if(!log_fp){
         return 0;
     }
-    //@TODO Time String Implementation
-    char time_buff[64];
+    
     time_t raw;
     struct tm* ti;
     time(&raw);
     ti = localtime(&raw);
 
-    strftime(time_buff, 64, "%d%Om%Y_%H%M%S", ti);
+    strftime(time_buff, 64, "%d%Om%Y_%H%M", ti);
 
-    memset(str_buff, 0, sizeof(char) * STR_BUFF_SIZE); 
-    strcat(str_buff, "ERR_");
-    strcat(str_buff, time_buff);
-    strcat(str_buff, ".txt");
-    strcat(str_buff, "\0");
+    memset(err_buff, 0, sizeof(char) * STR_BUFF_SIZE); 
+    strcat(err_buff, "ERR_");
+    strcat(err_buff, time_buff);
+    strcat(err_buff, ".txt");
+    strcat(err_buff, "\0");
     
-    FILE* o = fopen(str_buff, "w");
+    FILE* o = fopen(err_buff, "w");
     FILE* i = fopen(log_fp, "r");
 
     if(!o){
-        _l("Unable to open, %s for error output.\n", log_fp);
+        _e("Unable to open, %s for error output.\n", log_fp);
         fclose(o);
         fclose(i);
-        memset(str_buff, 0, sizeof(char) * STR_BUFF_SIZE);
+        memset(err_buff, 0, sizeof(char) * STR_BUFF_SIZE);
         return 0;
     }
 
     if(!i){
-        _l("Unable to open, %s for error output.\n", strbuff);
+        _e("Unable to open, %s for error output.\n", err_buff);
         fclose(o);
         fclose(i);
-        memset(str_buff, 0, sizeof(char) * STR_BUFF_SIZE);
+        memset(err_buff, 0, sizeof(char) * STR_BUFF_SIZE);
         return 0;
     }
     
-    memset(strbuff, 0, sizeof(char) * STR_BUFF_SIZE);
+    memset(err_buff, 0, sizeof(char) * STR_BUFF_SIZE);
+
     fseek(i, 0, SEEK_END); 
     long size = ftell(i);   
-    long rem = size;
-
+    long rem = size-1;
     rewind(i);
     
     while(rem > 0){
-        rem -= fread(str_buff, sizeof(char), STR_BUFF_SIZE, i);
-        fwrite(str_buff, sizeof(char), STR_BUFF_SIZE, o);
+        rem -= fread(err_buff, sizeof(char), STR_BUFF_SIZE-1, i);
+        fwrite(err_buff, sizeof(char), STR_BUFF_SIZE-1, o);
     }
+
+	memset(time_buff, 0, sizeof(char) * 64);
 
     fclose(i);
     fclose(o);
 
-    memset(str_buff, 0, sizeof(char) * STR_BUFF_SIZE);
+    memset(err_buff, 0, sizeof(char) * STR_BUFF_SIZE);
    
     dbg_cleanup();
     return 1;

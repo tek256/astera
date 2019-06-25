@@ -16,7 +16,7 @@ else if [ "$OS" = 'vs15' ]; then
     cmake_type='Visual Studio 15 2017 Win64'
 else if [ "$OS" = 'vs14' ]; then
     cmake_type='Visual Studio 14 2015 Win64'
-else if [ "$OS" = 'help' || "$Os" = '' ]; then
+else if [ "$OS" = 'help' || "$OS" = '' ]; then
     echo "Setup Options: \n Unix, Linux, OSX, Windows (MinGW), VS15, VS14."
     exit 1
 fi
@@ -28,7 +28,7 @@ git clone https://github.com/kcat/openal-soft
 cd openal-soft
 git checkout 6761218e51699f46bf25c377e65b3e9ea5e434b9
 echo "Building OpenAL-Soft"
-cmake -G "Unix Makefiles"
+cmake -G "$cmake_type" 
 make
 sudo make install
 
@@ -38,7 +38,7 @@ git clone https://github.com/glfw/glfw
 cd glfw
 git checkout b0796109629931b6fa6e449c15a177845256a407
 echo "Building GLFW."
-cmake -G "Unix Makefiles"
+cmake -G "$cmake_type"
 make
 sudo make install
 
@@ -48,7 +48,7 @@ git clone https://github.com/richgel999/miniz
 cd miniz
 git checkout a4264837ae37384b1d7a205a6732db322f0f3769
 echo "Building miniz"
-cmake -G "Unix Makefiles"
+cmake -G "$cmake_type" 
 make
 sudo make install
 cd ../..

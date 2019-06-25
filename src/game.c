@@ -36,6 +36,7 @@ void g_update(long delta){
 static int u_tex_size, u_sub_size, u_tex_id, u_got;
 static int u_proj, u_view, u_model;
 void g_render(long delta){
+	/*
 	r_sleaf* c = drawables->root;
 	while(c){
 		r_bind_shader(c->val);
@@ -90,5 +91,5 @@ void g_render(long delta){
 		if(c->next != drawables->root){
 			c = c->next;
 		}
-	}
+	}*/
 }

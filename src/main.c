@@ -34,6 +34,8 @@ int main(int argc, char** argv){
 	double delta;
 	double accum = timeframe;
 
+	dbg_enable_log(1, "log.txt");
+
 	if(!r_init()){
 		_e("Unable to initialize rendering system.\n");	
 	}
@@ -102,6 +104,7 @@ int main(int argc, char** argv){
 
 	r_exit();
 	a_exit();
+	//dbg_post_to_err();
 
 	return EXIT_SUCCESS;
 }

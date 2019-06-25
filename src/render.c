@@ -108,7 +108,7 @@ r_list r_create_list(r_shader* shader, r_sheet* sheet){
 	r_sleaf r = (r_sleaf){0};
 	r_tleaf t = (r_tleaf){0};
 	
-	l.root = r;
+	l.root = &r;
 	r.val = &t;
 	
 	l.count = 1;
@@ -118,11 +118,75 @@ r_list r_create_list(r_shader* shader, r_sheet* sheet){
 	return l;
 }
 
-void r_add_to_list(r_list* list, r_drawable* drawable){
+void r_add_to_list(r_list* list, r_drawable* drawable, r_shader* shader){
+	r_sleaf* l = list->root;
+	int s_branch = 0;
+
+	if(!l){
+		r_leaf  n_l = (r_leaf){drawable, NULL};
+		r_tleaf n_t = (r_tleaf){drawable->anim->anim->sheet, NULL, &n_l}; 
+		r_sleaf n_s = (r_sleaf){shader, NULL, &n_t};
+		list->root = &n_s;
+		return;
+	}
+
+	while(l){
+		if(shader->id == l->val->id){
+			s_branch = 1;
+			break;
+		}
+
+		if(l->next && l->next != list->root){
+			l = l->next;
+		}else{
+			r_leaf  n_l = (r_leaf){drawable, NULL};
+			r_tleaf n_t = (r_tleaf){drawable->anim->anim->sheet, NULL, &n_l};
+			r_sleaf n_s = (r_sleaf){shader, NULL, &n_t};
+			l->next = &n_s;
+			return;
+		}
+	}
+
+	if(s_branch){
+		r_tleaf* t = l->texs;
+		int t_branch = 0;
+		while(t){
+			if(t->val->tex->id == drawable->anim->anim->sheet->tex->id){
+				t_branch = 1;
+				break;	
+			}
+
+			if(t->next && t->next != l->val){
+				t = t->next;
+			}else{
+				break;
+			}
+		}
+
+		if(t_branch){
+			r_leaf n_l = (r_leaf){drawable, NULL};
+			if(t->leafs){
+				r_leaf* leaf = t->leafs;
+				while(leaf){
+					if(leaf->next && leaf->next != t->leafs){
+						leaf = leaf->next;	
+					}else if(leaf->next == t->leafs){
+						leaf->next = &n_l;
+						break;
+					}else if(!leaf->next){
+						leaf->next = &n_l;
+						break;
+					}
+				}
+			}else{
+				t->leafs = &n_l;
+			}
+		}	
+	}
 
 }
 
-void r_remove_from_list(r_list* list, r_drawable* drawable){
+void r_remove_from_list(r_list* list, r_drawable* drawable, r_shader* shader){
 
 }
 

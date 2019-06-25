@@ -37,7 +37,7 @@
 			<li>Enemy / AI</li>
 			<li>Title Screen</li>
 		</ul>
-	<li>
+	</li>
 	<li><p>v0.5</p>
 		<ul>
 			<li>(?) Basic Editor</li>

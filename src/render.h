@@ -10,49 +10,49 @@
 #include "geom.h"
 
 typedef struct {
-    int width, height;
-    int fullscreen, vsync, borderless;
-    int refreshRate;
-    char* title;
+	int width, height;
+	int fullscreen, vsync, borderless;
+	int refreshRate;
+	char* title;
 } r_window_info;
 
 typedef struct {
-    int width, height;
-    int x, y;
-    int fullscreen, vsync;
-    int close_requested;
-    int refreshRate;
-    GLFWwindow* glfw;
+	int width, height;
+	int x, y;
+	int fullscreen, vsync;
+	int close_requested;
+	int refreshRate;
+	GLFWwindow* glfw;
 } r_window;
 
 typedef struct {
-    unsigned int vao;
-    unsigned int vbo, vto, vboi;
-    float width, height;
+	unsigned int vao;
+	unsigned int vbo, vto, vboi;
+	float width, height;
 } r_quad;
 
 typedef struct {
-    v3 pos, rot;
-    m4 view, proj;
-    v2 size;
-    float fov;
-    float near;
-    float far;
+	v3 pos, rot;
+	m4 view, proj;
+	v2 size;
+	float fov;
+	float near;
+	float far;
 } r_camera;
 
 //TODO: refactor r_shader to just typedef unsigned int not struct
 typedef struct {
-    unsigned int id;
+	unsigned int id;
 } r_shader;
 
 typedef struct {
-    unsigned int id;
-    unsigned int width, height;
+	unsigned int id;
+	unsigned int width, height;
 } r_tex;
 
 typedef struct {
-    r_tex* tex;
-    unsigned int subwidth, subheight;
+	r_tex* tex;
+	unsigned int subwidth, subheight;
 } r_sheet;
 
 typedef struct {
@@ -109,8 +109,8 @@ void r_exit();
 void r_update(long delta, r_list* list);
 
 r_list      r_create_list(r_shader* shader, r_sheet* sheet);
-void        r_add_to_list(r_list* list, r_drawable* drawable);
-void        r_remove_from_list(r_list* list, r_drawable* drawable);
+void        r_add_to_list(r_list* list, r_drawable* drawable, r_shader* shader);
+void        r_remove_from_list(r_list* list, r_drawable* drawable, r_shader* shader);
 
 r_tex       r_get_tex(const char* fp);
 void        r_bind_tex(r_tex* tex);
