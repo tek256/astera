@@ -2,6 +2,9 @@
 
 #include <glad_gl.c>
 
+#define RENDER_BATCH_SIZE 128
+#define SHADER_STR_SIZE 64
+
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb/stb_image.h>
 
@@ -20,6 +23,9 @@ static v2 r_res;
 static int r_allowed = 0;
 static int r_scale_flag = 0;
 static const char* r_window_title = "Untitled";
+static unsigned int default_quad_vao;
+
+static char* shader_value_buff[SHADER_STR_SIZE];
 
 static int r_create_default_quad();
 
@@ -48,10 +54,94 @@ void r_create_camera(r_camera* cam, v2 size, v2 position){
 }
 
 void r_update(long delta, r_list* r){
+	r_sleaf* sleaf = r->root;
+	while(sleaf){
+		r_tleaf* tleaf = sleaf->leafs;
+		while(tleaf){
+			r_leaf* leaf = tleaf->leafs;
+			while(leaf){
+				r_drawable* drawable = leaf->val;
+
+				//animation state update
+				if(drawable->anim->state == R_ANIM_PLAY){
+					//allow non remaindered overrides
+					int force_time = 0;
+					drawable->anim->time += delta;
+					//1000ms per second
+					long rate = drawable->anim->anim->frame_rate / 1000;	
+					if(drawable->anim->time >= rate){
+						//frameskip/freeze protection
+						int skips = drawable->anim->time / rate;
+						if(skips > 1){
+							int loops = skips / drawable->anim->anim->frame_count;
+							int new_frame = loops % drawable->anim->anim->frame_count;
+							drawable->anim->time = 0L;
+							force_time = 1;
+						}
+						
+						if(!force_time){
+							drawable->anim->time = drawable->anim->time % rate;
+							drawable->anim->frame ++;
+							if(drawable->anim->frame >= drawable->anim->anim->frame_count){
+								if(drawable->anim->loop){
+									drawable->anim->frame = 0;
+								}else{
+									drawable->anim->pstate = drawable->anim->state;
+									drawable->anim->state = R_ANIM_STOP;
+									drawable->anim->time = 0;
+								}
+							}
+						}	
+					}
+				}
+
+				if(leaf->next && leaf->next != tleaf->leafs){
+					leaf = leaf->next;
+				} else {
+					break;
+				}
+			}
+
+			if(tleaf->next && tleaf->next != sleaf->leafs){
+				tleaf = tleaf->next;
+			}else{
+				break;
+			}
+		}
+
+		if(sleaf->next && sleaf->next != r->root){
+			sleaf = sleaf->next;
+		}else{
+			break;
+		}
+	}
+}
+
+void r_update_drawable(r_drawable* sprite){
+	m4_identity(&sprite->model);
+	m4_translatev3(&sprite->model, sprite->position);
+}
+
+r_animv r_create_animv(r_anim* anim){
+	return (r_animv){ anim, 0, 0, R_ANIM_PLAY, R_ANIM_STOP, 1};
 }
 
 r_tex r_get_tex(const char* fp){
+	int w, h, ch;
+	unsigned char* img = stbi_load(fp, &w, &h, &ch, 0);
+	unsigned int id;
+	glGenTextures(1, &id);
+	glBindTexture(GL_TEXTURE_2D, id);
 	
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, img);
+	
+	stbi_image_free(img);
+	return (r_tex){id, (unsigned int)w,(unsigned int)h};	
 }
 
 r_sheet r_create_sheet(r_tex* tex, unsigned int subwidth, unsigned int subheight){
@@ -61,39 +151,33 @@ r_sheet r_create_sheet(r_tex* tex, unsigned int subwidth, unsigned int subheight
 static int r_create_default_quad() {
 	int vao, vbo, vto, vboi;
 	
-	float verts[12] = {
-		0.5f, 0.5f, 0.f,
-		0.5f, -0.5f, 0.f,
-		-0.5f, -0.5f, 0.f,
-		-0.5f, 0.5f, 0.f,
+	float verts[16] = {
+		//pos           //tex
+		-0.5f,  0.5f,   0.f, 1.f
+		-0.5f, -0.5f,   0.f, 0.f,
+		 0.5f,  0.5f,   1.f, 0.f,
+		 0.5f, -0.5f,   1.f, 1.f
 	};
 
-	float texc[8] = {
-		0.f, 1.f,
-		0.f, 0.f,
-		1.f, 0.f,
-		1.f, 1.f,
-	};
-
-	int inds[6] = {
+	int inds[6] = { 
 		0, 1, 2,
 		2, 3, 0
 	};
 
 	glGenVertexArrays(1, &vao);
 	glGenBuffers(1, &vbo);
-	glGenBuffers(1, &vto);
-	glGenBuffers(1, &vboi);
+	//glGenBuffers(1, &vto);
+	//glGenBuffers(1, &vboi);
 	
 	glBindVertexArray(vao);	
 
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glBufferData(GL_ARRAY_BUFFER, 12 * sizeof(float), &verts[0], GL_STATIC_DRAW);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+	glBufferData(GL_ARRAY_BUFFER, 16 * sizeof(float), &verts[0], GL_STATIC_DRAW);
+	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
 
-	glBindBuffer(GL_ARRAY_BUFFER, vto);
-	glBufferData(GL_ARRAY_BUFFER, 8 * sizeof(float), &texc[0], GL_STATIC_DRAW);
-	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, 0);
+	//glBindBuffer(GL_ARRAY_BUFFER, vto);
+	//glBufferData(GL_ARRAY_BUFFER, 8 * sizeof(float), &texc[0], GL_STATIC_DRAW);
+	//glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, 0);
 
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vboi);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, 6 * sizeof(int), &inds[0], GL_STATIC_DRAW);
@@ -118,9 +202,23 @@ r_list r_create_list(r_shader* shader, r_sheet* sheet){
 	return l;
 }
 
+void r_draw_call(r_shader* shader, unsigned int count){
+	if(!count) return;
+
+	r_set_m4x(shader, count, "models",  mats);
+  	r_set_ix(shader, count, "tex_ids", tex_ids);
+
+	//draw instanced
+	glBindVertexArray(default_quad_vao);
+	glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0, count);
+}
+
 void r_add_to_list(r_list* list, r_drawable* drawable, r_shader* shader){
 	r_sleaf* l = list->root;
 	int s_branch = 0;
+
+	//NOTE: limit size of RENDER_BATCH_SIZE to short max
+	unsigned short sprite_count = 0;
 
 	if(!l){
 		r_leaf  n_l = (r_leaf){drawable, NULL};
@@ -148,7 +246,7 @@ void r_add_to_list(r_list* list, r_drawable* drawable, r_shader* shader){
 	}
 
 	if(s_branch){
-		r_tleaf* t = l->texs;
+		r_tleaf* t = l->leafs;
 		int t_branch = 0;
 		while(t){
 			if(t->val->tex->id == drawable->anim->anim->sheet->tex->id){
@@ -437,6 +535,72 @@ inline void r_set_m4(r_shader* shader, const char* name, m4 value){
 
 inline void r_set_m4i(int loc, m4 val){
 	glUniformMatrix4fv(loc, 1, GL_FALSE, &val.v[0][0]);
+}
+
+void r_set_m4x(r_shader* shader, unsigned int count, const char* name, m4* values){
+	if(!count) return;
+
+	for(int i=0;i<count;++i){
+		sprintf(shader_value_buff, "%s[%d]", name, i);
+		glUniformMatrix4fv(r_get_uniform_loc(shader, shader_value_buff), 1, GL_FALSE, &values[i].v[0][0]);
+
+		memset(shader_value_buff, 0, sizeof(char) * SHADER_STR_SIZE);
+	}
+}
+
+void r_set_ix(r_shader* shader, unsigned int count, const char* name, int* values){
+	if(!count) return;
+
+	for(int i=0;i<count;++i){
+		sprintf(shader_value_buff, "%s[%d]", name, i);
+		glUniform1i(r_get_uniform_loc(shader, shader_value_buff), values[i]);
+
+		memset(shader_value_buff, 0, sizeof(char) * SHADER_STR_SIZE);
+	}
+}
+
+void r_set_fx(r_shader* shader, unsigned int count, const char* name, float* values){
+	if(!count) return;
+
+	for(int i=0;i<count;++i){
+		sprintf(shader_value_buff, "%s[%d]", name, i);
+		glUniform1f(r_get_uniform_loc(shader, shader_value_buff), values[i]);
+
+		memset(shader_value_buff, 0, sizeof(char) * SHADER_STR_SIZE);
+	}
+}
+
+void r_set_v2x(r_shader* shader, unsigned int count, const char* name, v2* values){
+	if(!count) return;
+
+	for(int i=0;i<count;++i){
+		sprintf(shader_value_buff, "%s[%d]", name, i);
+		glUniform2f(r_get_uniform_loc(shader, shader_value_buff), values[i].x, values[i].y);
+
+		memset(shader_value_buff, 0, sizeof(char) * SHADER_STR_SIZE);
+	}
+}
+
+void r_set_v3x(r_shader* shader, unsigned int count, const char* name, v3* values){
+	if(!count) return;
+
+	for(int i=0;i<count;++i){
+		sprintf(shader_value_buff, "%s[%d]", name, i);
+		glUniform3f(r_get_uniform_loc(shader, shader_value_buff), values[i].x, values[i].y, values[i].z);
+
+		memset(shader_value_buff, 0, sizeof(char) * SHADER_STR_SIZE);
+	}
+}
+
+void r_set_v4x(r_shader* shader, unsigned int count, const char* name, v4* values){
+	if(!count) return;
+
+	for(int i=0;i<count;++i){
+		sprintf(shader_value_buff, "%s[%d]", name, i);
+		glUniform4f(r_get_uniform_loc(shader, shader_value_buff), values[i].x, values[i].y, values[i].z, values[i].w);
+
+		memset(shader_value_buff, 0, sizeof(char) * SHADER_STR_SIZE);
+	}
 }
 
 static void r_create_modes(){

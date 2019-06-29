@@ -59,7 +59,7 @@ void dbg_enable_log(int log, const char* fp){
 }
 
 static char strbuff[STR_BUFF_SIZE];
-int _l(const char* format, ...){
+void _l(const char* format, ...){
     va_list args;
     va_start(args, format);
 
@@ -82,6 +82,7 @@ int _l(const char* format, ...){
 			fwrite(time_buff, sizeof(char), ts_len, f);
 			fwrite(strbuff, sizeof(char), len, f);
 			fclose(f);
+			memset(time_buff, 0, sizeof(char) * 64);
 		}else{
 			FILE* f = fopen(log_fp, "a");        
 			fwrite(strbuff, sizeof(char), len, f);    
@@ -95,25 +96,76 @@ int _l(const char* format, ...){
     return 1;
 }
 
-int _e(const char* format, ...){
+void _fatal(const char* format, ...){
 	va_list args;
 	va_start(args, format);
-	
-	vsprintf(strbuff, format, args);
-	fprintf(stderr, "%s", strbuff);
 
+	vsprintf(strbuff, format, args);
+	fprintf(stderr, "FATAL: %s", strbuff);
 	int len = strlen(strbuff);
 
 	if(logging){
-		FILE* f = fopen(log_fp, "a");
-		fwrite(strbuff, sizeof(char), len, f);
-		fclose(f);
+			if(timestamp){
+			time_t raw;
+			struct tm* ti;
+			time(&raw);
+			ti = localtime(&raw);
+
+			strftime(time_buff, 64, "%H:%M:%S ", ti);
+
+			int ts_len = strlen(time_buff);
+
+			FILE* f = fopen(log_fp, "a");
+			fwrite(time_buff, sizeof(char), ts_len, f);
+			fwrite(strbuff, sizeof(char), len, f);
+			fclose(f);
+			memset(time_buff, 0, sizeof(char) * 64);
+		}else{
+			FILE* f = fopen(log_fp, "a");        
+			fwrite(strbuff, sizeof(char), len, f);    
+			fclose(f);
+		}
 	}
 
 	memset(strbuff, 0, sizeof(char) * STR_BUFF_SIZE);
 	va_end(args);
+   
+	d_fatal = 1;
+}
 
-	return 1;
+void _e(const char* format, ...){
+	va_list args;
+	va_start(args, format);
+
+	vsprintf(strbuff, format, args);
+	fprintf(stderr, "%s", strbuff);
+	int len = strlen(strbuff);
+
+	if(logging){
+		if(timestamp){
+			time_t raw;
+			struct tm* ti;
+			time(&raw);
+			ti = localtime(&raw);
+
+			strftime(time_buff, 64, "%H:%M:%S ", ti);
+
+			int ts_len = strlen(time_buff);
+
+			FILE* f = fopen(log_fp, "a");
+			fwrite(time_buff, sizeof(char), ts_len, f);
+			fwrite(strbuff, sizeof(char), len, f);
+			fclose(f);
+			memset(time_buff, 0, sizeof(char) * 64);
+		}else{
+			FILE* f = fopen(log_fp, "a");        
+			fwrite(strbuff, sizeof(char), len, f);    
+			fclose(f);
+		}
+	}
+
+	memset(strbuff, 0, sizeof(char) * STR_BUFF_SIZE);
+	va_end(args);
 }
 
 int dbg_post_to_err(){
@@ -163,8 +215,8 @@ int dbg_post_to_err(){
     rewind(i);
     
     while(rem > 0){
-        rem -= fread(err_buff, sizeof(char), STR_BUFF_SIZE-1, i);
-        fwrite(err_buff, sizeof(char), STR_BUFF_SIZE-1, o);
+        rem -= fread(err_buff, sizeof(char), STR_BUFF_SIZE, i);
+        fwrite(err_buff, sizeof(char), STR_BUFF_SIZE, o);
     }
 
 	memset(time_buff, 0, sizeof(char) * 64);

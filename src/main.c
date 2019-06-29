@@ -44,7 +44,7 @@ int main(int argc, char** argv){
 		_e("Unable to initialize audio system.\n");
 	}
 
-	while(!r_should_close()){
+	while(!r_should_close() && !d_fatal){
 		last = curr;
 		curr = t_get_time(); 
 		delta = curr - last;

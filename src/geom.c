@@ -622,6 +622,12 @@ void m4_translate(m4* dst, float x, float y, float z){
     dst->v[3][2] += z;
 }
 
+void m4_translatev3(m4* dst, v3 v){
+	dst->v[3][0] += v.x;
+	dst->v[3][1] += v.y;
+	dst->v[3][2] += v.z;
+}
+
 void m4_translate_in_place(m4* dst, float x, float y, float z){
     v4 t = {x, y, z, 0};
     v4 r;

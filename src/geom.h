@@ -83,6 +83,7 @@ void m4_mul(m4* dst, m4 left, m4 right);
 void m4_size_scale(m4* dst, m4 a, float x, float y, float z);
 void m4_mul_v4(v4* dst, m4 m, v4 vec);
 void m4_translate(m4* dst, float x, float y, float z);
+void m4_translatev3(m4* dst, v3 v);
 void m4_translate_in_place(m4* dst, float x, float y, float z);
 void m4_from_v3_mul_outer(m4* dst, v3 a, v3 b);
 void m4_rotate(m4* dst, m4 m, float x, float y, float z, float angle);

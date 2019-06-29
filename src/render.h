@@ -9,6 +9,13 @@
 
 #include "geom.h"
 
+#define R_ANIM_STOP 0
+#define R_ANIM_PLAY 1
+#define R_ANIM_PAUSE 2
+
+#define RENDER_BATCH_SIZE 128
+#define SHADER_STR_SIZE 64
+
 typedef struct {
 	int width, height;
 	int fullscreen, vsync, borderless;
@@ -67,6 +74,7 @@ typedef struct {
 	long time;
 	int frame;	
 	int state, pstate;
+	int loop : 1; 
 } r_animv;
 
 typedef struct {
@@ -74,6 +82,7 @@ typedef struct {
 	v2 size;
 	v3 position;
 	m4 model;
+	int visible;
 } r_drawable;
 
 typedef struct r_leaf r_leaf;
@@ -93,7 +102,7 @@ typedef struct r_sleaf r_sleaf;
 struct r_sleaf {
 	r_shader*  val;
 	r_sleaf* next;
-	r_tleaf* texs;
+	r_tleaf* leafs;
 };
 
 typedef struct {
@@ -104,6 +113,9 @@ typedef struct {
 static r_window g_window;
 static r_quad quad;
 
+int tex_ids[RENDER_BATCH_SIZE];
+m4  mats[RENDER_BATCH_SIZE];
+
 int  r_init();
 void r_exit();
 void r_update(long delta, r_list* list);
@@ -111,6 +123,8 @@ void r_update(long delta, r_list* list);
 r_list      r_create_list(r_shader* shader, r_sheet* sheet);
 void        r_add_to_list(r_list* list, r_drawable* drawable, r_shader* shader);
 void        r_remove_from_list(r_list* list, r_drawable* drawable, r_shader* shader);
+
+r_animv     r_create_animv(r_anim* anim);
 
 r_tex       r_get_tex(const char* fp);
 void        r_bind_tex(r_tex* tex);
@@ -120,6 +134,9 @@ void r_get_sub_texcoords(r_sheet* sheet, unsigned int id, float* coords);
 
 void r_ins_list(r_list* list, r_drawable* drawable);
 void r_draw_def_quad();
+
+//NOTE: count required since we're using instanced rendering
+void r_draw_call(r_shader* shader, unsigned int count);
 void r_draw_quad(r_quad* quad);
 void r_draw_tx(r_drawable* drawable);
 
@@ -145,6 +162,13 @@ void r_set_v3(r_shader* shader, const char* name, v3 value);
 void r_set_v2(r_shader* shader, const char* name, v2 value);
 void r_set_quat(r_shader* shader, const char* name, quat value);
 void r_set_m4(r_shader* shader, const char* name, m4 value);
+
+void r_set_m4x(r_shader* shader, unsigned int count, const char* name, m4* values);
+void r_set_ix(r_shader* shader, unsigned int count, const char* name, int* values);
+void r_set_fx(r_shader* shader, unsigned int count, const char* name, float* values);
+void r_set_v2x(r_shader* shader, unsigned int count, const char* name, v2* values);
+void r_set_v3x(r_shader* shader, unsigned int count, const char* name, v3* values);
+void r_set_v4x(r_shader* shader, unsigned int count, const char* name, v4* values);
 
 void r_set_uniformfi(int loc, float val);
 void r_set_uniformii(int loc, int val);
