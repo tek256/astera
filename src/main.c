@@ -37,11 +37,15 @@ int main(int argc, char** argv){
 	dbg_enable_log(1, "log.txt");
 
 	if(!r_init()){
-		_e("Unable to initialize rendering system.\n");	
+		_fatal("Unable to initialize rendering system.\n");	
 	}
 
 	if(!a_init()){
-		_e("Unable to initialize audio system.\n");
+		_fatal("Unable to initialize audio system.\n");
+	}
+
+	if(!g_init()){
+		_fatal("Unable to initialize game runtime.\n");
 	}
 
 	while(!r_should_close() && !d_fatal){
@@ -51,7 +55,7 @@ int main(int argc, char** argv){
 		accum = timeframe;
 
 		r_clear_window();
-		g_render(delta);
+		//g_render(delta);
 		r_swap_buffers();
 
 		i_update();
@@ -104,7 +108,10 @@ int main(int argc, char** argv){
 
 	r_exit();
 	a_exit();
-	//dbg_post_to_err();
+
+#if defined(DEBUG)
+	dbg_post_to_err();
+#endif
 
 	return EXIT_SUCCESS;
 }

@@ -12,7 +12,7 @@ void main(){
     if(c_mode == 1){
         out_c = c;
     }else{
-        vec4 sample_c = texture(tex, pass_TexCoord);
+        vec4 sample_c = texture(tex, o_texc);
 
         if(c_mode == -1){
             out_c = sample_c;

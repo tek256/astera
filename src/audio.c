@@ -14,16 +14,40 @@
 #undef STB_VORBIS_HEADER_ONLY
 #include <stb/stb_vorbis.c>
 
+/*typedef struct {
+    unsigned int id;
+    a_src source;
+} a_sfx;*/
+
+//TODO fix initialization
 int a_init(){
+	if(!a_load_devices()){
+		_e("Unable to load audio devices\n");
+		return -1;
+	}
+
+	if(!a_create_context(NULL)){
+		_e("Unable to create audio context.\n");
+		return -1;
+	}
+
+	static int sfx_srcs[MAX_QUICK_SFX];
+	alGenSources(MAX_QUICK_SFX, sfx_srcs);
+
+	for(int i=0;i<MAX_QUICK_SFX;++i){
+		a_qsfx[i].source.id = sfx_srcs[i];	
+		alSourcei(sfx_srcs[i], AL_BUFFER, 0);	
+	}
+
 	return 1;
 }
 
 void a_exit(){
-
+	//TODO
 }
 
 void a_update(long delta){
-
+	a_update_sfx(delta);
 }
 
 #ifdef CACHE_AUDIO_FILES
@@ -535,31 +559,26 @@ static int a_get_open_sfx(){
     for(int i=0;i<MAX_QUICK_SFX;++i){
         int buffer;
         alGetSourcei(a_qsfx[i].source.id, AL_BUFFER, &buffer);
-        if(buffer == 0){
+        if(!buffer){
             return i;
         }
+		_l("Checking slot: %d, contains buffer: %d\n", i, buffer);
     }
     printf("No open quick sfx slots\n");
     return -1;
 }
 
-int a_play_sfx(a_buf* buffer, a_sound* qs){
-    int sfx_slot = a_get_open_sfx();
+int a_play_sfx(a_buf* buffer, float gain, v2 pos){
+    int sfx_slot = 1;
 
     if(sfx_slot == -1){
         printf("Unable to play Quick SFX\n");
         return -1;
     }
 
-    if(qs != NULL){
-        alSourcef (a_qsfx[sfx_slot].source.id, AL_GAIN, 1.f);
-        alSource3f(a_qsfx[sfx_slot].source.id, AL_POSITION, qs->position.x, qs->position.y, qs->position.z);
-        alSource3f(a_qsfx[sfx_slot].source.id, AL_VELOCITY, qs->velocity.x, qs->velocity.y, qs->velocity.z);
-    }else{
-        alSourcef (a_qsfx[sfx_slot].source.id, AL_GAIN, 1.f);
-        alSource3f(a_qsfx[sfx_slot].source.id, AL_POSITION, 0.f, 0.f, 0.f);
-        alSource3f(a_qsfx[sfx_slot].source.id, AL_VELOCITY, 0.f, 0.f, 0.f);
-    }
+    alSourcef (a_qsfx[sfx_slot].source.id, AL_GAIN, 1.f);
+    alSource3f(a_qsfx[sfx_slot].source.id, AL_POSITION, pos.x, pos.y, 0.f);
+    alSource3f(a_qsfx[sfx_slot].source.id, AL_VELOCITY, 0.f, 0.f, 0.f);
 
     alSourcei(a_qsfx[sfx_slot].source.id, AL_BUFFER, buffer->id);
     a_qsfx[sfx_slot].source.has_sound = 1;

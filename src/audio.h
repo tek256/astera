@@ -73,13 +73,6 @@ typedef struct {
     a_src source;
 } a_sfx;
 
-typedef struct {
-    float gain;
-    v3 position;
-    v3 velocity;
-    float range;
-} a_sound;
-
 static a_sfx a_qsfx[MAX_QUICK_SFX];
 static int a_sfx_playing = 0;
 
@@ -153,7 +146,7 @@ void         a_stop_source(a_src* source);
 int          a_src_state(a_src* source);
 void         a_clean_sources(a_src* sources, int count);
 
-int          a_play_sfx(a_buf* buffer, a_sound* sound);
+int          a_play_sfx(a_buf* buffer, float gain, v2 pos);
 void         a_pause_sfx(int index);
 void         a_stop_sfx(int index);
 int          a_is_sfx_buffer(int index, a_buf* buffer);

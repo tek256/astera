@@ -4,11 +4,10 @@ layout(location = 0) in vec4 in_pos;
 
 uniform mat4 proj;
 uniform mat4 view;
-//uniform mat4 model;
 
 uniform vec2 tex_size;
 uniform vec2 sub_size;
-//uniform int  tex_id;
+
 uniform int tex_ids[128];
 uniform mat4 models[128];
 
@@ -17,10 +16,10 @@ uniform int  flip_y = 0;
 
 out vec2 o_texc;
 
-int main(void){
+void main(){
 	vec2 m_pos = in_pos.xy;
 	vec2 m_texc = in_pos.zw;
-	int tex_id = tex_ids[gl_InstanceID);
+	int tex_id = tex_ids[gl_InstanceID];
 
 	if(flip_x == 1){
 		m_texc.x = 1 - m_texc.x;
@@ -35,6 +34,6 @@ int main(void){
 	
 	m_texc = (offset / tex_size) + (sub_size / tex_size) * m_texc;	
 
-	gl_Position = projection * view * models[gl_InstanceID] * vec4(m_pos, 0.0f, 1.0f);
+	gl_Position = proj * view * models[gl_InstanceID] * vec4(m_pos, 0.0f, 1.0f);
 	o_texc = m_texc;
 }

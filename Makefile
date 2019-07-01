@@ -1,9 +1,9 @@
 OBJS = src/*.c
 
-CC = gcc
+CC = clang
 WIN_CC = mingw32-gcc
 
-COMPILER_FLAGS = -w -std=c11 
+COMPILER_FLAGS = -w -std=c99
 WIN_COMPILER_FLAGS = -w -std=c11
 OSX_COMPILER_FLAGS = -w -std=c11
 

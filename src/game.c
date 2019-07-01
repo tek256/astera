@@ -1,4 +1,5 @@
 #include "game.h"
+#include "audio.h"
 #include "debug.h"
 #include "render.h"
 #include "input.h"
@@ -6,23 +7,30 @@
 static r_list* draw_tree;
 static r_camera camera;
 
-void g_init(){
-	_l("Starting game.");
+static a_buf buffer;
+
+int g_init(){
+	_l("Starting game.\n");
 	r_create_camera(&camera, (v2){160.0, 90.0f}, (v2){0.f});
 	r_shader shader = r_create_shader("res/shd/main.v", "res/shd/main.f");
 	r_tex tex = r_get_tex("res/tex/test_sheet.png");
 	r_sheet sheet = r_create_sheet(&tex, 16, 16);
 	r_anim anim = (r_anim){&sheet, 4, {0, 1, 2, 3}, 24};
+	draw_tree = malloc(sizeof(r_list));
 	*draw_tree = r_create_list(&shader, &sheet);
-
-	r_animv v = r_create_animv(&anim);
+	
+	/*r_animv v = r_create_animv(&anim);
 	r_drawable drawable = (r_drawable){
 		&v,	//animv
 		(v2){16.f, 16.f}, //size
 	   	(v3){0.f}, //pos
 	   	(m4){0.f}, //model 
 	   	1 //visible
-	};	
+	};*/
+	
+	buffer = a_create_buffer("res/snd/test.ogg");
+	
+	return 1;	
 }
 
 void g_exit(){
@@ -31,7 +39,11 @@ void g_exit(){
 
 void g_input(long delta){
 	if(i_key_down('A')){
-		_l("oh.\n");
+		_l("oh...\n");
+	}
+
+	if(i_key_clicked('P')){
+		a_play_sfx(&buffer, 1.f, (v2){0.f, 0.f}); 
 	}
 
 	if(i_key_clicked(GLFW_KEY_ESCAPE)){
@@ -40,7 +52,8 @@ void g_input(long delta){
 }
 
 void g_update(long delta){	
-	
+	a_update(delta);
+	//r_update(delta, draw_tree);	
 }
 
 static int u_tex_size, u_sub_size, u_tex_id, u_got;

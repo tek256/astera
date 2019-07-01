@@ -92,8 +92,6 @@ void _l(const char* format, ...){
 
 	memset(strbuff, 0, sizeof(char) * STR_BUFF_SIZE);
 	va_end(args);
-    
-    return 1;
 }
 
 void _fatal(const char* format, ...){

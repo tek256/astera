@@ -213,6 +213,10 @@ void r_draw_call(r_shader* shader, unsigned int count){
 	glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0, count);
 }
 
+void r_add_shader_to_list(r_list* list, r_shader* shader){
+
+}
+
 void r_add_to_list(r_list* list, r_drawable* drawable, r_shader* shader){
 	r_sleaf* l = list->root;
 	int s_branch = 0;

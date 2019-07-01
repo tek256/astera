@@ -1,7 +1,7 @@
 #ifndef GAME_H
 #define GAME_H 
 
-void g_init();
+int g_init();
 void g_exit(); 
 void g_input(long delta);
 void g_update(long delta);

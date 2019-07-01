@@ -121,6 +121,8 @@ void r_exit();
 void r_update(long delta, r_list* list);
 
 r_list      r_create_list(r_shader* shader, r_sheet* sheet);
+void        r_add_shader_to_list(r_list* list, r_shader* shader);
+void        r_add_tex_to_list(r_list* list, r_sheet* sheet);
 void        r_add_to_list(r_list* list, r_drawable* drawable, r_shader* shader);
 void        r_remove_from_list(r_list* list, r_drawable* drawable, r_shader* shader);
 
