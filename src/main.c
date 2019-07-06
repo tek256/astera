@@ -12,12 +12,13 @@
 #include "sys.h"
 #include "input.h"
 #include "render.h"
-#include "types.h"
-#include "geom.h"
 #include "game.h"
+#include "mem.h"
 
 int target_fps = 60;
 int max_fps = 60;
+
+static m_zone mem_zone;
 
 int main(int argc, char** argv){
 	#ifdef __MINGW32__
@@ -26,15 +27,9 @@ int main(int argc, char** argv){
 		#endif
 	#endif
 
-	double timeframe = MS_PER_SEC / (double) target_fps;
-	double curr = t_get_time();
-	double last = curr;
-	double check;
-
-	double delta;
-	double accum = timeframe;
-
 	dbg_enable_log(1, "log.txt");
+
+	c_parse_args(argc, argv);
 
 	if(!r_init()){
 		_fatal("Unable to initialize rendering system.\n");	
@@ -48,6 +43,14 @@ int main(int argc, char** argv){
 		_fatal("Unable to initialize game runtime.\n");
 	}
 
+	double timeframe = MS_PER_SEC / (double) target_fps;
+	double curr = t_get_time();
+	double last = curr;
+	double check;
+
+	double delta;
+	double accum = timeframe;
+
 	while(!r_should_close() && !d_fatal){
 		last = curr;
 		curr = t_get_time(); 
@@ -55,7 +58,7 @@ int main(int argc, char** argv){
 		accum = timeframe;
 
 		r_clear_window();
-		//g_render(delta);
+		g_render(delta);
 		r_swap_buffers();
 
 		i_update();
@@ -108,10 +111,12 @@ int main(int argc, char** argv){
 
 	r_exit();
 	a_exit();
-
-#if defined(DEBUG)
-	dbg_post_to_err();
-#endif
+	
+	if(d_fatal){
+		dbg_post_to_err();
+	}else{
+		dbg_cleanup();
+	}
 
 	return EXIT_SUCCESS;
 }

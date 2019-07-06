@@ -3,6 +3,10 @@
 
 #include <unistd.h>
 
+#define MEM_SIZE_KB 1024
+#define MEM_SIZE_MB MEM_SIZE_KB * 1024
+#define MEM_SIZE_GB MEM_SIZE_MB * 1024
+
 //#define MEM_REUSE_ZONES
 //#define MEM_SAFE
 
@@ -47,7 +51,8 @@ void m_sw_ctx(m_zone* zone);
 
 void m_update(m_zoneinfo* info);
 
-m_block* m_alloc(size_t s);
+void* m_alloc(size_t s);
+void* m_alloc_safe(size_t r, size_t* g);
 m_block* m_free(void* ptr);
 
 #endif

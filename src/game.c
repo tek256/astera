@@ -4,32 +4,39 @@
 #include "render.h"
 #include "input.h"
 
-static r_list* draw_tree;
 static r_camera camera;
-
 static a_buf buffer;
+static r_shader shader;
+static r_sheet sheet;
+static r_tex tex;
+static r_drawable drawable;
+static r_anim anim;
+static r_animv animv;
+
+static r_leaf tree;
 
 int g_init(){
-	_l("Starting game.\n");
-	r_create_camera(&camera, (v2){160.0, 90.0f}, (v2){0.f});
-	r_shader shader = r_create_shader("res/shd/main.v", "res/shd/main.f");
-	r_tex tex = r_get_tex("res/tex/test_sheet.png");
-	r_sheet sheet = r_create_sheet(&tex, 16, 16);
-	r_anim anim = (r_anim){&sheet, 4, {0, 1, 2, 3}, 24};
-	draw_tree = malloc(sizeof(r_list));
-	*draw_tree = r_create_list(&shader, &sheet);
+	r_create_camera(&camera, (v2){160.f, 90.f}, (v2){0.f, 0.f});
+	tex = r_get_tex("res/tex/test_sheet.png");
+	sheet = r_create_sheet(&tex, 16, 16);
+	shader = r_create_shader("res/shd/main.v", "res/shd/main.f");
+
+	anim = (r_anim){ &sheet, 4, {1, 2, 3, 4}, 24 };
+   	animv = r_create_animv(&anim);	
 	
-	/*r_animv v = r_create_animv(&anim);
-	r_drawable drawable = (r_drawable){
-		&v,	//animv
-		(v2){16.f, 16.f}, //size
-	   	(v3){0.f}, //pos
-	   	(m4){0.f}, //model 
-	   	1 //visible
-	};*/
+	drawable = (r_drawable){
+		&animv, 
+		(v2){ 128.f, 128.f },
+		(v3){ 0.f, 0.f, 0.f },
+		(m4){0},
+		1
+	};
+
+	tree = r_create_leaf(R_LEAF_SHADER, &shader, NULL, NULL);	
 	
-	buffer = a_create_buffer("res/snd/test.ogg");
-	
+	r_ins_tex(&tree, &sheet);
+	r_ins_drawable(&tree, &shader, &drawable);
+
 	return 1;	
 }
 
@@ -53,82 +60,84 @@ void g_input(long delta){
 
 void g_update(long delta){	
 	a_update(delta);
-	//r_update(delta, draw_tree);	
+	r_update(delta);
 }
 
-static int u_tex_size, u_sub_size, u_tex_id, u_got;
-static int u_proj, u_view, u_model;
 void g_render(long delta){
-	r_sleaf* c = draw_tree->root;
-	while(c){
-		r_bind_shader(c->val);
+	r_update_camera(&camera);
 
-		if(!u_got){
-			u_tex_size = r_get_uniform_loc(c->val, "tex_size");
-			u_sub_size = r_get_uniform_loc(c->val, "sub_size");
-			u_proj = r_get_uniform_loc(c->val, "proj");
-			u_view = r_get_uniform_loc(c->val, "view");
-			u_got = 1;
-		}
+	r_leaf* shader_curs = &tree;
+	while(shader_curs){
+		r_shader* shader = (r_shader*)shader_curs->value;
 
-		r_set_m4i(u_view, camera.view);
-		r_set_m4i(u_proj, camera.proj);
+		if(shader){
+			r_bind_shader(shader_curs->value);
 
-		r_tleaf* tex_leaf = c->leafs;
-		while(tex_leaf){
-			r_bind_tex(tex_leaf->val->tex);
+			r_set_m4(shader_curs->value, "proj", camera.proj);
+			r_set_m4(shader_curs->value, "view", camera.view);
 
-			v2 tex_size = (v2){
-				tex_leaf->val->tex->width,
-				tex_leaf->val->tex->height
-			};
+			r_leaf* tex_curs = shader_curs->child;
+			while(tex_curs){
+				r_bind_tex(((r_sheet*)tex_curs->value)->tex);
+				r_sheet* sheet = (r_sheet*)tex_curs->value;
 
-			v2 sub_size = (v2){
-				tex_leaf->val->subwidth,
-				tex_leaf->val->subheight
-			};
+				v2 tex_size = (v2){
+					sheet->tex->width,
+						sheet->tex->height	
+				};
 
-			r_set_v2i(u_tex_size, tex_size);
-			r_set_v2i(u_sub_size, sub_size);
+				v2 sub_size = (v2){
+					sheet->subwidth,
+						sheet->subheight
+				};
 
-			r_leaf* leaf = tex_leaf->leafs;
-			int sprite_count = 0;
-			while(leaf){
-				if(leaf->val->visible){
-					int f_index = leaf->val->anim->frame;
-					int f_value = leaf->val->anim->anim->frames[f_index];
-					m4 model = leaf->val->model;
-					
-					if(sprite_count == RENDER_BATCH_SIZE){
-						r_draw_call(c->val, sprite_count);
-						sprite_count = 0;
-						memset(tex_ids, 0, RENDER_BATCH_SIZE * sizeof(int));
-						memset(mats, 0, RENDER_BATCH_SIZE * sizeof(m4));
-					} else {
-						mats[sprite_count] = model;
-						tex_ids[sprite_count] = f_value;
-						sprite_count ++;
+				r_set_v2(shader_curs->value, "tex_size", tex_size);
+				r_set_v2(shader_curs->value, "sub_size", sub_size);
+
+				int draw_count = 0;
+
+				r_leaf* draw_curs = tex_curs->child;
+				while(draw_curs){
+					r_drawable* draw = (r_drawable*)draw_curs->value;
+					int frame_id = draw->anim->anim->frames[draw->anim->frame];
+
+					if(draw->visible){
+						mats[draw_count] = draw->model;
+						tex_ids[draw_count] = frame_id;
+						draw_count ++;
+					}
+
+					if(draw_count == RENDER_BATCH_SIZE){
+						r_draw_call(shader_curs->value, draw_count);
+						memset(mats, 0, sizeof(m4) * RENDER_BATCH_SIZE);
+						memset(tex_ids, 0, sizeof(int) * RENDER_BATCH_SIZE);
+						draw_count = 0;
+					}
+					if(draw_curs->next){
+						draw_curs = draw_curs->next;
+					}else{
+						break;
 					}
 				}
 
-				if(leaf->next != tex_leaf->leafs){
-					leaf = leaf->next;
+				if(draw_count > 0){
+					r_draw_call(shader_curs->value, draw_count);
+					memset(mats, 0, sizeof(m4) * RENDER_BATCH_SIZE);
+					memset(tex_ids, 0, sizeof(int) * RENDER_BATCH_SIZE);
+					draw_count = 0;
+				}	
+				if(tex_curs->next){
+					tex_curs = tex_curs->next;
 				}else{
-					r_draw_call(c->val, sprite_count);
-					sprite_count = 0;
-					memset(tex_ids, 0, RENDER_BATCH_SIZE * sizeof(int));
-					memset(mats, 0, RENDER_BATCH_SIZE * sizeof(m4));
 					break;
 				}
 			}
 
-			if(tex_leaf->next != c->leafs){
-				tex_leaf = tex_leaf->next;
-			}
 		}
-
-		if(c->next != draw_tree->root){
-			c = c->next;
+		if(shader_curs->next){
+			shader_curs = shader_curs->next;
+		}else{
+			break;
 		}
 	}
 }

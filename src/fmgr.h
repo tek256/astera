@@ -3,12 +3,6 @@
 
 #include <unistd.h>
 
-typedef struct _f {
-	FILE* ptr;
-	size_t size;
-	const char* name;
-} _f;
-
-
+unsigned char* f_get_file_contents(const char* fp, size_t* size);
 
 #endif

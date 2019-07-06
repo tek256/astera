@@ -1,6 +1,8 @@
 #ifndef PLAT_H
 #define PLAT_H
 
+#define USER_CONFIG "config.toml"
+
 //Define POSIX features for C99
 #if !defined(_XOPEN_SOURCE) && !defined(_POSIX_C_SOURCE)
 #if defined(__cplusplus)

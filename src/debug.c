@@ -1,4 +1,5 @@
 #include "debug.h"
+#include "conf.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -64,7 +65,8 @@ void _l(const char* format, ...){
     va_start(args, format);
 
 	vsprintf(strbuff, format, args);
-	fprintf(stdout, "%s", strbuff);
+	if(!c_is_silent())
+		fprintf(stdout, "%s", strbuff);
 	int len = strlen(strbuff);
 
 	if(logging){

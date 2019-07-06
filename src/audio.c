@@ -43,7 +43,8 @@ int a_init(){
 }
 
 void a_exit(){
-	//TODO
+	//TODO	
+	a_destroy_context();	
 }
 
 void a_update(long delta){

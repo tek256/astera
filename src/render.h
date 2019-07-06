@@ -13,6 +13,7 @@
 #define R_ANIM_PLAY 1
 #define R_ANIM_PAUSE 2
 
+#define RENDER_LEAF_CAP 256
 #define RENDER_BATCH_SIZE 128
 #define SHADER_STR_SIZE 64
 
@@ -85,57 +86,44 @@ typedef struct {
 	int visible;
 } r_drawable;
 
+#define R_LEAF_SHADER 0
+#define R_LEAF_TEX    1
+#define R_LEAF_NODE   2
+
 typedef struct r_leaf r_leaf;
 struct r_leaf {
-	r_drawable* val;
-	r_leaf* next;
+	int type;
+	void* value;
+	r_leaf* child;
+	r_leaf* next; 
 };
-
-typedef struct r_tleaf r_tleaf;
-struct r_tleaf {
-	r_sheet* val;
-	r_tleaf* next;
-	r_leaf* leafs;
-};
-
-typedef struct r_sleaf r_sleaf;
-struct r_sleaf {
-	r_shader*  val;
-	r_sleaf* next;
-	r_tleaf* leafs;
-};
-
-typedef struct {
-	r_sleaf* root;
-	int count;
-} r_list;
 
 static r_window g_window;
-static r_quad quad;
 
 int tex_ids[RENDER_BATCH_SIZE];
 m4  mats[RENDER_BATCH_SIZE];
 
+static int r_create_default_quad();
+
 int  r_init();
 void r_exit();
-void r_update(long delta, r_list* list);
-
-r_list      r_create_list(r_shader* shader, r_sheet* sheet);
-void        r_add_shader_to_list(r_list* list, r_shader* shader);
-void        r_add_tex_to_list(r_list* list, r_sheet* sheet);
-void        r_add_to_list(r_list* list, r_drawable* drawable, r_shader* shader);
-void        r_remove_from_list(r_list* list, r_drawable* drawable, r_shader* shader);
+void r_update(long delta);
 
 r_animv     r_create_animv(r_anim* anim);
 
 r_tex       r_get_tex(const char* fp);
 void        r_bind_tex(r_tex* tex);
 
+r_leaf r_create_leaf(int type, void* value, r_leaf* child, r_leaf* next);
+void r_ins_shader(r_leaf* tree, r_shader* shader);
+void r_ins_shaders(r_leaf* tree, r_shader** shaders, int shader_count);
+void r_ins_tex(r_leaf* tree, r_sheet* tex);
+void r_ins_texs(r_leaf* tree, r_sheet** texs, int tex_count);
+void r_ins_drawable(r_leaf* tree, r_shader* shader, r_drawable* drawable);
+void r_ins_drawables(r_leaf* tree, r_shader* shader, r_drawable** drawables, int count);
+
 r_sheet r_create_sheet(r_tex* tex, unsigned int subwidth, unsigned int subheight);
 void r_get_sub_texcoords(r_sheet* sheet, unsigned int id, float* coords);
-
-void r_ins_list(r_list* list, r_drawable* drawable);
-void r_draw_def_quad();
 
 //NOTE: count required since we're using instanced rendering
 void r_draw_call(r_shader* shader, unsigned int count);

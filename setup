@@ -46,7 +46,7 @@ cd ..
 echo "Cloning MiniZ"
 git clone https://github.com/richgel999/miniz
 cd miniz
-git checkout a4264837ae37384b1d7a205a6732db322f0f3769
+git checkout a4264837ae37384b1d7a205a6732db322f0f3769 
 echo "Building miniz"
 cmake -G "$cmake_type" 
 make

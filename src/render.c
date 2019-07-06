@@ -1,9 +1,16 @@
+//TODO
+//
+// 1. Optimize tree allocation into heap & contiguous array
+// 2. Implement proper shader cache
+// 3. Implement area based culling of renderables (game.c maybe)
+
 #include "render.h"
 
 #include <glad_gl.c>
 
 #define RENDER_BATCH_SIZE 128
 #define SHADER_STR_SIZE 64
+
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb/stb_image.h>
@@ -26,8 +33,6 @@ static const char* r_window_title = "Untitled";
 static unsigned int default_quad_vao;
 
 static char* shader_value_buff[SHADER_STR_SIZE];
-
-static int r_create_default_quad();
 
 int r_init(){
 	if(!r_create_window((r_window_info){1280, 720, 0, 1, 0, 60, "Untitled"})){
@@ -53,16 +58,249 @@ void r_create_camera(r_camera* cam, v2 size, v2 position){
 	cam->fov = 0.f;
 }
 
-void r_update(long delta, r_list* r){
-	r_sleaf* sleaf = r->root;
-	while(sleaf){
-		r_tleaf* tleaf = sleaf->leafs;
-		while(tleaf){
-			r_leaf* leaf = tleaf->leafs;
-			while(leaf){
-				r_drawable* drawable = leaf->val;
+void r_update_camera(r_camera* camera){
+	m4_identity(&camera->view);
+	m4_identity(&camera->proj);
 
-				//animation state update
+	m4_ortho(&camera->proj, 0, camera->size.x, camera->size.y, 0, camera->near, camera->far);
+	m4_translate(&camera->view, camera->pos.x, camera->pos.y, 0.f);
+}
+
+void r_check_tree(r_leaf* tree){
+	if(!tree){
+		_l("No tree passed to check.\n");
+	}else{
+		int root = 0;
+		int shaders = 0;
+		int textures = 0;
+		int drawables = 0;
+		if(tree){
+			r_leaf* curs = tree;
+			while(curs){
+				++ shaders;
+
+				if(curs->child){
+					r_leaf* tex_curs = curs->child;
+					while(tex_curs){
+						++ textures;
+						if(tex_curs->type == R_LEAF_NODE){
+							_e("Drawable leaf in depth of textures in render tree.\n");
+						}else if(tex_curs->type == R_LEAF_SHADER){
+							_e("Shader leaf in depth of textures in render tree.\n");	
+						}
+						
+						if(tex_curs->child){
+							r_leaf* drawables = tex_curs->child;
+							while(drawables){
+								++ drawables;
+
+								if(drawables->next){
+									drawables = drawables->next;
+								}else{
+									break;
+								}
+							}
+						}
+
+						if(tex_curs->next){
+							tex_curs = tex_curs->next;
+						}else{
+							break;
+						}
+					}		
+				}
+
+				if(curs->next){
+					curs = curs->next;
+				}else{
+					break;
+				}
+			}
+
+			_l("Tree stats - Shaders: %d, Textures: %d, Drawables: %d\n", shaders, textures, drawables);
+		}else{
+			_l("Tree doesn't contain a root.\n");
+		}
+	}
+}
+
+r_leaf r_create_leaf(int type, void* value, r_leaf* child, r_leaf* next){
+	return (r_leaf){type, value, child, next};
+}
+
+void r_ins_shader(r_leaf* tree, r_shader* shader){
+	r_leaf* curs = tree;
+	if(curs->type != R_LEAF_SHADER){
+		_l("Invalid list passed with type of: %d\n", curs->type);
+		return;
+	}
+
+	while(curs && curs->next){
+		curs = curs->next;
+	}
+
+	r_leaf new_leaf = r_create_leaf(R_LEAF_SHADER, shader, NULL, NULL);
+	curs->next = &new_leaf;
+}
+
+void r_ins_shaders(r_leaf* tree, r_shader** shaders, int shader_count){
+	r_leaf* curs = tree;
+	if(curs->type != R_LEAF_SHADER){
+		return;
+	}
+
+	while(curs && curs->next){
+		curs = curs->next;
+	}
+
+	for(int i=0;i<shader_count;++i){
+		r_leaf new_leaf = r_create_leaf(R_LEAF_SHADER, shaders[i], NULL, NULL);
+		curs->next = &new_leaf;
+		curs = curs->next;
+	}
+}
+
+void r_ins_tex(r_leaf* tree, r_sheet* sheet){
+	r_leaf* shader_curs = tree;
+	if(shader_curs->type != R_LEAF_SHADER){
+		return;
+	}
+	while(shader_curs && shader_curs->type == R_LEAF_SHADER){
+		r_leaf* tex_curs = shader_curs->child;
+		if(tex_curs != R_LEAF_TEX){
+			break;
+		}
+		
+		while(tex_curs && tex_curs->next){
+			tex_curs = tex_curs->next;
+		}
+
+		r_leaf new_leaf = r_create_leaf(R_LEAF_TEX, sheet, NULL, NULL);
+		tex_curs->next = &new_leaf;
+
+		shader_curs = shader_curs->next;
+	}
+}
+
+void r_ins_texs(r_leaf* tree, r_sheet** texs, int tex_count){
+	r_leaf* shader_curs = tree;
+	if(shader_curs->type != R_LEAF_SHADER){
+		return;
+	}
+
+	while(shader_curs && shader_curs->type == R_LEAF_SHADER){
+		r_leaf new_leaf = r_create_leaf(R_LEAF_TEX, texs[0], NULL, NULL);
+		int start = 0;
+
+		r_leaf* tex_curs;
+		if(!shader_curs->child){
+			shader_curs->child = &new_leaf;
+			start ++;
+			tex_curs = &new_leaf;
+		}
+
+		while(tex_curs && tex_curs->next && tex_curs->type == R_LEAF_TEX){
+			tex_curs = tex_curs->next;
+		}
+
+		for(int i=start;i<tex_count;++i){
+			new_leaf = r_create_leaf(R_LEAF_TEX, texs[i], NULL, NULL);
+			tex_curs->next = &new_leaf;
+			tex_curs = tex_curs->next;	
+		}
+
+		shader_curs = shader_curs->next;
+	}
+}
+
+void r_ins_drawable(r_leaf* tree, r_shader* shader, r_drawable* drawable){
+	r_leaf* shader_curs = tree;
+	while(shader_curs){
+		if(((r_shader*)shader_curs->value)->id == shader->id){
+			break;
+		}
+		shader_curs = shader_curs->next;
+	}
+	
+	if(shader_curs){
+		int tex_id = drawable->anim->anim->sheet->tex->id;
+		r_leaf* tex_curs = shader_curs->child;	
+		while(tex_curs){
+			if(((r_sheet*)tex_curs->value)->tex->id == tex_id){
+				break;
+			}
+
+			tex_curs = tex_curs->next;
+		}
+
+		if(tex_curs){
+			r_leaf new_leaf = r_create_leaf(R_LEAF_NODE, drawable, NULL, NULL);
+			r_leaf* draw_curs = tex_curs->child;
+
+			if(draw_curs){
+			   	while(draw_curs && draw_curs->next){
+					draw_curs = draw_curs->next;
+				}	
+				draw_curs->next = &new_leaf;
+			}else{
+				tex_curs->child = &new_leaf;
+			}
+
+		}
+	}
+}
+
+void r_ins_drawables(r_leaf* tree, r_shader* shader, r_drawable** drawables, int drawable_count){
+	if(!drawable_count || !drawables || !shader || !tree){
+		return;
+	}
+
+	r_leaf* shader_curs = tree;
+	while(shader_curs){
+		if(((r_shader*)shader_curs->value)->id == shader->id){
+			break;
+		}
+		shader_curs = shader_curs->next;
+	}
+	
+	if(shader_curs){
+		int tex_id = drawables[0]->anim->anim->sheet->tex->id;
+		r_leaf* tex_curs = shader_curs->child;	
+		while(tex_curs){
+			if(((r_sheet*)tex_curs->value)->tex->id == tex_id){
+				break;
+			}
+
+			tex_curs = tex_curs->next;
+		}
+
+		if(tex_curs){
+			r_leaf new_leaf;
+			r_leaf* draw_curs = tex_curs->child;
+	
+			int start = 0;
+			if(!draw_curs){
+				new_leaf = r_create_leaf(R_LEAF_NODE, drawables[0], NULL, NULL);
+				tex_curs->child = &new_leaf;
+				draw_curs = tex_curs->child;
+				start++;
+			}else{
+				while(draw_curs && draw_curs->next){
+					draw_curs = draw_curs->next;
+				}
+			}
+			
+			for(int i=start;i<drawable_count;++i){
+				new_leaf = r_create_leaf(R_LEAF_NODE, drawables[i], NULL, NULL);
+				draw_curs->next = &new_leaf;
+				draw_curs = draw_curs->next;	
+			}
+		}
+	}
+}
+
+/*
+ *				//animation state update
 				if(drawable->anim->state == R_ANIM_PLAY){
 					//allow non remaindered overrides
 					int force_time = 0;
@@ -95,26 +333,10 @@ void r_update(long delta, r_list* r){
 					}
 				}
 
-				if(leaf->next && leaf->next != tleaf->leafs){
-					leaf = leaf->next;
-				} else {
-					break;
-				}
-			}
+ */
 
-			if(tleaf->next && tleaf->next != sleaf->leafs){
-				tleaf = tleaf->next;
-			}else{
-				break;
-			}
-		}
+void r_update(long delta){
 
-		if(sleaf->next && sleaf->next != r->root){
-			sleaf = sleaf->next;
-		}else{
-			break;
-		}
-	}
 }
 
 void r_update_drawable(r_drawable* sprite){
@@ -187,21 +409,6 @@ static int r_create_default_quad() {
 	return 1;
 }
 
-r_list r_create_list(r_shader* shader, r_sheet* sheet){
-	r_list l = (r_list){0};
-	r_sleaf r = (r_sleaf){0};
-	r_tleaf t = (r_tleaf){0};
-	
-	l.root = &r;
-	r.val = &t;
-	
-	l.count = 1;
-	
-	t.val = sheet;
-
-	return l;
-}
-
 void r_draw_call(r_shader* shader, unsigned int count){
 	if(!count) return;
 
@@ -211,90 +418,6 @@ void r_draw_call(r_shader* shader, unsigned int count){
 	//draw instanced
 	glBindVertexArray(default_quad_vao);
 	glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0, count);
-}
-
-void r_add_shader_to_list(r_list* list, r_shader* shader){
-
-}
-
-void r_add_to_list(r_list* list, r_drawable* drawable, r_shader* shader){
-	r_sleaf* l = list->root;
-	int s_branch = 0;
-
-	//NOTE: limit size of RENDER_BATCH_SIZE to short max
-	unsigned short sprite_count = 0;
-
-	if(!l){
-		r_leaf  n_l = (r_leaf){drawable, NULL};
-		r_tleaf n_t = (r_tleaf){drawable->anim->anim->sheet, NULL, &n_l}; 
-		r_sleaf n_s = (r_sleaf){shader, NULL, &n_t};
-		list->root = &n_s;
-		return;
-	}
-
-	while(l){
-		if(shader->id == l->val->id){
-			s_branch = 1;
-			break;
-		}
-
-		if(l->next && l->next != list->root){
-			l = l->next;
-		}else{
-			r_leaf  n_l = (r_leaf){drawable, NULL};
-			r_tleaf n_t = (r_tleaf){drawable->anim->anim->sheet, NULL, &n_l};
-			r_sleaf n_s = (r_sleaf){shader, NULL, &n_t};
-			l->next = &n_s;
-			return;
-		}
-	}
-
-	if(s_branch){
-		r_tleaf* t = l->leafs;
-		int t_branch = 0;
-		while(t){
-			if(t->val->tex->id == drawable->anim->anim->sheet->tex->id){
-				t_branch = 1;
-				break;	
-			}
-
-			if(t->next && t->next != l->val){
-				t = t->next;
-			}else{
-				break;
-			}
-		}
-
-		if(t_branch){
-			r_leaf n_l = (r_leaf){drawable, NULL};
-			if(t->leafs){
-				r_leaf* leaf = t->leafs;
-				while(leaf){
-					if(leaf->next && leaf->next != t->leafs){
-						leaf = leaf->next;	
-					}else if(leaf->next == t->leafs){
-						leaf->next = &n_l;
-						break;
-					}else if(!leaf->next){
-						leaf->next = &n_l;
-						break;
-					}
-				}
-			}else{
-				t->leafs = &n_l;
-			}
-		}	
-	}
-
-}
-
-void r_remove_from_list(r_list* list, r_drawable* drawable, r_shader* shader){
-
-}
-
-void r_draw_def_quad(){
-	//pass thru static default quad
-	r_draw_quad(&quad);
 }
 
 void r_draw_quad(r_quad* quad){
@@ -337,52 +460,53 @@ v3 r_get_hex_color(const char* hex){
     }
 }
 
-static GLuint r_get_sub_shader(const char* filePath, int type){
-    FILE* file;
-    unsigned char* data = NULL;
-    int count = 0;
-    file = fopen(filePath, "rt");
-    if(file != NULL){
-        fseek(file, 0, SEEK_END);
-        count = ftell(file);
-        rewind(file);
+static GLuint r_get_sub_shader(const char* fp, int type){
+	FILE* file;
+	unsigned char* data = NULL;
+	int count = 0;
+	file = fopen(fp, "rt");
+	if(file != NULL){
+		fseek(file, 0, SEEK_END);
+		count = ftell(file);
+		rewind(file);
 
-        if(count > 0){
-            data = malloc(sizeof(unsigned char)*(count+1));
-            count = fread(data, sizeof(unsigned char), count, file);
-            data[count] = '\0';
-        }
+		if(count > 0){
+			data = malloc(sizeof(unsigned char)*(count+1));
+			count = fread(data, sizeof(unsigned char), count, file);
+			data[count] = '\0';
+		}
 
-        fclose(file);
-    }else{
-      return 0;
-    }
+		fclose(file);
+	}else{
+		_l("Unable to open file: %s\n", fp);
+		return 0;
+	}
 
-    GLint success = 0;
-    GLuint id = glCreateShader(type);
+	GLint success = 0;
+	GLuint id = glCreateShader(type);
 
-    const char* ptr = data;
+	const char* ptr = data;
 
-    glShaderSource(id, 1, &ptr, NULL);
-    glCompileShader(id);
+	glShaderSource(id, 1, &ptr, NULL);
+	glCompileShader(id);
 
-    glGetShaderiv(id, GL_COMPILE_STATUS, &success);
-    if(success != GL_TRUE){
-        int maxlen = 0;
-        int len;
-        glGetShaderiv(id, GL_INFO_LOG_LENGTH, &maxlen);
+	glGetShaderiv(id, GL_COMPILE_STATUS, &success);
+	if(success != GL_TRUE){
+		int maxlen = 0;
+		int len;
+		glGetShaderiv(id, GL_INFO_LOG_LENGTH, &maxlen);
 
-        char* log = malloc(maxlen);
+		char* log = malloc(maxlen);
 
-        glGetShaderInfoLog(id, maxlen, &len, log);
+		glGetShaderInfoLog(id, maxlen, &len, log);
 
-        printf("%s\n", log);
-        free(log);
-    }
+		_l("%s\n", log);
+		free(log);
+	}
 
-    free(data);
+	free(data);
 
-    return id;
+	return id;	
 }
 
 r_shader r_create_shader(const char* vert, const char* frag){
@@ -411,12 +535,11 @@ r_shader r_create_shader(const char* vert, const char* frag){
 #ifdef DEBUG_OUTPUT
     printf("r_shader program loaded: %i\n", id);
 #endif
-
     return (r_shader){id};
 }
 
 void r_destroy_shader(r_shader* shader){
-    glDeleteProgram(shader->id);
+   	glDeleteProgram(shader->id);
 }
 
 void r_bind_tex(r_tex* tex){
@@ -482,7 +605,9 @@ v3 r_get_color(char* v){
 }
 
 inline int r_get_uniform_loc(r_shader* shader, const char* uniform){
-    return glGetUniformLocation(shader->id, uniform);
+	int loc = glGetUniformLocation(shader->id, uniform);
+	//r_cache_check(shader, uniform, loc);
+	return loc;
 }
 
 inline void r_set_uniformf(r_shader* shader, const char* name, float value){
