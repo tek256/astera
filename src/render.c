@@ -8,9 +8,6 @@
 
 #include <glad_gl.c>
 
-#define RENDER_BATCH_SIZE 128
-#define SHADER_STR_SIZE 64
-
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb/stb_image.h>
@@ -19,34 +16,35 @@
 #include "sys.h"
 #include "debug.h"
 
-#include <stdio.h>
 #include <string.h>
-
-typedef struct r_flags {
-	int allowed : 1;
-	int scaled  : 1;
-	unsigned char video_mode_count : 6;
-} r_flags;
 
 static r_flags flags;
 
+static const char* r_window_title = "Yolo";
 static r_window_info g_window_info;
 static GLFWmonitor* r_default_monitor;
 static const GLFWvidmode* r_vidmodes;
 static int r_vidmode_count;
 static v2 r_res;
-static const char* r_window_title = "Yolo";
 
 static unsigned int default_quad_vao;
 
 static char* shader_value_buff[SHADER_STR_SIZE];
 
 int r_init(){
-	if(!r_create_window((r_window_info){1280, 720, 0, 1, 0, 60, r_window_title})){ 
+	if(!r_create_window((r_window_info){1280, 720, 0, 0, 0, 60, r_window_title})){ 
 		_e("Unable to create window.\n");
 		return 0;
 	}
 	
+	#if defined(RENDER_ENABLE_ANIM_CACHE)	
+	g_anim_cache.capacity = RENDER_ANIM_CACHE;
+	#endif
+
+	#if defined(RENDER_ENABLE_SHADER_CACHE)
+	g_shader_map.capacity = RENDER_SHADER_CACHE;
+	#endif
+
 	r_init_quad();
 	return 1;
 }
@@ -72,7 +70,7 @@ void r_update_camera(r_camera* camera){
 }
 
 void r_update(long delta){
-
+	
 }
 
 r_tex r_get_tex(const char* fp){
@@ -177,6 +175,22 @@ v3 r_get_hex_color(const char* hex){
     }
 }
 
+int r_is_anim_cache(){
+#if defined(RENDER_ENABLE_ANIM_CACHE)
+	return 1; 
+#else
+	return 0;
+#endif
+}
+
+int r_is_shader_cache(){
+#if defined(RENDER_ENABLE_SHADER_CACHE)
+	return 1;	
+#else
+	return 0;
+#endif
+}
+
 static GLuint r_get_sub_shader(const char* fp, int type){
 	FILE* file;
 	unsigned char* data = NULL;
@@ -255,7 +269,115 @@ r_shader r_get_shader(const char* vert, const char* frag){
     return (r_shader){id};
 }
 
+#if defined(RENDER_ENABLE_SHADER_CACHE)
+void r_map_shader(r_shader shader, const char* name){
+	if(g_shader_map.capacity == 0){
+		_e("No shader cache available.\n");
+		return;
+	}
+	
+	if(g_shader_map.capacity == g_shader_map.count){
+		//TODO implement cache overflow
+		_e("No shader cache open to use.\n");
+		return;
+	}
+
+	if(g_shader_map.count == 0){
+		g_shader_map.shaders[0] = shader;
+		g_shader_map.names[0] = name;
+		g_shader_map.count = 1;
+	}else{
+		for(int i=0;i<g_shader_map.count;++i){
+			if(g_shader_map.shaders[i] == shader){
+				_l("Shader: %d already contained with alias of: %s\n", shader, g_shader_map.names[i]);
+				return;
+			}
+		}
+		g_shader_map.shaders[g_shader_map.count] = shader;
+		g_shader_map.names[g_shader_map.count] = name;
+		g_shader_map.count ++;
+	}
+}
+
+void r_clear_cache(r_shader shader){
+	r_shader_cache* specific;
+	int index = 0;
+
+	for(int i=0;i<g_shader_map.count;++i){
+		if(g_shader_map.shaders[i] == shader){
+			specific = &g_shader_map.caches[i];
+			index = i;
+		}
+	}
+
+	if(specific){
+		memset(specific->values, 0, sizeof(unsigned int) * RENDER_SHADER_VALUE_CACHE);
+		memset(specific->names, 0, sizeof(const char*) * RENDER_SHADER_VALUE_CACHE);	
+	}	
+}
+
+void r_remove_from_cache(r_shader shader){
+	if(!g_shader_map.count){
+		_e("No shaders to remove from cache.\n");
+		return; 
+	}
+
+	int index = -1;
+	for(int i=0;i<g_shader_map.count;++i){
+		if(g_shader_map.shaders[i] == shader){
+			index = i;
+			break;
+		}
+	}
+
+	if(index){
+		for(int i=index;i<g_shader_map.count-1;++i){
+			g_shader_map.names[i] = g_shader_map.names[i+1];
+			g_shader_map.shaders[i] = g_shader_map.shaders[i+1];
+			g_shader_map.caches[i] = g_shader_map.caches[i+1];
+		}
+
+		g_shader_map.names[g_shader_map.count] == "";
+		g_shader_map.shaders[g_shader_map.count] = 0;
+		g_shader_map.caches[g_shader_map.count] = (r_shader_cache){0};
+		g_shader_map.count --;
+	}
+}
+
+void r_cache_uniform(r_shader shader, const char* uniform, unsigned int location){
+	r_shader_cache* specific;
+
+	for(int i=0;i<g_shader_map.count;++i){
+		if(g_shader_map.shaders[i] == shader){
+			specific = &g_shader_map.caches[i];
+			break;
+		}	
+	}
+
+	for(int i=0;i<specific->count;++i){
+		if(strcmp(specific->names[i], uniform) == 0){
+			_l("Uniform: %s for shader: %d already cached.\n", uniform, shader);
+			return;
+		}
+	}
+
+	if(specific->capacity <= specific->count){
+		//TODO implement shader cache overflow
+		_e("Shader uniform cache space unavailable.\n");
+		return;
+	}
+
+	specific->values[specific->count] = location;
+	specific->names[specific->count] = uniform;
+	specific->count ++;
+}
+
+#endif
+
 void r_destroy_shader(r_shader shader){
+#if defined(RENDER_ENABLE_SHADER_CACHE)
+	r_remove_from_cache(shader);
+#endif
    	glDeleteProgram(shader);
 }
 
@@ -321,10 +443,130 @@ v3 r_get_color(char* v){
   return val;
 }
 
+r_anim  r_get_anim(r_sheet* sheet, int* frames, unsigned short frame_count, unsigned char frame_rate){
+	return (r_anim){*sheet, frame_count, frames, frame_rate};	
+}
+
+#if defined(RENDER_ENABLE_ANIM_CACHE)
+void r_cache_anim(r_anim anim, const char* name){
+	if(g_anim_cache.count >= g_anim_cache.capacity){
+		_e("Animation cache at capacity.\n");
+		//TODO overflow caching
+		return;	
+	}
+
+	for(int i=0;i<g_anim_cache.count;++i){
+		if(strcmp(name, g_anim_cache.names[i]) == 0){
+			_l("Animation cache already contains animation named: %s\n", name);
+			return;
+		}
+	}
+
+	g_anim_cache.names[g_anim_cache.count] = name;
+	g_anim_cache.count ++;
+}
+
+r_anim r_get_anim_n(const char* name){
+	if(g_anim_cache.count == 0){
+		_l("No animations in cache to check for.\n");
+		return (r_anim){0};
+	}
+	
+	for(int i=0;i<g_anim_cache.count;++i){
+		if(strcmp(g_anim_cache.names[i], name) == 0){
+			return g_anim_cache.anims[i];	
+		}
+	}
+
+	_l("No animations matching: %s in cache.\n", name);
+	return (r_anim){0};
+}
+
+#endif
+
+r_animv r_v_anim(r_anim* anim){
+	return (r_animv){
+		*anim, 0L, 0, R_ANIM_STOP, R_ANIM_STOP, 1	
+	};
+}
+
+void r_anim_p(r_animv* anim){
+	anim->pstate = anim->state;
+	anim->state = R_ANIM_PLAY;
+}
+
+void r_anim_s(r_animv* anim){
+	anim->pstate = anim->state;
+	anim->state = R_ANIM_STOP;
+}
+
+void r_anim_h(r_animv* anim){
+	anim->pstate = anim->state;
+	anim->state = R_ANIM_PAUSE;
+}
+
+r_drawable r_get_drawable(r_anim* anim, v2 size, v2 pos){
+	r_drawable draw = (r_drawable){0};
+	m4_identity(&draw.model);
+	
+	m4_size_scale(&draw.model,draw.model, size.x, size.y, 1.f);
+	m4_translate(&draw.model, pos.x, pos.y, 0.f);
+
+	draw.size = size;
+	draw.position = pos;
+	draw.anim = r_v_anim(anim);
+	draw.layer = 0;
+	draw.visible = 1;
+	draw.change = 0;
+
+	return draw;	
+}
+
+void r_update_drawable(r_drawable* drawable){
+	if(drawable->change){
+		m4_identity(&drawable->model);
+		m4_size_scale(&drawable->model, drawable->model, drawable->size.x, drawable->size.y, 1.f);
+		m4_translate(&drawable->model, drawable->position.x, drawable->position.y, 0.f);	
+	}
+}
+
+#if defined(RENDER_ENABLE_SHADER_CACHE)
+int r_get_cached(r_shader shader, const char* uniform){
+	if(shader && g_shader_map.count){
+		r_shader_cache* specific;
+		for(int i=0;i<g_shader_map.count;++i){
+			if(g_shader_map.shaders[i] == shader){
+				specific = &g_shader_map.caches[i];
+				break;
+			}
+		}
+
+		if(specific){
+			for(int i=0;i<specific->count;++i){
+				if(strcmp(uniform, specific->names[i]) == 0){
+					return specific->values[i];
+				}
+			}
+		}	
+	}
+
+	return -1;
+}
+#endif
+
 inline int r_get_uniform_loc(r_shader shader, const char* uniform){
-	int loc = glGetUniformLocation(shader, uniform);
-	//r_cache_check(shader, uniform, loc);
-	return loc;
+#if defined(RENDER_ENABLE_SHADER_CACHE)
+	int cache_loc = r_get_cached(shader, uniform);
+
+	if(!cache_loc){
+		cache_loc = glGetUniformLocation(shader, uniform);
+		r_cache_uniform(shader, uniform, cache_loc);
+	}	
+
+	return cache_loc;
+#else
+	return glGetUniformLocation(shader, uniform);
+#endif
 }
 
 inline void r_set_uniformf(r_shader shader, const char* name, float value){
@@ -586,14 +828,13 @@ int r_create_window(r_window_info info){
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    //glEnable(GL_TEXTURE_2D);
     glViewport(0, 0, g_window.width, g_window.height);
 
     glfwGetWindowPos(g_window.glfw, &g_window.x, &g_window.y);
 
     glDisable(GL_CULL_FACE);
 
-    v3 color = r_get_color("FFF");
+    v3 color = r_get_color("EEE");
     glClearColor(color.r, color.g, color.b, 1.f);
 	
 	_l("Setting Callbacks.\n");
@@ -679,6 +920,11 @@ void r_swap_buffers(){
 
 void r_clear_window(){
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
+
+void r_window_resized(){
+
+	glViewport(0, 0, g_window.width, g_window.height);
 }
 
 static void glfw_err_cb(int error, const char* msg){
