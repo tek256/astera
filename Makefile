@@ -1,6 +1,6 @@
 OBJS = src/*.c
 
-CC = gcc 
+CC = clang 
 WIN_CC = mingw32-gcc
 
 COMPILER_FLAGS = -w -std=c99 -g

@@ -22,40 +22,45 @@
 #include <stdio.h>
 #include <string.h>
 
+typedef struct r_flags {
+	int allowed : 1;
+	int scaled  : 1;
+	unsigned char video_mode_count : 6;
+} r_flags;
+
+static r_flags flags;
+
 static r_window_info g_window_info;
 static GLFWmonitor* r_default_monitor;
 static const GLFWvidmode* r_vidmodes;
 static int r_vidmode_count;
 static v2 r_res;
-static int r_allowed = 0;
-static int r_scale_flag = 0;
-static const char* r_window_title = "Untitled";
+static const char* r_window_title = "Yolo";
+
 static unsigned int default_quad_vao;
 
 static char* shader_value_buff[SHADER_STR_SIZE];
 
 int r_init(){
-	if(!r_create_window((r_window_info){1280, 720, 0, 1, 0, 60, "Untitled"})){
+	if(!r_create_window((r_window_info){1280, 720, 0, 1, 0, 60, r_window_title})){ 
 		_e("Unable to create window.\n");
 		return 0;
 	}
-
-	r_create_default_quad();
+	
+	r_init_quad();
 	return 1;
 }
 
-void r_create_camera(r_camera* cam, v2 size, v2 position){
-	*cam = (r_camera){0};
-	m4_identity(&cam->view);	
-	m4_identity(&cam->proj);
+r_camera r_create_camera(v2 size, v2 position){
+	m4 proj, view;
+	m4_identity(&view);	
+	m4_identity(&proj);
 
-	m4_ortho(&cam->proj, 0, size.x, size.y, 0, 0.01f, 10.f);
-	m4_translate(&cam->view, position.x, position.y, 0.f);
-	cam->size = size;
-	cam->near = 0.01f;
-	cam->far = 10.f;
-	cam->pos = (v3){position.x, position.y, 0.f};
-	cam->fov = 0.f;
+	m4_ortho(&proj, 0, size.x, size.y, 0, 0.01f, 10.f);
+	m4_translate(&view, position.x, position.y, 0.f);
+
+	return (r_camera){
+		(v3){position.x, position.y, 0.f}, (v3){0.f}, view, proj, size, 60.f, 0.01f, 10.f};	
 }
 
 void r_update_camera(r_camera* camera){
@@ -66,286 +71,8 @@ void r_update_camera(r_camera* camera){
 	m4_translate(&camera->view, camera->pos.x, camera->pos.y, 0.f);
 }
 
-void r_check_tree(r_leaf* tree){
-	if(!tree){
-		_l("No tree passed to check.\n");
-	}else{
-		int root = 0;
-		int shaders = 0;
-		int textures = 0;
-		int drawables = 0;
-		if(tree){
-			r_leaf* curs = tree;
-			while(curs){
-				++ shaders;
-
-				if(curs->child){
-					r_leaf* tex_curs = curs->child;
-					while(tex_curs){
-						++ textures;
-						if(tex_curs->type == R_LEAF_NODE){
-							_e("Drawable leaf in depth of textures in render tree.\n");
-						}else if(tex_curs->type == R_LEAF_SHADER){
-							_e("Shader leaf in depth of textures in render tree.\n");	
-						}
-						
-						if(tex_curs->child){
-							r_leaf* drawables = tex_curs->child;
-							while(drawables){
-								++ drawables;
-
-								if(drawables->next){
-									drawables = drawables->next;
-								}else{
-									break;
-								}
-							}
-						}
-
-						if(tex_curs->next){
-							tex_curs = tex_curs->next;
-						}else{
-							break;
-						}
-					}		
-				}
-
-				if(curs->next){
-					curs = curs->next;
-				}else{
-					break;
-				}
-			}
-
-			_l("Tree stats - Shaders: %d, Textures: %d, Drawables: %d\n", shaders, textures, drawables);
-		}else{
-			_l("Tree doesn't contain a root.\n");
-		}
-	}
-}
-
-r_leaf r_create_leaf(int type, void* value, r_leaf* child, r_leaf* next){
-	return (r_leaf){type, value, child, next};
-}
-
-void r_ins_shader(r_leaf* tree, r_shader* shader){
-	r_leaf* curs = tree;
-	if(curs->type != R_LEAF_SHADER){
-		_l("Invalid list passed with type of: %d\n", curs->type);
-		return;
-	}
-
-	while(curs && curs->next){
-		curs = curs->next;
-	}
-
-	r_leaf new_leaf = r_create_leaf(R_LEAF_SHADER, shader, NULL, NULL);
-	curs->next = &new_leaf;
-}
-
-void r_ins_shaders(r_leaf* tree, r_shader** shaders, int shader_count){
-	r_leaf* curs = tree;
-	if(curs->type != R_LEAF_SHADER){
-		return;
-	}
-
-	while(curs && curs->next){
-		curs = curs->next;
-	}
-
-	for(int i=0;i<shader_count;++i){
-		r_leaf new_leaf = r_create_leaf(R_LEAF_SHADER, shaders[i], NULL, NULL);
-		curs->next = &new_leaf;
-		curs = curs->next;
-	}
-}
-
-void r_ins_tex(r_leaf* tree, r_sheet* sheet){
-	r_leaf* shader_curs = tree;
-	if(shader_curs->type != R_LEAF_SHADER){
-		return;
-	}
-	while(shader_curs && shader_curs->type == R_LEAF_SHADER){
-		r_leaf* tex_curs = shader_curs->child;
-		if(tex_curs != R_LEAF_TEX){
-			break;
-		}
-		
-		while(tex_curs && tex_curs->next){
-			tex_curs = tex_curs->next;
-		}
-
-		r_leaf new_leaf = r_create_leaf(R_LEAF_TEX, sheet, NULL, NULL);
-		tex_curs->next = &new_leaf;
-
-		shader_curs = shader_curs->next;
-	}
-}
-
-void r_ins_texs(r_leaf* tree, r_sheet** texs, int tex_count){
-	r_leaf* shader_curs = tree;
-	if(shader_curs->type != R_LEAF_SHADER){
-		return;
-	}
-
-	while(shader_curs && shader_curs->type == R_LEAF_SHADER){
-		r_leaf new_leaf = r_create_leaf(R_LEAF_TEX, texs[0], NULL, NULL);
-		int start = 0;
-
-		r_leaf* tex_curs;
-		if(!shader_curs->child){
-			shader_curs->child = &new_leaf;
-			start ++;
-			tex_curs = &new_leaf;
-		}
-
-		while(tex_curs && tex_curs->next && tex_curs->type == R_LEAF_TEX){
-			tex_curs = tex_curs->next;
-		}
-
-		for(int i=start;i<tex_count;++i){
-			new_leaf = r_create_leaf(R_LEAF_TEX, texs[i], NULL, NULL);
-			tex_curs->next = &new_leaf;
-			tex_curs = tex_curs->next;	
-		}
-
-		shader_curs = shader_curs->next;
-	}
-}
-
-void r_ins_drawable(r_leaf* tree, r_shader* shader, r_drawable* drawable){
-	r_leaf* shader_curs = tree;
-	while(shader_curs){
-		if(((r_shader*)shader_curs->value)->id == shader->id){
-			break;
-		}
-		shader_curs = shader_curs->next;
-	}
-	
-	if(shader_curs){
-		int tex_id = drawable->anim->anim->sheet->tex->id;
-		r_leaf* tex_curs = shader_curs->child;	
-		while(tex_curs){
-			if(((r_sheet*)tex_curs->value)->tex->id == tex_id){
-				break;
-			}
-
-			tex_curs = tex_curs->next;
-		}
-
-		if(tex_curs){
-			r_leaf new_leaf = r_create_leaf(R_LEAF_NODE, drawable, NULL, NULL);
-			r_leaf* draw_curs = tex_curs->child;
-
-			if(draw_curs){
-			   	while(draw_curs && draw_curs->next){
-					draw_curs = draw_curs->next;
-				}	
-				draw_curs->next = &new_leaf;
-			}else{
-				tex_curs->child = &new_leaf;
-			}
-
-		}
-	}
-}
-
-void r_ins_drawables(r_leaf* tree, r_shader* shader, r_drawable** drawables, int drawable_count){
-	if(!drawable_count || !drawables || !shader || !tree){
-		return;
-	}
-
-	r_leaf* shader_curs = tree;
-	while(shader_curs){
-		if(((r_shader*)shader_curs->value)->id == shader->id){
-			break;
-		}
-		shader_curs = shader_curs->next;
-	}
-	
-	if(shader_curs){
-		int tex_id = drawables[0]->anim->anim->sheet->tex->id;
-		r_leaf* tex_curs = shader_curs->child;	
-		while(tex_curs){
-			if(((r_sheet*)tex_curs->value)->tex->id == tex_id){
-				break;
-			}
-
-			tex_curs = tex_curs->next;
-		}
-
-		if(tex_curs){
-			r_leaf new_leaf;
-			r_leaf* draw_curs = tex_curs->child;
-	
-			int start = 0;
-			if(!draw_curs){
-				new_leaf = r_create_leaf(R_LEAF_NODE, drawables[0], NULL, NULL);
-				tex_curs->child = &new_leaf;
-				draw_curs = tex_curs->child;
-				start++;
-			}else{
-				while(draw_curs && draw_curs->next){
-					draw_curs = draw_curs->next;
-				}
-			}
-			
-			for(int i=start;i<drawable_count;++i){
-				new_leaf = r_create_leaf(R_LEAF_NODE, drawables[i], NULL, NULL);
-				draw_curs->next = &new_leaf;
-				draw_curs = draw_curs->next;	
-			}
-		}
-	}
-}
-
-/*
- *				//animation state update
-				if(drawable->anim->state == R_ANIM_PLAY){
-					//allow non remaindered overrides
-					int force_time = 0;
-					drawable->anim->time += delta;
-					//1000ms per second
-					long rate = drawable->anim->anim->frame_rate / 1000;	
-					if(drawable->anim->time >= rate){
-						//frameskip/freeze protection
-						int skips = drawable->anim->time / rate;
-						if(skips > 1){
-							int loops = skips / drawable->anim->anim->frame_count;
-							int new_frame = loops % drawable->anim->anim->frame_count;
-							drawable->anim->time = 0L;
-							force_time = 1;
-						}
-						
-						if(!force_time){
-							drawable->anim->time = drawable->anim->time % rate;
-							drawable->anim->frame ++;
-							if(drawable->anim->frame >= drawable->anim->anim->frame_count){
-								if(drawable->anim->loop){
-									drawable->anim->frame = 0;
-								}else{
-									drawable->anim->pstate = drawable->anim->state;
-									drawable->anim->state = R_ANIM_STOP;
-									drawable->anim->time = 0;
-								}
-							}
-						}	
-					}
-				}
-
- */
-
 void r_update(long delta){
 
-}
-
-void r_update_drawable(r_drawable* sprite){
-	m4_identity(&sprite->model);
-	m4_translatev3(&sprite->model, sprite->position);
-}
-
-r_animv r_create_animv(r_anim* anim){
-	return (r_animv){ anim, 0, 0, R_ANIM_PLAY, R_ANIM_STOP, 1};
 }
 
 r_tex r_get_tex(const char* fp){
@@ -366,12 +93,13 @@ r_tex r_get_tex(const char* fp){
 	return (r_tex){id, (unsigned int)w,(unsigned int)h};	
 }
 
-r_sheet r_create_sheet(r_tex* tex, unsigned int subwidth, unsigned int subheight){
-	return (r_sheet){tex, subwidth, subheight};
+r_sheet r_get_sheet(const char* fp, unsigned int subwidth, unsigned int subheight){
+	r_tex tex = r_get_tex(fp);
+	return (r_sheet){tex.id, tex.width, tex.height, subwidth, subheight};
 }
 
-static int r_create_default_quad() {
-	int vao, vbo, vto, vboi;
+static int r_init_quad() {
+	int vao, vbo, vboi;
 	
 	float verts[16] = {
 		//pos           //tex
@@ -388,18 +116,13 @@ static int r_create_default_quad() {
 
 	glGenVertexArrays(1, &vao);
 	glGenBuffers(1, &vbo);
-	//glGenBuffers(1, &vto);
-	//glGenBuffers(1, &vboi);
+	glGenBuffers(1, &vboi);
 	
 	glBindVertexArray(vao);	
 
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
 	glBufferData(GL_ARRAY_BUFFER, 16 * sizeof(float), &verts[0], GL_STATIC_DRAW);
 	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
-
-	//glBindBuffer(GL_ARRAY_BUFFER, vto);
-	//glBufferData(GL_ARRAY_BUFFER, 8 * sizeof(float), &texc[0], GL_STATIC_DRAW);
-	//glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, 0);
 
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vboi);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, 6 * sizeof(int), &inds[0], GL_STATIC_DRAW);
@@ -409,21 +132,15 @@ static int r_create_default_quad() {
 	return 1;
 }
 
-void r_draw_call(r_shader* shader, unsigned int count){
+void r_draw_call(r_shader shader, unsigned int count){
 	if(!count) return;
 
-	r_set_m4x(shader, count, "models",  mats);
-  	r_set_ix(shader, count, "tex_ids", tex_ids);
+	r_set_m4x(shader, count, "models",  g_r_cache.models);
+  	r_set_ix(shader, count, "tex_ids", g_r_cache.tex_ids);
 
 	//draw instanced
 	glBindVertexArray(default_quad_vao);
 	glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0, count);
-}
-
-void r_draw_quad(r_quad* quad){
-	glBindVertexArray(quad->vao);
-	glDrawElements(GL_TRIANGLES, 16, GL_UNSIGNED_INT, 0);	
-	glBindVertexArray(0);
 }
 
 void r_exit(){
@@ -509,7 +226,7 @@ static GLuint r_get_sub_shader(const char* fp, int type){
 	return id;	
 }
 
-r_shader r_create_shader(const char* vert, const char* frag){
+r_shader r_get_shader(const char* vert, const char* frag){
     GLuint v = r_get_sub_shader(vert, GL_VERTEX_SHADER);
     GLuint f = r_get_sub_shader(frag, GL_FRAGMENT_SHADER);
 
@@ -538,19 +255,19 @@ r_shader r_create_shader(const char* vert, const char* frag){
     return (r_shader){id};
 }
 
-void r_destroy_shader(r_shader* shader){
-   	glDeleteProgram(shader->id);
+void r_destroy_shader(r_shader shader){
+   	glDeleteProgram(shader);
 }
 
 void r_bind_tex(r_tex* tex){
 	glBindTexture(GL_TEXTURE_2D, tex->id);
 }
 
-void r_bind_shader(r_shader* shader){
+void r_bind_shader(r_shader shader){
     if(shader == NULL){
         glUseProgram(0);
     }else{
-        glUseProgram(shader->id);
+        glUseProgram(shader);
     }
 }
 
@@ -604,13 +321,13 @@ v3 r_get_color(char* v){
   return val;
 }
 
-inline int r_get_uniform_loc(r_shader* shader, const char* uniform){
-	int loc = glGetUniformLocation(shader->id, uniform);
+inline int r_get_uniform_loc(r_shader shader, const char* uniform){
+	int loc = glGetUniformLocation(shader, uniform);
 	//r_cache_check(shader, uniform, loc);
 	return loc;
 }
 
-inline void r_set_uniformf(r_shader* shader, const char* name, float value){
+inline void r_set_uniformf(r_shader shader, const char* name, float value){
     glUniform1f(r_get_uniform_loc(shader, name), value);
 }
 
@@ -618,7 +335,7 @@ inline void r_set_uniformfi(int loc, float value){
 	glUniform1f(loc, value);
 }
 
-inline void r_set_uniformi(r_shader* shader, const char* name, int value){
+inline void r_set_uniformi(r_shader shader, const char* name, int value){
     glUniform1i(r_get_uniform_loc(shader, name), value);
 }
 
@@ -626,7 +343,7 @@ inline void r_set_uniformii(int loc, int val){
 	glUniform1i(loc, val);
 }
 
-inline void r_set_v4(r_shader* shader, const char* name, v4 value){
+inline void r_set_v4(r_shader shader, const char* name, v4 value){
     glUniform4f(r_get_uniform_loc(shader, name), value.x, value.y, value.z, value.w);
 }
 
@@ -634,7 +351,7 @@ inline void r_set_v4i(int loc, v4 value){
 	glUniform4f(loc, value.x, value.y, value.z, value.w);
 }
 
-inline void r_set_v3(r_shader* shader, const char* name, v3 value){
+inline void r_set_v3(r_shader shader, const char* name, v3 value){
     glUniform3f(r_get_uniform_loc(shader, name), value.x, value.y, value.z);
 }
 
@@ -642,7 +359,7 @@ inline void r_set_v3i(int loc, v3 val){
 	glUniform3f(loc, val.x, val.y, val.z);
 }
 
-inline void r_set_v2(r_shader* shader, const char* name, v2 value){
+inline void r_set_v2(r_shader shader, const char* name, v2 value){
     glUniform2f(r_get_uniform_loc(shader, name), value.x, value.y);
 }
 
@@ -650,7 +367,7 @@ inline void r_set_v2i(int loc, v2 val){
 	glUniform2f(loc, val.x, val.y);
 }
 
-inline void r_set_quat(r_shader* shader, const char* name, quat value){
+inline void r_set_quat(r_shader shader, const char* name, quat value){
     glUniform4f(r_get_uniform_loc(shader, name), value.x, value.y, value.z, value.w);
 }
 
@@ -658,7 +375,7 @@ inline void r_set_quati(int loc, quat val){
 	glUniform4f(loc, val.x, val.y, val.z, val.w);
 }
 
-inline void r_set_m4(r_shader* shader, const char* name, m4 value){
+inline void r_set_m4(r_shader shader, const char* name, m4 value){
     glUniformMatrix4fv(r_get_uniform_loc(shader, name), 1, GL_FALSE, &value.v[0][0]);
 }
 
@@ -666,7 +383,7 @@ inline void r_set_m4i(int loc, m4 val){
 	glUniformMatrix4fv(loc, 1, GL_FALSE, &val.v[0][0]);
 }
 
-void r_set_m4x(r_shader* shader, unsigned int count, const char* name, m4* values){
+void r_set_m4x(r_shader shader, unsigned int count, const char* name, m4* values){
 	if(!count) return;
 
 	for(int i=0;i<count;++i){
@@ -677,7 +394,7 @@ void r_set_m4x(r_shader* shader, unsigned int count, const char* name, m4* value
 	}
 }
 
-void r_set_ix(r_shader* shader, unsigned int count, const char* name, int* values){
+void r_set_ix(r_shader shader, unsigned int count, const char* name, int* values){
 	if(!count) return;
 
 	for(int i=0;i<count;++i){
@@ -688,7 +405,7 @@ void r_set_ix(r_shader* shader, unsigned int count, const char* name, int* value
 	}
 }
 
-void r_set_fx(r_shader* shader, unsigned int count, const char* name, float* values){
+void r_set_fx(r_shader shader, unsigned int count, const char* name, float* values){
 	if(!count) return;
 
 	for(int i=0;i<count;++i){
@@ -699,7 +416,7 @@ void r_set_fx(r_shader* shader, unsigned int count, const char* name, float* val
 	}
 }
 
-void r_set_v2x(r_shader* shader, unsigned int count, const char* name, v2* values){
+void r_set_v2x(r_shader shader, unsigned int count, const char* name, v2* values){
 	if(!count) return;
 
 	for(int i=0;i<count;++i){
@@ -710,7 +427,7 @@ void r_set_v2x(r_shader* shader, unsigned int count, const char* name, v2* value
 	}
 }
 
-void r_set_v3x(r_shader* shader, unsigned int count, const char* name, v3* values){
+void r_set_v3x(r_shader shader, unsigned int count, const char* name, v3* values){
 	if(!count) return;
 
 	for(int i=0;i<count;++i){
@@ -721,7 +438,7 @@ void r_set_v3x(r_shader* shader, unsigned int count, const char* name, v3* value
 	}
 }
 
-void r_set_v4x(r_shader* shader, unsigned int count, const char* name, v4* values){
+void r_set_v4x(r_shader shader, unsigned int count, const char* name, v4* values){
 	if(!count) return;
 
 	for(int i=0;i<count;++i){
@@ -861,7 +578,7 @@ int r_create_window(r_window_info info){
 	_l("Loading GL\n");
 	gladLoadGL(glfwGetProcAddress);
 
-    r_allowed = 1;
+    flags.allowed = 1;
 
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
@@ -936,7 +653,7 @@ void r_set_window_pos(int x, int y){
 }
 
 void r_destroy_window(){
-    r_allowed = 0;
+    flags.allowed = 0;
 
     glfwDestroyWindow(g_window.glfw);
 
@@ -977,7 +694,7 @@ static void glfw_window_size_cb(GLFWwindow* window, int w, int h){
     g_window.width = w;
     g_window.height = h;
     glViewport(0, 0, w, h);
-    r_scale_flag = 1;
+    flags.scaled = 1;
 }
 
 static void glfw_window_close_cb(GLFWwindow* window){
