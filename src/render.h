@@ -228,8 +228,6 @@ static int  r_window_info_valid(r_window_info info);
 static const GLFWvidmode* r_find_closest_mode(r_window_info info);
 static const GLFWvidmode* r_find_best_mode();
 
-static void r_window_resized();
-
 static void glfw_err_cb(int error, const char* msg);
 static void glfw_window_pos_cb(GLFWwindow* window, int x, int y);
 static void glfw_window_size_cb(GLFWwindow* window, int w, int h);

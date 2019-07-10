@@ -24,7 +24,6 @@ static const char* r_window_title = "Yolo";
 static r_window_info g_window_info;
 static GLFWmonitor* r_default_monitor;
 static const GLFWvidmode* r_vidmodes;
-static int r_vidmode_count;
 static v2 r_res;
 
 static unsigned int default_quad_vao;
@@ -695,8 +694,9 @@ static void r_create_modes(){
     if(r_default_monitor == NULL){
         r_default_monitor = glfwGetPrimaryMonitor();
     }
-
-    r_vidmodes = glfwGetVideoModes(r_default_monitor, &r_vidmode_count);
+	int count;
+    r_vidmodes = glfwGetVideoModes(r_default_monitor,&count);
+	flags.video_mode_count = count;
 }
 
 static int r_window_info_valid(r_window_info info){
@@ -704,16 +704,16 @@ static int r_window_info_valid(r_window_info info){
 }
 
 static const GLFWvidmode* r_find_closest_mode(r_window_info info){
-    if(r_vidmode_count == 0){
+    if(flags.video_mode_count== 0){
         r_create_modes();
-    }else if(r_vidmode_count == 1){
+    }else if(flags.video_mode_count == 1){
         return r_vidmodes;
     }
 
     const GLFWvidmode* closest = &r_vidmodes[0];
     int distance = (abs(info.width - r_vidmodes[0].width) + abs(info.height - r_vidmodes[0].height) - r_vidmodes[0].refreshRate);
 
-    for(int i=0;i<r_vidmode_count;++i){
+    for(int i=0;i<flags.video_mode_count;++i){
         int d2 = (abs(info.width - r_vidmodes[i].width) + abs(info.height - r_vidmodes[i].height) - r_vidmodes[i].refreshRate);
         if(d2 < distance){
             closest = &r_vidmodes[i];
@@ -725,16 +725,16 @@ static const GLFWvidmode* r_find_closest_mode(r_window_info info){
 }
 
 static const GLFWvidmode* r_find_best_mode(){
-    if(r_vidmode_count == 0){
+    if(flags.video_mode_count == 0){
         r_create_modes();
-    }else if(r_vidmode_count == 1){
+    }else if(flags.video_mode_count == 1){
         return r_vidmodes;
     }
 
     const GLFWvidmode* selected = &r_vidmodes[0];
     int value = selected->width + selected->height * (selected->refreshRate * 2);
 
-    for(int i=0;i<r_vidmode_count;++i){
+    for(int i=0;i<flags.video_mode_count;++i){
         int v2 = r_vidmodes[i].width + r_vidmodes[i].height * (r_vidmodes[i].refreshRate * 2);
         if(v2 > value){
             selected = &r_vidmodes[i];
@@ -785,7 +785,7 @@ int r_create_window(r_window_info info){
         g_window.fullscreen = 1;
         window = glfwCreateWindow(selected_mode->width, selected_mode->height, info.title, r_default_monitor, NULL);
     }else{
-        glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+        glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
         glfwWindowHint(GLFW_DECORATED, info.borderless ? GLFW_FALSE : GLFW_TRUE);
 
         if(info.refreshRate > 0){
@@ -920,11 +920,6 @@ void r_swap_buffers(){
 
 void r_clear_window(){
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-}
-
-void r_window_resized(){
-
-	glViewport(0, 0, g_window.width, g_window.height);
 }
 
 static void glfw_err_cb(int error, const char* msg){

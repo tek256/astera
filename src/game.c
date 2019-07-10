@@ -16,6 +16,8 @@ int g_init(){
 	sheet  = r_get_sheet("res/tex/test_sheet.png", 16, 16);
 	shader = r_get_shader("res/shd/main.v", "res/shd/main.f");
 
+	buffer = a_create_buffer("res/snd/test.ogg");
+
 	return 1;	
 }
 
