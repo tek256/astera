@@ -1,0 +1,15 @@
+- INTERNAL ENGINE
+> Finalize rendering (2D)
+> User Configuration Loading
+> File Loading / Decompression
+> Level Loading & Saving
+> User & Enemy States
+> Collision / Physics
+
+- EXTERNAL PROGRAMS
+> Level Editor
+> Level Optimizer 
+	> Image Optimizer
+	> Geometry Reducer 
+	> LOD Splitter
+> Level / Asset Packer

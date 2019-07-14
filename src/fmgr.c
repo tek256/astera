@@ -39,12 +39,13 @@ f_lib f_init_lib(const char* fp){
 	}
 
 	f_lib lib;
+	
+	memset(&lib, 0, sizeof(f_lib));
+	
 	lib.file_count = 0;
 	lib.path = fp;
 
 	lib.open = 0;
-	
-	//TODO decompression
 
 	return lib;
 }
@@ -85,7 +86,7 @@ unsigned char* f_get_file_contents(const char* fp, size_t* size){
 	}
 	
 	if(size)
-		*size = count+1;
+		*size = count;
 
 	fclose(file);
 	return file;

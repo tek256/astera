@@ -64,6 +64,16 @@ typedef unsigned int r_shader;
 #if defined(RENDER_ENABLE_SHADER_CACHE)
 typedef struct {
 	r_shader shader;
+	
+	m4 models[RENDER_BATCH_SIZE];
+	unsigned int tex_ids[RENDER_BATCH_SIZE];
+
+	unsigned short count;
+	unsigned short capacity;
+} r_shader_batch;
+
+typedef struct {
+	r_shader shader;
 	unsigned int values[RENDER_SHADER_VALUE_CACHE];
 	const char* names[RENDER_SHADER_VALUE_CACHE];
 	unsigned short count;
@@ -74,6 +84,7 @@ typedef struct {
 	r_shader shaders[RENDER_SHADER_CACHE];
 	const char* names[RENDER_SHADER_CACHE];
 	r_shader_cache caches[RENDER_SHADER_CACHE];
+	r_shader_batch batches[RENDER_SHADER_CACHE];
 	unsigned int count;
 	unsigned int capacity;	
 } r_shader_map;
@@ -121,24 +132,15 @@ typedef struct {
 	v2 position;
 	m4 model;
 
+	unsigned int c_tex;
 	unsigned char layer;
 	int visible : 1;
 	int change  : 1; //change in position / size
+	unsigned int uid;
 } r_drawable;
 
-typedef struct {
-	m4 models[RENDER_BATCH_SIZE];
-	unsigned short model_count;
-
-	unsigned short tex_ids[RENDER_BATCH_SIZE];
-	unsigned short tex_id_count;
-
-	unsigned char layers[RENDER_BATCH_SIZE];
-	unsigned short layer_count;
-} r_cache;
-
 static r_window g_window;
-static r_cache  g_r_cache;
+static r_camera g_camera;
 
 #if defined(RENDER_ENABLE_ANIM_CACHE)
 static r_anim_cache g_anim_cache;
@@ -148,19 +150,21 @@ static r_anim_cache g_anim_cache;
 static r_shader_map g_shader_map;
 #endif
 
-static int r_init_quad();
+int r_init_quad();
 
 int  r_init();
 void r_exit();
 void r_update(long delta);
 
 r_tex       r_get_tex(const char* fp);
-void        r_bind_tex(r_tex* tex);
+void        r_bind_tex(unsigned int tex);
 
 r_sheet r_get_sheet(const char* fp, unsigned int subwidth, unsigned int subheight);
 
+void r_update_batch(r_shader shader, r_sheet* sheet);
 //NOTE: count required since we're using instanced rendering
-void r_draw_call(r_shader shader, unsigned int count);
+void r_draw_call(r_shader shader, r_sheet* sheet, r_camera* cam);
+void r_simple_draw(r_shader shader, r_drawable* draw, r_sheet* sheet);
 
 static GLuint r_get_sub_shader(const char* filePath, int type);
 r_shader      r_get_shader(const char* vert, const char* frag);
@@ -194,10 +198,10 @@ void r_anim_p(r_animv* anim); //anim play
 void r_anim_s(r_animv* anim); //anim stop
 void r_anim_h(r_animv* anim); //anim halt
 
-r_drawable r_get_drawable(r_anim* anim, v2 size, v2 pos);
-void	   r_update_drawable(r_drawable* drawable);
+r_drawable* r_get_drawable(r_anim* anim, v2 size, v2 pos);
+void	   r_update_drawable(r_drawable* drawable, long delta);
 
-r_camera r_create_camera(v2 size, v2 position);
+void r_create_camera(r_camera* camera, v2 size, v2 position);
 void r_update_camera(r_camera* camera);
 
 void r_set_uniformf(r_shader shader, const char* name, float value);

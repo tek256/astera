@@ -2,6 +2,7 @@
 #define FMGR_H
 
 #include <unistd.h>
+#include <miniz/miniz.h>
 
 #define F_LIB_MAX 256
 
@@ -9,6 +10,7 @@ typedef struct {
 	const char* files[F_LIB_MAX];
 	unsigned int file_count;
 	const char* path;	
+	mz_zip_archive zip;
 	
 	void* _lib;
 	int open: 1;

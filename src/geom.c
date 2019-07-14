@@ -715,13 +715,19 @@ void m4_rotate_z(m4* dst, float angle){
 
 void m4_ortho(m4* dst, float l, float r, float b, float t, float n, float f){
     dst->v[0][0] = 2.f / (r - l);
-    dst->v[0][1] = dst->v[0][2] = dst->v[0][3] = 0.f;
+    dst->v[0][1] = 0.f;
+   	dst->v[0][2] = 0.f; 
+   	dst->v[0][3] = 0.f;
 
     dst->v[1][1] = 2.f / (t - b);
-    dst->v[1][0] = dst->v[1][2] = dst->v[1][3] = 0.f;
+    dst->v[1][0] = 0.f; 
+	dst->v[1][2] = 0.f; 
+	dst->v[1][3] = 0.f;
 
     dst->v[2][2] = -2.f / (f - n);
-    dst->v[2][0] = dst->v[2][1] = dst->v[2][3] = 0.f;
+    dst->v[2][0] = 0.f;
+	dst->v[2][1] = 0.f;
+	dst->v[2][3] = 0.f;
 
     dst->v[3][0] = -(r + l) / (r - l);
     dst->v[3][1] = -(t + b) / (t - b);

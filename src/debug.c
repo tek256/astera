@@ -1,8 +1,7 @@
 #include "debug.h"
-#include "conf.h"
+//#include "conf.h"
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <stdarg.h>
 #include <time.h>
 #include <string.h>
@@ -59,14 +58,25 @@ void dbg_enable_log(int log, const char* fp){
 	}
 }
 
+void _shit_out_m4(m4* m){
+	for(int i=0;i<16;++i){
+		_l("%f ", m->v[i]);
+		if((i%4) == 0){
+			_l("\n");
+		}
+	}	
+}
+
 static char strbuff[STR_BUFF_SIZE];
 void _l(const char* format, ...){
     va_list args;
     va_start(args, format);
 
 	vsprintf(strbuff, format, args);
-	if(!c_is_silent())
+	if(!c_is_silent()){
 		fprintf(stdout, "%s", strbuff);
+	}
+
 	int len = strlen(strbuff);
 
 	if(logging){

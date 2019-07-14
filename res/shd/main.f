@@ -20,4 +20,6 @@ void main(){
             out_c = sample_c * c;
         }
     }
+
+    out_c = vec4(1, 0, 0, 1);
 }

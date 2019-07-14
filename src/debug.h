@@ -3,6 +3,8 @@
 
 #define DBG_VAR_LEN 16 
 
+#include "types.h"
+
 typedef struct {
     const char name[DBG_VAR_LEN];
     char* value;
@@ -17,6 +19,7 @@ void dbg_set_timestamp(int enabled);
 int  dbg_get_logging();
 void dbg_set_log_fp(const char* fp);
 void _fatal(const char* format, ...);
+void _shit_out_m4(m4* m4);
 void _l(const char* format, ...);
 void _e(const char* format, ...);
 int dbg_post_to_err();
