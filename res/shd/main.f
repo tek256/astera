@@ -21,5 +21,5 @@ void main(){
         }
     }
 
-    out_c = vec4(1, 0, 0, 1);
+    //out_c = vec4(1, 0, 0, 1);
 }

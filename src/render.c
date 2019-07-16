@@ -34,12 +34,12 @@ static unsigned int default_quad_vao;
 static char* shader_value_buff[SHADER_STR_SIZE];
 
 int r_init(){
-	r_create_camera(&g_camera, r_res, (v2){0.f, 0.f});
-
 	if(!r_create_window((r_window_info){1280, 720, 0, 0, 0, 60, r_window_title})){ 
 		_e("Unable to create window.\n");
 		return 0;
 	}
+
+	r_create_camera(&g_camera, (v2){128, 72}, (v2){0.f, 0.f});
 
 	#if defined(RENDER_ENABLE_ANIM_CACHE)	
 	g_anim_cache.capacity = RENDER_ANIM_CACHE;
@@ -56,11 +56,21 @@ int r_init(){
 }
 
 void r_create_camera(r_camera* cam, v2 size, v2 position){
+	_l("Hey bitch. We're creating the camera. You identity? %d %d\n", m4_is_ident(&cam->view), m4_is_ident(&cam->proj));
+
 	m4_identity(&cam->view);	
 	m4_identity(&cam->proj);
 
+	_l("YOU IDENTITY NOW?! %d %d\n", m4_is_ident(&cam->view), m4_is_ident(&cam->proj));
+
 	m4_ortho(&cam->proj, 0, size.x, size.y, 0, -10.f, 10.f);
+
 	m4_translate(&cam->view, position.x, position.y, 0.f);
+	m4_rotate_x(&cam->view, 0.0);
+	m4_rotate_y(&cam->view, 0.0);
+	m4_rotate_z(&cam->view, 0.0);
+
+	_l("HOW BOUT NOW?! %d %d\n", m4_is_ident(&cam->view), m4_is_ident(&cam->proj));
 
 	cam->pos = (v3){position.x, position.y, 0.f};
 	cam->size = size;
@@ -77,10 +87,10 @@ void r_update_camera(r_camera* camera){
 }
 
 void r_update(long delta){
-	for(int i=0;i<drawable_count;++i){
-		r_update_drawable(&drawables[i], delta);
-	}
-	r_update_camera(&g_camera);	
+	//for(int i=0;i<drawable_count;++i){
+	//	r_update_drawable(&drawables[i], delta);
+	//}
+	//r_update_camera(&g_camera);	
 }
 
 r_tex r_get_tex(const char* fp){
@@ -109,24 +119,15 @@ r_sheet r_get_sheet(const char* fp, unsigned int subwidth, unsigned int subheigh
 int r_init_quad() {
 	int vao, vbo, vboi;
 	
-	/*float verts[16] = {
-		//pos           //tex
-		-0.5f,  0.5f,   0.f, 1.f
-		-0.5f, -0.5f,   0.f, 0.f,
-		 0.5f,  0.5f,   1.f, 0.f,
-		 0.5f, -0.5f,   1.f, 1.f
-	};*/
-
 	float verts[16] = {
 	    //pos       //tex
-		0.f, 0.f,  0.f, 1.f,
-		0.f, 1.f,   0.f, 0.f,
-		1.f, 1.f,   1.f, 0.f,
-		1.f, 0.f,   1.f, 1.f
+		-0.5f, -0.5f,   0.f, 1.f,
+		-0.5f,  0.5f,   0.f, 0.f,
+		 0.5f,  0.5f,   1.f, 0.f,
+	 	 0.5f, -0.5f,   1.f, 1.f
 	};
 
-
-	int inds[6] = { 
+	unsigned short inds[6] = { 
 		0, 1, 2,
 		2, 3, 0
 	};
@@ -142,11 +143,11 @@ int r_init_quad() {
 	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
 
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vboi);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, 6 * sizeof(int), &inds[0], GL_STATIC_DRAW);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, 6 * sizeof(unsigned short), &inds[0], GL_STATIC_DRAW);
 
 	glBindVertexArray(0);
 			
-	return 1;
+	return vao;
 }
 
 void r_update_batch(r_shader shader, r_sheet* sheet){
@@ -185,22 +186,26 @@ void r_simple_draw(r_shader shader, r_drawable* draw, r_sheet* sheet){
 	if(!shader || !drawable_count) return;
 	
 	r_bind_shader(shader);
+	r_bind_tex(sheet->id);
 
-	v2 sub_size = (v2){ sheet->subwidth, sheet->subheight };
-	v2 tex_size = (v2){ sheet->width, sheet->height };
+	//v2 sub_size = (v2){ sheet->subwidth, sheet->subheight };
+	//v2 tex_size = (v2){ sheet->width, sheet->height };
 
 	//set texture shit
 	//r_set_v2(shader, "sub_size", sub_size);
    	//r_set_v2(shader, "tex_size", tex_size);	
-	
+	//r_set_uniformi(shader, "tex_id", 2);
+
+	//_l("Checking view & projection: view: %d projection: %d\n", m4_is_ident(&g_camera.view), m4_is_ident(&g_camera.proj));
+
 	r_set_m4(shader, "proj", g_camera.proj);
 	r_set_m4(shader, "view", g_camera.view);
 	r_set_m4(shader, "model", draw->model);	
 
-	r_bind_tex(sheet->id);
-
 	//draw instanced
 	glBindVertexArray(default_quad_vao);
+	glEnableVertexAttribArray(0);
+
 	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
 }
 
@@ -739,7 +744,7 @@ int r_get_cached(r_shader shader, const char* uniform){
 #endif
 
 inline int r_get_uniform_loc(r_shader shader, const char* uniform){
-#if defined(RENDER_ENABLE_SHADER_CACHE)
+/*#if defined(RENDER_ENABLE_SHADER_CACHE)
 	int cache_loc = r_get_cached(shader, uniform);
 
 	if(!cache_loc){
@@ -748,9 +753,9 @@ inline int r_get_uniform_loc(r_shader shader, const char* uniform){
 	}	
 
 	return cache_loc;
-#else
+#else*/
 	return glGetUniformLocation(shader, uniform);
-#endif
+//#endif
 }
 
 inline void r_set_uniformf(r_shader shader, const char* name, float value){
@@ -793,20 +798,12 @@ inline void r_set_v2i(int loc, v2 val){
 	glUniform2f(loc, val.x, val.y);
 }
 
-inline void r_set_quat(r_shader shader, const char* name, quat value){
-    glUniform4f(r_get_uniform_loc(shader, name), value.x, value.y, value.z, value.w);
-}
-
-inline void r_set_quati(int loc, quat val){
-	glUniform4f(loc, val.x, val.y, val.z, val.w);
-}
-
 inline void r_set_m4(r_shader shader, const char* name, m4 value){
     glUniformMatrix4fv(r_get_uniform_loc(shader, name), 1, GL_FALSE, &value.v[0][0]);
 }
 
 inline void r_set_m4i(int loc, m4 val){
-	glUniformMatrix4fv(loc, 1, GL_FALSE, &val.v[0][0]);
+	glUniformMatrix4fv(loc, 1, GL_FALSE, &val.v[0]);
 }
 
 void r_set_m4x(r_shader shader, unsigned int count, const char* name, m4* values){
@@ -814,7 +811,7 @@ void r_set_m4x(r_shader shader, unsigned int count, const char* name, m4* values
 
 	for(int i=0;i<count;++i){
 		sprintf(shader_value_buff, "%s[%d]", name, i);
-		glUniformMatrix4fv(r_get_uniform_loc(shader, shader_value_buff), 1, GL_FALSE, &values[i].v[0][0]);
+		glUniformMatrix4fv(r_get_uniform_loc(shader, shader_value_buff), 1, GL_FALSE, &values[i].v[0]);
 
 		memset(shader_value_buff, 0, sizeof(char) * SHADER_STR_SIZE);
 	}
@@ -1007,7 +1004,7 @@ int r_create_window(r_window_info info){
 
     flags.allowed = 1;
 
-    //glEnable(GL_DEPTH_TEST);
+    //glDisable(GL_DEPTH_TEST);
     //glDepthFunc(GL_LESS);
 	glDisable(GL_CULL_FACE);
 
@@ -1018,9 +1015,7 @@ int r_create_window(r_window_info info){
 
     glfwGetWindowPos(g_window.glfw, &g_window.x, &g_window.y);
 
-    glDisable(GL_CULL_FACE);
-
-    v3 color = r_get_color("EEE");
+    v3 color = r_get_color("222");
     glClearColor(color.r, color.g, color.b, 1.f);
 	
 	_l("Setting Callbacks.\n");

@@ -24,7 +24,6 @@ int target_fps = 60;
 int max_fps = 60;
 
 static m_zone mem_zone;
-static c_map conf_map;
 
 int main(int argc, char** argv){
 	#ifdef __MINGW32__
@@ -34,10 +33,7 @@ int main(int argc, char** argv){
 	#endif
 
 	dbg_enable_log(1, "log.txt");
-
 	c_parse_args(argc, argv);
-	c_alloc_map(&conf_map, 128);
-	c_parse_file("test.toml", &conf_map);
 
 
 	if(!r_init()){

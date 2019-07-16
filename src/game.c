@@ -14,7 +14,7 @@ static r_drawable* drawable;
 static r_drawable draws[10];
 
 int g_init(){
-	sheet  = r_get_sheet("res/tex/test_sheet.png", 16, 16);
+	sheet  = r_get_sheet("res/tex/icon.png", 16, 16);
 	shader = r_get_shader("res/shd/test.v", "res/shd/test.f");
 	r_map_shader(shader, "default");
 

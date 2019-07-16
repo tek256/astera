@@ -51,8 +51,10 @@ typedef struct {
 } r_window;
 
 typedef struct {
-	v3 pos, rot;
-	m4 view, proj;
+	v3 pos;
+	v3 rot;
+	m4 view;
+	m4 proj;
 	v2 size;
 	float fov;
 	float near;
@@ -209,7 +211,6 @@ void r_set_uniformi(r_shader shader, const char* name, int value);
 void r_set_v4(r_shader shader, const char* name, v4 value);
 void r_set_v3(r_shader shader, const char* name, v3 value);
 void r_set_v2(r_shader shader, const char* name, v2 value);
-void r_set_quat(r_shader shader, const char* name, quat value);
 void r_set_m4(r_shader shader, const char* name, m4 value);
 
 void r_set_m4x(r_shader shader, unsigned int count, const char* name, m4* values);
@@ -224,7 +225,6 @@ void r_set_uniformii(int loc, int val);
 void r_set_v4i(int loc, v4 val);
 void r_set_v3i(int loc, v3 val);
 void r_set_v2i(int loc, v2 val);
-void r_set_quati(int loc, quat val);
 void r_set_m4i(int loc, m4 val);
 
 static void r_create_modes();

@@ -8,6 +8,8 @@ uniform mat4 view;
 uniform vec2 tex_size;
 uniform vec2 sub_size;
 
+uniform int tex_id;
+
 uniform int tex_ids[128];
 uniform mat4 models[128];
 
@@ -19,7 +21,7 @@ out vec2 o_texc;
 void main(){
 	vec2 m_pos = in_pos.xy;
 	vec2 m_texc = in_pos.zw;
-	int tex_id = tex_ids[gl_InstanceID];
+	int _tex_id = tex_ids[gl_InstanceID];
 
 	if(flip_x == 1){
 		m_texc.x = 1 - m_texc.x;
@@ -30,7 +32,7 @@ void main(){
 	}
 
 	int per_width = int(tex_size.x / sub_size.x);
-	vec2 offset = vec2(sub_size.x * (tex_id % per_width), sub_size.y * (tex_id / per_width));
+	vec2 offset = vec2(sub_size.x * (_tex_id % per_width), sub_size.y * (_tex_id / per_width));
 	
 	m_texc = (offset / tex_size) + (sub_size / tex_size) * m_texc;	
 

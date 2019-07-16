@@ -11,5 +11,5 @@ out vec2 out_tc;
 void main(){
 	out_tc = vert.zw;
 
-	gl_Position = proj * view * model * vec4(vert.xy, 0.f, 1.f);
+	gl_Position = proj * view * model * vec4(vert.xy, 1.f, 1.f);
 }
