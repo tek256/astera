@@ -1,6 +1,6 @@
 - INTERNAL ENGINE
-> Finalize rendering (2D)
-> User Configuration Loading
+/ Finalize rendering (2D)
+x User Configuration Loading
 > File Loading / Decompression
 > Level Loading & Saving
 > User & Enemy States

@@ -3,7 +3,7 @@
 
 #include <AL/alc.h>
 #include <AL/al.h>
-#include "geom.h"
+#include <linmath.h>
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -12,6 +12,8 @@
 #include <stb/stb_vorbis.c>
 
 #include <string.h>
+
+#include "conf.h"
 
 #define MAX_AUDIO_SOURCES_PER_LAYER 32
 #define MAX_AUDIO_LAYERS 4
@@ -23,6 +25,8 @@
 #define MAX_MUSIC_RUNTIME 4096
 
 #define MAX_QUICK_SFX 8
+
+#define MAX_SOURCES_PER_LAYER 32
 
 #define CACHE_AUDIO_FILES
 
@@ -62,16 +66,25 @@ typedef struct {
 
 typedef struct {
     unsigned int id;
-    v3  position;
+    vec3  position;
     float range, gain;
     int   has_sound;
     int   loop;
 } a_src;
 
 typedef struct {
+	unsigned int id;
+	float gain;
+	unsigned int count;
+	a_src sources[MAX_SOURCES_PER_LAYER];
+} a_layer;
+
+typedef struct {
     unsigned int id;
     a_src source;
 } a_sfx;
+
+static float master_gain = 0.8f;
 
 static a_sfx a_qsfx[MAX_QUICK_SFX];
 static int a_sfx_playing = 0;
@@ -97,7 +110,7 @@ typedef struct a_file {
 static a_file audio_files[MAX_AUDIO_FILES];
 static int    audio_file_count = 0;
 
-int          a_init();
+int          a_init(c_conf conf);
 void		 a_update(long delta);
 void         a_exit();
 
@@ -137,7 +150,7 @@ void         a_stop_music(a_music* music);
 void         a_resume_music(a_music* music);
 void         a_pause_music(a_music* music);
 ALenum       a_get_music_state(a_music* music);
-a_src        a_create_source(v3 position, float range, unsigned int buffer);
+a_src        a_create_source(vec3 position, float range, unsigned int buffer);
 
 void         a_destroy_source(a_src source);
 void         a_play_source(a_src* source);
@@ -146,7 +159,7 @@ void         a_stop_source(a_src* source);
 int          a_src_state(a_src* source);
 void         a_clean_sources(a_src* sources, int count);
 
-int          a_play_sfx(a_buf* buffer, float gain, v2 pos);
+int          a_play_sfx(a_buf* buffer, float gain, vec2 pos);
 void         a_pause_sfx(int index);
 void         a_stop_sfx(int index);
 int          a_is_sfx_buffer(int index, a_buf* buffer);

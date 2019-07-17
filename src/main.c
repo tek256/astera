@@ -17,13 +17,12 @@
 #include "game.h"
 #include "mem.h"
 
-#define MS_PER_SEC 1000
-#define NS_PER_SEC MS_PER_SEC * 1000
-
 int target_fps = 60;
 int max_fps = 60;
 
 static m_zone mem_zone;
+
+c_conf conf;
 
 int main(int argc, char** argv){
 	#ifdef __MINGW32__
@@ -34,13 +33,14 @@ int main(int argc, char** argv){
 
 	dbg_enable_log(1, "log.txt");
 	c_parse_args(argc, argv);
+	
+	conf = c_parse_file("res/conf.ini");
 
-
-	if(!r_init()){
+	if(!r_init(conf)){
 		_fatal("Unable to initialize rendering system.\n");	
 	}
 
-	if(!a_init()){
+	if(!a_init(conf)){
 		_fatal("Unable to initialize audio system.\n");
 	}
 

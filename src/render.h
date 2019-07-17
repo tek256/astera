@@ -4,10 +4,12 @@
 #include <glad/gl.h>
 #include <GLFW/glfw3.h>
 
+#include <linmath.h>
+
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "geom.h"
+#include "conf.h"
 
 #define R_ANIM_STOP 0
 #define R_ANIM_PLAY 1
@@ -51,11 +53,11 @@ typedef struct {
 } r_window;
 
 typedef struct {
-	v3 pos;
-	v3 rot;
-	m4 view;
-	m4 proj;
-	v2 size;
+	vec3 pos;
+	vec3 rot;
+	mat4x4 view;
+	mat4x4 proj;
+	vec2 size;
 	float fov;
 	float near;
 	float far;
@@ -67,7 +69,7 @@ typedef unsigned int r_shader;
 typedef struct {
 	r_shader shader;
 	
-	m4 models[RENDER_BATCH_SIZE];
+	mat4x4 models[RENDER_BATCH_SIZE];
 	unsigned int tex_ids[RENDER_BATCH_SIZE];
 
 	unsigned short count;
@@ -130,9 +132,9 @@ typedef struct {
 
 typedef struct {
 	r_animv anim;
-	v2 size;
-	v2 position;
-	m4 model;
+	vec2 size;
+	vec2 position;
+	mat4x4 model;
 
 	unsigned int c_tex;
 	unsigned char layer;
@@ -154,7 +156,7 @@ static r_shader_map g_shader_map;
 
 int r_init_quad();
 
-int  r_init();
+int  r_init(c_conf conf);
 void r_exit();
 void r_update(long delta);
 
@@ -183,7 +185,7 @@ void          r_remove_from_cache(r_shader shader);
 
 int  r_hex_number(char v);
 int  r_hex_multi(char* v, int len);
-v3   r_get_color(char* v);
+void  r_get_color(vec3 val, char* v);
 
 int r_is_anim_cache();
 int r_is_shader_cache();
@@ -200,32 +202,32 @@ void r_anim_p(r_animv* anim); //anim play
 void r_anim_s(r_animv* anim); //anim stop
 void r_anim_h(r_animv* anim); //anim halt
 
-r_drawable* r_get_drawable(r_anim* anim, v2 size, v2 pos);
+r_drawable* r_get_drawable(r_anim* anim, vec2 size, vec2 pos);
 void	   r_update_drawable(r_drawable* drawable, long delta);
 
-void r_create_camera(r_camera* camera, v2 size, v2 position);
+void r_create_camera(r_camera* camera, vec2 size, vec2 position);
 void r_update_camera(r_camera* camera);
 
 void r_set_uniformf(r_shader shader, const char* name, float value);
 void r_set_uniformi(r_shader shader, const char* name, int value);
-void r_set_v4(r_shader shader, const char* name, v4 value);
-void r_set_v3(r_shader shader, const char* name, v3 value);
-void r_set_v2(r_shader shader, const char* name, v2 value);
-void r_set_m4(r_shader shader, const char* name, m4 value);
+void r_set_v4(r_shader shader, const char* name, vec4 value);
+void r_set_v3(r_shader shader, const char* name, vec3 value);
+void r_set_v2(r_shader shader, const char* name, vec2 value);
+void r_set_m4(r_shader shader, const char* name, mat4x4 value);
 
-void r_set_m4x(r_shader shader, unsigned int count, const char* name, m4* values);
+void r_set_m4x(r_shader shader, unsigned int count, const char* name, mat4x4* values);
 void r_set_ix(r_shader shader, unsigned int count, const char* name, int* values);
 void r_set_fx(r_shader shader, unsigned int count, const char* name, float* values);
-void r_set_v2x(r_shader shader, unsigned int count, const char* name, v2* values);
-void r_set_v3x(r_shader shader, unsigned int count, const char* name, v3* values);
-void r_set_v4x(r_shader shader, unsigned int count, const char* name, v4* values);
+void r_set_v2x(r_shader shader, unsigned int count, const char* name, vec2* values);
+void r_set_v3x(r_shader shader, unsigned int count, const char* name, vec3* values);
+void r_set_v4x(r_shader shader, unsigned int count, const char* name, vec4* values);
 
 void r_set_uniformfi(int loc, float val);
 void r_set_uniformii(int loc, int val);
-void r_set_v4i(int loc, v4 val);
-void r_set_v3i(int loc, v3 val);
-void r_set_v2i(int loc, v2 val);
-void r_set_m4i(int loc, m4 val);
+void r_set_v4i(int loc, vec4 val);
+void r_set_v3i(int loc, vec3 val);
+void r_set_v2i(int loc, vec2 val);
+void r_set_m4i(int loc, mat4x4 val);
 
 static void r_create_modes();
 static int  r_window_info_valid(r_window_info info);

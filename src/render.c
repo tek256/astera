@@ -1,21 +1,19 @@
 //TODO
 //
-// 1. Optimize tree allocation into heap & contiguous array
-// 2. Implement proper shader cache
-// 3. Implement area based culling of renderables (game.c maybe)
+// 1. Implement proper shader cache
+// 2. Implement area based culling of renderables (game.c maybe)
+// 3. Flesh out render tree
 
 #include "render.h"
-
 #include <glad_gl.c>
-
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb/stb_image.h>
+#include <string.h>
 
 #include "input.h"
 #include "sys.h"
 #include "debug.h"
 
-#include <string.h>
 
 static r_flags flags;
 
@@ -23,7 +21,7 @@ static const char* r_window_title = "demo";
 static r_window_info g_window_info;
 static GLFWmonitor* r_default_monitor;
 static const GLFWvidmode* r_vidmodes;
-static v2 r_res;
+static vec2 r_res;
 
 static r_drawable drawables[RENDER_BATCH_SIZE];
 static int drawable_count = 0;
@@ -33,13 +31,24 @@ static unsigned int default_quad_vao;
 
 static char* shader_value_buff[SHADER_STR_SIZE];
 
-int r_init(){
-	if(!r_create_window((r_window_info){1280, 720, 0, 0, 0, 60, r_window_title})){ 
+int r_init(c_conf conf){
+	r_window_info info;
+	info.width = conf.width;
+	info.height = conf.height;
+	info.fullscreen = conf.fullscreen;
+	info.vsync = conf.vsync;
+	info.borderless = conf.borderless;
+	info.refreshRate = conf.refreshRate;
+	info.title = r_window_title; 
+
+	if(!r_create_window(info)){ 
 		_e("Unable to create window.\n");
 		return 0;
 	}
 
-	r_create_camera(&g_camera, (v2){128, 72}, (v2){0.f, 0.f});
+	r_center_window();
+
+	r_create_camera(&g_camera, (vec2){r_res[0], r_res[1]}, (vec2){0.f, 0.f});
 
 	#if defined(RENDER_ENABLE_ANIM_CACHE)	
 	g_anim_cache.capacity = RENDER_ANIM_CACHE;
@@ -55,35 +64,28 @@ int r_init(){
 	return 1;
 }
 
-void r_create_camera(r_camera* cam, v2 size, v2 position){
-	_l("Hey bitch. We're creating the camera. You identity? %d %d\n", m4_is_ident(&cam->view), m4_is_ident(&cam->proj));
+void r_create_camera(r_camera* cam, vec2 size, vec2 position){
+	mat4x4_ortho(&cam->proj, 0, -size[0], size[1], 0, -10.f, 10.f);
 
-	m4_identity(&cam->view);	
-	m4_identity(&cam->proj);
+	mat4x4_translate(&cam->view, position[0], position[1], 0.f);
+	mat4x4_rotate_x(&cam->view, cam->view, 0.0);
+	mat4x4_rotate_y(&cam->view, cam->view, 0.0);
+	mat4x4_rotate_z(&cam->view, cam->view,  0.0);
 
-	_l("YOU IDENTITY NOW?! %d %d\n", m4_is_ident(&cam->view), m4_is_ident(&cam->proj));
-
-	m4_ortho(&cam->proj, 0, size.x, size.y, 0, -10.f, 10.f);
-
-	m4_translate(&cam->view, position.x, position.y, 0.f);
-	m4_rotate_x(&cam->view, 0.0);
-	m4_rotate_y(&cam->view, 0.0);
-	m4_rotate_z(&cam->view, 0.0);
-
-	_l("HOW BOUT NOW?! %d %d\n", m4_is_ident(&cam->view), m4_is_ident(&cam->proj));
-
-	cam->pos = (v3){position.x, position.y, 0.f};
-	cam->size = size;
+	//cam->pos = (vec3){position[0], position[1], 0.f};
+	vec3_dup(cam->pos, (vec3){position[0], position[1], 0.f});
+	vec2_dup(cam->size, size);
+	//cam->size = size;
 	cam->near = -10.f;
 	cam->far = 10.f;
 }
 
 void r_update_camera(r_camera* camera){
-	m4_identity(&camera->view);
-	m4_identity(&camera->proj);
+	mat4x4_identity(&camera->view);
+	mat4x4_identity(&camera->proj);
 
-	m4_ortho(&camera->proj, 0, camera->size.x, camera->size.y, 0, camera->near, camera->far);
-	m4_translate(&camera->view, camera->pos.x, camera->pos.y, 0.f);
+	mat4x4_ortho(&camera->proj, 0, camera->size[0], camera->size[1], 0, camera->near, camera->far);
+	mat4x4_translate(&camera->view, camera->pos[0], camera->pos[1], 0.f);
 }
 
 void r_update(long delta){
@@ -121,10 +123,10 @@ int r_init_quad() {
 	
 	float verts[16] = {
 	    //pos       //tex
-		-0.5f, -0.5f,   0.f, 1.f,
-		-0.5f,  0.5f,   0.f, 0.f,
-		 0.5f,  0.5f,   1.f, 0.f,
-	 	 0.5f, -0.5f,   1.f, 1.f
+		-0.5f, -0.5f,   1.f, 0.f,
+		-0.5f,  0.5f,   1.f, 1.f,
+		 0.5f,  0.5f,   0.f, 1.f,
+	 	 0.5f, -0.5f,   0.f, 0.f
 	};
 
 	unsigned short inds[6] = { 
@@ -175,7 +177,7 @@ void r_update_batch(r_shader shader, r_sheet* sheet){
 			break;
 		}
 
-		cache->models[cache->count] = drawables[i].model;
+		mat4x4_dup(cache->models[cache->count], drawables[i].model);
 		cache->tex_ids[cache->count] = drawables[i].c_tex;
 		cache->count ++;
 	}
@@ -188,15 +190,15 @@ void r_simple_draw(r_shader shader, r_drawable* draw, r_sheet* sheet){
 	r_bind_shader(shader);
 	r_bind_tex(sheet->id);
 
-	//v2 sub_size = (v2){ sheet->subwidth, sheet->subheight };
-	//v2 tex_size = (v2){ sheet->width, sheet->height };
+	//vec2 sub_size = (v2){ sheet->subwidth, sheet->subheight };
+	//vec2 tex_size = (v2){ sheet->width, sheet->height };
 
 	//set texture shit
-	//r_set_v2(shader, "sub_size", sub_size);
-   	//r_set_v2(shader, "tex_size", tex_size);	
+	//r_set_vec2(shader, "sub_size", sub_size);
+   	//r_set_vec2(shader, "tex_size", tex_size);	
 	//r_set_uniformi(shader, "tex_id", 2);
 
-	//_l("Checking view & projection: view: %d projection: %d\n", m4_is_ident(&g_camera.view), m4_is_ident(&g_camera.proj));
+	//_l("Checking view & projection: view: %d projection: %d\n", mat4x4_is_ident(&g_camera.view), mat4x4_is_ident(&g_camera.proj));
 
 	r_set_m4(shader, "proj", g_camera.proj);
 	r_set_m4(shader, "view", g_camera.view);
@@ -233,8 +235,8 @@ void r_draw_call(r_shader shader, r_sheet* sheet, r_camera* cam){
   	r_set_ix(shader, drawable_count, "tex_ids", cache->tex_ids);
 #endif
 
-	v2 sub_size = (v2){ sheet->subwidth, sheet->subheight };
-	v2 tex_size = (v2){ sheet->width, sheet->height };
+	vec2 sub_size = (vec2){ sheet->subwidth, sheet->subheight };
+	vec2 tex_size = (vec2){ sheet->width, sheet->height };
 
 	//set texture shit
 	r_set_v2(shader, "sub_size", sub_size);
@@ -251,7 +253,7 @@ void r_draw_call(r_shader shader, r_sheet* sheet, r_camera* cam){
 
 #if defined(RENDER_ENABLE_SHADER_CACHE)
 	memset(cache->tex_ids, 0, sizeof(unsigned int) * cache->count);
-	memset(cache->models, 0, sizeof(m4) * cache->count);
+	memset(cache->models, 0, sizeof(mat4x4) * cache->count);
 	cache->count = 0;
 #endif
 }
@@ -259,35 +261,6 @@ void r_draw_call(r_shader shader, r_sheet* sheet, r_camera* cam){
 void r_exit(){
 	r_destroy_window(g_window);
 	glfwTerminate();
-}
-
-v3 r_get_hex_color(const char* hex){
-    int len = strlen(hex);
-    int start = 0;
-
-    if(len == 4){
-        len = 3;
-        start = 1;
-    }else if(len == 7){
-        len = 6;
-        start = 1;
-    }
-
-    v3 val = {0.f};
-
-    if(len == 6){
-        for(int i=start;i<len;i+=2){
-            int res = (int)strtol(&hex[i], NULL, 16);
-            val.v[(i-start) / len] = res / 255.f;
-        }
-    }else if(len == 3){
-        for(int i=start;i<len;++i){
-            int res = (int)strtol(&hex[i], NULL, 8);
-            val.v[(i-start) / len] = res / 255.f;
-        }
-    }else{
-        printf("Incorrect length of hex string: %i\n", len);
-    }
 }
 
 int r_is_anim_cache(){
@@ -536,7 +509,7 @@ int r_hex_multi(char* v, int len){
   }
 }
 
-v3 r_get_color(char* v){
+void r_get_color(vec3 val, char* v){
   int len = strlen(v);
   int offset = 0;
   if(len == 4){
@@ -547,19 +520,15 @@ v3 r_get_color(char* v){
       len = 6;
   }
 
-  v3 val = {0.f};
-
   if(len == 3){
-      val.x = r_hex_multi(&v[offset], 1)   / 255.f;
-      val.y = r_hex_multi(&v[offset+1], 1) / 255.f;
-      val.z = r_hex_multi(&v[offset+2], 1) / 255.f;
+      val[0] = r_hex_multi(&v[offset], 1)   / 255.f;
+      val[1] = r_hex_multi(&v[offset+1], 1) / 255.f;
+      val[2] = r_hex_multi(&v[offset+2], 1) / 255.f;
   }else if(len == 6){
-      val.x = r_hex_multi(&v[offset], 2)   / 255.f;
-      val.y = r_hex_multi(&v[offset+2], 2) / 255.f;
-      val.z = r_hex_multi(&v[offset+4], 2) / 255.f;
+      val[0] = r_hex_multi(&v[offset], 2)   / 255.f;
+      val[1] = r_hex_multi(&v[offset+2], 2) / 255.f;
+      val[2] = r_hex_multi(&v[offset+4], 2) / 255.f;
   }
-
-  return val;
 }
 
 r_anim  r_get_anim(r_sheet* sheet, int* frames, unsigned short frame_count, unsigned char frame_rate){
@@ -624,7 +593,7 @@ void r_anim_h(r_animv* anim){
 	anim->state = R_ANIM_PAUSE;
 }
 
-r_drawable* r_get_drawable(r_anim* anim, v2 size, v2 pos){
+r_drawable* r_get_drawable(r_anim* anim, vec2 size, vec2 pos){
 	r_drawable* draw;
 
 	if(drawable_count < RENDER_BATCH_SIZE){
@@ -634,13 +603,12 @@ r_drawable* r_get_drawable(r_anim* anim, v2 size, v2 pos){
 		drawable_uid ++;	
 	}
 	
-	m4_identity(&draw->model);
-	
-	m4_size_scale(&draw->model, draw->model, size.x * 100.f, size.y * 100.f, 1.f);
-	m4_translate(&draw->model, pos.x, pos.y, 0.f);
+	mat4x4_identity(&draw->model);	
+	mat4x4_translate(&draw->model, pos[0], pos[1], 0.f);
+	mat4x4_scale_aniso(&draw->model, draw->model, size[0] * 100.f, size[1] * 100.f, 1.f);
 
-	draw->size = size;
-	draw->position = pos;
+	vec2_dup(draw->size, size);
+	vec2_dup(draw->position, pos);
 	draw->anim = r_v_anim(anim);
 	draw->layer = 0;
 	draw->visible = 1;
@@ -652,9 +620,9 @@ r_drawable* r_get_drawable(r_anim* anim, v2 size, v2 pos){
 void r_update_drawable(r_drawable* drawable, long delta){
 	//matrix update check
 	if(drawable->change){
-		m4_identity(&drawable->model);
-		m4_size_scale(&drawable->model, drawable->model, drawable->size.x * 100.f, drawable->size.y * 100.f, 1.f);
-		m4_translate(&drawable->model, drawable->position.x, drawable->position.y, 0.f);
+		mat4x4_identity(&drawable->model);
+		mat4x4_translate(&drawable->model, drawable->position[0], drawable->position[1], 0.f);
+		mat4x4_scale_aniso(drawable->model, drawable->model, drawable->size[0] * 100.f, drawable->size[1] * 100.f, drawable->size[2] * 1.f);
 
 		//reset bit flag
 		drawable->change = 0;
@@ -774,44 +742,44 @@ inline void r_set_uniformii(int loc, int val){
 	glUniform1i(loc, val);
 }
 
-inline void r_set_v4(r_shader shader, const char* name, v4 value){
-    glUniform4f(r_get_uniform_loc(shader, name), value.x, value.y, value.z, value.w);
+inline void r_set_v4(r_shader shader, const char* name, vec4 value){
+    glUniform4f(r_get_uniform_loc(shader, name), value[0], value[1], value[2], value[3]);
 }
 
-inline void r_set_v4i(int loc, v4 value){
-	glUniform4f(loc, value.x, value.y, value.z, value.w);
+inline void r_set_v4i(int loc, vec4 value){
+	glUniform4f(loc, value[0], value[1], value[2], value[3]);
 }
 
-inline void r_set_v3(r_shader shader, const char* name, v3 value){
-    glUniform3f(r_get_uniform_loc(shader, name), value.x, value.y, value.z);
+inline void r_set_v3(r_shader shader, const char* name, vec3 value){
+    glUniform3f(r_get_uniform_loc(shader, name), value[0], value[1], value[2]);
 }
 
-inline void r_set_v3i(int loc, v3 val){
-	glUniform3f(loc, val.x, val.y, val.z);
+inline void r_set_v3i(int loc, vec3 val){
+	glUniform3f(loc, val[0], val[1], val[2]);
 }
 
-inline void r_set_v2(r_shader shader, const char* name, v2 value){
-    glUniform2f(r_get_uniform_loc(shader, name), value.x, value.y);
+inline void r_set_v2(r_shader shader, const char* name, vec2 value){
+    glUniform2f(r_get_uniform_loc(shader, name), value[0], value[1]);
 }
 
-inline void r_set_v2i(int loc, v2 val){
-	glUniform2f(loc, val.x, val.y);
+inline void r_set_v2i(int loc, vec2 val){
+	glUniform2f(loc, val[0], val[1]);
 }
 
-inline void r_set_m4(r_shader shader, const char* name, m4 value){
-    glUniformMatrix4fv(r_get_uniform_loc(shader, name), 1, GL_FALSE, &value.v[0][0]);
+inline void r_set_m4(r_shader shader, const char* name, mat4x4 value){
+    glUniformMatrix4fv(r_get_uniform_loc(shader, name), 1, GL_FALSE, value);
 }
 
-inline void r_set_m4i(int loc, m4 val){
-	glUniformMatrix4fv(loc, 1, GL_FALSE, &val.v[0]);
+inline void r_set_m4i(int loc, mat4x4 val){
+	glUniformMatrix4fv(loc, 1, GL_FALSE, val);
 }
 
-void r_set_m4x(r_shader shader, unsigned int count, const char* name, m4* values){
+void r_set_m4x(r_shader shader, unsigned int count, const char* name, mat4x4* values){
 	if(!count) return;
 
 	for(int i=0;i<count;++i){
 		sprintf(shader_value_buff, "%s[%d]", name, i);
-		glUniformMatrix4fv(r_get_uniform_loc(shader, shader_value_buff), 1, GL_FALSE, &values[i].v[0]);
+		glUniformMatrix4fv(r_get_uniform_loc(shader, shader_value_buff), 1, GL_FALSE, values[i]);
 
 		memset(shader_value_buff, 0, sizeof(char) * SHADER_STR_SIZE);
 	}
@@ -839,34 +807,34 @@ void r_set_fx(r_shader shader, unsigned int count, const char* name, float* valu
 	}
 }
 
-void r_set_v2x(r_shader shader, unsigned int count, const char* name, v2* values){
+void r_set_v2x(r_shader shader, unsigned int count, const char* name, vec2* values){
 	if(!count) return;
 
 	for(int i=0;i<count;++i){
 		sprintf(shader_value_buff, "%s[%d]", name, i);
-		glUniform2f(r_get_uniform_loc(shader, shader_value_buff), values[i].x, values[i].y);
+		glUniform2f(r_get_uniform_loc(shader, shader_value_buff), values[i][0], values[i][1]);
 
 		memset(shader_value_buff, 0, sizeof(char) * SHADER_STR_SIZE);
 	}
 }
 
-void r_set_v3x(r_shader shader, unsigned int count, const char* name, v3* values){
+void r_set_v3x(r_shader shader, unsigned int count, const char* name, vec3* values){
 	if(!count) return;
 
 	for(int i=0;i<count;++i){
 		sprintf(shader_value_buff, "%s[%d]", name, i);
-		glUniform3f(r_get_uniform_loc(shader, shader_value_buff), values[i].x, values[i].y, values[i].z);
+		glUniform3f(r_get_uniform_loc(shader, shader_value_buff), values[i][0], values[i][1], values[i][2]);
 
 		memset(shader_value_buff, 0, sizeof(char) * SHADER_STR_SIZE);
 	}
 }
 
-void r_set_v4x(r_shader shader, unsigned int count, const char* name, v4* values){
+void r_set_v4x(r_shader shader, unsigned int count, const char* name, vec4* values){
 	if(!count) return;
 
 	for(int i=0;i<count;++i){
 		sprintf(shader_value_buff, "%s[%d]", name, i);
-		glUniform4f(r_get_uniform_loc(shader, shader_value_buff), values[i].x, values[i].y, values[i].z, values[i].w);
+		glUniform4f(r_get_uniform_loc(shader, shader_value_buff), values[i][0], values[i][1], values[i][2], values[i][3]);
 
 		memset(shader_value_buff, 0, sizeof(char) * SHADER_STR_SIZE);
 	}
@@ -917,10 +885,10 @@ static const GLFWvidmode* r_find_best_mode(){
     int value = selected->width + selected->height * (selected->refreshRate * 2);
 
     for(int i=0;i<flags.video_mode_count;++i){
-        int v2 = r_vidmodes[i].width + r_vidmodes[i].height * (r_vidmodes[i].refreshRate * 2);
-        if(v2 > value){
+        int vec2 = r_vidmodes[i].width + r_vidmodes[i].height * (r_vidmodes[i].refreshRate * 2);
+        if(vec2 > value){
             selected = &r_vidmodes[i];
-            value = v2;
+            value = vec2;
         }
     }
 
@@ -928,7 +896,7 @@ static const GLFWvidmode* r_find_best_mode(){
 }
 
 int r_create_window(r_window_info info){
-    if(!info.fullscreen && !r_window_info_valid(info)){
+    if(!r_window_info_valid(info)){
         return 0;
     }
 
@@ -961,14 +929,20 @@ int r_create_window(r_window_info info){
         glfwWindowHint(GLFW_BLUE_BITS, selected_mode->blueBits);
         glfwWindowHint(GLFW_REFRESH_RATE, selected_mode->refreshRate);
 
+		r_default_monitor = glfwGetPrimaryMonitor();
+
         g_window.refreshRate = selected_mode->refreshRate;
         g_window.width = selected_mode->width;
         g_window.height = selected_mode->height;
         g_window.fullscreen = 1;
+
+        vec2_dup(r_res, (vec2){selected_mode->width, selected_mode->height});
+
         window = glfwCreateWindow(selected_mode->width, selected_mode->height, info.title, r_default_monitor, NULL);
     }else{
         glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
-        glfwWindowHint(GLFW_DECORATED, info.borderless ? GLFW_FALSE : GLFW_TRUE);
+		_l("Borderless: %d\n", info.borderless);
+        glfwWindowHint(GLFW_DECORATED, (info.borderless == 0) ? GLFW_TRUE : GLFW_FALSE);
 
         if(info.refreshRate > 0){
             glfwWindowHint(GLFW_REFRESH_RATE, info.refreshRate);
@@ -978,12 +952,16 @@ int r_create_window(r_window_info info){
         g_window.width = info.width;
         g_window.height = info.height;
 
-        r_res = (v2){info.width, info.height};
+        vec2_dup(r_res, (vec2){info.width, info.height});
 
         g_window.fullscreen = 0;
-        g_window.vsync = 0;
+		g_window.vsync = info.vsync;
+		
 
         window = glfwCreateWindow(info.width, info.height, info.title, NULL, NULL);
+		if(g_window.vsync){
+			glfwSwapInterval(1);
+		}
     }
 
 	_l("Loaded window settings.\n");
@@ -1015,8 +993,9 @@ int r_create_window(r_window_info info){
 
     glfwGetWindowPos(g_window.glfw, &g_window.x, &g_window.y);
 
-    v3 color = r_get_color("222");
-    glClearColor(color.r, color.g, color.b, 1.f);
+    vec3 color;
+	r_get_color(color, "222");
+    glClearColor(color[0], color[1], color[2], 1.f);
 	
 	_l("Setting Callbacks.\n");
 

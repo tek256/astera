@@ -14,13 +14,7 @@
 #undef STB_VORBIS_HEADER_ONLY
 #include <stb/stb_vorbis.c>
 
-/*typedef struct {
-    unsigned int id;
-    a_src source;
-} a_sfx;*/
-
-//TODO fix initialization
-int a_init(){
+int a_init(c_conf conf){
 	if(!a_load_devices()){
 		_e("Unable to load audio devices\n");
 		return -1;
@@ -43,7 +37,6 @@ int a_init(){
 }
 
 void a_exit(){
-	//TODO	
 	a_destroy_context();	
 }
 
@@ -182,7 +175,7 @@ int a_create_context(const char* deviceName){
 
     for(int i=0;i<MAX_QUICK_SFX;++i){
         a_qsfx[i].id = i;
-        a_qsfx[i].source = a_create_source((v3){0.f}, 10.f, 0);
+        a_qsfx[i].source = a_create_source((vec3){0.f}, 10.f, 0);
     }
 
     return 1;
@@ -515,23 +508,28 @@ int a_get_music_state(a_music* music){
     return state;
 }
 
-a_src a_create_source(v3 position, float range, unsigned int buffer){
+a_src a_create_source(vec3 position, float range, unsigned int buffer){
     unsigned id;
     alGenSources(1, &id);
 
-    if(&position == NULL){
-        position = (v3){0.0f, 0.0f, 0.0f};
-    }
-
-    alSourcefv(id, AL_POSITION, &position.v[0]);
+    alSourcefv(id, AL_POSITION, position);
     alSourcef(id, AL_GAIN, 1.0f);
     alSourcei(id, AL_LOOPING, AL_FALSE);
 
+	a_src src;
+
     if(buffer != 0){
         alSourcei(id, AL_BUFFER, buffer);
-        return (a_src){id, position, range, 1.0f, 1, 0};
+		src.has_sound = 1;
     }
-    return (a_src){id, position, range, 1.0f, 0, 0};
+
+	src.id = id;
+	vec3_dup(src.position, position);
+	src.range = range;
+	src.gain = 1.f;
+	src.loop = 0;
+
+	return src;
 }
 
 void a_destroy_source(a_src source){
@@ -569,7 +567,7 @@ static int a_get_open_sfx(){
     return -1;
 }
 
-int a_play_sfx(a_buf* buffer, float gain, v2 pos){
+int a_play_sfx(a_buf* buffer, float gain, vec2 pos){
     int sfx_slot = 1;
 
     if(sfx_slot == -1){
@@ -578,7 +576,7 @@ int a_play_sfx(a_buf* buffer, float gain, v2 pos){
     }
 
     alSourcef (a_qsfx[sfx_slot].source.id, AL_GAIN, 1.f);
-    alSource3f(a_qsfx[sfx_slot].source.id, AL_POSITION, pos.x, pos.y, 0.f);
+    alSource3f(a_qsfx[sfx_slot].source.id, AL_POSITION, pos[0], pos[1], 0.f);
     alSource3f(a_qsfx[sfx_slot].source.id, AL_VELOCITY, 0.f, 0.f, 0.f);
 
     alSourcei(a_qsfx[sfx_slot].source.id, AL_BUFFER, buffer->id);

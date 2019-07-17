@@ -38,7 +38,7 @@ int    t_is_time_before(time_s a, time_s b);
 int    t_is_time_after(time_s a,time_s b);
 
 int   t_cmp_timer_names(const char a[TIMER_NAME_LENGTH], const char b[TIMER_NAME_LENGTH]);
-void   t_cpy_timer_names(char dst[TIMER_NAME_LENGTH], const char src[TIMER_NAME_LENGTH]);
+void  t_cpy_timer_names(char dst[TIMER_NAME_LENGTH], const char src[TIMER_NAME_LENGTH]);
 
 timer_s* t_get_timer(const char name[TIMER_NAME_LENGTH]);
 void     t_end_timer(const char name[TIMER_NAME_LENGTH]);
