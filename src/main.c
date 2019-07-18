@@ -55,6 +55,7 @@ int main(int argc, char** argv){
 
 	double delta;
 	double accum = timeframe;
+	int vsync = conf.vsync;
 
 	while(!r_should_close() && !d_fatal){
 		last = curr;
@@ -78,37 +79,39 @@ int main(int argc, char** argv){
 		double n_time_frame = timeframe;
 		int t_fps;
 		int l_fps = target_fps;
+		
+		if(!vsync){
+			if(accum > 0){
+				n_time_frame -= accum;
+				t_fps = (int)((double)MS_PER_SEC / n_time_frame);
 
-		if(accum > 0){
-			n_time_frame -= accum;
-			t_fps = (int)((double)MS_PER_SEC / n_time_frame);
+				if(t_fps > max_fps){
+					t_fps = max_fps;
+				}else if(t_fps > 0){
+					target_fps = t_fps;
+				}
 
-			if(t_fps > max_fps){
-				t_fps = max_fps;
-			}else if(t_fps > 0){
-				target_fps = t_fps;
-			}
+				timeframe = (double)(MS_PER_SEC / (double)(target_fps));
 
-			timeframe = (double)(MS_PER_SEC / (double)(target_fps));
+				struct timespec sleep_req, sleep_rem;
+				sleep_req.tv_sec = 0;
+				sleep_req.tv_nsec = accum * NS_PER_MS;
 
-			struct timespec sleep_req, sleep_rem;
-			sleep_req.tv_sec = 0;
-			sleep_req.tv_nsec = accum * NS_PER_MS;
-
-			nanosleep(&sleep_req, &sleep_rem);
-		}else{
-			n_time_frame += accum;
-			t_fps = (int)((double)MS_PER_SEC / n_time_frame);
-
-			if(t_fps < max_fps){
-				target_fps = max_fps;
-			}else if(t_fps < 0){
-				target_fps = 1;
+				nanosleep(&sleep_req, &sleep_rem);
 			}else{
-				target_fps = t_fps;
-			}
+				n_time_frame += accum;
+				t_fps = (int)((double)MS_PER_SEC / n_time_frame);
 
-			timeframe = (double)(MS_PER_SEC / (double)(target_fps));
+				if(t_fps < max_fps){
+					target_fps = max_fps;
+				}else if(t_fps < 0){
+					target_fps = 1;
+				}else{
+					target_fps = t_fps;
+				}
+
+				timeframe = (double)(MS_PER_SEC / (double)(target_fps));
+			}
 		}
 	}
 

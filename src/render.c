@@ -65,34 +65,42 @@ int r_init(c_conf conf){
 }
 
 void r_create_camera(r_camera* cam, vec2 size, vec2 position){
-	mat4x4_ortho(&cam->proj, 0, -size[0], size[1], 0, -10.f, 10.f);
+	vec3_dup(cam->pos, (vec3){position[0], position[1], 0.f});
+	vec2_dup(cam->size, size);
 
-	mat4x4_translate(&cam->view, position[0], position[1], 0.f);
+	cam->near = -10.f;
+	cam->far = 10.f;
+
+	float x, y;
+	x = floorf(cam->pos[0]);
+	y = floorf(cam->pos[1]);
+	
+	mat4x4_ortho(&cam->proj, 0, cam->size[0], cam->size[1], 0, cam->near, cam->far);
+	
+	mat4x4_translate(&cam->view, x, y, 0.f);
 	mat4x4_rotate_x(&cam->view, cam->view, 0.0);
 	mat4x4_rotate_y(&cam->view, cam->view, 0.0);
 	mat4x4_rotate_z(&cam->view, cam->view,  0.0);
-
-	//cam->pos = (vec3){position[0], position[1], 0.f};
-	vec3_dup(cam->pos, (vec3){position[0], position[1], 0.f});
-	vec2_dup(cam->size, size);
-	//cam->size = size;
-	cam->near = -10.f;
-	cam->far = 10.f;
 }
 
-void r_update_camera(r_camera* camera){
-	mat4x4_identity(&camera->view);
-	mat4x4_identity(&camera->proj);
+void r_move_cam(float x, float y){
+	g_camera.pos[0] -= x;
+	g_camera.pos[1] += y;
+}
 
-	mat4x4_ortho(&camera->proj, 0, camera->size[0], camera->size[1], 0, camera->near, camera->far);
-	mat4x4_translate(&camera->view, camera->pos[0], camera->pos[1], 0.f);
+void r_update_camera(){
+	float x, y;
+	x = floorf(g_camera.pos[0]);
+	y = floorf(g_camera.pos[1]);
+	mat4x4_translate(g_camera.view, x, y, 0.f);
 }
 
 void r_update(long delta){
-	//for(int i=0;i<drawable_count;++i){
-	//	r_update_drawable(&drawables[i], delta);
-	//}
-	//r_update_camera(&g_camera);	
+	for(int i=0;i<drawable_count;++i){
+		r_update_drawable(&drawables[i], delta);
+	}
+
+	r_update_camera();	
 }
 
 r_tex r_get_tex(const char* fp){
@@ -123,10 +131,10 @@ int r_init_quad() {
 	
 	float verts[16] = {
 	    //pos       //tex
-		-0.5f, -0.5f,   1.f, 0.f,
-		-0.5f,  0.5f,   1.f, 1.f,
-		 0.5f,  0.5f,   0.f, 1.f,
-	 	 0.5f, -0.5f,   0.f, 0.f
+		-0.5f, -0.5f,   0.f, 0.f,
+		-0.5f,  0.5f,   0.f, 1.f,
+		 0.5f,  0.5f,   1.f, 1.f,
+	 	 0.5f, -0.5f,   1.f, 0.f
 	};
 
 	unsigned short inds[6] = { 
@@ -153,10 +161,6 @@ int r_init_quad() {
 }
 
 void r_update_batch(r_shader shader, r_sheet* sheet){
-#if defined(RENDER_ENABLE_SHADER_CACHE)
-	r_bind_shader(shader);
-	r_bind_tex(sheet->id);
-
 	int cache_index = -1;
 	for(int i=0;i<g_shader_map.count;++i){
 		if(g_shader_map.shaders[i] == shader){
@@ -178,27 +182,26 @@ void r_update_batch(r_shader shader, r_sheet* sheet){
 		}
 
 		mat4x4_dup(cache->models[cache->count], drawables[i].model);
-		cache->tex_ids[cache->count] = drawables[i].c_tex;
+		cache->tex_ids[cache->count] = (unsigned int)drawables[i].anim.frames[drawables[i].anim.frame];
+		cache->flip_x[cache->count] = drawables[i].flip_x;
+		cache->flip_y[cache->count] = drawables[i].flip_y;
 		cache->count ++;
 	}
-#endif
 }
 
 void r_simple_draw(r_shader shader, r_drawable* draw, r_sheet* sheet){
-	if(!shader || !drawable_count) return;
+	/*if(!shader || !drawable_count) return;
 	
 	r_bind_shader(shader);
 	r_bind_tex(sheet->id);
 
-	//vec2 sub_size = (v2){ sheet->subwidth, sheet->subheight };
-	//vec2 tex_size = (v2){ sheet->width, sheet->height };
+	vec2 sub_size = (vec2){ sheet->subwidth, sheet->subheight };
+	vec2 tex_size = (vec2){ sheet->width, sheet->height };
 
 	//set texture shit
-	//r_set_vec2(shader, "sub_size", sub_size);
-   	//r_set_vec2(shader, "tex_size", tex_size);	
-	//r_set_uniformi(shader, "tex_id", 2);
-
-	//_l("Checking view & projection: view: %d projection: %d\n", mat4x4_is_ident(&g_camera.view), mat4x4_is_ident(&g_camera.proj));
+	r_set_v2(shader, "sub_size", sub_size);
+   	r_set_v2(shader, "tex_size", tex_size);	
+	r_set_uniformi(shader, "tex_id", 3);
 
 	r_set_m4(shader, "proj", g_camera.proj);
 	r_set_m4(shader, "view", g_camera.view);
@@ -208,13 +211,12 @@ void r_simple_draw(r_shader shader, r_drawable* draw, r_sheet* sheet){
 	glBindVertexArray(default_quad_vao);
 	glEnableVertexAttribArray(0);
 
-	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
+	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);*/
 }
 
-void r_draw_call(r_shader shader, r_sheet* sheet, r_camera* cam){
+void r_draw_call(r_shader shader, r_sheet* sheet){
 	if(!shader || !drawable_count) return;
 	
-#if defined(RENDER_ENABLE_SHADER_CACHE)
 	int cache_index = -1;
 
 	for(int i=0;i<g_shader_map.count;++i){
@@ -231,31 +233,34 @@ void r_draw_call(r_shader shader, r_sheet* sheet, r_camera* cam){
 
 	r_shader_batch* cache = &g_shader_map.batches[cache_index];
 
-	r_set_m4x(shader, drawable_count, "models",  cache->models);
-  	r_set_ix(shader, drawable_count, "tex_ids", cache->tex_ids);
-#endif
+	r_bind_shader(shader);
 
-	vec2 sub_size = (vec2){ sheet->subwidth, sheet->subheight };
-	vec2 tex_size = (vec2){ sheet->width, sheet->height };
+	r_set_m4x(shader, 128, "models",  cache->models);
+  	r_set_ix(shader, 128, "tex_ids", cache->tex_ids);
+	r_set_ix(shader, 128, "flip_x", cache->flip_x);
+	r_set_ix(shader, 128, "flip_y", cache->flip_y);
+
+	vec2 sub_size;
+	vec2_dup(sub_size, (vec2){ sheet->subwidth, sheet->subheight });
+	vec2 tex_size;
+    vec2_dup(tex_size, (vec2){ sheet->width, sheet->height });
 
 	//set texture shit
 	r_set_v2(shader, "sub_size", sub_size);
    	r_set_v2(shader, "tex_size", tex_size);	
 	
-	r_set_m4(shader, "proj", cam->proj);
-	r_set_m4(shader, "view", cam->view);	
+	r_set_m4(shader, "proj", g_camera.proj);
+	r_set_m4(shader, "view", g_camera.view);	
 	
 	r_bind_tex(sheet->id);
 
 	//draw instanced
 	glBindVertexArray(default_quad_vao);
-	glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0, drawable_count);
+	glEnableVertexAttribArray(0);
 
-#if defined(RENDER_ENABLE_SHADER_CACHE)
-	memset(cache->tex_ids, 0, sizeof(unsigned int) * cache->count);
-	memset(cache->models, 0, sizeof(mat4x4) * cache->count);
+	glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0, cache->count);
+
 	cache->count = 0;
-#endif
 }
 
 void r_exit(){
@@ -347,12 +352,12 @@ r_shader r_get_shader(const char* vert, const char* frag){
         glGetProgramiv(id, GL_INFO_LOG_LENGTH, &maxlen);
         char* log = malloc(maxlen);
         glGetProgramInfoLog(id, maxlen, &len, log);
-        printf("%s\n", log);
+        _l("%s\n", log);
         free(log);
     }
 
 #ifdef DEBUG_OUTPUT
-    printf("r_shader program loaded: %i\n", id);
+    _l("r_shader program loaded: %i\n", id);
 #endif
     return (r_shader){id};
 }
@@ -531,8 +536,10 @@ void r_get_color(vec3 val, char* v){
   }
 }
 
-r_anim  r_get_anim(r_sheet* sheet, int* frames, unsigned short frame_count, unsigned char frame_rate){
-	return (r_anim){*sheet, frame_count, frames, frame_rate};	
+r_anim  r_get_anim(int* frames, int frame_count, int frame_rate){
+	return (r_anim){
+		frames, frame_count, frame_rate
+	};
 }
 
 #if defined(RENDER_ENABLE_ANIM_CACHE)
@@ -572,10 +579,18 @@ r_anim r_get_anim_n(const char* name){
 
 #endif
 
-r_animv r_v_anim(r_anim* anim){
-	return (r_animv){
-		*anim, 0L, 0, R_ANIM_STOP, R_ANIM_STOP, 1	
-	};
+r_animv r_v_anim(r_anim anim){
+	r_animv animv;
+	animv.frames = malloc(sizeof(int) * anim.frame_count);
+	memcpy(animv.frames, anim.frames, sizeof(int) * anim.frame_count);
+	animv.frame_count = anim.frame_count;
+	animv.frame_rate= anim.frame_rate;
+	animv.time = 0L;
+	animv.state = R_ANIM_STOP;
+	animv.pstate = R_ANIM_STOP;
+	animv.loop = 1;
+
+	return animv;
 }
 
 void r_anim_p(r_animv* anim){
@@ -593,7 +608,7 @@ void r_anim_h(r_animv* anim){
 	anim->state = R_ANIM_PAUSE;
 }
 
-r_drawable* r_get_drawable(r_anim* anim, vec2 size, vec2 pos){
+r_drawable* r_get_drawable(r_anim anim, vec2 size, vec2 pos){
 	r_drawable* draw;
 
 	if(drawable_count < RENDER_BATCH_SIZE){
@@ -601,11 +616,13 @@ r_drawable* r_get_drawable(r_anim* anim, vec2 size, vec2 pos){
 		drawable_count ++;
 		draw->uid = drawable_uid;
 		drawable_uid ++;	
+	}else{
+		return NULL;
 	}
-	
+
 	mat4x4_identity(&draw->model);	
 	mat4x4_translate(&draw->model, pos[0], pos[1], 0.f);
-	mat4x4_scale_aniso(&draw->model, draw->model, size[0] * 100.f, size[1] * 100.f, 1.f);
+	mat4x4_scale_aniso(&draw->model, draw->model, size[0], size[1], 1.f);
 
 	vec2_dup(draw->size, size);
 	vec2_dup(draw->position, pos);
@@ -613,6 +630,9 @@ r_drawable* r_get_drawable(r_anim* anim, vec2 size, vec2 pos){
 	draw->layer = 0;
 	draw->visible = 1;
 	draw->change = 0;
+	draw->flip_x = 0;
+	draw->flip_y = 0;
+	draw->c_tex = 0;
 
 	return draw;	
 }
@@ -620,53 +640,39 @@ r_drawable* r_get_drawable(r_anim* anim, vec2 size, vec2 pos){
 void r_update_drawable(r_drawable* drawable, long delta){
 	//matrix update check
 	if(drawable->change){
-		mat4x4_identity(&drawable->model);
-		mat4x4_translate(&drawable->model, drawable->position[0], drawable->position[1], 0.f);
-		mat4x4_scale_aniso(drawable->model, drawable->model, drawable->size[0] * 100.f, drawable->size[1] * 100.f, drawable->size[2] * 1.f);
+			float x, y;
+			x = floorf(drawable->position[0]);
+			y = floorf(drawable->position[1]);
+			mat4x4_translate(&drawable->model, x, y, 0.f);
+			mat4x4_scale_aniso(drawable->model, drawable->model, drawable->size[0], drawable->size[1], drawable->size[2]);
 
-		//reset bit flag
-		drawable->change = 0;
+			//reset bit flag
+			drawable->change = 0;
 	}
 
 	if(drawable->anim.state == R_ANIM_PLAY && drawable->visible){
-		long time = drawable->anim.time;
-		r_anim anim = drawable->anim.anim;
-		
-		long frame_time = anim.frame_rate / MS_PER_SEC;
-		if(time + delta >= frame_time){
-			int check = time / frame_time;
-			//handle frameskip
-			if(check > 1){
-				//Optimize into one instruction?
-				int rounds = check / anim.frame_count;
-				int rem = check % anim.frame_count;
-
-				if(rounds){
-					//check if viewer is looping
-					if(drawable->anim.loop){
-						drawable->anim.frame = rem;
-					}else{
-						drawable->anim.frame = anim.frame_count-1;
-						drawable->anim.state = R_ANIM_STOP;
-						drawable->anim.pstate = R_ANIM_PLAY;
-					}
+		r_animv* anim = &drawable->anim;
+		float frame_time = MS_PER_SEC / anim->frame_rate;	
+		if(anim->time + delta >= frame_time){
+			if(anim->frame >= anim->frame_count-1){
+				if(!anim->loop){
+					anim->state = R_ANIM_STOP;
+					anim->pstate = R_ANIM_PLAY;
 				}
+
+				anim->frame = 0;
 			}else{
-				time = time % frame_time;
-				drawable->anim.frame ++;
-
-				if(drawable->anim.frame == anim.frame_count){
-					if(drawable->anim.loop){
-						drawable->anim.frame = 0;
-					}else{
-						drawable->anim.state = R_ANIM_STOP;
-						drawable->anim.pstate = R_ANIM_PLAY;
-					}
-				}
+				anim->frame ++;
 			}
+
+			anim->time -= frame_time;
+		}else{
+			anim->time += delta;
 		}
 
-		drawable->c_tex = anim.frames[drawable->anim.frame];
+		if(anim->frame > anim->frame_count-1){
+			anim->frame = 0;
+		}
 	}
 }
 
@@ -776,68 +782,35 @@ inline void r_set_m4i(int loc, mat4x4 val){
 
 void r_set_m4x(r_shader shader, unsigned int count, const char* name, mat4x4* values){
 	if(!count) return;
-
-	for(int i=0;i<count;++i){
-		sprintf(shader_value_buff, "%s[%d]", name, i);
-		glUniformMatrix4fv(r_get_uniform_loc(shader, shader_value_buff), 1, GL_FALSE, values[i]);
-
-		memset(shader_value_buff, 0, sizeof(char) * SHADER_STR_SIZE);
-	}
+	glUniformMatrix4fv(r_get_uniform_loc(shader, name), count, GL_FALSE, values);
 }
 
 void r_set_ix(r_shader shader, unsigned int count, const char* name, int* values){
 	if(!count) return;
-
-	for(int i=0;i<count;++i){
-		sprintf(shader_value_buff, "%s[%d]", name, i);
-		glUniform1i(r_get_uniform_loc(shader, shader_value_buff), values[i]);
-
-		memset(shader_value_buff, 0, sizeof(char) * SHADER_STR_SIZE);
-	}
+	glUniform1iv(r_get_uniform_loc(shader, name), count, values);
 }
 
 void r_set_fx(r_shader shader, unsigned int count, const char* name, float* values){
 	if(!count) return;
-
-	for(int i=0;i<count;++i){
-		sprintf(shader_value_buff, "%s[%d]", name, i);
-		glUniform1f(r_get_uniform_loc(shader, shader_value_buff), values[i]);
-
-		memset(shader_value_buff, 0, sizeof(char) * SHADER_STR_SIZE);
-	}
+	glUniform1fv(r_get_uniform_loc(shader, name), count, values);
 }
 
 void r_set_v2x(r_shader shader, unsigned int count, const char* name, vec2* values){
 	if(!count) return;
 
-	for(int i=0;i<count;++i){
-		sprintf(shader_value_buff, "%s[%d]", name, i);
-		glUniform2f(r_get_uniform_loc(shader, shader_value_buff), values[i][0], values[i][1]);
-
-		memset(shader_value_buff, 0, sizeof(char) * SHADER_STR_SIZE);
-	}
+	glUniform2fv(r_get_uniform_loc(shader, name), count, values);
 }
 
 void r_set_v3x(r_shader shader, unsigned int count, const char* name, vec3* values){
 	if(!count) return;
 
-	for(int i=0;i<count;++i){
-		sprintf(shader_value_buff, "%s[%d]", name, i);
-		glUniform3f(r_get_uniform_loc(shader, shader_value_buff), values[i][0], values[i][1], values[i][2]);
-
-		memset(shader_value_buff, 0, sizeof(char) * SHADER_STR_SIZE);
-	}
+	glUniform3fv(r_get_uniform_loc(shader, name), count, values);
 }
 
 void r_set_v4x(r_shader shader, unsigned int count, const char* name, vec4* values){
 	if(!count) return;
 
-	for(int i=0;i<count;++i){
-		sprintf(shader_value_buff, "%s[%d]", name, i);
-		glUniform4f(r_get_uniform_loc(shader, shader_value_buff), values[i][0], values[i][1], values[i][2], values[i][3]);
-
-		memset(shader_value_buff, 0, sizeof(char) * SHADER_STR_SIZE);
-	}
+	glUniform4fv(r_get_uniform_loc(shader, name),  count, values);
 }
 
 static void r_create_modes(){
@@ -903,7 +876,7 @@ int r_create_window(r_window_info info){
 	_l("Loading GLFW.\n");
 
     if(!glfwInit()){
-        printf("Unable to initialize GLFW\n");
+        _e("Unable to initialize GLFW\n");
         return 0;
     }
 
@@ -1083,7 +1056,7 @@ void r_clear_window(){
 }
 
 static void glfw_err_cb(int error, const char* msg){
-    printf("ERROR: %i %s\n", error, msg);
+    _e("ERROR: %i %s\n", error, msg);
 }
 
 static void glfw_window_pos_cb(GLFWwindow* window, int x, int y){

@@ -5,6 +5,7 @@ x User Configuration Loading
 > Level Loading & Saving
 > User & Enemy States
 > Collision / Physics
+> Fix Vsync compat issues
 
 - EXTERNAL PROGRAMS
 > Level Editor

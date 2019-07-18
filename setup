@@ -1,6 +1,8 @@
-#!/bin/sh
+#!/bin/bash
 echo "Requesting root privlidges for installs."
-[ "$UID" -eq 0] || exec sudo "$0" "$@"
+if [ $EUID != 0 ]; then
+    sudo "$0" "$@"
+fi
 
 OS=$(echo $1 | tr '[:upper:]' '[:lower:]')
 
@@ -21,7 +23,7 @@ else if [ "$OS" = 'help' || "$OS" = '' ]; then
     exit 1
 fi
 
-echo "Starting setup. \n Building Dependencies."
+echo "Starting setup & Building Dependencies."
 cd dep
 echo "Cloning OpenAL Soft"
 git clone https://github.com/kcat/openal-soft
@@ -41,15 +43,4 @@ echo "Building GLFW."
 cmake -G "$cmake_type"
 make
 sudo make install
-
-cd ..
-echo "Cloning MiniZ"
-git clone https://github.com/richgel999/miniz
-cd miniz
-git checkout a4264837ae37384b1d7a205a6732db322f0f3769 
-echo "Building miniz"
-cmake -G "$cmake_type" 
-make
-sudo make install
-cd ../..
-make
+exit
