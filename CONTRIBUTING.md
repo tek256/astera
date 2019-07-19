@@ -1,6 +1,7 @@
 If you're interested in helping contribute to the project here are the current things that would be helpful!
 - Bug Review & Search
 - General Application Testing / Statistics
+- Wiki Documentation / Code Documentation
 - Pull Requests:
 	- Code Cleanup
 	- Build System Fixes / Updates
@@ -11,7 +12,7 @@ If you're interested in helping contribute to the project here are the current t
 		- x86_64
 		- x86
 		- x64
-		- ARMv8 (Windows NT)
+		- ARMv8
 	- Mac OSX
 		- x86_64
 		- x64

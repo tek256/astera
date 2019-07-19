@@ -4,12 +4,12 @@ CC = gcc
 WIN_CC = gcc 
 
 COMPILER_FLAGS = -w -g -std=c99
-WIN_COMPILER_FLAGS = -w -std=c99
-OSX_COMPILER_FLAGS = -w -std=c99
+WIN_COMPILER_FLAGS = -w -g -std=c99
+OSX_COMPILER_FLAGS = -w -g -std=c99
 
 INCLUDES = -Idep/
 
-LINKER_FLAGS = -lglfw3 -lGL -lGLU -lX11 -lXi -lXrandr -lXxf86vm -lXinerama -lpthread -ldl -lXcursor -lopenal -lm -lminiz
+LINKER_FLAGS = -lglfw3 -lGL -lGLU -lX11 -lXi -lXrandr -lXxf86vm -lXinerama -lpthread -ldl -lXcursor -lopenal -lm 
 WIN_LINKER_FLAGS = -lopengl32 -lglfw3 -lgdi32 -lm -lopenal32
 OSX_LINKER_FLAGS = -lGL -lGLU -lglfw3  -lX11 -lXxf86vm -lXrandr -lpthread -lXi -lXinerama -ldl -lXcursor -lopenal -lm 
 EXEC_NAME = engine
