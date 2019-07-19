@@ -14,7 +14,6 @@
 #include "sys.h"
 #include "debug.h"
 
-
 static r_flags flags;
 
 static const char* r_window_title = "demo";
@@ -25,6 +24,7 @@ static vec2 r_res;
 
 static r_drawable drawables[RENDER_BATCH_SIZE];
 static int drawable_count = 0;
+
 static unsigned int drawable_uid = 1;
 
 static unsigned int default_quad_vao;
@@ -50,16 +50,10 @@ int r_init(c_conf conf){
 
 	r_create_camera(&g_camera, (vec2){r_res[0], r_res[1]}, (vec2){0.f, 0.f});
 
-	#if defined(RENDER_ENABLE_ANIM_CACHE)	
 	g_anim_cache.capacity = RENDER_ANIM_CACHE;
-	#endif
-
-	#if defined(RENDER_ENABLE_SHADER_CACHE)
 	g_shader_map.capacity = RENDER_SHADER_CACHE;
-	#endif
 
 	default_quad_vao = r_init_quad();
-	_l("Default quad VAO: %d\n", default_quad_vao);
 
 	return 1;
 }
@@ -180,38 +174,16 @@ void r_update_batch(r_shader shader, r_sheet* sheet){
 			_e("Reached cache limit for shader: %d\n", shader);
 			break;
 		}
-
-		mat4x4_dup(cache->models[cache->count], drawables[i].model);
-		cache->tex_ids[cache->count] = (unsigned int)drawables[i].anim.frames[drawables[i].anim.frame];
-		cache->flip_x[cache->count] = drawables[i].flip_x;
-		cache->flip_y[cache->count] = drawables[i].flip_y;
-		cache->count ++;
+		if(drawables[i].shader == shader){
+			if(drawables[i].anim.sheet_id == sheet->id){
+				mat4x4_dup(cache->models[cache->count], drawables[i].model);
+				cache->tex_ids[cache->count] = (unsigned int)drawables[i].anim.frames[drawables[i].anim.frame];
+				cache->flip_x[cache->count] = drawables[i].flip_x;
+				cache->flip_y[cache->count] = drawables[i].flip_y;
+				cache->count ++;
+			}
+		}
 	}
-}
-
-void r_simple_draw(r_shader shader, r_drawable* draw, r_sheet* sheet){
-	/*if(!shader || !drawable_count) return;
-	
-	r_bind_shader(shader);
-	r_bind_tex(sheet->id);
-
-	vec2 sub_size = (vec2){ sheet->subwidth, sheet->subheight };
-	vec2 tex_size = (vec2){ sheet->width, sheet->height };
-
-	//set texture shit
-	r_set_v2(shader, "sub_size", sub_size);
-   	r_set_v2(shader, "tex_size", tex_size);	
-	r_set_uniformi(shader, "tex_id", 3);
-
-	r_set_m4(shader, "proj", g_camera.proj);
-	r_set_m4(shader, "view", g_camera.view);
-	r_set_m4(shader, "model", draw->model);	
-
-	//draw instanced
-	glBindVertexArray(default_quad_vao);
-	glEnableVertexAttribArray(0);
-
-	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);*/
 }
 
 void r_draw_call(r_shader shader, r_sheet* sheet){
@@ -263,7 +235,19 @@ void r_draw_call(r_shader shader, r_sheet* sheet){
 	cache->count = 0;
 }
 
+void r_destroy_anims(){
+	for(int i=0;i<g_anim_cache.count;++i){
+		free(g_anim_cache.anims[i].frames);
+	}
+}
+
+void r_destroy_quad(unsigned int vao){
+	glDeleteVertexArrays(1, &vao);
+}
+
 void r_exit(){
+	r_destroy_anims();
+	r_destroy_quad(default_quad_vao);
 	r_destroy_window(g_window);
 	glfwTerminate();
 }
@@ -536,13 +520,14 @@ void r_get_color(vec3 val, char* v){
   }
 }
 
-r_anim  r_get_anim(int* frames, int frame_count, int frame_rate){
+r_anim  r_get_anim(r_sheet sheet, unsigned int* frames, int frame_count, int frame_rate){
+	unsigned int* _frames = malloc(sizeof(unsigned int) * frame_count);
+	memcpy(_frames, frames, sizeof(unsigned int) * frame_count);
 	return (r_anim){
-		frames, frame_count, frame_rate
+		_frames, frame_count, frame_rate, 0, sheet.id
 	};
 }
 
-#if defined(RENDER_ENABLE_ANIM_CACHE)
 void r_cache_anim(r_anim anim, const char* name){
 	if(g_anim_cache.count >= g_anim_cache.capacity){
 		_e("Animation cache at capacity.\n");
@@ -557,40 +542,79 @@ void r_cache_anim(r_anim anim, const char* name){
 		}
 	}
 
+	anim.uid = anim_uid;
+	anim_uid ++;
+
 	g_anim_cache.names[g_anim_cache.count] = name;
+	g_anim_cache.anims[g_anim_cache.count] = anim;
+	
 	g_anim_cache.count ++;
 }
 
-r_anim r_get_anim_n(const char* name){
+r_anim* r_get_anim_n(const char* name){
 	if(g_anim_cache.count == 0){
 		_l("No animations in cache to check for.\n");
-		return (r_anim){0};
+		return NULL;
 	}
 	
 	for(int i=0;i<g_anim_cache.count;++i){
 		if(strcmp(g_anim_cache.names[i], name) == 0){
-			return g_anim_cache.anims[i];	
+			return &g_anim_cache.anims[i];	
 		}
 	}
 
 	_l("No animations matching: %s in cache.\n", name);
-	return (r_anim){0};
+	return NULL;
 }
 
-#endif
+r_anim* r_get_anim_i(unsigned int uid){
+	for(int i=0;i<g_anim_cache.count;++i){
+		if(g_anim_cache.anims[i].uid == uid){
+			return &g_anim_cache.anims[i];
+		}
+	}
+	return NULL;
+}
 
-r_animv r_v_anim(r_anim anim){
+void r_drawable_set_anim(r_drawable* drawable, r_anim* anim){
+	r_animv* v = &drawable->anim;
+	
+	_l("Changing to: ");
+	for(int i=0;i<anim->frame_count;++i){
+		v->frames[i] = anim->frames[i];	
+		_l("%d ", anim->frames[i]);
+	}
+	_l("\n");
+
+	//memcpy(v->frames, anim->frames, sizeof(unsigned int) * anim->frame_count);
+	v->frame = 0;
+	v->frame_count = anim->frame_count;
+	v->frame_rate = anim->frame_rate;
+	v->anim_id = anim->uid;
+	v->time = 0L;
+}
+
+r_animv r_v_anim(r_anim* anim){
 	r_animv animv;
-	animv.frames = malloc(sizeof(int) * anim.frame_count);
-	memcpy(animv.frames, anim.frames, sizeof(int) * anim.frame_count);
-	animv.frame_count = anim.frame_count;
-	animv.frame_rate= anim.frame_rate;
+	
+	animv.frames = malloc(RENDER_ANIM_MAX_FRAMES * sizeof(unsigned int)); 
+	memcpy(animv.frames, anim->frames, anim->frame_count * sizeof(unsigned int));
+	animv.sheet_id = anim->sheet_id;
+	animv.anim_id = anim->uid;
+
+	animv.frame_count = anim->frame_count;
+	animv.frame_rate = anim->frame_rate;
 	animv.time = 0L;
 	animv.state = R_ANIM_STOP;
 	animv.pstate = R_ANIM_STOP;
 	animv.loop = 1;
 
 	return animv;
+}
+
+void r_destroy_animv(r_animv* animv){
+	free(animv->frames);
+	free(animv);	
 }
 
 void r_anim_p(r_animv* anim){
@@ -608,7 +632,7 @@ void r_anim_h(r_animv* anim){
 	anim->state = R_ANIM_PAUSE;
 }
 
-r_drawable* r_get_drawable(r_anim anim, vec2 size, vec2 pos){
+r_drawable* r_get_drawable(r_anim* anim, r_shader shader,  vec2 size, vec2 pos){
 	r_drawable* draw;
 
 	if(drawable_count < RENDER_BATCH_SIZE){
@@ -633,8 +657,19 @@ r_drawable* r_get_drawable(r_anim anim, vec2 size, vec2 pos){
 	draw->flip_x = 0;
 	draw->flip_y = 0;
 	draw->c_tex = 0;
+	draw->shader = shader;
 
 	return draw;	
+}
+
+r_drawable* r_get_drawablei(unsigned int uid){
+	for(int i=0;i<drawable_count;++i){
+		if(drawables[i].uid == uid){
+			return &drawables[i];
+		}
+	}
+
+	return NULL;
 }
 
 void r_update_drawable(r_drawable* drawable, long delta){
@@ -652,6 +687,7 @@ void r_update_drawable(r_drawable* drawable, long delta){
 
 	if(drawable->anim.state == R_ANIM_PLAY && drawable->visible){
 		r_animv* anim = &drawable->anim;
+
 		float frame_time = MS_PER_SEC / anim->frame_rate;	
 		if(anim->time + delta >= frame_time){
 			if(anim->frame >= anim->frame_count-1){

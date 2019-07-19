@@ -30,6 +30,8 @@
 #define RENDER_ENABLE_SHADER_CACHE
 #define RENDER_ENABLE_ANIM_CACHE
 
+#define RENDER_ANIM_MAX_FRAMES 32
+
 typedef struct {
 	int allowed : 1;
 	int scaled  : 1;
@@ -108,9 +110,11 @@ typedef struct {
 } r_sheet;
 
 typedef struct {
-	unsigned short* frames;
-	unsigned short  frame_count;
-	unsigned short   frame_rate;	
+	unsigned int* frames;
+	unsigned int  frame_count;
+	unsigned int  frame_rate;
+	unsigned int  uid;	
+	unsigned int  sheet_id;
 } r_anim;
 
 #if defined(RENDER_ENABLE_ANIM_CACHE)
@@ -123,10 +127,11 @@ typedef struct {
 #endif
 
 typedef struct {
-	int* frames;
-	int frame_count;
-	int frame_rate;
-
+	unsigned int* frames;
+	unsigned int sheet_id;
+	unsigned int frame_count;
+	unsigned int frame_rate;
+	unsigned int anim_id;
 	float time;
 	unsigned short frame;	
 	unsigned char state, pstate;
@@ -135,6 +140,7 @@ typedef struct {
 
 typedef struct {
 	r_animv anim;
+	r_shader shader;
 	vec2 size;
 	vec2 position;
 	mat4x4 model;
@@ -150,13 +156,10 @@ typedef struct {
 static r_window g_window;
 static r_camera g_camera;
 
-#if defined(RENDER_ENABLE_ANIM_CACHE)
 static r_anim_cache g_anim_cache;
-#endif
+static unsigned int anim_uid = 1;
 
-#if defined(RENDER_ENABLE_SHADER_CACHE)
 static r_shader_map g_shader_map;
-#endif
 
 int r_init_quad();
 
@@ -172,7 +175,9 @@ r_sheet r_get_sheet(const char* fp, unsigned int subwidth, unsigned int subheigh
 void r_update_batch(r_shader shader, r_sheet* sheet);
 //NOTE: count required since we're using instanced rendering
 void r_draw_call(r_shader shader, r_sheet* sheet);
-void r_simple_draw(r_shader shader, r_drawable* draw, r_sheet* sheet);
+
+void r_destroy_anims();
+void r_destroy_quad(unsigned int vao);
 
 static GLuint r_get_sub_shader(const char* filePath, int type);
 r_shader      r_get_shader(const char* vert, const char* frag);
@@ -180,12 +185,10 @@ void          r_bind_shader(r_shader shader);
 void          r_destroy_shader(r_shader shader);
 int           r_get_uniform_loc(r_shader shader, const char* name);
 
-#if defined(RENDER_ENABLE_SHADER_CACHE)
 void          r_map_shader(r_shader shader, const char* name);
 void 		  r_cache_uniform(r_shader shader, const char* uniform, unsigned int location);
 void          r_clear_cache(r_shader shader);
 void          r_remove_from_cache(r_shader shader);
-#endif
 
 int  r_hex_number(char v);
 int  r_hex_multi(char* v, int len);
@@ -194,19 +197,20 @@ void  r_get_color(vec3 val, char* v);
 int r_is_anim_cache();
 int r_is_shader_cache();
 
-r_anim  r_get_anim(int* frames, int frame_count, int frame_rate);
-r_animv r_v_anim(r_anim anim); 
+r_anim  r_get_anim(r_sheet sheet, unsigned int* frames, int frame_count, int frame_rate);
+r_animv r_v_anim(r_anim* anim); 
 
-#if defined(RENDER_ENABLE_ANIM_CACHE)
-r_anim  r_get_anim_n(const char* name);
+r_anim* r_get_anim_n(const char* name);
+r_anim* r_get_anim_i(unsigned int uid);
 void    r_cache_anim(r_anim anim, const char* name);
-#endif
 
 void r_anim_p(r_animv* anim); //anim play
 void r_anim_s(r_animv* anim); //anim stop
 void r_anim_h(r_animv* anim); //anim halt
 
-r_drawable* r_get_drawable(r_anim anim, vec2 size, vec2 pos);
+r_drawable* r_get_drawable(r_anim* anim, r_shader shader, vec2 size, vec2 pos);
+r_drawable* r_get_drawablei(unsigned int uid);
+void r_drawable_set_anim(r_drawable* drawable, r_anim* anim);
 void	   r_update_drawable(r_drawable* drawable, long delta);
 
 void r_create_camera(r_camera* camera, vec2 size, vec2 position);
