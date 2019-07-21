@@ -1,14 +1,10 @@
-//TODO
-//
-// 1. Implement proper shader cache
-// 2. Implement area based culling of renderables (game.c maybe)
-// 3. Flesh out render tree
-
 #include "render.h"
+
+#include <string.h>
+
 #include <glad_gl.c>
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb/stb_image.h>
-#include <string.h>
 
 #include "input.h"
 #include "sys.h"
@@ -17,16 +13,11 @@
 static r_flags flags;
 
 static const char* r_window_title = "demo";
+
 static r_window_info g_window_info;
 static GLFWmonitor* r_default_monitor;
 static const GLFWvidmode* r_vidmodes;
 static vec2 r_res;
-
-static r_drawable drawables[RENDER_BATCH_SIZE];
-static int drawable_count = 0;
-
-static unsigned int drawable_uid = 1;
-
 static unsigned int default_quad_vao;
 
 static char* shader_value_buff[SHADER_STR_SIZE];
@@ -52,6 +43,7 @@ int r_init(c_conf conf){
 
 	g_anim_cache.capacity = RENDER_ANIM_CACHE;
 	g_shader_map.capacity = RENDER_SHADER_CACHE;
+	g_drawable_cache.capacity = RENDER_BATCH_SIZE;
 
 	default_quad_vao = r_init_quad();
 
@@ -68,9 +60,9 @@ void r_create_camera(r_camera* cam, vec2 size, vec2 position){
 	float x, y;
 	x = floorf(cam->pos[0]);
 	y = floorf(cam->pos[1]);
-	
+
 	mat4x4_ortho(&cam->proj, 0, cam->size[0], cam->size[1], 0, cam->near, cam->far);
-	
+
 	mat4x4_translate(&cam->view, x, y, 0.f);
 	mat4x4_rotate_x(&cam->view, cam->view, 0.0);
 	mat4x4_rotate_y(&cam->view, cam->view, 0.0);
@@ -90,8 +82,8 @@ void r_update_camera(){
 }
 
 void r_update(long delta){
-	for(int i=0;i<drawable_count;++i){
-		r_update_drawable(&drawables[i], delta);
+	for(int i=0;i<g_drawable_cache.count;++i){
+		r_update_drawable(&g_drawable_cache.drawables[i], delta);
 	}
 
 	r_update_camera();	
@@ -103,14 +95,14 @@ r_tex r_get_tex(const char* fp){
 	unsigned int id;
 	glGenTextures(1, &id);
 	glBindTexture(GL_TEXTURE_2D, id);
-	
+
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, img);
-	
+
 	stbi_image_free(img);
 	return (r_tex){id, (unsigned int)w,(unsigned int)h};	
 }
@@ -122,13 +114,13 @@ r_sheet r_get_sheet(const char* fp, unsigned int subwidth, unsigned int subheigh
 
 int r_init_quad() {
 	int vao, vbo, vboi;
-	
+
 	float verts[16] = {
-	    //pos       //tex
+		//pos       //tex
 		-0.5f, -0.5f,   0.f, 0.f,
 		-0.5f,  0.5f,   0.f, 1.f,
-		 0.5f,  0.5f,   1.f, 1.f,
-	 	 0.5f, -0.5f,   1.f, 0.f
+		0.5f,  0.5f,   1.f, 1.f,
+		0.5f, -0.5f,   1.f, 0.f
 	};
 
 	unsigned short inds[6] = { 
@@ -139,7 +131,7 @@ int r_init_quad() {
 	glGenVertexArrays(1, &vao);
 	glGenBuffers(1, &vbo);
 	glGenBuffers(1, &vboi);
-	
+
 	glBindVertexArray(vao);	
 
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
@@ -150,7 +142,7 @@ int r_init_quad() {
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, 6 * sizeof(unsigned short), &inds[0], GL_STATIC_DRAW);
 
 	glBindVertexArray(0);
-			
+
 	return vao;
 }
 
@@ -169,17 +161,17 @@ void r_update_batch(r_shader shader, r_sheet* sheet){
 	}
 
 	r_shader_batch* cache = &g_shader_map.batches[cache_index];
-	for(int i=0;i<drawable_count;++i){
+	for(int i=0;i<g_drawable_cache.count;++i){
 		if(cache->count >= cache->capacity){
 			_e("Reached cache limit for shader: %d\n", shader);
 			break;
 		}
-		if(drawables[i].shader == shader){
-			if(drawables[i].anim.sheet_id == sheet->id){
-				mat4x4_dup(cache->models[cache->count], drawables[i].model);
-				cache->tex_ids[cache->count] = (unsigned int)drawables[i].anim.frames[drawables[i].anim.frame];
-				cache->flip_x[cache->count] = drawables[i].flip_x;
-				cache->flip_y[cache->count] = drawables[i].flip_y;
+		if(g_drawable_cache.drawables[i].shader == shader){
+			if(g_drawable_cache.drawables[i].anim.sheet_id == sheet->id){
+				mat4x4_dup(cache->models[cache->count], g_drawable_cache.drawables[i].model);
+				cache->tex_ids[cache->count] = (unsigned int)g_drawable_cache.drawables[i].anim.frames[g_drawable_cache.drawables[i].anim.frame];
+				cache->flip_x[cache->count] = g_drawable_cache.drawables[i].flip_x;
+				cache->flip_y[cache->count] = g_drawable_cache.drawables[i].flip_y;
 				cache->count ++;
 			}
 		}
@@ -187,8 +179,8 @@ void r_update_batch(r_shader shader, r_sheet* sheet){
 }
 
 void r_draw_call(r_shader shader, r_sheet* sheet){
-	if(!shader || !drawable_count) return;
-	
+	if(!shader || !g_drawable_cache.count) return;
+
 	int cache_index = -1;
 
 	for(int i=0;i<g_shader_map.count;++i){
@@ -208,22 +200,22 @@ void r_draw_call(r_shader shader, r_sheet* sheet){
 	r_bind_shader(shader);
 
 	r_set_m4x(shader, 128, "models",  cache->models);
-  	r_set_ix(shader, 128, "tex_ids", cache->tex_ids);
+	r_set_ix(shader, 128, "tex_ids", cache->tex_ids);
 	r_set_ix(shader, 128, "flip_x", cache->flip_x);
 	r_set_ix(shader, 128, "flip_y", cache->flip_y);
 
 	vec2 sub_size;
 	vec2_dup(sub_size, (vec2){ sheet->subwidth, sheet->subheight });
 	vec2 tex_size;
-    vec2_dup(tex_size, (vec2){ sheet->width, sheet->height });
+	vec2_dup(tex_size, (vec2){ sheet->width, sheet->height });
 
 	//set texture shit
 	r_set_v2(shader, "sub_size", sub_size);
-   	r_set_v2(shader, "tex_size", tex_size);	
-	
+	r_set_v2(shader, "tex_size", tex_size);	
+
 	r_set_m4(shader, "proj", g_camera.proj);
 	r_set_m4(shader, "view", g_camera.view);	
-	
+
 	r_bind_tex(sheet->id);
 
 	//draw instanced
@@ -250,22 +242,22 @@ void r_exit(){
 	r_destroy_quad(default_quad_vao);
 	r_destroy_window(g_window);
 	glfwTerminate();
+
+	if(c_prefs_located()){
+		r_save_prefs();
+	}
+}
+
+void r_save_prefs(){
+			
 }
 
 int r_is_anim_cache(){
-#if defined(RENDER_ENABLE_ANIM_CACHE)
 	return 1; 
-#else
-	return 0;
-#endif
 }
 
 int r_is_shader_cache(){
-#if defined(RENDER_ENABLE_SHADER_CACHE)
 	return 1;	
-#else
-	return 0;
-#endif
 }
 
 static GLuint r_get_sub_shader(const char* fp, int type){
@@ -318,41 +310,40 @@ static GLuint r_get_sub_shader(const char* fp, int type){
 }
 
 r_shader r_get_shader(const char* vert, const char* frag){
-    GLuint v = r_get_sub_shader(vert, GL_VERTEX_SHADER);
-    GLuint f = r_get_sub_shader(frag, GL_FRAGMENT_SHADER);
+	GLuint v = r_get_sub_shader(vert, GL_VERTEX_SHADER);
+	GLuint f = r_get_sub_shader(frag, GL_FRAGMENT_SHADER);
 
-    GLuint id = glCreateProgram();
+	GLuint id = glCreateProgram();
 
-    glAttachShader(id, v);
-    glAttachShader(id, f);
+	glAttachShader(id, v);
+	glAttachShader(id, f);
 
-    glLinkProgram(id);
+	glLinkProgram(id);
 
-    GLint success;
-    glGetProgramiv(id, GL_LINK_STATUS, &success);
-    if(success != GL_TRUE){
-        int maxlen = 0;
-        int len;
-        glGetProgramiv(id, GL_INFO_LOG_LENGTH, &maxlen);
-        char* log = malloc(maxlen);
-        glGetProgramInfoLog(id, maxlen, &len, log);
-        _l("%s\n", log);
-        free(log);
-    }
+	GLint success;
+	glGetProgramiv(id, GL_LINK_STATUS, &success);
+	if(success != GL_TRUE){
+		int maxlen = 0;
+		int len;
+		glGetProgramiv(id, GL_INFO_LOG_LENGTH, &maxlen);
+		char* log = malloc(maxlen);
+		glGetProgramInfoLog(id, maxlen, &len, log);
+		_l("%s\n", log);
+		free(log);
+	}
 
 #ifdef DEBUG_OUTPUT
-    _l("r_shader program loaded: %i\n", id);
+	_l("r_shader program loaded: %i\n", id);
 #endif
-    return (r_shader){id};
+	return (r_shader){id};
 }
 
-#if defined(RENDER_ENABLE_SHADER_CACHE)
 void r_map_shader(r_shader shader, const char* name){
 	if(g_shader_map.capacity == 0){
 		_e("No shader cache available.\n");
 		return;
 	}
-	
+
 	if(g_shader_map.capacity == g_shader_map.count){
 		//TODO implement cache overflow
 		_e("No shader cache open to use.\n");
@@ -453,13 +444,9 @@ void r_cache_uniform(r_shader shader, const char* uniform, unsigned int location
 	specific->count ++;
 }
 
-#endif
-
 void r_destroy_shader(r_shader shader){
-#if defined(RENDER_ENABLE_SHADER_CACHE)
 	r_remove_from_cache(shader);
-#endif
-   	glDeleteProgram(shader);
+	glDeleteProgram(shader);
 }
 
 void r_bind_tex(unsigned int tex){
@@ -467,57 +454,57 @@ void r_bind_tex(unsigned int tex){
 }
 
 void r_bind_shader(r_shader shader){
-    if(shader == NULL){
-        glUseProgram(0);
-    }else{
-        glUseProgram(shader);
-    }
+	if(shader == NULL){
+		glUseProgram(0);
+	}else{
+		glUseProgram(shader);
+	}
 }
 
 int r_hex_number(char v){
-  if(v >= '0' && v <= '9'){
-    return v - 0x30;
-  }else{
-    switch(v){
-        case 'A': case 'a': return 10;
-        case 'B': case 'b': return 11;
-        case 'C': case 'c': return 12;
-        case 'D': case 'd': return 13;
-        case 'E': case 'e': return 14;
-        case 'F': case 'f': return 15;
-        default: return 0;
-    }
-  }
+	if(v >= '0' && v <= '9'){
+		return v - 0x30;
+	}else{
+		switch(v){
+			case 'A': case 'a': return 10;
+			case 'B': case 'b': return 11;
+			case 'C': case 'c': return 12;
+			case 'D': case 'd': return 13;
+			case 'E': case 'e': return 14;
+			case 'F': case 'f': return 15;
+			default: return 0;
+		}
+	}
 }
 
 int r_hex_multi(char* v, int len){
-  if(len == 2){
-      return r_hex_number(v[0])*16+r_hex_number(v[1]);
-  }else if(len == 1){
-      return r_hex_number(v[0])*16+r_hex_number(v[0]);
-  }
+	if(len == 2){
+		return r_hex_number(v[0])*16+r_hex_number(v[1]);
+	}else if(len == 1){
+		return r_hex_number(v[0])*16+r_hex_number(v[0]);
+	}
 }
 
 void r_get_color(vec3 val, char* v){
-  int len = strlen(v);
-  int offset = 0;
-  if(len == 4){
-      offset = 1;
-      len = 3;
-  }else if(len == 7){
-      offset = 1;
-      len = 6;
-  }
+	int len = strlen(v);
+	int offset = 0;
+	if(len == 4){
+		offset = 1;
+		len = 3;
+	}else if(len == 7){
+		offset = 1;
+		len = 6;
+	}
 
-  if(len == 3){
-      val[0] = r_hex_multi(&v[offset], 1)   / 255.f;
-      val[1] = r_hex_multi(&v[offset+1], 1) / 255.f;
-      val[2] = r_hex_multi(&v[offset+2], 1) / 255.f;
-  }else if(len == 6){
-      val[0] = r_hex_multi(&v[offset], 2)   / 255.f;
-      val[1] = r_hex_multi(&v[offset+2], 2) / 255.f;
-      val[2] = r_hex_multi(&v[offset+4], 2) / 255.f;
-  }
+	if(len == 3){
+		val[0] = r_hex_multi(&v[offset], 1)   / 255.f;
+		val[1] = r_hex_multi(&v[offset+1], 1) / 255.f;
+		val[2] = r_hex_multi(&v[offset+2], 1) / 255.f;
+	}else if(len == 6){
+		val[0] = r_hex_multi(&v[offset], 2)   / 255.f;
+		val[1] = r_hex_multi(&v[offset+2], 2) / 255.f;
+		val[2] = r_hex_multi(&v[offset+4], 2) / 255.f;
+	}
 }
 
 r_anim  r_get_anim(r_sheet sheet, unsigned int* frames, int frame_count, int frame_rate){
@@ -542,12 +529,12 @@ void r_cache_anim(r_anim anim, const char* name){
 		}
 	}
 
-	anim.uid = anim_uid;
-	anim_uid ++;
+	g_anim_cache.uid ++;
+	anim.uid = g_anim_cache.uid;
 
 	g_anim_cache.names[g_anim_cache.count] = name;
 	g_anim_cache.anims[g_anim_cache.count] = anim;
-	
+
 	g_anim_cache.count ++;
 }
 
@@ -556,7 +543,7 @@ r_anim* r_get_anim_n(const char* name){
 		_l("No animations in cache to check for.\n");
 		return NULL;
 	}
-	
+
 	for(int i=0;i<g_anim_cache.count;++i){
 		if(strcmp(g_anim_cache.names[i], name) == 0){
 			return &g_anim_cache.anims[i];	
@@ -578,15 +565,8 @@ r_anim* r_get_anim_i(unsigned int uid){
 
 void r_drawable_set_anim(r_drawable* drawable, r_anim* anim){
 	r_animv* v = &drawable->anim;
-	
-	_l("Changing to: ");
-	for(int i=0;i<anim->frame_count;++i){
-		v->frames[i] = anim->frames[i];	
-		_l("%d ", anim->frames[i]);
-	}
-	_l("\n");
 
-	//memcpy(v->frames, anim->frames, sizeof(unsigned int) * anim->frame_count);
+	memcpy(v->frames, anim->frames, sizeof(unsigned int) * anim->frame_count);
 	v->frame = 0;
 	v->frame_count = anim->frame_count;
 	v->frame_rate = anim->frame_rate;
@@ -596,7 +576,7 @@ void r_drawable_set_anim(r_drawable* drawable, r_anim* anim){
 
 r_animv r_v_anim(r_anim* anim){
 	r_animv animv;
-	
+
 	animv.frames = malloc(RENDER_ANIM_MAX_FRAMES * sizeof(unsigned int)); 
 	memcpy(animv.frames, anim->frames, anim->frame_count * sizeof(unsigned int));
 	animv.sheet_id = anim->sheet_id;
@@ -635,11 +615,11 @@ void r_anim_h(r_animv* anim){
 r_drawable* r_get_drawable(r_anim* anim, r_shader shader,  vec2 size, vec2 pos){
 	r_drawable* draw;
 
-	if(drawable_count < RENDER_BATCH_SIZE){
-		draw = &drawables[drawable_count];
-		drawable_count ++;
-		draw->uid = drawable_uid;
-		drawable_uid ++;	
+	if(g_drawable_cache.count < RENDER_BATCH_SIZE){
+		draw = &g_drawable_cache.drawables[g_drawable_cache.count];
+		g_drawable_cache.count ++;
+		g_drawable_cache.uid ++;
+		draw->uid = g_drawable_cache.uid;
 	}else{
 		return NULL;
 	}
@@ -663,9 +643,9 @@ r_drawable* r_get_drawable(r_anim* anim, r_shader shader,  vec2 size, vec2 pos){
 }
 
 r_drawable* r_get_drawablei(unsigned int uid){
-	for(int i=0;i<drawable_count;++i){
-		if(drawables[i].uid == uid){
-			return &drawables[i];
+	for(int i=0;i<g_drawable_cache.count;++i){
+		if(g_drawable_cache.drawables[i].uid == uid){
+			return &g_drawable_cache.drawables[i];
 		}
 	}
 
@@ -673,16 +653,15 @@ r_drawable* r_get_drawablei(unsigned int uid){
 }
 
 void r_update_drawable(r_drawable* drawable, long delta){
-	//matrix update check
 	if(drawable->change){
-			float x, y;
-			x = floorf(drawable->position[0]);
-			y = floorf(drawable->position[1]);
-			mat4x4_translate(&drawable->model, x, y, 0.f);
-			mat4x4_scale_aniso(drawable->model, drawable->model, drawable->size[0], drawable->size[1], drawable->size[2]);
 
-			//reset bit flag
-			drawable->change = 0;
+		float x, y;
+		x = floorf(drawable->position[0]);
+		y = floorf(drawable->position[1]);
+		mat4x4_translate(&drawable->model, x, y, 0.f);
+		mat4x4_scale_aniso(drawable->model, drawable->model, drawable->size[0], drawable->size[1], drawable->size[2]);
+
+		drawable->change = 0;
 	}
 
 	if(drawable->anim.state == R_ANIM_PLAY && drawable->visible){
@@ -714,22 +693,21 @@ void r_update_drawable(r_drawable* drawable, long delta){
 
 void r_remove_drawable(unsigned int uid){
 	int index = 0;
-	for(int i=0;i<drawable_count;++i){
-		if(drawables[i].uid == uid){
+	for(int i=0;i<g_drawable_cache.count;++i){
+		if(g_drawable_cache.drawables[i].uid == uid){
 			index = i;
 			break;
 		}
 	}
 
-	int range = (drawable_count == RENDER_BATCH_SIZE) ? RENDER_BATCH_SIZE - 1 : drawable_count;
+	int range = (g_drawable_cache.count == RENDER_BATCH_SIZE) ? RENDER_BATCH_SIZE - 1 : g_drawable_cache.count;
 	for(int i=index;i<range;++i){
-		drawables[i] = drawables[i+1];
+		g_drawable_cache.drawables[i] = g_drawable_cache.drawables[i+1];
 	}
 
-	memset(&drawables[range], 0, sizeof(r_drawable));
+	memset(&g_drawable_cache.drawables[range], 0, sizeof(r_drawable));
 }
 
-#if defined(RENDER_ENABLE_SHADER_CACHE)
 int r_get_cached(r_shader shader, const char* uniform){
 	if(shader && g_shader_map.count){
 		r_shader_cache* specific;
@@ -751,25 +729,23 @@ int r_get_cached(r_shader shader, const char* uniform){
 
 	return -1;
 }
-#endif
 
 inline int r_get_uniform_loc(r_shader shader, const char* uniform){
-/*#if defined(RENDER_ENABLE_SHADER_CACHE)
-	int cache_loc = r_get_cached(shader, uniform);
+	/*
+	   int cache_loc = r_get_cached(shader, uniform);
 
-	if(!cache_loc){
-		cache_loc = glGetUniformLocation(shader, uniform);
-		r_cache_uniform(shader, uniform, cache_loc);
-	}	
+	   if(!cache_loc){
+	   cache_loc = glGetUniformLocation(shader, uniform);
+	   r_cache_uniform(shader, uniform, cache_loc);
+	   }	
 
-	return cache_loc;
-#else*/
+	   return cache_loc;
+	   */
 	return glGetUniformLocation(shader, uniform);
-//#endif
 }
 
 inline void r_set_uniformf(r_shader shader, const char* name, float value){
-    glUniform1f(r_get_uniform_loc(shader, name), value);
+	glUniform1f(r_get_uniform_loc(shader, name), value);
 }
 
 inline void r_set_uniformfi(int loc, float value){
@@ -777,7 +753,7 @@ inline void r_set_uniformfi(int loc, float value){
 }
 
 inline void r_set_uniformi(r_shader shader, const char* name, int value){
-    glUniform1i(r_get_uniform_loc(shader, name), value);
+	glUniform1i(r_get_uniform_loc(shader, name), value);
 }
 
 inline void r_set_uniformii(int loc, int val){
@@ -785,7 +761,7 @@ inline void r_set_uniformii(int loc, int val){
 }
 
 inline void r_set_v4(r_shader shader, const char* name, vec4 value){
-    glUniform4f(r_get_uniform_loc(shader, name), value[0], value[1], value[2], value[3]);
+	glUniform4f(r_get_uniform_loc(shader, name), value[0], value[1], value[2], value[3]);
 }
 
 inline void r_set_v4i(int loc, vec4 value){
@@ -793,7 +769,7 @@ inline void r_set_v4i(int loc, vec4 value){
 }
 
 inline void r_set_v3(r_shader shader, const char* name, vec3 value){
-    glUniform3f(r_get_uniform_loc(shader, name), value[0], value[1], value[2]);
+	glUniform3f(r_get_uniform_loc(shader, name), value[0], value[1], value[2]);
 }
 
 inline void r_set_v3i(int loc, vec3 val){
@@ -801,7 +777,7 @@ inline void r_set_v3i(int loc, vec3 val){
 }
 
 inline void r_set_v2(r_shader shader, const char* name, vec2 value){
-    glUniform2f(r_get_uniform_loc(shader, name), value[0], value[1]);
+	glUniform2f(r_get_uniform_loc(shader, name), value[0], value[1]);
 }
 
 inline void r_set_v2i(int loc, vec2 val){
@@ -809,7 +785,7 @@ inline void r_set_v2i(int loc, vec2 val){
 }
 
 inline void r_set_m4(r_shader shader, const char* name, mat4x4 value){
-    glUniformMatrix4fv(r_get_uniform_loc(shader, name), 1, GL_FALSE, value);
+	glUniformMatrix4fv(r_get_uniform_loc(shader, name), 1, GL_FALSE, value);
 }
 
 inline void r_set_m4i(int loc, mat4x4 val){
@@ -850,303 +826,309 @@ void r_set_v4x(r_shader shader, unsigned int count, const char* name, vec4* valu
 }
 
 static void r_create_modes(){
-    if(r_default_monitor == NULL){
-        r_default_monitor = glfwGetPrimaryMonitor();
-    }
+	if(r_default_monitor == NULL){
+		r_default_monitor = glfwGetPrimaryMonitor();
+	}
 	int count;
-    r_vidmodes = glfwGetVideoModes(r_default_monitor,&count);
+	r_vidmodes = glfwGetVideoModes(r_default_monitor,&count);
 	flags.video_mode_count = count;
 }
 
 static int r_window_info_valid(r_window_info info){
-    return info.width > 0 && info.height > 0;
+	return info.width > 0 && info.height > 0;
 }
 
 static const GLFWvidmode* r_find_closest_mode(r_window_info info){
-    if(flags.video_mode_count== 0){
-        r_create_modes();
-    }else if(flags.video_mode_count == 1){
-        return r_vidmodes;
-    }
+	if(flags.video_mode_count== 0){
+		r_create_modes();
+	}else if(flags.video_mode_count == 1){
+		return r_vidmodes;
+	}
 
-    const GLFWvidmode* closest = &r_vidmodes[0];
-    int distance = (abs(info.width - r_vidmodes[0].width) + abs(info.height - r_vidmodes[0].height) - r_vidmodes[0].refreshRate);
+	const GLFWvidmode* closest = &r_vidmodes[0];
+	int distance = (abs(info.width - r_vidmodes[0].width) + abs(info.height - r_vidmodes[0].height) - r_vidmodes[0].refreshRate);
 
-    for(int i=0;i<flags.video_mode_count;++i){
-        int d2 = (abs(info.width - r_vidmodes[i].width) + abs(info.height - r_vidmodes[i].height) - r_vidmodes[i].refreshRate);
-        if(d2 < distance){
-            closest = &r_vidmodes[i];
-            distance = d2;
-        }
-    }
+	for(int i=0;i<flags.video_mode_count;++i){
+		int d2 = (abs(info.width - r_vidmodes[i].width) + abs(info.height - r_vidmodes[i].height) - r_vidmodes[i].refreshRate);
+		if(d2 < distance){
+			closest = &r_vidmodes[i];
+			distance = d2;
+		}
+	}
 
-    return closest;
+	return closest;
 }
 
 static const GLFWvidmode* r_find_best_mode(){
-    if(flags.video_mode_count == 0){
-        r_create_modes();
-    }else if(flags.video_mode_count == 1){
-        return r_vidmodes;
-    }
+	if(flags.video_mode_count == 0){
+		r_create_modes();
+	}else if(flags.video_mode_count == 1){
+		return r_vidmodes;
+	}
 
-    const GLFWvidmode* selected = &r_vidmodes[0];
-    int value = selected->width + selected->height * (selected->refreshRate * 2);
+	const GLFWvidmode* selected = &r_vidmodes[0];
+	int value = selected->width + selected->height * (selected->refreshRate * 2);
 
-    for(int i=0;i<flags.video_mode_count;++i){
-        int vec2 = r_vidmodes[i].width + r_vidmodes[i].height * (r_vidmodes[i].refreshRate * 2);
-        if(vec2 > value){
-            selected = &r_vidmodes[i];
-            value = vec2;
-        }
-    }
+	for(int i=0;i<flags.video_mode_count;++i){
+		int vec2 = r_vidmodes[i].width + r_vidmodes[i].height * (r_vidmodes[i].refreshRate * 2);
+		if(vec2 > value){
+			selected = &r_vidmodes[i];
+			value = vec2;
+		}
+	}
 
-    return selected;
+	return selected;
+}
+
+static void _error_callback(int err, const char* msg){
+	_e("GLFW Error (%d) %s\n", err, msg);
 }
 
 int r_create_window(r_window_info info){
-    if(!r_window_info_valid(info)){
-        return 0;
-    }
+	if(!r_window_info_valid(info)){
+		return 0;
+	}
 
 	_l("Loading GLFW.\n");
 
-    if(!glfwInit()){
-        _e("Unable to initialize GLFW\n");
-        return 0;
-    }
+	glfwSetErrorCallback(_error_callback);
 
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+	if(!glfwInit()){
+		_e("Unable to initialize GLFW\n");
+		return 0;
+	}
 
-    GLFWwindow* window = NULL;
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
+	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+	GLFWwindow* window = NULL;
 	g_window = (r_window){0};
-	
+
 	_l("Loading Window Settings.\n");
 
-    if(info.fullscreen){
-        const GLFWvidmode* selected_mode;
-        if(r_window_info_valid(info)){
-            selected_mode = r_find_closest_mode(info);
-        }else{
-            selected_mode = r_find_best_mode();
-        }
+	if(info.fullscreen){
+		const GLFWvidmode* selected_mode;
+		if(r_window_info_valid(info)){
+			selected_mode = r_find_closest_mode(info);
+		}else{
+			selected_mode = r_find_best_mode();
+		}
 
-        glfwWindowHint(GLFW_RED_BITS, selected_mode->redBits);
-        glfwWindowHint(GLFW_GREEN_BITS, selected_mode->greenBits);
-        glfwWindowHint(GLFW_BLUE_BITS, selected_mode->blueBits);
-        glfwWindowHint(GLFW_REFRESH_RATE, selected_mode->refreshRate);
+		glfwWindowHint(GLFW_RED_BITS, selected_mode->redBits);
+		glfwWindowHint(GLFW_GREEN_BITS, selected_mode->greenBits);
+		glfwWindowHint(GLFW_BLUE_BITS, selected_mode->blueBits);
+		glfwWindowHint(GLFW_REFRESH_RATE, selected_mode->refreshRate);
 
 		r_default_monitor = glfwGetPrimaryMonitor();
 
-        g_window.refreshRate = selected_mode->refreshRate;
-        g_window.width = selected_mode->width;
-        g_window.height = selected_mode->height;
-        g_window.fullscreen = 1;
+		g_window.refreshRate = selected_mode->refreshRate;
+		g_window.width = selected_mode->width;
+		g_window.height = selected_mode->height;
+		g_window.fullscreen = 1;
 
-        vec2_dup(r_res, (vec2){selected_mode->width, selected_mode->height});
+		vec2_dup(r_res, (vec2){selected_mode->width, selected_mode->height});
 
-        window = glfwCreateWindow(selected_mode->width, selected_mode->height, info.title, r_default_monitor, NULL);
-    }else{
-        glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
+		window = glfwCreateWindow(selected_mode->width, selected_mode->height, info.title, r_default_monitor, NULL);
+	}else{
+		glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 		_l("Borderless: %d\n", info.borderless);
-        glfwWindowHint(GLFW_DECORATED, (info.borderless == 0) ? GLFW_TRUE : GLFW_FALSE);
+		glfwWindowHint(GLFW_DECORATED, (info.borderless == 0) ? GLFW_TRUE : GLFW_FALSE);
 
-        if(info.refreshRate > 0){
-            glfwWindowHint(GLFW_REFRESH_RATE, info.refreshRate);
-            g_window.refreshRate = info.refreshRate;
-        }
+		if(info.refreshRate > 0){
+			glfwWindowHint(GLFW_REFRESH_RATE, info.refreshRate);
+			g_window.refreshRate = info.refreshRate;
+		}
 
-        g_window.width = info.width;
-        g_window.height = info.height;
+		g_window.width = info.width;
+		g_window.height = info.height;
 
-        vec2_dup(r_res, (vec2){info.width, info.height});
+		vec2_dup(r_res, (vec2){info.width, info.height});
 
-        g_window.fullscreen = 0;
+		g_window.fullscreen = 0;
 		g_window.vsync = info.vsync;
-		
 
-        window = glfwCreateWindow(info.width, info.height, info.title, NULL, NULL);
+
+		window = glfwCreateWindow(info.width, info.height, info.title, NULL, NULL);
 		if(g_window.vsync){
 			glfwSwapInterval(1);
 		}
-    }
+	}
 
 	_l("Loaded window settings.\n");
 
-    if(!window){
-        _e("Error: Unable to create GLFW window.\n");
-        glfwTerminate();
-        return 0;
-    }
+	if(!window){
+		_e("Error: Unable to create GLFW window.\n");
+		glfwTerminate();
+		return 0;
+	}
 
-    g_window.glfw = window;
-	
+	g_window.glfw = window;
+
 	_l("Attaching GL Context.\n");
-    glfwMakeContextCurrent(window);
+	glfwMakeContextCurrent(window);
 
 	_l("Loading GL\n");
 	gladLoadGL(glfwGetProcAddress);
 
-    flags.allowed = 1;
+	flags.allowed = 1;
 
-    //glDisable(GL_DEPTH_TEST);
-    //glDepthFunc(GL_LESS);
+	//glDisable(GL_DEPTH_TEST);
+	//glDepthFunc(GL_LESS);
 	glDisable(GL_CULL_FACE);
 
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    glViewport(0, 0, g_window.width, g_window.height);
+	glViewport(0, 0, g_window.width, g_window.height);
 
-    glfwGetWindowPos(g_window.glfw, &g_window.x, &g_window.y);
+	glfwGetWindowPos(g_window.glfw, &g_window.x, &g_window.y);
 
-    vec3 color;
+	vec3 color;
 	r_get_color(color, "222");
-    glClearColor(color[0], color[1], color[2], 1.f);
-	
+	glClearColor(color[0], color[1], color[2], 1.f);
+
 	_l("Setting Callbacks.\n");
 
-    glfwSetWindowPosCallback(g_window.glfw, glfw_window_pos_cb);
-    glfwSetWindowSizeCallback(g_window.glfw, glfw_window_size_cb);
-    glfwSetWindowCloseCallback(g_window.glfw, glfw_window_close_cb);
-    glfwSetKeyCallback(g_window.glfw, glfw_key_cb);
-    glfwSetCharCallback(g_window.glfw, glfw_char_cb);
-    glfwSetMouseButtonCallback(g_window.glfw, glfw_mouse_button_cb);
-    glfwSetCursorPosCallback(g_window.glfw, glfw_mouse_pos_cb);
-    glfwSetScrollCallback(g_window.glfw, glfw_scroll_cb);
-    glfwSetJoystickCallback(glfw_joy_cb);
-	
-	_l("Setting default bindings.\n");
-    i_default_bindings();
+	glfwSetWindowPosCallback(g_window.glfw, glfw_window_pos_cb);
+	glfwSetWindowSizeCallback(g_window.glfw, glfw_window_size_cb);
+	glfwSetWindowCloseCallback(g_window.glfw, glfw_window_close_cb);
+	glfwSetKeyCallback(g_window.glfw, glfw_key_cb);
+	glfwSetCharCallback(g_window.glfw, glfw_char_cb);
+	glfwSetMouseButtonCallback(g_window.glfw, glfw_mouse_button_cb);
+	glfwSetCursorPosCallback(g_window.glfw, glfw_mouse_pos_cb);
+	glfwSetScrollCallback(g_window.glfw, glfw_scroll_cb);
+	glfwSetJoystickCallback(glfw_joy_cb);
 
-    return 1;
+	_l("Setting default bindings.\n");
+	i_default_bindings();
+
+	return 1;
 }
 
 void r_center_window(){
-    GLFWmonitor* mon = NULL;
-    int monitor_count;
-    GLFWmonitor** monitors =  glfwGetMonitors(&monitor_count);
+	GLFWmonitor* mon = NULL;
+	int monitor_count;
+	GLFWmonitor** monitors =  glfwGetMonitors(&monitor_count);
 
-    if(monitor_count == 0){
-        return;
-    }else if(monitor_count == 1){
-        const GLFWvidmode* mode = glfwGetVideoMode(monitors[0]);
-        r_set_window_pos((mode->width - g_window.width) / 2, (mode->height - g_window.height) / 2);
-        return;
-    }
+	if(monitor_count == 0){
+		return;
+	}else if(monitor_count == 1){
+		const GLFWvidmode* mode = glfwGetVideoMode(monitors[0]);
+		r_set_window_pos((mode->width - g_window.width) / 2, (mode->height - g_window.height) / 2);
+		return;
+	}
 
-    int mon_x, mon_y;
-    int mon_w, mon_h;
+	int mon_x, mon_y;
+	int mon_w, mon_h;
 
-    for(int i=0;i<monitor_count;++i){
-        glfwGetMonitorPos(monitors[i], &mon_x, &mon_y);
-        const GLFWvidmode* mode = glfwGetVideoMode(monitors[i]);
-        if(g_window.x > mon_x && g_window.x < mon_x + mode->width){
-            if(g_window.y > mon_y && g_window.y < mon_y + mode->height){
-                mon_w = mode->width;
-                mon_h = mode->height;
-                mon = monitors[i];
-                break;
-            }
-        }
-    }
+	for(int i=0;i<monitor_count;++i){
+		glfwGetMonitorPos(monitors[i], &mon_x, &mon_y);
+		const GLFWvidmode* mode = glfwGetVideoMode(monitors[i]);
+		if(g_window.x > mon_x && g_window.x < mon_x + mode->width){
+			if(g_window.y > mon_y && g_window.y < mon_y + mode->height){
+				mon_w = mode->width;
+				mon_h = mode->height;
+				mon = monitors[i];
+				break;
+			}
+		}
+	}
 
-    if(mon != NULL){
-        r_set_window_pos((mon_w - g_window.width) / 2, (mon_h - g_window.height) / 2);
-    }
+	if(mon != NULL){
+		r_set_window_pos((mon_w - g_window.width) / 2, (mon_h - g_window.height) / 2);
+	}
 }
 
 void r_set_window_pos(int x, int y){
-    glfwSetWindowPos(g_window.glfw, x, y);
+	glfwSetWindowPos(g_window.glfw, x, y);
 }
 
 void r_destroy_window(){
-    flags.allowed = 0;
+	flags.allowed = 0;
 
-    glfwDestroyWindow(g_window.glfw);
+	glfwDestroyWindow(g_window.glfw);
 
-    g_window.glfw = NULL;
-    g_window.width = -1;
-    g_window.height = -1;
-    g_window.refreshRate = -1;
-    g_window.fullscreen = 0;
-    g_window.vsync = 0;
+	g_window.glfw = NULL;
+	g_window.width = -1;
+	g_window.height = -1;
+	g_window.refreshRate = -1;
+	g_window.fullscreen = 0;
+	g_window.vsync = 0;
 }
 
 void r_request_close(){
-    g_window.close_requested = 1;
+	g_window.close_requested = 1;
 }
 
 int r_should_close(){
-    return g_window.close_requested;
+	return g_window.close_requested;
 }
 
 void r_swap_buffers(){
-    glfwSwapBuffers(g_window.glfw);
+	glfwSwapBuffers(g_window.glfw);
 }
 
 void r_clear_window(){
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
 static void glfw_err_cb(int error, const char* msg){
-    _e("ERROR: %i %s\n", error, msg);
+	_e("ERROR: %i %s\n", error, msg);
 }
 
 static void glfw_window_pos_cb(GLFWwindow* window, int x, int y){
-    g_window.x = x;
-    g_window.y = y;
+	g_window.x = x;
+	g_window.y = y;
 }
 
 static void glfw_window_size_cb(GLFWwindow* window, int w, int h){
-    g_window.width = w;
-    g_window.height = h;
-    glViewport(0, 0, w, h);
-    flags.scaled = 1;
+	g_window.width = w;
+	g_window.height = h;
+	glViewport(0, 0, w, h);
+	flags.scaled = 1;
 }
 
 static void glfw_window_close_cb(GLFWwindow* window){
-    g_window.close_requested = 1;
+	g_window.close_requested = 1;
 }
 
 static void glfw_key_cb(GLFWwindow* window, int key, int scancode, int action, int mods){
-    if(action == GLFW_PRESS || action == GLFW_REPEAT){
-        i_key_callback(key, scancode, 1);
-        if(i_binding_track()){
-            i_binding_track_callback(key, KEY_BINDING_KEY);
-        }
-    }else if(action == GLFW_RELEASE){
-        i_key_callback(key, scancode, 0);
-    }
+	if(action == GLFW_PRESS || action == GLFW_REPEAT){
+		i_key_callback(key, scancode, 1);
+		if(i_binding_track()){
+			i_binding_track_callback(key, KEY_BINDING_KEY);
+		}
+	}else if(action == GLFW_RELEASE){
+		i_key_callback(key, scancode, 0);
+	}
 }
 
 static void glfw_char_cb(GLFWwindow* window, unsigned int c){
-    i_char_callback(c);
+	i_char_callback(c);
 }
 
 static void glfw_mouse_pos_cb(GLFWwindow* window, double x, double y){
-    i_mouse_pos_callback(x, y);
+	i_mouse_pos_callback(x, y);
 }
 
 static void glfw_mouse_button_cb(GLFWwindow* window, int button, int action, int mods){
-    if(action == GLFW_PRESS || action == GLFW_REPEAT){
-        i_mouse_button_callback(button);
-        if(i_binding_track()){
-            i_binding_track_callback(button, KEY_BINDING_MOUSE_BUTTON);
-        }
-    }
+	if(action == GLFW_PRESS || action == GLFW_REPEAT){
+		i_mouse_button_callback(button);
+		if(i_binding_track()){
+			i_binding_track_callback(button, KEY_BINDING_MOUSE_BUTTON);
+		}
+	}
 }
 
 static void glfw_scroll_cb(GLFWwindow* window, double dx, double dy){
-    i_mouse_scroll_callback(dx, dy);
+	i_mouse_scroll_callback(dx, dy);
 }
 
 static void glfw_joy_cb(int joystick, int action){
-    if(action == GLFW_CONNECTED){
-        i_create_joy(joystick);
-    }else if(action == GLFW_DISCONNECTED){
-        i_destroy_joy(joystick);
-    }
+	if(action == GLFW_CONNECTED){
+		i_create_joy(joystick);
+	}else if(action == GLFW_DISCONNECTED){
+		i_destroy_joy(joystick);
+	}
 }

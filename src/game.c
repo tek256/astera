@@ -6,6 +6,8 @@
 #include "render.h"
 #include "input.h"
 
+#include <time.h>
+
 static a_buf buffer;
 
 static r_shader shader;
@@ -21,18 +23,17 @@ int g_init(){
 	r_map_shader(shader, "default");
 	unsigned int frames[5] = { 4, 5, 6, 7, 4};
 	unsigned int frames2[5] = { 0, 1, 2, 3, 1};
-	
+
+	time_t t;
+	srand((unsigned) time(&t));
+
 	anim = r_get_anim(sheet, frames, 5, 24);
 	r_anim anim2 = r_get_anim(sheet, frames2, 5, 24);
 
 	r_cache_anim(anim, "test");
 	r_cache_anim(anim2, "test2");
-	
-	r_anim* _anim = r_get_anim_n("test");
 
-	if(_anim){
-		_l("Found animation successfully.\n");
-	}
+	r_anim* _anim = r_get_anim_n("test");
 
 	buffer = a_create_buffer("res/snd/test.ogg");
 
@@ -50,7 +51,7 @@ int g_init(){
 		if(!dir_x[i]){
 			d->flip_x = 1;	
 		}
-		
+
 		if(dir_y[i]){
 			d->flip_y = 1;
 		}
@@ -61,7 +62,7 @@ int g_init(){
 }
 
 void g_exit(){
-	_l("Exiting game.");
+
 }
 
 void g_input(long delta){
@@ -73,13 +74,7 @@ void g_input(long delta){
 		int r = (rand() % 15) + 1;//non-zero uid
 		r_drawable* d = r_get_drawablei(r);
 		r_anim* anim = r_get_anim_n("test2");
-		_l("Anim check: ");
-		for(int i=0;i<anim->frame_count;++i){
-			_l("%d ", anim->frames[i]);
-		}
-		_l("\n");	
 		r_drawable_set_anim(d, anim);
-
 	}
 
 	float change_x = 0.f; 
@@ -89,7 +84,7 @@ void g_input(long delta){
 	}else if(i_key_down('A')){
 		change_x -= delta;
 	}
-	
+
 	if(i_key_down('W')){
 		change_y += delta;
 	}else if(i_key_down('S')){
@@ -112,11 +107,10 @@ void g_update(long delta){
 }
 
 void g_render(long delta){
-
 	for(int i=1;i<17;++i){
 		r_drawable* d = r_get_drawablei(i);
 		d->position[0] += dir_x[i] * delta * 0.05f;
-	    d->position[1] += dir_y[i] * delta * 0.05f;
+		d->position[1] += dir_y[i] * delta * 0.05f;
 		d->change = 1;		
 	}
 

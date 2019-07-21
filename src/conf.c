@@ -1,14 +1,13 @@
 #include "conf.h"
 
-#include <string.h>
-#include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
 
 #include <ini.h>
 #include <ini.c>
 
-
 #define match(s,n) strcmp(section, s) == 0 && strcmp(name, n) == 0
+
 static int parse_handler(void* user, const char* section, const char* name, const char* value){
 	c_conf* c = (c_conf*)user;
 	if(match("render", "width")){
@@ -37,18 +36,12 @@ static int parse_handler(void* user, const char* section, const char* name, cons
 
 	return 1;
 }
-/*
- *typedef struct {
-	unsigned int width, height;
-	unsigned int fullscreen, refreshRate;
-	unsigned int vsync, borderless;
-	unsigned int master;
-	unsigned int music, sfx;	
-} c_conf;
 
+c_conf c_parse_file(const char* fp, int prefs){
+	if(prefs){
+		c_prefs_path = fp;		
+	}
 
- */
-c_conf c_parse_file(const char* fp){
 	c_conf conf = (c_conf){1280, 720, 0, 60, 1, 0, 100, 75, 50};
 	if(ini_parse(fp, parse_handler, &conf) < 0){
 		_e("Unable to open: %s\n", fp);
@@ -92,7 +85,7 @@ void c_parse_args(int argc, const char** argv){
 				break;
 		}
 	}
-	
+
 	for(int i=0;i<argc;++i){
 		if(!strcmp(argv[i], "debug")){
 			conf_flags.debug = 1;	
@@ -106,6 +99,16 @@ void c_parse_args(int argc, const char** argv){
 			conf_flags.verbose = -1;
 		}
 	}
+}
+
+/*void c_write_table(const char* table, char** keys, char** values, int count){
+	for(int i=0;i<count;++i){
+			
+	}
+}*/
+
+int c_prefs_located(){
+	return c_prefs_path;
 }
 
 int c_is_debug(){

@@ -1,8 +1,6 @@
 #ifndef PLAT_H
 #define PLAT_H
 
-#define USER_CONFIG "config.toml"
-
 //Define POSIX features for C99
 #if !defined(_XOPEN_SOURCE) && !defined(_POSIX_C_SOURCE)
 #if defined(__cplusplus)
@@ -13,8 +11,6 @@
 #define _XOPEN_SOURCE 500   /* SUS v2, POSIX 1003.1 1997 */
 #endif /* __STDC_VERSION__ */
 #endif /* !_XOPEN_SOURCE && !_POSIX_C_SOURCE */
-
-
 
 //PLATFORM DETECTION
 #if defined(_WIN32)
@@ -65,11 +61,7 @@
 	#endif
 #endif
 
-int platform_get(void);
-int arch_get(void);
 const char* platform_get_str(int* count);
 const char* arch_get_str(int* count);
-
-int platform_init(void);
 
 #endif

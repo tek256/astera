@@ -17,10 +17,8 @@
 #include "game.h"
 #include "mem.h"
 
-int target_fps = 60;
-int max_fps = 60;
-
-static m_zone mem_zone;
+int target_fps = 120;
+int max_fps = 120;
 
 c_conf conf;
 
@@ -32,9 +30,10 @@ int main(int argc, char** argv){
 	#endif
 
 	dbg_enable_log(1, "log.txt");
+
 	c_parse_args(argc, argv);
 	
-	conf = c_parse_file("res/conf.ini");
+	conf = c_parse_file("res/conf.ini", 1);
 
 	if(!r_init(conf)){
 		_fatal("Unable to initialize rendering system.\n");	

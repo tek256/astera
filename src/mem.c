@@ -36,7 +36,7 @@ void m_update(m_zoneinfo* info){
 		int used = 0;
 		size_t free_amnt = 0;
 		size_t used_amnt = 0;
-		
+
 		m_block* block = ctx->start;
 
 		//free in front, thne the rest of that stuff
@@ -62,7 +62,7 @@ void m_update(m_zoneinfo* info){
 					}	
 				}
 			}
-			
+
 			blocks++;
 			if(block->free){
 				free++;
@@ -95,7 +95,7 @@ void* m_alloc(size_t s){
 	if(ctx){
 		m_block* b = ctx->start;
 		size_t real_size = s + sizeof(m_block) + sizeof(m_tag);
-		
+
 		m_block* last_suitable = NULL;
 		size_t last_offset = LONG_MAX;
 
@@ -110,7 +110,7 @@ void* m_alloc(size_t s){
 				last_suitable = b;
 				last_offset = 0;
 			}
-			
+
 			//break on last element
 			if(b->next){
 				b = b->next;
@@ -123,7 +123,7 @@ void* m_alloc(size_t s){
 			//split block
 			if(last_suitable->size > real_size){
 				void* new_offset = last_suitable->ptr + last_suitable->size + sizeof(m_tag);
-				
+
 				m_block* new_block = (m_block*)new_offset;
 				new_block->ptr = new_offset + sizeof(m_block);
 				new_block->size = last_suitable->size - (real_size + sizeof(m_tag) + sizeof(m_block));
@@ -132,13 +132,13 @@ void* m_alloc(size_t s){
 				m_tag* old_tag = (m_tag*)(new_offset - sizeof(m_tag));
 				new_tag->size = new_block->size;
 				new_tag->free = 1;
-				
+
 				old_tag->size = s;
 				old_tag->free = 0;	
 
 				last_suitable->free = 0;
 				last_suitable->size = s;
-				
+
 				if(last_suitable->prev){
 					last_suitable->prev->next = new_block;
 				}
@@ -164,11 +164,11 @@ void* m_alloc(size_t s){
 				if(last_suitable->next){
 					last_suitable->next->prev = last_suitable->prev;
 				}
-				
+
 				b->next = last_suitable;
 				last_suitable->prev = b;
 				last_suitable->next = NULL;
-					
+
 				return last_suitable->ptr;	
 			}
 		}		
@@ -182,7 +182,7 @@ void* m_alloc_safe(size_t s, size_t* g){
 	if(ctx){
 		m_block* b = ctx->start;
 		size_t real_size = s + sizeof(m_block) + sizeof(m_tag);
-		
+
 		m_block* last_suitable = NULL;
 		size_t last_offset = LONG_MAX;
 
@@ -197,7 +197,7 @@ void* m_alloc_safe(size_t s, size_t* g){
 				last_suitable = b;
 				last_offset = 0;
 			}
-			
+
 			//break on last element
 			if(b->next){
 				b = b->next;
@@ -210,7 +210,7 @@ void* m_alloc_safe(size_t s, size_t* g){
 			//split block
 			if(last_suitable->size > real_size){
 				void* new_offset = last_suitable->ptr + last_suitable->size + sizeof(m_tag);
-				
+
 				m_block* new_block = (m_block*)new_offset;
 				new_block->ptr = new_offset + sizeof(m_block);
 				new_block->size = last_suitable->size - (real_size + sizeof(m_tag) + sizeof(m_block));
@@ -219,13 +219,13 @@ void* m_alloc_safe(size_t s, size_t* g){
 				m_tag* old_tag = (m_tag*)(new_offset - sizeof(m_tag));
 				new_tag->size = new_block->size;
 				new_tag->free = 1;
-				
+
 				old_tag->size = s;
 				old_tag->free = 0;	
 
 				last_suitable->free = 0;
 				last_suitable->size = s;
-				
+
 				if(last_suitable->prev){
 					last_suitable->prev->next = new_block;
 				}
@@ -252,11 +252,11 @@ void* m_alloc_safe(size_t s, size_t* g){
 				if(last_suitable->next){
 					last_suitable->next->prev = last_suitable->prev;
 				}
-				
+
 				b->next = last_suitable;
 				last_suitable->prev = b;
 				last_suitable->next = NULL;
-				
+
 				*g = last_suitable->size;	
 				return last_suitable->ptr;	
 			}

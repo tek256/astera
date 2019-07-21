@@ -1,13 +1,5 @@
 #include "platform.h"
 
-int platform_get(void){
-
-}
-
-int arch_get(void){
-
-}
-
 const char* platform_get_str(int *count){
     #if defined(PLAT_MSFT_64)
         *count = 5;
@@ -147,8 +139,4 @@ const char* arch_get_str(int *count){
         *count = 3;
         return "UNK";
     #endif
-}
-
-int platform_init(void){
-    
 }

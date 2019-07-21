@@ -29,7 +29,7 @@ unsigned char* f_get_file_contents(const char* fp, int* size){
 		count = fread(data, sizeof(unsigned char), count, file);
 		data[count] = '\0';
 	}
-	
+
 	if(size)
 		*size = count;
 

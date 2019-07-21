@@ -1,5 +1,4 @@
 #include "debug.h"
-//#include "conf.h"
 
 #include <stdio.h>
 #include <stdarg.h>
@@ -17,24 +16,25 @@ static int refresh_rate = 5;
 static int changes_made = 0;
 
 static char time_buff[64];
+static char strbuff[STR_BUFF_SIZE];
 
 void dbg_set_log_fp(const char* fp){
-   log_fp = fp; 
+	log_fp = fp; 
 }
 
 void dbg_set_timestamp(int enabled){
 	timestamp = enabled;
 }
 
-int dbg_get_logging(){
-    return logging && log_fp;
+int dbg_is_logging(){
+	return logging && log_fp;
 }
 
 int dbg_cleanup(){
-    if(log_fp){
-        return remove(log_fp);
-    }
-    return 1;
+	if(log_fp){
+		return remove(log_fp);
+	}
+	return 1;
 }
 
 void dbg_enable_log(int log, const char* fp){
@@ -58,10 +58,9 @@ void dbg_enable_log(int log, const char* fp){
 	}
 }
 
-static char strbuff[STR_BUFF_SIZE];
 void _l(const char* format, ...){
-    va_list args;
-    va_start(args, format);
+	va_list args;
+	va_start(args, format);
 
 	vsprintf(strbuff, format, args);
 	if(!c_is_silent()){
@@ -80,7 +79,7 @@ void _l(const char* format, ...){
 			strftime(time_buff, 64, "%H:%M:%S ", ti);
 
 			int ts_len = strlen(time_buff);
-			
+
 			FILE* f = fopen(log_fp, "a");
 			fwrite(time_buff, sizeof(char), ts_len, f);
 			fwrite(strbuff, sizeof(char), len, f);
@@ -106,7 +105,7 @@ void _fatal(const char* format, ...){
 	int len = strlen(strbuff);
 
 	if(logging){
-			if(timestamp){
+		if(timestamp){
 			time_t raw;
 			struct tm* ti;
 			time(&raw);
@@ -130,7 +129,7 @@ void _fatal(const char* format, ...){
 
 	memset(strbuff, 0, sizeof(char) * STR_BUFF_SIZE);
 	va_end(args);
-   
+
 	d_fatal = 1;
 }
 
@@ -170,63 +169,63 @@ void _e(const char* format, ...){
 }
 
 int dbg_post_to_err(){
-    char err_buff[STR_BUFF_SIZE];
-    //no logging set up
-    if(!log_fp){
-        return 0;
-    }
-    
-    time_t raw;
-    struct tm* ti;
-    time(&raw);
-    ti = localtime(&raw);
+	char err_buff[STR_BUFF_SIZE];
+	
+	if(!log_fp){
+		return 0;
+	}
 
-    strftime(time_buff, 64, "%d%Om%Y_%H%M", ti);
+	time_t raw;
+	struct tm* ti;
+	time(&raw);
+	ti = localtime(&raw);
 
-    memset(err_buff, 0, sizeof(char) * STR_BUFF_SIZE); 
-    strcat(err_buff, "ERR_");
-    strcat(err_buff, time_buff);
-    strcat(err_buff, ".txt");
-    strcat(err_buff, "\0");
-    
-    FILE* o = fopen(err_buff, "w");
-    FILE* i = fopen(log_fp, "r");
+	strftime(time_buff, 64, "%d%Om%Y_%H%M", ti);
 
-    if(!o){
-        _e("Unable to open, %s for error output.\n", log_fp);
-        fclose(o);
-        fclose(i);
-        memset(err_buff, 0, sizeof(char) * STR_BUFF_SIZE);
-        return 0;
-    }
+	memset(err_buff, 0, sizeof(char) * STR_BUFF_SIZE); 
+	strcat(err_buff, "ERR_");
+	strcat(err_buff, time_buff);
+	strcat(err_buff, ".txt");
+	strcat(err_buff, "\0");
 
-    if(!i){
-        _e("Unable to open, %s for error output.\n", err_buff);
-        fclose(o);
-        fclose(i);
-        memset(err_buff, 0, sizeof(char) * STR_BUFF_SIZE);
-        return 0;
-    }
-    
-    memset(err_buff, 0, sizeof(char) * STR_BUFF_SIZE);
+	FILE* o = fopen(err_buff, "w");
+	FILE* i = fopen(log_fp, "r");
 
-    fseek(i, 0, SEEK_END); 
-    long size = ftell(i);   
-    long rem = size-1;
-    rewind(i);
-    
-    while(rem > 0){
-        rem -= fread(err_buff, sizeof(char), STR_BUFF_SIZE, i);
-        fwrite(err_buff, sizeof(char), STR_BUFF_SIZE, o);
-    }
+	if(!o){
+		_e("Unable to open, %s for error output.\n", log_fp);
+		fclose(o);
+		fclose(i);
+		memset(err_buff, 0, sizeof(char) * STR_BUFF_SIZE);
+		return 0;
+	}
+
+	if(!i){
+		_e("Unable to open, %s for error output.\n", err_buff);
+		fclose(o);
+		fclose(i);
+		memset(err_buff, 0, sizeof(char) * STR_BUFF_SIZE);
+		return 0;
+	}
+
+	memset(err_buff, 0, sizeof(char) * STR_BUFF_SIZE);
+
+	fseek(i, 0, SEEK_END); 
+	long size = ftell(i);   
+	long rem = size-1;
+	rewind(i);
+
+	while(rem > 0){
+		rem -= fread(err_buff, sizeof(char), STR_BUFF_SIZE, i);
+		fwrite(err_buff, sizeof(char), STR_BUFF_SIZE, o);
+	}
 
 	memset(time_buff, 0, sizeof(char) * 64);
 
-    fclose(i);
-    fclose(o);
+	fclose(i);
+	fclose(o);
 
-    memset(err_buff, 0, sizeof(char) * STR_BUFF_SIZE);
-   
-    dbg_cleanup();
-    return 1;
+	memset(err_buff, 0, sizeof(char) * STR_BUFF_SIZE);
+
+	dbg_cleanup();
+	return 1;
 }

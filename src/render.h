@@ -11,25 +11,22 @@
 
 #include "conf.h"
 
-#define R_ANIM_STOP 0
-#define R_ANIM_PLAY 1
-#define R_ANIM_PAUSE 2
-
 //max number of quads to draw at once
 #define RENDER_BATCH_SIZE 128
+
 //max length of a uniform string
 #define SHADER_STR_SIZE 64
 
 //number of animations to cache at max
 #define RENDER_ANIM_CACHE 64
+
 //number of shaders to store in map at max
 #define RENDER_SHADER_CACHE 2
+
 //number of uniform locations to store
 #define RENDER_SHADER_VALUE_CACHE 32
 
-#define RENDER_ENABLE_SHADER_CACHE
-#define RENDER_ENABLE_ANIM_CACHE
-
+//max length of an animation in frames
 #define RENDER_ANIM_MAX_FRAMES 32
 
 typedef struct {
@@ -67,10 +64,9 @@ typedef struct {
 
 typedef unsigned int r_shader;
 
-#if defined(RENDER_ENABLE_SHADER_CACHE)
 typedef struct {
 	r_shader shader;
-	
+
 	mat4x4 models[RENDER_BATCH_SIZE];
 	unsigned int tex_ids[RENDER_BATCH_SIZE];
 	unsigned int flip_x[RENDER_BATCH_SIZE];
@@ -96,8 +92,16 @@ typedef struct {
 	unsigned int count;
 	unsigned int capacity;	
 } r_shader_map;
-#endif
 
+/*
+ *
+static r_drawable drawables[RENDER_BATCH_SIZE];
+static int drawable_count = 0;
+
+static unsigned int drawable_uid = 1;
+
+
+ */
 typedef struct {
 	unsigned int id;
 	unsigned int width, height;
@@ -109,6 +113,11 @@ typedef struct {
 	unsigned int subwidth, subheight;
 } r_sheet;
 
+//animation states
+#define R_ANIM_STOP  0x00
+#define R_ANIM_PLAY  0x01
+#define R_ANIM_PAUSE 0x10
+
 typedef struct {
 	unsigned int* frames;
 	unsigned int  frame_count;
@@ -117,14 +126,14 @@ typedef struct {
 	unsigned int  sheet_id;
 } r_anim;
 
-#if defined(RENDER_ENABLE_ANIM_CACHE)
 typedef struct {
 	r_anim anims[RENDER_ANIM_CACHE];
 	char*  names[RENDER_ANIM_CACHE];
+
 	unsigned short count;
 	unsigned short capacity;
+	unsigned short uid;
 } r_anim_cache;
-#endif
 
 typedef struct {
 	unsigned int* frames;
@@ -132,7 +141,9 @@ typedef struct {
 	unsigned int frame_count;
 	unsigned int frame_rate;
 	unsigned int anim_id;
+
 	float time;
+
 	unsigned short frame;	
 	unsigned char state, pstate;
 	int loop : 1; 
@@ -148,17 +159,24 @@ typedef struct {
 	unsigned short c_tex;
 	unsigned char layer;
 	int visible : 1;
-	int change  : 1; //change in position / size
+	int change  : 1;
 	unsigned int uid;
 	unsigned int flip_x, flip_y;
 } r_drawable;
+
+typedef struct {
+	r_drawable drawables[RENDER_BATCH_SIZE];
+	unsigned int count;
+	unsigned int capacity;
+	unsigned int uid;
+} r_drawable_cache; 
+
 
 static r_window g_window;
 static r_camera g_camera;
 
 static r_anim_cache g_anim_cache;
-static unsigned int anim_uid = 1;
-
+static r_drawable_cache g_drawable_cache;
 static r_shader_map g_shader_map;
 
 int r_init_quad();
@@ -217,7 +235,6 @@ void r_create_camera(r_camera* camera, vec2 size, vec2 position);
 void r_update_camera();
 void r_move_cam(float x, float y);
 
-
 void r_set_uniformf(r_shader shader, const char* name, float value);
 void r_set_uniformi(r_shader shader, const char* name, int value);
 void r_set_v4(r_shader shader, const char* name, vec4 value);
@@ -258,6 +275,7 @@ static void glfw_char_cb(GLFWwindow* window, unsigned int c);
 int  r_create_window(r_window_info info);
 void r_destroy_window();
 void r_request_close();
+void r_save_prefs();
 
 void r_center_window();
 void r_set_window_pos(int x, int y);
