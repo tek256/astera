@@ -7,12 +7,17 @@ COMPILER_FLAGS = -w -g -std=c99
 WIN_COMPILER_FLAGS = -w -g -std=c99
 OSX_COMPILER_FLAGS = -w -g -std=c99
 
-MAKE_DIR = $(shell pwd)
+ifeq ($(OS),Windows_NT)
+	SHELL = cmd.exe
+	MAKE_DIR = $(shell cd)
+else
+	MAKE_DIR = $(shell pwd)
+endif
 
 INCLUDES = -I$(MAKE_DIR)/dep/openal-soft/include/ -I$(MAKE_DIR)/dep/glfw/include/ -I$(MAKE_DIR)/dep/ 
 
 LINKER_FLAGS = -L$(MAKE_DIR)/dep/glfw/src/ -lglfw -lGL -lGLU -lX11 -lXi -lXrandr -lXxf86vm -lXinerama -lpthread -ldl -lXcursor -lm -L$(MAKE_DIR)/dep/openal-soft/ -lopenal
-WIN_LINKER_FLAGS = -lopengl32 -L$(MAKE_DIR)/dep/glfw/src/ -lglfw -lgdi32 -lm -L$(MAKE_DIR)/dep/openal-soft/ -lopenal
+WIN_LINKER_FLAGS = -lopengl32 -L$(MAKE_DIR)/dep/glfw/src/ -lglfw3 -lgdi32 -lm -L$(MAKE_DIR)/dep/openal-soft/ -lopenal32
 OSX_LINKER_FLAGS = -lGL -lGLU -L$(MAKE_DIR)/dep/glfw/src/ -lglfw -lX11 -lXxf86vm -lXrandr -lpthread -lXi -lXinerama -ldl -lXcursor -L$(MAKE_DIR/dep/openal-soft/ -lopenal -lm 
 
 EXEC_NAME = engine
@@ -30,9 +35,9 @@ ifeq ($(OS),Windows_NT)
 	TARGET_COMPILER_FLAGS += -D WIN32
 
 	ifeq ($(PROCESSOR_ARCHITECTURE),AMD64)
-		TARGET_COMPILER_FLAGS += -march=AMD64
+		TARGET_COMPILER_FLAGS += -march=x86-64
 	else ifeq ($(PROCESSOR_ARCHITECTURE),x86)
-		TARGET_COMPILER_FLAGS += -march=IA32
+		TARGET_COMPILER_FLAGS += -march=i386
 	endif
 else
 	UNAME_S := $(shell uname -s)
