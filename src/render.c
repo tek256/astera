@@ -209,7 +209,6 @@ void r_draw_call(r_shader shader, r_sheet* sheet){
 	vec2 tex_size;
 	vec2_dup(tex_size, (vec2){ sheet->width, sheet->height });
 
-	//set texture shit
 	r_set_v2(shader, "sub_size", sub_size);
 	r_set_v2(shader, "tex_size", tex_size);	
 
@@ -218,7 +217,6 @@ void r_draw_call(r_shader shader, r_sheet* sheet){
 
 	r_bind_tex(sheet->id);
 
-	//draw instanced
 	glBindVertexArray(default_quad_vao);
 	glEnableVertexAttribArray(0);
 
@@ -950,9 +948,6 @@ int r_create_window(r_window_info info){
 
 
 		window = glfwCreateWindow(info.width, info.height, info.title, NULL, NULL);
-		if(g_window.vsync){
-			glfwSwapInterval(1);
-		}
 	}
 
 	_l("Loaded window settings.\n");
@@ -970,6 +965,10 @@ int r_create_window(r_window_info info){
 
 	_l("Loading GL\n");
 	gladLoadGL(glfwGetProcAddress);
+
+	if(g_window.vsync){
+		glfwSwapInterval(1);
+	}
 
 	flags.allowed = 1;
 

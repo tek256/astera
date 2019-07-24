@@ -1,11 +1,11 @@
-OBJS = src/*.c
+OBJS = $(wildcard src/*.c)
 
-CC = gcc
+CC = clang
 WIN_CC = gcc 
 
-COMPILER_FLAGS = -w -g -std=c99
-WIN_COMPILER_FLAGS = -w -g -std=c99
-OSX_COMPILER_FLAGS = -w -g -std=c99
+COMPILER_FLAGS = -w -std=c99 -O2
+WIN_COMPILER_FLAGS = -w -std=c99
+OSX_COMPILER_FLAGS = -w -std=c99
 
 ifeq ($(OS),Windows_NT)
 	SHELL = cmd.exe
@@ -24,8 +24,6 @@ EXEC_NAME = engine
 WIN_EXEC_NAME = $(EXEC_NAME).exe
 OSX_EXEC_NAME = $(EXEC_NAME).app
 
-RM_CMD = -rm
-
 ifeq ($(OS),Windows_NT)
 	RM_CMD = -del
 	TARGET_LINKER_FLAGS := $(WIN_LINKER_FLAGS)
@@ -42,6 +40,7 @@ ifeq ($(OS),Windows_NT)
 else
 	UNAME_S := $(shell uname -s)
 	UNAME_P := $(shell uname -p)
+	RM_CMD = -rm
 	
 	ifeq ($(UNAME_S),Linux)
 		TARGET_CC := $(CC)
@@ -57,14 +56,17 @@ else
 		TARGET_COMPILER_FLAGS += -D OSX
 	endif
 
+	#Default to x86_64
 	ifeq ($(UNAME_P),x86_64)
-		TARGET_COMPILER_FLAGS += -march=AMD64
+		TARGET_COMPILER_FLAGS += -march=x86-64
 	else ifeq ($(UNAME_P),x86)
-		TARGET_COMPILER_FLAGS += -march=IA32
+		TARGET_COMPILER_FLAGS += -march=i386
 	else ifeq ($(UNAME_P),ARM)
 		TARGET_COMPILER_FLAGS += -march=ARM
 	else ifeq ($(UNAME_P),ARM64)
 		TARGET_COMPILER_FLAGS += -march=ARM64
+	else
+		TARGET_COMPILER_FLAGS += -march=x86-64
 	endif
 
 endif

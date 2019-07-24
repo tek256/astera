@@ -1,27 +1,15 @@
 #!/bin/sh
 
-OS=$(echo $1 | tr '[:upper:]' '[:lower:]')
-
-if [ "$OS" = 'unix' ]; then
-	type="Unix Makefiles"
-elif [ "$OS" = 'mingw' ]; then
-	type="MinGW Makefiles"
-elif [ "$OS" = 'vs15' ]; then
-	type="Visual Studio 15 2017 Win64"
-elif [ "$OS" = 'vs14' ]; then
-	type="Visual Studio 14 2015 Win64"
-else
-	type="Unix Makefiles"
-fi
-
 echo "Starting setup & Building Dependencies."
-echo "Using: $type"
 cd dep/openal-soft
 echo "Building OpenAL Soft"
-cmake -G "$type" 
+cmake -G "Unix Makefiles" 
 make
 
 cd ../glfw
 echo "Building GLFW."
-cmake -G "$type"
+cmake -G "Unix Makefiles"
+make
+
+cd ../..
 make
