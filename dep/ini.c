@@ -271,3 +271,109 @@ int ini_parse_string(const char* string, ini_handler handler, void* user) {
     return ini_parse_stream((ini_reader)ini_reader_string, &ctx, handler,
                             user);
 }
+
+static char section_buff[128];
+int ini_write_table(const char* file, const char* section, const char** keys, const char** values, int count){
+		FILE* f = fopen(file, "rw+");
+	fseek(f, 0, SEEK_END);
+	long len = ftell(f);
+	rewind(f);
+
+	unsigned char* buff	= malloc(sizeof(unsigned char) * len);
+	fread(buff, sizeof(char), len, f);
+	rewind(f);
+
+	sprintf(section_buff, "[%s]\n", section);
+	char* occurance = strstr(buff, section_buff);	
+
+	int at_end = 0;
+
+	if(!occurance){
+		printf("No occurance of table found, creating it!\n");
+		memset(section_buff, 0, 128 * sizeof(char));
+		sprintf(section_buff, "\n[%s]\n", section);
+		fseek(f, 0, SEEK_END);
+		int section_len = strlen(section_buff);
+		fwrite(section_buff, sizeof(char), section_len, f);
+		at_end = 1;
+	}else{
+		occurance += sizeof(char) * strlen(section_buff);
+	}
+
+	if(!at_end){
+		void* pos = (void*)occurance - (void*)buff;
+		fseek(f, pos, SEEK_SET);
+	}else{
+		fseek(f, 0, SEEK_END);
+	}
+	
+	memset(section_buff, 0, 128 * sizeof(char));
+
+	for(int i=0;i<count;++i){
+		sprintf(section_buff, "%s = %s\n", keys[i], values[i]);
+		fwrite(section_buff, sizeof(char), strlen(section_buff), f); 
+		memset(section_buff, 0, 128 * sizeof(char));
+	}
+
+	if(!at_end){
+		int occurance_offset = ((void*)occurance - (void*)buff) / sizeof(char);
+		fwrite(occurance, sizeof(char), len - occurance_offset, f); 
+	}
+
+	memset(section_buff, 0, 128 * sizeof(char));
+
+	free(buff);
+	fclose(f);
+}
+
+int ini_write_kv(const char* file, const char* section, const char* key, const char* value){
+	FILE* f = fopen(file, "rw+");
+	fseek(f, 0, SEEK_END);
+	long len = ftell(f);
+	rewind(f);
+
+	unsigned char* buff	= malloc(sizeof(unsigned char) * len);
+	fread(buff, sizeof(char), len, f);
+	rewind(f);
+
+	sprintf(section_buff, "[%s]\n", section);
+	char* occurance = strstr(buff, section_buff);	
+
+	int at_end = 0;
+
+	if(!occurance){
+		printf("No occurance of table found, creating it!\n");
+		memset(section_buff, 0, 128 * sizeof(char));
+		sprintf(section_buff, "\n[%s]\n", section);
+		fseek(f, 0, SEEK_END);
+		int section_len = strlen(section_buff);
+		fwrite(section_buff, sizeof(char), section_len, f);
+		at_end = 1;
+	}else{
+		occurance += sizeof(char) * strlen(section_buff);
+	}
+
+	if(!at_end){
+		void* pos = (void*)occurance - (void*)buff;
+		fseek(f, pos, SEEK_SET);
+	}else{
+		fseek(f, 0, SEEK_END);
+	}
+	
+	memset(section_buff, 0, 128 * sizeof(char));
+
+	sprintf(section_buff, "%s = %s\n", key, value);
+	fwrite(section_buff, sizeof(char), strlen(section_buff), f); 
+	memset(section_buff, 0, 128 * sizeof(char));
+
+	if(!at_end){
+		int occurance_offset = ((void*)occurance - (void*)buff) / sizeof(char);
+		fwrite(occurance, sizeof(char), len - occurance_offset, f); 
+	}
+
+	memset(section_buff, 0, 128 * sizeof(char));
+
+	free(buff);
+	fclose(f);
+}
+

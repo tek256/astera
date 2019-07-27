@@ -19,6 +19,12 @@ static int   joy_last_frame_count = 0;
 static float joy_axes[MAX_JOY_AXES];
 static int   joy_axes_count = 0;
 
+static float joy_axes_last_frame[MAX_JOY_AXES];
+static float joy_axes_this_frame[MAX_JOY_AXES];
+
+static int   joy_axes_last_frame_count = 0;
+static int   joy_axes_this_frame_count = 0;
+
 static int   joystick_id = 0;
 static int   joy_exists = 0;
 
@@ -44,7 +50,9 @@ static int   mouse_last_frame[MAX_MOUSE_BUTTONS] = {0};
 typedef struct {
 	const char*  name;
 	int          value;
+	int 		 alt;
 	unsigned int type;
+	unsigned int alt_type;
 } key_binding;
 
 static key_binding* tracked_key_binding = 0;
@@ -75,6 +83,50 @@ void i_create_joy(int joy_id){
 		}
 		joystick_id = joy_id;
 	}
+}
+
+float i_joy_axis_delta(int axis){
+	if(axis < 0){
+		return 0.f;
+	}
+	return joy_axes_this_frame[axis] - joy_axes_last_frame[axis];
+}
+
+void i_get_joy_buttons(int* dst, int count){
+	int cpy_count = (count > MAX_JOY_BUTTONS) ? MAX_JOY_BUTTONS : count;
+	for(int i=0;i<cpy_count;++i){
+		dst[i] = joy_buttons_this_frame[i];
+	}	
+}
+
+void i_get_joy_axes(float* dst, int count){
+	int cpy_count = (count > MAX_JOY_AXES) ? MAX_JOY_AXES : count;
+	for(int i=0;i<cpy_count;++i){
+		dst[i] = joy_axes[i];
+	}
+}
+
+const char* i_get_joy_name(int joy){
+	return glfwGetJoystickName(joy);
+}
+
+int i_get_joy_type(int joy){
+	const char* name = i_get_joy_name(joy);
+	if(strstr(name, "Microsoft")){
+		if(strstr(name, "360")){
+			return XBOX_360_PAD;
+		}else if(strstr(name, "One")){
+			return XBOX_ONE_PAD;	
+		}
+	}else if(strstr(name, "Sony")){
+		if(strstr(name, "3")){
+			return PS3_PAD;	
+		}else if(strstr(name, "4")){
+			return PS4_PAD;
+		}
+	}else{
+		return GENERIC_PAD;
+	}		
 }
 
 void i_destroy_joy(int joy_id){
@@ -120,7 +172,7 @@ void i_rm_joy_button(int button){
 	joy_button_count --;
 }
 
-float i_get_joy_axis(int axis){
+float i_joy_axis(int axis){
 	if(axis > joy_axes_count){
 		return 0.0f;
 	}
@@ -168,7 +220,7 @@ void i_rm_concurrent_key(int index){
 void i_key_callback(int key, int scancode, int toggle){
 	if(toggle){
 		if(key_binding_track){
-			i_binding_track_callback(key, KEY_BINDING_KEY);
+			i_binding_track_callback(key, BINDING_KEY);
 		}
 
 		if(concurrent_count == MAX_KEYS){
@@ -245,7 +297,7 @@ int i_get_mouse_grab(){
 
 void i_mouse_button_callback(int button){
 	if(key_binding_track){
-		i_binding_track_callback(button, KEY_BINDING_MOUSE_BUTTON);
+		i_binding_track_callback(button, BINDING_MB);
 	}
 	mouse_this_frame[m_count] = button;
 	m_count++;
@@ -335,7 +387,7 @@ double i_get_mouse_y(){
 	return my;
 }
 
-void i_get_moues_delta(double* x, double* y){
+void i_get_mouse_delta(double* x, double* y){
 	*x = mdx;
 	_l("Exiting game.");
 	*y = mdy;
@@ -403,6 +455,16 @@ void i_add_binding(const char* name, int value, int type){
 	key_binding_count ++;
 }
 
+void i_add_binding_alt(const char* name, int value, int type){
+	for(int i=0;i<key_binding_count;++i){
+		if(strcmp(name, key_bindings[i].name) == 0){
+			key_bindings[i].alt = value;
+			key_bindings[i].alt_type = type;
+			return;
+		}
+	}
+}
+
 void i_enable_binding_track(const char* key_binding){
 	for(int i=0;i<key_binding_count;i++){
 		if(!strcmp(key_bindings[i].name, key_binding)){
@@ -438,83 +500,185 @@ int i_get_binding_type(const char* key_binding){
 	return 0;
 }
 
-int i_binding_clickedi(const char* key_binding){
+int i_get_binding_alt_type(const char* key_binding){
+	for(int i=0;i<key_binding_count;++i){
+		if(!strcmp(key_bindings[i].name, key_binding)){
+			return key_bindings[i].alt_type;
+		}
+	}
+	return 0;
+}
+
+int i_binding_clicked(const char* key_binding){
 	for(int i=0;i<key_binding_count;i++){
 		if(!strcmp(key_bindings[i].name, key_binding)){
-			if(key_bindings[i].type == KEY_BINDING_JOY_AXIS){
-				return 0;
-			}
+			int val;
 			switch(key_bindings[i].type){
-				case KEY_BINDING_JOY_BUTTON:
-					return i_joy_button_clicked(key_bindings[i].value);
-				case KEY_BINDING_KEY:
-					return i_key_clicked(key_bindings[i].value);
-				case KEY_BINDING_MOUSE_BUTTON:
-					return i_mouse_clicked(key_bindings[i].value);
+				case BINDING_JOYB:
+					val = i_joy_button_clicked(key_bindings[i].value);
+					break;
+				case BINDING_KEY:
+					val = i_key_clicked(key_bindings[i].value);
+					break;
+				case BINDING_MB:
+					val = i_mouse_clicked(key_bindings[i].value);
+					break;
 			}
+
+			if(val){
+				return 1;
+			}
+
+			switch(key_bindings[i].alt_type){
+				case BINDING_JOYB:
+					val = i_joy_button_clicked(key_bindings[i].alt);
+					break;
+				case BINDING_KEY:
+					val = i_key_clicked(key_bindings[i].alt);
+					break;
+				case BINDING_MB:
+					val = i_mouse_clicked(key_bindings[i].alt);
+					break;
+			}
+
+			return val;
 		}
 	}
 
 	return 0;
 }
 
-int i_bining_releasedi(const char* key_binding){
+int i_binding_released(const char* key_binding){
 	for(int i=0;i<key_binding_count;i++){
 		if(!strcmp(key_bindings[i].name, key_binding)){
-			if(key_bindings[i].type == KEY_BINDING_JOY_AXIS){
+			if(key_bindings[i].type == BINDING_JOYA){
 				return 0;
 			}
 
+			int val;
 			switch(key_bindings[i].type){
-				case KEY_BINDING_JOY_BUTTON:
-					return i_joy_button_released(key_bindings[i].value);
-				case KEY_BINDING_KEY:
-					return i_key_released(key_bindings[i].value);
-				case KEY_BINDING_MOUSE_BUTTON:
-					return i_mouse_released(key_bindings[i].value);
+				case BINDING_JOYB:
+					val = i_joy_button_released(key_bindings[i].value);
+					break;
+				case BINDING_KEY:
+					val = i_key_released(key_bindings[i].value);
+					break;
+				case BINDING_MB:
+					val = i_mouse_released(key_bindings[i].value);
+					break;
 			}
+
+			if(val){
+				return 1;
+			}
+
+			switch(key_bindings[i].alt_type){
+				case BINDING_JOYB:
+					val = i_joy_button_released(key_bindings[i].alt);
+					break;
+				case BINDING_KEY:
+					val = i_key_released(key_bindings[i].alt);
+					break;
+				case BINDING_MB:
+					val = i_mouse_released(key_bindings[i].alt);
+					break;
+			}
+
+			return val;
 		}
 	}
 
 	return 0;
 }
 
-int i_binding_downi(const char* key_binding){
+int i_binding_down(const char* key_binding){
 	for(int i=0;i<key_binding_count;i++){
 		if(!strcmp(key_bindings[i].name, key_binding)){
-			if(key_bindings[i].type == KEY_BINDING_JOY_AXIS){
+			if(key_bindings[i].type == BINDING_JOYA){
 				return 0;
 			}
 
+			int val;
 			switch(key_bindings[i].type){
-				case KEY_BINDING_JOY_BUTTON:
-					return i_joy_button_down(key_bindings[i].value);
-				case KEY_BINDING_KEY:
-					return i_key_down(key_bindings[i].value);
-				case KEY_BINDING_MOUSE_BUTTON:
-					return i_mouse_down(key_bindings[i].value);
+				case BINDING_JOYB:
+					val = i_joy_button_down(key_bindings[i].value);
+					break;
+				case BINDING_KEY:
+					val = i_key_down(key_bindings[i].value);
+					break;
+				case BINDING_MB:
+					val = i_mouse_down(key_bindings[i].value);
+					break;
+				case BINDING_JOYA:
+					val = (i_joy_axis(key_bindings[i].value) < 0.f) ? 1 : 0;
+					break;
 			}
+			if(val){
+				return 1;
+			}
+
+			switch(key_bindings[i].alt_type){
+				case BINDING_JOYB:
+					val = i_joy_button_down(key_bindings[i].alt);
+					break;
+				case BINDING_KEY:
+					val = i_key_down(key_bindings[i].alt);
+					break;
+				case BINDING_MB:
+					val = i_mouse_down(key_bindings[i].alt);
+					break;
+				case BINDING_JOYA:
+					val = (i_joy_axis(key_bindings[i].alt) < 0.f) ? 1 : 0;
+					break;
+			}
+
+			return val;
 		}
 	}
 
 	return 0;
 }
 
-int i_binding_upi(const char* key_binding){
+int i_binding_up(const char* key_binding){
 	for(int i=0;i<key_binding_count;i++){
 		if(!strcmp(key_bindings[i].name, key_binding)){
-			if(key_bindings[i].type == KEY_BINDING_JOY_AXIS){
-				return 0;
-			}
+			int val;
 
 			switch(key_bindings[i].type){
-				case KEY_BINDING_JOY_BUTTON:
-					return i_joy_button_up(key_bindings[i].value);
-				case KEY_BINDING_MOUSE_BUTTON:
-					return i_mouse_up(key_bindings[i].value);
-				case KEY_BINDING_KEY:
-					return i_key_up(key_bindings[i].value);
+				case BINDING_JOYB:
+					val = i_joy_button_up(key_bindings[i].value);
+					break;
+				case BINDING_MB:
+					val = i_mouse_up(key_bindings[i].value);
+					break;
+				case BINDING_KEY:
+					val = i_key_up(key_bindings[i].value);
+					break;
+				case BINDING_JOYA:
+					val = (i_joy_axis(key_bindings[i].value) > 0.f) ? 1 : 0;
+					break;
 			}
+
+			if(val){
+				return 1;
+			}
+
+			switch(key_bindings[i].alt_type){
+				case BINDING_JOYB:
+					val = i_joy_button_up(key_bindings[i].alt);
+					break;
+				case BINDING_MB:
+					val = i_mouse_up(key_bindings[i].alt);
+					break;
+				case BINDING_KEY:
+					val = i_key_up(key_bindings[i].alt);
+					break;
+				case BINDING_JOYA:
+					val = (i_joy_axis(key_bindings[i].value) > 0.f) ? 1 : 0;
+					break;
+			}
+
+			return val;
 		}
 	}
 	return 0;
@@ -523,16 +687,42 @@ int i_binding_upi(const char* key_binding){
 float i_binding_val(const char* key_binding){
 	for(int i=0;i<key_binding_count;i++){
 		if(!strcmp(key_bindings[i].name, key_binding)){
+			float val;
 			switch(key_bindings[i].type){
-				case KEY_BINDING_MOUSE_BUTTON:
-					return (i_mouse_down(key_bindings[i].value)) ? 1.0f : 0.0f;
-				case KEY_BINDING_KEY:
-					return (i_key_down(key_bindings[i].value)) ? 1.0f : 0.0f;
-				case KEY_BINDING_JOY_AXIS:
-					return i_get_joy_axis(key_bindings[i].value);
-				case KEY_BINDING_JOY_BUTTON:
-					return (i_joy_button_down(key_bindings[i].value)) ? 1.0f : 0.0f;
+				case BINDING_MB:
+					val = (i_mouse_down(key_bindings[i].value)) ? 1.0f : 0.0f;
+					break;
+				case BINDING_KEY:
+					val = (i_key_down(key_bindings[i].value)) ? 1.0f : 0.0f;
+					break;
+				case BINDING_JOYA:
+					val = i_joy_axis(key_bindings[i].value);
+					break;
+				case BINDING_JOYB:
+					val =(i_joy_button_down(key_bindings[i].value)) ? 1.0f : 0.0f;
+					break;
 			}
+
+			if(val != 0.f){
+				return val;
+			}
+
+			switch(key_bindings[i].alt_type){
+				case BINDING_MB:
+					val = (i_mouse_down(key_bindings[i].alt)) ? 1.0f : 0.0f;
+					break;
+				case BINDING_KEY:
+					val = (i_key_down(key_bindings[i].alt)) ? 1.0f : 0.0f;
+					break;
+				case BINDING_JOYA:
+					val = i_joy_axis(key_bindings[i].alt);
+					break;
+				case BINDING_JOYB:
+					val =(i_joy_button_down(key_bindings[i].alt)) ? 1.0f : 0.0f;
+					break;
+			}
+
+			return val;
 		}
 	}
 
@@ -549,42 +739,60 @@ int i_binding_defined(const char* key_binding){
 }
 
 float i_opposing(const char* prim, const char* sec){
-	float prim_f = i_binding_downi(prim) ? 2.f : 0.f;
-	float sec_f = i_binding_downi(sec) ? -1.f : 0.f;
+	float prim_f = i_binding_down(prim) ? 2.f : 0.f;
+	float sec_f = i_binding_down(sec) ? -1.f : 0.f;
 	return prim_f + sec_f;
 }
 
 void i_default_bindings(){
 	if(!i_binding_defined("left")){
-		i_add_binding("left", GLFW_KEY_A, KEY_BINDING_KEY);
+		i_add_binding("left", GLFW_KEY_A, BINDING_KEY);
 	}
 
 	if(!i_binding_defined("right")){
-		i_add_binding("right", GLFW_KEY_D, KEY_BINDING_KEY);
+		i_add_binding("right", GLFW_KEY_D, BINDING_KEY);
 	}
 
 	if(!i_binding_defined("up")){
-		i_add_binding("up", GLFW_KEY_W, KEY_BINDING_KEY);
+		i_add_binding("up", GLFW_KEY_W, BINDING_KEY);
 	}
 
 	if(!i_binding_defined("down")){
-		i_add_binding("down", GLFW_KEY_S, KEY_BINDING_KEY);
+		i_add_binding("down", GLFW_KEY_S, BINDING_KEY);
 	}
 
 	if(!i_binding_defined("interact")){
-		i_add_binding("interact", GLFW_KEY_F, KEY_BINDING_KEY);
+		i_add_binding("interact", GLFW_KEY_F, BINDING_KEY);
 	}
 
-	if(!i_binding_defined("inventory")){
-		i_add_binding("inventory", GLFW_KEY_TAB, KEY_BINDING_KEY);
+	if(!i_binding_defined("start")){
+		i_add_binding("start", GLFW_KEY_TAB, BINDING_KEY);
 	}
 
-	if(!i_binding_defined("run")){
-		i_add_binding("run", GLFW_KEY_LEFT_SHIFT, KEY_BINDING_KEY);
+	if(!i_binding_defined("jump")){
+		i_add_binding("jump", GLFW_KEY_SPACE, BINDING_KEY);
 	}
-
-	if(!i_binding_defined("space")){
-		i_add_binding("space", GLFW_KEY_SPACE, KEY_BINDING_KEY);
+	
+	//TODO: add other gamepad type support
+	if(joy_exists){
+		int type = i_get_joy_type(0);
+		switch(type){
+			case XBOX_360_PAD:
+				i_add_binding("horizontal", XBOX_L_X, BINDING_JOYA);
+				i_add_binding("vertical", XBOX_L_Y, BINDING_JOYA);
+				i_add_binding_alt("interact", XBOX_X, BINDING_JOYB);
+				i_add_binding_alt("start", XBOX_START, BINDING_JOYB);
+				i_add_binding_alt("jump", XBOX_A, BINDING_JOYB);
+				break;
+			case XBOX_ONE_PAD:
+				break;
+			case PS3_PAD:
+				break;
+			case PS4_PAD:
+				break;
+			case GENERIC_PAD:
+				break;
+		}	
 	}
 }
 
@@ -605,6 +813,7 @@ void i_update(){
 			}
 		}
 	}
+
 
 	int continuable = 1;
 	for(int i=0;i<MAX_KEYS;i++){
@@ -648,10 +857,17 @@ void i_update(){
 		int count;
 		const float* axes = glfwGetJoystickAxes(joystick_id, &count);
 
+		memset(joy_axes_last_frame, 0, sizeof(float) * joy_axes_last_frame_count);
+		memcpy(joy_axes_last_frame, joy_axes_this_frame, sizeof(float) * joy_axes_this_frame_count);
+		memcpy(joy_axes_this_frame, axes, sizeof(float) * joy_axes_count);
+
+		joy_axes_last_frame_count = joy_axes_this_frame_count;
+		joy_axes_this_frame_count = count;
+
 		for(int i=0;i<MAX_JOY_AXES;i++){
 			if(key_binding_track){
 				if(axes[i] != 0.0f){
-					i_binding_track_callback(i, KEY_BINDING_JOY_AXIS);
+					i_binding_track_callback(i, BINDING_JOYA);
 				}
 			}
 
@@ -661,6 +877,7 @@ void i_update(){
 				joy_axes[i] = axes[i];
 			}
 		}
+
 		joy_axes_count = count;
 
 		joy_button_count = 0;
@@ -681,7 +898,7 @@ void i_update(){
 		for(int i=0;i<button_count;i++){
 			if(key_binding_track){
 				if(buttons[i] == GLFW_PRESS || buttons[i] == GLFW_REPEAT){
-					i_binding_track_callback(i, KEY_BINDING_JOY_BUTTON);
+					i_binding_track_callback(i, BINDING_JOYB);
 				}
 			}
 

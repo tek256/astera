@@ -279,7 +279,7 @@ static GLuint r_get_sub_shader(const char* fp, int type){
 		_l("Unable to open file: %s\n", fp);
 		return 0;
 	}
-
+	
 	GLint success = 0;
 	GLuint id = glCreateShader(type);
 
@@ -972,9 +972,9 @@ int r_create_window(r_window_info info){
 
 	flags.allowed = 1;
 
-	//glDisable(GL_DEPTH_TEST);
-	//glDepthFunc(GL_LESS);
-	glDisable(GL_CULL_FACE);
+	glEnable(GL_DEPTH_TEST);
+	glDepthFunc(GL_LESS);
+	glEnable(GL_CULL_FACE);
 
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -1096,7 +1096,7 @@ static void glfw_key_cb(GLFWwindow* window, int key, int scancode, int action, i
 	if(action == GLFW_PRESS || action == GLFW_REPEAT){
 		i_key_callback(key, scancode, 1);
 		if(i_binding_track()){
-			i_binding_track_callback(key, KEY_BINDING_KEY);
+			i_binding_track_callback(key, BINDING_KEY);
 		}
 	}else if(action == GLFW_RELEASE){
 		i_key_callback(key, scancode, 0);
@@ -1115,7 +1115,7 @@ static void glfw_mouse_button_cb(GLFWwindow* window, int button, int action, int
 	if(action == GLFW_PRESS || action == GLFW_REPEAT){
 		i_mouse_button_callback(button);
 		if(i_binding_track()){
-			i_binding_track_callback(button, KEY_BINDING_MOUSE_BUTTON);
+			i_binding_track_callback(button, BINDING_MB);
 		}
 	}
 }

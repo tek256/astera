@@ -3,7 +3,7 @@ OBJS = $(wildcard src/*.c)
 CC = clang
 WIN_CC = gcc 
 
-COMPILER_FLAGS = -w -std=c99 -O2
+COMPILER_FLAGS = -w -std=c99
 WIN_COMPILER_FLAGS = -w -std=c99
 OSX_COMPILER_FLAGS = -w -std=c99
 

@@ -65,6 +65,10 @@ instead of a file. Useful for parsing INI data from a network socket or
 already in memory. */
 int ini_parse_string(const char* string, ini_handler handler, void* user);
 
+/* Write to the INI file */
+int ini_write_table(const char* file, const char* section, const char** keys, const char** values, int count);
+int ini_write_kv(const char* file, const char* section, const char* key, const char* value);
+
 /* Nonzero to allow multi-line value parsing, in the style of Python's
    configparser. If allowed, ini_parse() will call the handler with the same
    name for each subsequent line parsed. */

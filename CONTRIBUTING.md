@@ -3,6 +3,11 @@ If you're interested in helping contribute to the project here are the current t
 - Wiki / Code Documentation
 - Unit Test Creation
 - Example Creation
+- Input Mappings for gamepads
+	- PS4 -- All Platforms
+	- Xbox One -- All Platforms
+	- Generic Gamepad -- All Platforms
+
 - Platform / Architecture Specific Testing
 	- Windows
 		- x86_64

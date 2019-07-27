@@ -32,8 +32,16 @@ int main(int argc, char** argv){
 	dbg_enable_log(1, "log.txt");
 
 	c_parse_args(argc, argv);
-	
+
+	const char* keys[5] = {
+		"devon","was","here","test","key"
+	};
+	const char* values[5] = {
+		"or","was","he","no","proof"
+	};
+
 	conf = c_parse_file("res/conf.ini", 1);
+	c_write_table("res/conf.ini", "devon", keys, values, 5);
 
 	if(!r_init(conf)){
 		_fatal("Unable to initialize rendering system.\n");	

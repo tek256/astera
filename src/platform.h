@@ -20,6 +20,7 @@
 		#define PLAT_MSFT
 	#endif
 #elif defined(__APPLE__)
+	#define PLAT_APPLE
 	#if defined(TARGET_IPHONE_SIMULATOR)
 		#define PLAT_IOS_SIM
 	#elif defined(TARGET_OS_IPHONE)
