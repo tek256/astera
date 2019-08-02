@@ -1,22 +1,38 @@
 #ifndef AUDIO_H
 #define AUDIO_H
 
+#ifndef EXCLUDE_AUDIO
 #include <AL/alc.h>
 #include <AL/al.h>
+
 #include <linmath.h>
 
-#include <stdlib.h>
 #include <stdio.h>
 
 #define STB_VORBIS_HEADER_ONLY
 #include <stb/stb_vorbis.c>
 
-#include <string.h>
+#include "debug.h"
 
-#include "conf.h"
+#define AUDIO_DEFAULT_LAYERS
 
-#define MAX_AUDIO_SOURCES_PER_LAYER 32
+#ifdef AUDIO_DEFAULT_LAYERS
+#define AUDIO_SFX_LAYER 0
+#define AUDIO_MUSIC_LAYER 1
+#define AUDIO_MISC_LAYER 2
+#define AUDIO_UI_LAYER 3
+
+#define AUDIO_SFX_GAIN 0.8f
+#define AUDIO_MUSIC_GAIN 0.5f
+#define AUDIO_MISC_GAIN 0.8f
+#define AUDIO_UI_GAIN 0.8f
+
+#endif
+
+#define MAX_LAYER_SFX 32
+#define MAX_LAYER_SONGS 4
 #define MAX_AUDIO_LAYERS 4
+#define MAX_BUFFERS 64
 
 #define LAYER_STOPPED 1
 #define LAYER_PLAYING 2
@@ -24,104 +40,120 @@
 
 #define MAX_MUSIC_RUNTIME 4096
 
-#define MAX_QUICK_SFX 8
+#define MAX_SFX MAX_LAYER_SFX * MAX_AUDIO_LAYERS
+#define MAX_SONGS MAX_LAYER_SONGS * MAX_AUDIO_LAYERS
 
-#define MAX_SOURCES_PER_LAYER 32
-
-#define CACHE_AUDIO_FILES
+#define DEFAULT_SFX_RANGE 20
 
 typedef struct {
     ALCcontext* context;
     ALCdevice*  device;
+	float gain;
+	int allow : 1;
 } a_ctx;
 
 typedef struct {
     unsigned int id;
-    int  buffered;
-    int  channels;
-    int  length;
-    int  sample_rate;
+    unsigned short channels;
+    unsigned short length;
+    unsigned int   sample_rate;
 } a_buf;
 
 typedef struct {
-    unsigned int sample_rate;
+	//non-realtime
+	unsigned short layer;
+
+	//realtime
+	vec3 pos;
+	vec3 vel;
+	float gain, range;
+	unsigned short max_loop;
+	int loop : 1;
+	int stop : 1; 
+	
+	//callback
+	unsigned short loop_count;
+	float time;
+} a_req;
+
+typedef struct {
+	unsigned int sample_rate;
     unsigned int sample_size;
     unsigned int channels;
 
     int format;
     unsigned int source;
     unsigned int buffers[2];
-} a_stream;
-
-typedef char* a_music_ptr;
-typedef char* a_sfx_ptr;
-
-typedef struct {
-    a_stream stream;
-    unsigned int samples_left;
+	float gain;
+	
+	unsigned int samples_left;
     unsigned int total_samples;
     stb_vorbis* vorbis;
     int loop;
+
+	a_req* req;
+	int has_req;
 } a_music;
 
 typedef struct {
     unsigned int id;
     vec3  position;
     float range, gain;
-    int   has_sound;
     int   loop;
-} a_src;
+	a_req* req;
+	int has_req;
+} a_sfx;
 
 typedef struct {
 	unsigned int id;
 	float gain;
-	unsigned int count;
-	a_src sources[MAX_SOURCES_PER_LAYER];
+
+	unsigned int sfx_count;
+	unsigned int song_count;
+
+	a_sfx* sources[MAX_LAYER_SFX];
+	a_music* musics[MAX_LAYER_SONGS];
 } a_layer;
 
 typedef struct {
-    unsigned int id;
-    a_src source;
-} a_sfx;
+	unsigned short song_count;
+	unsigned short song_capacity;
+	a_music songs[MAX_SONGS];
 
-static float master_gain = 0.8f;
+	unsigned short sfx_count;
+	unsigned short sfx_capacity;
+	a_sfx sfx[MAX_SFX];
 
-static a_sfx a_qsfx[MAX_QUICK_SFX];
-static int a_sfx_playing = 0;
+	a_layer layers[MAX_AUDIO_LAYERS];
 
-static a_ctx _a_ctx;
+
+	unsigned short buf_count;
+	unsigned short buf_capacity;
+	a_buf bufs[MAX_BUFFERS];
+	const char* buf_names[MAX_BUFFERS];
+} a_map;
+
+static a_map _map;
+static a_ctx _ctx;
 
 static char** a_device_list;
 static int a_device_list_count = 0;
 
-static int a_allow = 0;
 
-#ifdef CACHE_AUDIO_FILES
-//psuedo-audio buffer pointer
-typedef struct a_file {
-    const char* path;
-    a_buf* buffer;
-} a_file;
-
-#ifndef MAX_AUDIO_FILES
-#define MAX_AUDIO_FILES 256
-#endif
-
-static a_file audio_files[MAX_AUDIO_FILES];
-static int    audio_file_count = 0;
-
-int          a_init(c_conf conf);
-void		 a_update(long delta);
+int          a_init(unsigned int master, unsigned int sfx, unsigned int music);
 void         a_exit();
 
-a_file*      a_gen_file(const char* fp, a_buf* buffer);
-int          a_get_file_index(const char* fp);
-a_file*      a_get_file(const char* fp);
-void         a_destroy_file(const char* fp);
-a_buf*       a_get_buffer(const char* fp);
-a_file**     a_load_sfx(const char** fp, int count);
-void         a_destroy_file_cache();
-#endif
+void		 a_update(long delta);
+void         a_update_sfx();
+
+a_buf        a_get_buf(unsigned char* data, unsigned int length);
+a_buf*       a_get_bufn(const char* name);
+void         a_destroy_buf(a_buf buffer);
+
+a_sfx*       a_play_sfxn(const char* name, a_req* req);
+a_sfx*		 a_play_sfx(a_buf* buff, a_req* req);
+
+static int   a_get_open_sfx();
 
 int          a_load_devices();
 int          a_create_context(const char* device_name);
@@ -129,42 +161,17 @@ void         a_destroy_context();
 const char** a_get_devices(int* count);
 void         a_swap_device(const char* device_name);
 
-a_buf        a_create_buffer(const char* path);
-a_buf*       a_create_buffers(const char** paths, int p_count, int* b_count);
-void         a_destroy_buffer(a_buf buffer);
-void         a_clean_buffers(a_buf* buffers, int count);
-
-void         a_attach_buffer(a_src* src, a_buf* buf);
-void         a_detach_buffer(a_src* src);
-
-a_stream     a_create_stream(int sample_rate, int sample_size, int channels);
-void         a_destroy_stream(a_stream stream);
-void         a_update_stream(a_stream stream, const void* data, int sample_count);
-a_music*     a_create_music(const char* path);
+a_music*     a_create_music(unsigned char* data, unsigned int length, a_req* req);
 int          a_update_music(a_music* music);
 void         a_destroy_music(a_music* music);
+
 float        a_get_music_len_time(a_music* music);
 float        a_get_music_time(a_music* music);
+
 void         a_play_music(a_music* music);
 void         a_stop_music(a_music* music);
 void         a_resume_music(a_music* music);
 void         a_pause_music(a_music* music);
-ALenum       a_get_music_state(a_music* music);
-a_src        a_create_source(vec3 position, float range, unsigned int buffer);
 
-void         a_destroy_source(a_src source);
-void         a_play_source(a_src* source);
-void         a_pause_source(a_src* source);
-void         a_stop_source(a_src* source);
-int          a_src_state(a_src* source);
-void         a_clean_sources(a_src* sources, int count);
-
-int          a_play_sfx(a_buf* buffer, float gain, vec2 pos);
-void         a_pause_sfx(int index);
-void         a_stop_sfx(int index);
-int          a_is_sfx_buffer(int index, a_buf* buffer);
-int          a_get_sfx_state(int index);
-void         a_update_sfx();
-static int   a_get_open_sfx();
-
+#endif
 #endif

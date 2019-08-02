@@ -149,6 +149,32 @@ typedef struct {
 	int loop : 1; 
 } r_animv;
 
+#ifndef EXCLUDE_CREATE
+#define RENDER_SHEET_CACHE 32
+typedef struct {
+	const char* vertex_shaders[RENDER_SHADER_CACHE];
+	const char* fragment_shaders[RENDER_SHADER_CACHE];
+	r_shader shader_ids[RENDER_SHADER_CACHE];
+	unsigned int shader_count;
+	
+	unsigned int anim_ids[RENDER_ANIM_CACHE];
+	r_anim anims[RENDER_ANIM_CACHE];
+	unsigned int anim_count;
+
+	const char* sheet_paths[RENDER_SHEET_CACHE];
+	unsigned int sheet_ids[RENDER_SHEET_CACHE];
+	unsigned int sheet_subwidths[RENDER_SHEET_CACHE];
+	unsigned int sheet_subheights[RENDER_SHEET_CACHE];
+	unsigned int sheet_count;
+
+	const char* tex_paths[RENDER_SHEET_CACHE];
+	unsigned int tex_ids[RENDER_SHEET_CACHE];
+	unsigned int tex_count;
+} r_resource_map;
+#endif
+
+//#endif
+
 typedef struct {
 	r_animv anim;
 	r_shader shader;
@@ -171,13 +197,16 @@ typedef struct {
 	unsigned int uid;
 } r_drawable_cache; 
 
-
 static r_window g_window;
 static r_camera g_camera;
 
 static r_anim_cache g_anim_cache;
 static r_drawable_cache g_drawable_cache;
 static r_shader_map g_shader_map;
+
+#ifndef EXCLUDE_CREATE
+r_resource_map* r_get_map();
+#endif
 
 int r_init_quad();
 

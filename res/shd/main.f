@@ -14,6 +14,9 @@ void main(){
     }else{
         vec4 sample_c = texture(tex, o_texc);
 
+        if(sample_c.a == 0)
+            discard;
+
         if(c_mode == -1){
             out_c = sample_c;
         }else{

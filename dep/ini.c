@@ -273,8 +273,65 @@ int ini_parse_string(const char* string, ini_handler handler, void* user) {
 }
 
 static char section_buff[128];
+int ini_contains_table(const char* file, const char* section){
+	FILE* f = fopen(file, "rw+");
+	fseek(f, 0, SEEK_END);
+	long len = ftell(f);
+	rewind(f);
+
+	unsigned char* buff = malloc(sizeof(len) * sizeof(char));
+	fread(buff, sizeof(char), len, f);
+	fclose(f);
+
+	sprintf(section_buff, "[%s]\n", section);
+	char* occurance = strstr(buff, section_buff);	
+
+	int exists = occurance != NULL;
+	
+	free(buff);
+	return exists;
+}
+
+int ini_key_exists(const char* file, const char* section, const char* key){
+	FILE* f = fopen(file, "rw+");
+	fseek(f, 0, SEEK_END);
+	long len = ftell(f);
+	rewind(f);
+
+	unsigned char* buff = malloc(sizeof(len) * sizeof(char));
+	fread(buff, sizeof(char), len, f);
+	fclose(f);
+
+	int section_len = sprintf(section_buff, "[%s]\n", section);
+	char* occurance = strstr(buff, section_buff);	
+
+	if(!occurance){
+		free(buff);
+		return 0;
+	}
+
+	occurance += sizeof(char) * section_len; 
+
+	int check_len = strlen(key);
+	char* line = strtok(occurance, "\n");
+	while(line){
+		if(strncmp(line, occurance, check_len) == 0){
+			free(buff);
+			return 1;
+		}else if(occurance[0] == '['){ //reached another section
+			free(buff);
+			return 0;
+		}
+		line = strtok(occurance, "\n");
+	}
+
+	free(buff);
+	return 0;	
+}
+
+
 int ini_write_table(const char* file, const char* section, const char** keys, const char** values, int count){
-		FILE* f = fopen(file, "rw+");
+	FILE* f = fopen(file, "rw+");
 	fseek(f, 0, SEEK_END);
 	long len = ftell(f);
 	rewind(f);

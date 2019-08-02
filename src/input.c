@@ -3,114 +3,177 @@
 
 #include "input.h"
 #include "render.h"
+
 #include <GLFW/glfw3.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-static int joy_buttons[MAX_JOY_BUTTONS];
-static int joy_buttons_this_frame[MAX_JOY_BUTTONS];
-static int joy_buttons_last_frame[MAX_JOY_BUTTONS];
+static char  chars[MAX_CHARS];
+static unsigned short char_count = 0;
+static char char_track = 0;
 
-static int   joy_button_count = 0;
-static int   joy_this_frame_count = 0;
-static int   joy_last_frame_count = 0;
+static unsigned char joystick_id = 0;
+static unsigned char joy_exists = 0;
 
-static float joy_axes[MAX_JOY_AXES];
-static int   joy_axes_count = 0;
+i_states joy_b;
+i_states mouse_b;
+i_states keyboard;
 
-static float joy_axes_last_frame[MAX_JOY_AXES];
-static float joy_axes_this_frame[MAX_JOY_AXES];
+unsigned short* current_keys;
+unsigned short current_key_count;
 
-static int   joy_axes_last_frame_count = 0;
-static int   joy_axes_this_frame_count = 0;
+i_statesf joy_a;
 
-static int   joystick_id = 0;
-static int   joy_exists = 0;
+//current
+i_positions mouse_p;
+i_positions mouse_l;
+//scroll
+i_positions mouse_s;
 
-static int   char_track = 0;
+key_binding* key_bindings;
+key_binding* tracked_key_binding = 0;
+int key_binding_count = 0;
 
-static int   key_count = 0;
-static int   char_count = 0;
+unsigned short i_init(){
+	mouse_b = i_create_s(MAX_MOUSE_BUTTONS);
+	if(!mouse_b.curr || !mouse_b.prev){
+		_e("Unable to malloc space for mouse.\n");
+		i_exit();
+		return 0;
+	}
 
-static int   last_key_count = 0;
-static int   concurrent_count = 0;
+	keyboard = i_create_s(MAX_KEYS);
+	if(!keyboard.curr || !keyboard.prev){
+		_e("Unable to malloc space for keyboard.\n");
+		i_exit();
+		return 0;
+	}
 
-static int   concurrent_keys[MAX_KEYS] = {0};
-static int   this_frame[MAX_KEYS] = {0};
-static int   last_frame[MAX_KEYS] = {0};
-static char  chars[MAX_CHARS] = {0};
+	current_keys = malloc(sizeof(unsigned short) * MAX_KEYS);
+	if(!current_keys){
+		_e("Unable to malloc space for keyboard.\n");
+		i_exit();
+		return 0;
+	}
+	current_key_count = 0;
+	
+	mouse_p = i_create_p();
+	mouse_s = i_create_p();
 
-static int   m_count = 0;
-static int   m_l_count = 0;
+	key_bindings = malloc(sizeof(key_binding) * MAX_KEY_BINDINGS);
+	if(!key_bindings){
+		_e("Unable to malloc space for key bindings.\n");
+		i_exit();
+		return 0;
+	}
+	return 1;
+}
 
-static int   mouse_this_frame[MAX_MOUSE_BUTTONS] = {0};
-static int   mouse_last_frame[MAX_MOUSE_BUTTONS] = {0};
+i_positions i_create_p(){
+	return (i_positions){ 0, 0, 0, 0};
+}
 
-typedef struct {
-	const char*  name;
-	int          value;
-	int 		 alt;
-	unsigned int type;
-	unsigned int alt_type;
-} key_binding;
+i_states i_create_s(unsigned short size){
+	void* a, *b;
+	a = malloc(size * sizeof(unsigned short));
+	b = malloc(size * sizeof(unsigned short));
 
-static key_binding* tracked_key_binding = 0;
-static key_binding  key_bindings[MAX_KEY_BINDINGS];
-static int          key_binding_count = 0;
-static int          has_key_bindings = 0;
+	memset(a, 0, sizeof(unsigned short) * size);
+	memset(b, 0, sizeof(unsigned short) * size);
 
-//mouse
-static double lfx = 0;
-static double lfy = 0;
+	return (i_states){
+		a, b, 0, 0, size
+	};
+}
 
-static double mx = 0;
-static double my = 0;
+i_statesf i_create_sf(unsigned short size){
+	void* a, *b;
+	a = malloc(size * sizeof(float));
+	b = malloc(size * sizeof(float));
 
-//deltas
-static double mdx = 0;
-static double mdy = 0;
+	memset(a, 0, sizeof(float) * size);
+	memset(b, 0, sizeof(float) * size);
 
-//scroll deltas
-static double msx = 0;
-static double msy = 0;
+	return (i_statesf){
+		a, b, 0, 0, size
+	};
+}
 
-void i_create_joy(int joy_id){
+void i_exit(){
+	if(mouse_b.curr)
+		free(mouse_b.curr);
+	if(mouse_b.prev)
+		free(mouse_b.prev);
+	if(keyboard.curr)
+		free(keyboard.curr);
+	if(keyboard.prev)
+		free(keyboard.prev);
+	if(current_keys)
+		free(current_keys);
+
+	if(joy_exists){
+		if(joy_b.curr)
+			free(joy_b.curr);
+		if(joy_b.prev)
+			free(joy_b.prev);
+		if(joy_a.curr)
+			free(joy_a.curr);
+		if(joy_a.prev)
+			free(joy_a.prev);	
+	}
+}
+
+unsigned short i_contains(unsigned short val, unsigned short* arr, int count){
+	for(int i=0;i<count;++i){
+		if(arr[i] == val){
+			return 1;
+		}	
+	}
+	return 0;
+}
+
+void i_create_joy(unsigned short joy_id){
 	if(!joy_exists){
 		int present = glfwJoystickPresent(joy_id);
+
 		if(!present){
 			return;
 		}
+
+		joy_a = i_create_sf(MAX_JOY_AXES);
+		joy_b = i_create_s(MAX_JOY_BUTTONS);
+
 		joystick_id = joy_id;
 	}
 }
 
-float i_joy_axis_delta(int axis){
-	if(axis < 0){
-		return 0.f;
-	}
-	return joy_axes_this_frame[axis] - joy_axes_last_frame[axis];
+float i_joy_axis_delta(unsigned short axis){
+	if(!joy_exists) return 0;
+	return joy_a.curr[axis] - joy_a.prev[axis];
 }
 
-void i_get_joy_buttons(int* dst, int count){
+void i_get_joy_buttons(unsigned short* dst, int count){
+	if(!joy_exists) return;
 	int cpy_count = (count > MAX_JOY_BUTTONS) ? MAX_JOY_BUTTONS : count;
-	for(int i=0;i<cpy_count;++i){
-		dst[i] = joy_buttons_this_frame[i];
-	}	
+	memcpy(dst, joy_b.curr, cpy_count * sizeof(unsigned short));
 }
 
 void i_get_joy_axes(float* dst, int count){
+	if(!joy_exists) return;
 	int cpy_count = (count > MAX_JOY_AXES) ? MAX_JOY_AXES : count;
-	for(int i=0;i<cpy_count;++i){
-		dst[i] = joy_axes[i];
-	}
+	memcpy(dst, joy_a.curr, cpy_count * sizeof(float));
 }
 
-const char* i_get_joy_name(int joy){
+const char* i_get_joy_name(unsigned short joy){
 	return glfwGetJoystickName(joy);
 }
 
-int i_get_joy_type(int joy){
+unsigned short i_get_joy_type(unsigned short joy){	
+	if(!glfwJoystickPresent(joy)){
+		return -1;
+	}
+
 	const char* name = i_get_joy_name(joy);
 	if(strstr(name, "Microsoft")){
 		if(strstr(name, "360")){
@@ -129,7 +192,7 @@ int i_get_joy_type(int joy){
 	}		
 }
 
-void i_destroy_joy(int joy_id){
+void i_destroy_joy(unsigned short joy_id){
 	if(joy_id == joystick_id){
 		if(joy_exists){
 			joy_exists = 0;
@@ -137,84 +200,47 @@ void i_destroy_joy(int joy_id){
 	}
 }
 
-void i_add_joy_button(int button){
-	if(joy_button_count == MAX_JOY_BUTTONS){
-		return;
-	}
-
-	joy_buttons[joy_button_count] = button;
-	joy_button_count ++;
+float i_joy_axis(unsigned short axis){
+	if(!joy_exists) return 0.f;
+	return joy_a.curr[axis];
 }
 
-void i_rm_joy_button(int button){
-	if(!joy_button_count){
-		return;
-	}
+unsigned short i_joy_button_down(unsigned short button){
+	if(!joy_exists) return 0;
+	return joy_b.curr[button];
+}
 
-	if(joy_button_count){
-		joy_buttons[0] = 0;
-		joy_button_count = 0;
-		return;
-	}
+unsigned short i_joy_button_up(unsigned short button){
+	if(!joy_exists) return 0;
+	return !joy_b.curr[button];
+}
 
-	int index = 0;
-	for(int i=0;i<joy_button_count;i++){
-		if(joy_buttons[i] == button){
+unsigned short i_joy_button_clicked(unsigned short button){
+	if(!joy_exists) return 0;
+	return i_joy_button_down(button) && !joy_b.prev[button];
+}
+
+unsigned short i_joy_button_released(unsigned short button){
+	if(!joy_exists) return 0;
+	return !joy_b.curr[button] && joy_b.prev[button];
+}
+
+void i_rm_key(unsigned short key){
+	int index = -1;
+	for(int i=0;i<current_key_count;++i){
+		if(current_keys[i] == key){
 			index = i;
 			break;
 		}
 	}
 
-	for(int i=index;i<joy_button_count-1;i++){
-		joy_buttons[i] = joy_buttons[i+1];
-	}
+	int cap = (current_key_count >= MAX_KEYS-1) ? MAX_KEYS : current_key_count;
 
-	joy_button_count --;
-}
-
-float i_joy_axis(int axis){
-	if(axis > joy_axes_count){
-		return 0.0f;
+	for(int i=index;i<cap-1;++i){
+		current_keys[i] = current_keys[i+1];
 	}
-	return joy_axes[axis];
-}
-
-int i_joy_button_down(int button){
-	if(button > joy_button_count){
-		return 0;
-	}
-	return joy_buttons[button];
-}
-
-int i_joy_button_up(int button){
-	if(button > joy_button_count){
-		return 1;
-	}
-	return !joy_buttons[button];
-}
-
-int i_joy_button_clicked(int button){
-	if(button > joy_last_frame_count){
-		return 0;
-	}
-	return i_joy_button_down(button);
-}
-
-int i_joy_button_released(int button){
-	if(i_joy_button_down(button)){
-		return 0;
-	}
-	if(button > joy_this_frame_count){
-		return 0;
-	}
-
-	return joy_buttons_last_frame[button];
-}
-
-void i_rm_concurrent_key(int index){
-	for(int i=index;i<concurrent_count - 1; i++){
-		concurrent_keys[i] = concurrent_keys[i+1];
-	}
+	current_keys[cap-1] = 0;
+	--current_key_count;
 }
 
 void i_key_callback(int key, int scancode, int toggle){
@@ -223,27 +249,25 @@ void i_key_callback(int key, int scancode, int toggle){
 			i_binding_track_callback(key, BINDING_KEY);
 		}
 
-		if(concurrent_count == MAX_KEYS){
+		if(keyboard.curr_count == keyboard.capacity){
 			return;
 		}
 
-		for(int i=0;i<concurrent_count;i++){
-			if(concurrent_keys[i] == key){
-				return;
-			}
+		if(i_contains((unsigned short)key, keyboard.curr, keyboard.curr_count)){
+			return;	
 		}
 
-		concurrent_keys[concurrent_count] = key;
-		concurrent_count ++;
-	}else{
-		int index = 0;
-		while(index < concurrent_count){
-			if(concurrent_keys[index] == key){
-				i_rm_concurrent_key(index);
-				concurrent_count --;
-			}
-			index++;
+		keyboard.curr[keyboard.curr_count] = key;
+		++keyboard.curr_count;
+
+		if(i_contains((unsigned short)key, current_keys, current_key_count) && current_key_count < MAX_KEYS){
+			return;
 		}
+
+		current_keys[current_key_count] = key;
+		++current_key_count;
+	}else{
+		i_rm_key((unsigned short)key);
 	}
 }
 
@@ -260,18 +284,12 @@ void i_char_callback(unsigned int c){
 	char_count ++;
 }
 
-char* i_get_chars(){
-	if(!char_count){
-		return NULL;
+void i_get_chars(char* dst, unsigned short count){
+	if(!char_count || !count){
+		return;
 	}
-
-	char* chars = calloc(1, char_count);
-	for(int i=0;i<char_count;i++){
-		chars[i] = chars[i];
-		chars[i] = 0;
-	}
-	char_count = 0;
-	return chars;
+	unsigned short cpy_count = (count > char_count) ? char_count : count;
+	memcpy(dst, chars, sizeof(char) * cpy_count);
 }
 
 void i_set_mouse_grab(int grab){
@@ -295,164 +313,115 @@ int i_get_mouse_grab(){
 	}
 }
 
-void i_mouse_button_callback(int button){
+void i_mouse_button_callback(unsigned short button){
 	if(key_binding_track){
 		i_binding_track_callback(button, BINDING_MB);
 	}
-	mouse_this_frame[m_count] = button;
-	m_count++;
+	mouse_b.curr[mouse_b.curr_count] = button;
+	++mouse_b.curr_count;
 }
 
 void i_mouse_pos_callback(double x, double y){
-	mx = x;
-	my = y;
+	mouse_p.x = x;
+	mouse_p.y = y;
 }
 
 void i_mouse_scroll_callback(double sx, double sy){
-	msx = sx;
-	msy = sy;
+	mouse_s.x += sx;
+	mouse_s.y += sy;
+	mouse_s.dx = sx;
+	mouse_s.dy = sy;
 }
 
 void i_get_scroll(double* x, double* y){
-	*x = msx;
-	*y = msy;
+	*x = mouse_s.dx;
+	*y = mouse_s.dy;
 }
 
-int i_mouse_down(int button){
-	for(int i=0;i<m_count;i++){
-		if(mouse_this_frame[i] == button){
-			return 1;
-		}
-	}
-	return 0;
+unsigned short i_mouse_down(unsigned short button){
+	return i_contains(button, mouse_b.curr, mouse_b.curr_count);
 }
 
-int i_mouse_up(int button){
-	for(int i=0;i<m_count;i++){
-		if(mouse_this_frame[i] == button){
-			return 0;
-		}
-	}
-	return 1;
+unsigned short i_mouse_up(unsigned short button){
+	return !i_contains(button, mouse_b.curr, mouse_b.curr_count);
 }
 
-int i_mouse_clicked(int button){
-	for(int i=0;i<m_l_count;i++){
-		if(mouse_last_frame[i] == button){
-			return 0;
-		}
-	}
-
-	for(int i=0;i<m_count;i++){
-		if(mouse_this_frame[i] == button){
-			return 1;
-		}
-	}
-	return 0;
+unsigned short i_mouse_clicked(unsigned short button){
+	return i_mouse_down(button) && !i_contains(button, mouse_b.prev, mouse_b.prev_count);
 }
 
-int i_mouse_released(int button){
-	for(int i=0;i<m_count;i++){
-		if(mouse_this_frame[i] == button){
-			return 0;
-		}
-	}
-
-	for(int i=0;i<m_l_count;i++){
-		if(mouse_last_frame[i] == button){
-			return 1;
-		}
-	}
-	return 0;
+unsigned short i_mouse_released(unsigned short button){
+	return i_mouse_up(button) && !i_contains(button, mouse_b.prev, mouse_b.prev_count);
 }
 
-double getScrollX(){
-	return msx;
+double i_get_scroll_x(){
+	return mouse_s.x;
 }
 
 double i_get_scroll_y(){
-	return msy;
+	return mouse_s.y;
 }
 
 void i_get_mouse_pos(double* x, double* y){
-	*x = mx;
-	*y = my;
+	*x = mouse_p.x;
+	*y = mouse_p.y;
 }
 
 double i_get_mouse_x(){
-	return mx;
+	return mouse_p.x;
 }
 
 double i_get_mouse_y(){
-	return my;
+	return mouse_p.y;
 }
 
 void i_get_mouse_delta(double* x, double* y){
-	*x = mdx;
-	_l("Exiting game.");
-	*y = mdy;
+	*x = mouse_p.dx;
+	*y = mouse_p.dy;
 }
 
 double i_get_delta_x(){
-	return mdx;
+	return mouse_p.dx;
 }
 
 double i_get_delta_y(){
-	return mdy;
+	return mouse_p.dy;
 }
 
-int i_key_down(int key){
-	for(int i=0;i<key_count;i++){
-		if(this_frame[i] == key){
-			return 1;
-		}
-	}
-	return 0;
+unsigned short i_key_down(unsigned short key){
+	return i_contains(key, current_keys, current_key_count);
 }
 
-int i_key_up(int key){
-	for(int i=0;i<key_count;i++){
-		if(this_frame[i] == key){
-			return 0;
-		}
-	}
-	return 1;
+unsigned short i_key_up(unsigned short key){
+	return !i_contains(key, current_keys, current_key_count);
 }
 
-int i_key_clicked(int key){
-	for(int i=0;i<last_key_count;i++){
-		if(last_frame[i] == key){
-			return 0;
-		}
-	}
-
-	for(int i=0;i<key_count;i++){
-		if(this_frame[i] == key){
-			return 1;
-		}
-	}
-	return 0;
+unsigned short i_key_clicked(unsigned short key){
+	return i_key_down(key) && !i_contains(key, keyboard.prev, keyboard.prev_count);
 }
 
-int i_key_released(int key){
-	for(int i=0;i<key_count;i++){
-		if(this_frame[i] == key){
-			return 1;
-		}
-	}
-
-	for(int i=0;i<last_key_count;i++){
-		if(last_frame[i] == key){
-			return 1;
-		}
-	}
-
-	return 0;
+unsigned short i_key_released(unsigned short key){
+	return i_key_up(key) && i_contains(key, keyboard.prev, keyboard.prev_count);
 }
 
 void i_add_binding(const char* name, int value, int type){
-	key_bindings[key_binding_count] = (key_binding){name, value, type};
-	key_binding_count ++;
+	if(key_binding_count > 0){
+		for(int i=0;i<key_binding_count;++i){
+			if(strcmp(key_bindings[i].name, name) == 0){
+				key_bindings[i].value = value;
+				key_bindings[i].type = type;
+				return;
+			}	
+		}
+
+		if(key_binding_count == MAX_KEY_BINDINGS){
+			_l("Unable to add more key bindings.\n");
+			return;
+		}
+	}
+
+	key_bindings[key_binding_count] = (key_binding){name, value, type, 0, 0, 0, 0};
+	++key_binding_count;
 }
 
 void i_add_binding_alt(const char* name, int value, int type){
@@ -478,7 +447,7 @@ void i_enable_binding_track(const char* key_binding){
 	}
 }
 
-int i_binding_track(){
+unsigned short i_binding_track(){
 	return key_binding_track;
 }
 
@@ -491,7 +460,7 @@ void i_binding_track_callback(int value, int type){
 	key_binding_track = 0;
 }
 
-int i_get_binding_type(const char* key_binding){
+unsigned short i_get_binding_type(const char* key_binding){
 	for(int i=0;i<key_binding_count;i++){
 		if(!strcmp(key_bindings[i].name, key_binding)){
 			return key_bindings[i].type;
@@ -500,7 +469,7 @@ int i_get_binding_type(const char* key_binding){
 	return 0;
 }
 
-int i_get_binding_alt_type(const char* key_binding){
+unsigned short i_get_binding_alt_type(const char* key_binding){
 	for(int i=0;i<key_binding_count;++i){
 		if(!strcmp(key_bindings[i].name, key_binding)){
 			return key_bindings[i].alt_type;
@@ -509,7 +478,7 @@ int i_get_binding_alt_type(const char* key_binding){
 	return 0;
 }
 
-int i_binding_clicked(const char* key_binding){
+unsigned short i_binding_clicked(const char* key_binding){
 	for(int i=0;i<key_binding_count;i++){
 		if(!strcmp(key_bindings[i].name, key_binding)){
 			int val;
@@ -548,7 +517,7 @@ int i_binding_clicked(const char* key_binding){
 	return 0;
 }
 
-int i_binding_released(const char* key_binding){
+unsigned short i_binding_released(const char* key_binding){
 	for(int i=0;i<key_binding_count;i++){
 		if(!strcmp(key_bindings[i].name, key_binding)){
 			if(key_bindings[i].type == BINDING_JOYA){
@@ -591,7 +560,7 @@ int i_binding_released(const char* key_binding){
 	return 0;
 }
 
-int i_binding_down(const char* key_binding){
+unsigned short i_binding_down(const char* key_binding){
 	for(int i=0;i<key_binding_count;i++){
 		if(!strcmp(key_bindings[i].name, key_binding)){
 			if(key_bindings[i].type == BINDING_JOYA){
@@ -639,7 +608,7 @@ int i_binding_down(const char* key_binding){
 	return 0;
 }
 
-int i_binding_up(const char* key_binding){
+unsigned short i_binding_up(const char* key_binding){
 	for(int i=0;i<key_binding_count;i++){
 		if(!strcmp(key_bindings[i].name, key_binding)){
 			int val;
@@ -729,7 +698,7 @@ float i_binding_val(const char* key_binding){
 	return 0.0f;
 }
 
-int i_binding_defined(const char* key_binding){
+unsigned short i_binding_defined(const char* key_binding){
 	for(int i=0;i<key_binding_count;i++){
 		if(!strcmp(key_bindings[i].name, key_binding)){
 			return 1;
@@ -797,121 +766,81 @@ void i_default_bindings(){
 }
 
 void i_update(){
-	mdx = mx - lfx;
-	mdy = my - lfy;
+	mouse_p.dx = mouse_p.x - mouse_l.x;
+	mouse_p.dy = mouse_p.y - mouse_l.y;
 
-	lfx = mx;
-	lfy = my;
+	mouse_l.x = mouse_p.x;
+	mouse_l.y = mouse_p.y;
 
 	if(!joy_exists){
 		for(int i=0;i<16;++i){
 			if(glfwJoystickPresent(i)){
 				i_create_joy(i);
-				printf("Joystick found\n");
+				_l("Joystick [%i] found.\n", i);
 				joy_exists = 1;
 				break;
 			}
 		}
 	}
 
+	
+	int overlap = (keyboard.curr_count > keyboard.prev_count) ? keyboard.curr_count : keyboard.prev_count;
+	memcpy(keyboard.prev, keyboard.curr, sizeof(unsigned short) * overlap);
+	keyboard.prev_count = keyboard.curr_count;
+	memset(keyboard.curr, 0, keyboard.curr_count * sizeof(unsigned short));
+	keyboard.curr_count = 0;
 
-	int continuable = 1;
-	for(int i=0;i<MAX_KEYS;i++){
-		if(i < key_count){
-			last_frame[i] = this_frame[i];
-			continuable = 1;
-		}else if(i < last_key_count){
-			last_frame[i] = 0;
-			continuable = 1;
-		}
-
-		if(i < concurrent_count){
-			this_frame[i] = concurrent_keys[i];
-			continuable = 1;
-		}else{
-			continuable = 0;
-		}
-
-		if(!continuable){
-			break;
-		}
-	}
-	last_key_count = key_count;
-	key_count = concurrent_count;
-
-	for(int i=0;i<MAX_MOUSE_BUTTONS;i++){
-		if(i < m_count){
-			last_frame[i] = this_frame[i];
-			this_frame[i] = 0;
-		}else if(i < m_l_count){
-			last_frame[i] = 0;
-		}else{
-			break;
-		}
-	}
-
-	m_l_count = m_count;
-	m_count = 0;
-
+	overlap = (mouse_b.curr_count > mouse_b.prev_count) ? mouse_b.curr_count : mouse_b.prev_count;
+	memcpy(mouse_b.prev, mouse_b.curr, sizeof(unsigned short) * overlap);
+	mouse_b.prev_count = mouse_b.curr_count;
+	memset(mouse_b.curr, 0, sizeof(unsigned short) * mouse_b.curr_count); 
+	mouse_b.curr_count = 0;
+	
 	if(joy_exists){
 		int count;
 		const float* axes = glfwGetJoystickAxes(joystick_id, &count);
 
-		memset(joy_axes_last_frame, 0, sizeof(float) * joy_axes_last_frame_count);
-		memcpy(joy_axes_last_frame, joy_axes_this_frame, sizeof(float) * joy_axes_this_frame_count);
-		memcpy(joy_axes_this_frame, axes, sizeof(float) * joy_axes_count);
+		//Joy axes in variable
+		memcpy(joy_a.prev, joy_a.curr, sizeof(float) * joy_a.curr_count);
+		memset(joy_a.curr, 0, sizeof(float) * joy_a.capacity);
+		
+		overlap = (count > joy_a.capacity) ? joy_a.capacity : count;
+		memcpy(joy_a.curr, axes, sizeof(float) * overlap);		
 
-		joy_axes_last_frame_count = joy_axes_this_frame_count;
-		joy_axes_this_frame_count = count;
-
-		for(int i=0;i<MAX_JOY_AXES;i++){
-			if(key_binding_track){
-				if(axes[i] != 0.0f){
-					i_binding_track_callback(i, BINDING_JOYA);
-				}
-			}
-
-			if(i > count){
-				joy_axes[i] = 0.0f;
-			}else if(i < count){
-				joy_axes[i] = axes[i];
+		for(int i=0;i<joy_a.capacity;++i){
+			if(joy_a.curr[i] != 0.f){
+				i_binding_track_callback(i, BINDING_JOYA);
 			}
 		}
 
-		joy_axes_count = count;
+		//Really, not needed just for safety.
+		joy_a.prev_count = joy_a.curr_count;
+		joy_a.curr_count = count;
 
-		joy_button_count = 0;
+		const unsigned char* buttons = glfwGetJoystickButtons(joystick_id, &count);
 
-		int button_count;
-		const unsigned char* buttons = glfwGetJoystickButtons(joystick_id, &button_count);
-
-		for(int i=0;i<MAX_JOY_BUTTONS;++i){
-			if(i < joy_this_frame_count){
-				joy_buttons_last_frame[i] = joy_buttons_this_frame[i];
-			}else{
-				joy_buttons_last_frame[i] = 0;
-			}
-		}
-
-		joy_last_frame_count = joy_this_frame_count;
-
-		for(int i=0;i<button_count;i++){
-			if(key_binding_track){
-				if(buttons[i] == GLFW_PRESS || buttons[i] == GLFW_REPEAT){
-					i_binding_track_callback(i, BINDING_JOYB);
-				}
+		overlap = (joy_b.curr_count > joy_b.prev_count) ? joy_b.curr_count : joy_b.prev_count;
+		memcpy(joy_b.prev, joy_b.curr, sizeof(unsigned short) * overlap);
+		memset(joy_b.curr, 0, sizeof(unsigned short) * joy_b.capacity);
+	
+		for(int i=0;i<count;++i){
+			if(i >= joy_b.capacity){
+				break;
 			}
 
 			if(buttons[i] == GLFW_PRESS || buttons[i] == GLFW_REPEAT){
-				joy_buttons[i] = 1;
-				joy_button_count ++;
-			}else {
-				joy_buttons[i] = 0;
-			}
+				if(key_binding_track){
+					i_binding_track_callback(i, BINDING_JOYB);
+				}
 
-			joy_buttons_this_frame[i] = joy_buttons[i];
+				joy_b.curr[i] = 1;
+			}else{
+				joy_b.curr[i] = 0;
+			}
 		}
-		joy_this_frame_count = joy_button_count;
+
+		joy_b.prev_count = joy_b.curr_count;
+		joy_b.curr_count = count;	
 	}
 }
 

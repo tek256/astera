@@ -16,6 +16,7 @@ extern "C" {
 #endif
 
 #include <stdio.h>
+#include <stdlib.h>
 
 /* Nonzero if ini_handler callback should accept lineno parameter. */
 #ifndef INI_HANDLER_LINENO
@@ -64,6 +65,10 @@ int ini_parse_stream(ini_reader reader, void* stream, ini_handler handler,
 instead of a file. Useful for parsing INI data from a network socket or
 already in memory. */
 int ini_parse_string(const char* string, ini_handler handler, void* user);
+
+/* Check if the file contains a section */
+int ini_table_exists(const char* file, const char* section);
+int ini_key_exists(const char* file, const char* section, const char* key);
 
 /* Write to the INI file */
 int ini_write_table(const char* file, const char* section, const char** keys, const char** values, int count);

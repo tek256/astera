@@ -1,9 +1,10 @@
 OBJS = $(wildcard src/*.c)
 
 CC = clang
+#CC = gcc
 WIN_CC = gcc 
 
-COMPILER_FLAGS = -w -std=c99
+COMPILER_FLAGS = -w -g -std=c99
 WIN_COMPILER_FLAGS = -w -std=c99
 OSX_COMPILER_FLAGS = -w -std=c99
 
@@ -65,6 +66,8 @@ else
 		TARGET_COMPILER_FLAGS += -march=ARM
 	else ifeq ($(UNAME_P),ARM64)
 		TARGET_COMPILER_FLAGS += -march=ARM64
+	else ifeq ($(UNAME_P),aarch64)
+		TARGET_COMPILER_FLAGS == -march=ARM64
 	else
 		TARGET_COMPILER_FLAGS += -march=x86-64
 	endif

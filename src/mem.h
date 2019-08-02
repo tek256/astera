@@ -7,9 +7,6 @@
 #define MEM_SIZE_MB MEM_SIZE_KB * 1024
 #define MEM_SIZE_GB MEM_SIZE_MB * 1024
 
-//#define MEM_REUSE_ZONES
-//#define MEM_SAFE
-
 #define MEM_OFFSET_THRESHHOLD 64
 
 typedef struct m_block m_block;

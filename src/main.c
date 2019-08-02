@@ -1,4 +1,7 @@
 #define DEBUG_OUTPUT
+//#define EXCLUDE_AUDIO
+#define EXCLUDE_CREATE
+
 #include "platform.h"
 
 #include <stdio.h>
@@ -10,17 +13,21 @@
 #include "conf.h"
 
 #include "debug.h"
+
+#ifndef EXCLUDE_AUDIO
 #include "audio.h"
+#endif
+
 #include "sys.h"
 #include "input.h"
 #include "render.h"
 #include "game.h"
 #include "mem.h"
 
+#define CREATE_MODE 
+
 int target_fps = 120;
 int max_fps = 120;
-
-c_conf conf;
 
 int main(int argc, char** argv){
 	#ifdef __MINGW32__
@@ -30,26 +37,29 @@ int main(int argc, char** argv){
 	#endif
 
 	dbg_enable_log(1, "log.txt");
-
 	c_parse_args(argc, argv);
 
-	const char* keys[5] = {
-		"devon","was","here","test","key"
-	};
-	const char* values[5] = {
-		"or","was","he","no","proof"
-	};
+	if(!i_init()){
+		_fatal("Unable to initialize input system.\n");
+		return EXIT_FAILURE;
+	}
 
-	conf = c_parse_file("res/conf.ini", 1);
-	c_write_table("res/conf.ini", "devon", keys, values, 5);
-
+	c_conf conf;
+	if(conf_flags.conf_override){
+		conf = c_parse_file(conf_flags.conf_override, 1);	
+	}else{
+		conf = c_parse_file("res/conf.ini", 1);
+	}
+	
 	if(!r_init(conf)){
 		_fatal("Unable to initialize rendering system.\n");	
 	}
 
-	if(!a_init(conf)){
+#ifndef EXCLUDE_AUDIO
+	if(!a_init(conf.master, conf.sfx, conf.music)){
 		_fatal("Unable to initialize audio system.\n");
 	}
+#endif
 
 	if(!g_init()){
 		_fatal("Unable to initialize game runtime.\n");
@@ -77,7 +87,7 @@ int main(int argc, char** argv){
 		i_update();
 		glfwPollEvents();
 		g_input(delta);
-		
+
 		g_update(delta);
 
 		check = t_get_time(); 

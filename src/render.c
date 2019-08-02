@@ -22,6 +22,13 @@ static unsigned int default_quad_vao;
 
 static char* shader_value_buff[SHADER_STR_SIZE];
 
+#ifndef EXCLUDE_CREATE
+static r_resource_map r_res_map;
+r_resource_map* r_get_map(){
+	return &r_res_map;
+}
+#endif
+
 int r_init(c_conf conf){
 	r_window_info info;
 	info.width = conf.width;
@@ -103,12 +110,29 @@ r_tex r_get_tex(const char* fp){
 
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, img);
 
+#ifndef EXCLUDE_CREATE
+	int count = r_res_map.tex_count;
+	r_res_map.tex_ids[count] = id;
+	r_res_map.tex_paths[count] = strdup(fp);
+	++r_res_map.tex_count;
+#endif
+
 	stbi_image_free(img);
 	return (r_tex){id, (unsigned int)w,(unsigned int)h};	
 }
 
 r_sheet r_get_sheet(const char* fp, unsigned int subwidth, unsigned int subheight){
 	r_tex tex = r_get_tex(fp);
+#ifndef EXCLUDE_CREATE
+	int count = r_res_map.sheet_count;
+
+	r_res_map.sheet_ids[count] = tex.id;
+	r_res_map.sheet_subwidths[count] = subwidth;
+	r_res_map.sheet_subheights[count] = subheight;
+	r_res_map.sheet_paths[count] = strdup(fp);
+
+	++ r_res_map.sheet_count;	
+#endif
 	return (r_sheet){tex.id, tex.width, tex.height, subwidth, subheight};
 }
 
@@ -329,12 +353,32 @@ r_shader r_get_shader(const char* vert, const char* frag){
 		_l("%s\n", log);
 		free(log);
 	}
-
+#ifndef EXCLUDE_CREATE
+	int shader_count = r_res_map.shader_count;
+	r_res_map.vertex_shaders[shader_count] = strdup(vert);
+	r_res_map.fragment_shaders[shader_count] = strdup(frag);
+	r_res_map.shader_ids[shader_count] = id;
+	r_res_map.shader_count ++;
+#endif
 #ifdef DEBUG_OUTPUT
 	_l("r_shader program loaded: %i\n", id);
 #endif
 	return (r_shader){id};
 }
+
+/*
+	
+	const char* sheet_path[RENDER_SHEET_CACHE];
+	unsigned int sheet_ids[RENDER_SHEET_CACHE];
+	unsigned int sheets[RENDER_SHEET_CACHE];
+	unsigned int sheet_count;
+
+	const char* tex_paths[RENDER_SHEET_CACHE];
+	unsigned int tex_ids[RENDER_SHEET_CACHE];
+	unsigned int texs[RENDER_SHEET_CACHE];
+	unsigned int tex_count;
+
+ */
 
 void r_map_shader(r_shader shader, const char* name){
 	if(g_shader_map.capacity == 0){
@@ -368,6 +412,9 @@ void r_map_shader(r_shader shader, const char* name){
 
 	g_shader_map.count ++;
 }
+
+/*
+ *	 */
 
 void r_clear_cache(r_shader shader){
 	r_shader_cache* specific;
@@ -452,7 +499,7 @@ void r_bind_tex(unsigned int tex){
 }
 
 void r_bind_shader(r_shader shader){
-	if(shader == NULL){
+	if(!shader){
 		glUseProgram(0);
 	}else{
 		glUseProgram(shader);
@@ -534,6 +581,13 @@ void r_cache_anim(r_anim anim, const char* name){
 	g_anim_cache.anims[g_anim_cache.count] = anim;
 
 	g_anim_cache.count ++;
+
+#ifndef EXCLUDE_CREATE
+	int count = r_res_map.anim_count;
+	r_res_map.anim_ids[count] = g_anim_cache.uid;
+	r_res_map.anims[count] = anim;
+	r_res_map.anim_count++;
+#endif
 }
 
 r_anim* r_get_anim_n(const char* name){
@@ -729,16 +783,15 @@ int r_get_cached(r_shader shader, const char* uniform){
 }
 
 inline int r_get_uniform_loc(r_shader shader, const char* uniform){
-	/*
-	   int cache_loc = r_get_cached(shader, uniform);
+	/*int cache_loc = r_get_cached(shader, uniform);
 
-	   if(!cache_loc){
-	   cache_loc = glGetUniformLocation(shader, uniform);
-	   r_cache_uniform(shader, uniform, cache_loc);
-	   }	
+	if(!cache_loc){
+		cache_loc = glGetUniformLocation(shader, uniform);
+		r_cache_uniform(shader, uniform, cache_loc);
+	}	
 
-	   return cache_loc;
-	   */
+	return cache_loc;*/
+
 	return glGetUniformLocation(shader, uniform);
 }
 
@@ -792,35 +845,35 @@ inline void r_set_m4i(int loc, mat4x4 val){
 
 void r_set_m4x(r_shader shader, unsigned int count, const char* name, mat4x4* values){
 	if(!count) return;
-	glUniformMatrix4fv(r_get_uniform_loc(shader, name), count, GL_FALSE, values);
+	glUniformMatrix4fv(r_get_uniform_loc(shader, name), count, GL_FALSE, (const GLfloat*)values);
 }
 
 void r_set_ix(r_shader shader, unsigned int count, const char* name, int* values){
 	if(!count) return;
-	glUniform1iv(r_get_uniform_loc(shader, name), count, values);
+	glUniform1iv(r_get_uniform_loc(shader, name), count, (const GLint*)values);
 }
 
 void r_set_fx(r_shader shader, unsigned int count, const char* name, float* values){
 	if(!count) return;
-	glUniform1fv(r_get_uniform_loc(shader, name), count, values);
+	glUniform1fv(r_get_uniform_loc(shader, name), count, (const GLfloat*)values);
 }
 
 void r_set_v2x(r_shader shader, unsigned int count, const char* name, vec2* values){
 	if(!count) return;
 
-	glUniform2fv(r_get_uniform_loc(shader, name), count, values);
+	glUniform2fv(r_get_uniform_loc(shader, name), count, (const GLfloat*)values);
 }
 
 void r_set_v3x(r_shader shader, unsigned int count, const char* name, vec3* values){
 	if(!count) return;
 
-	glUniform3fv(r_get_uniform_loc(shader, name), count, values);
+	glUniform3fv(r_get_uniform_loc(shader, name), count, (const GLfloat*)values);
 }
 
 void r_set_v4x(r_shader shader, unsigned int count, const char* name, vec4* values){
 	if(!count) return;
 
-	glUniform4fv(r_get_uniform_loc(shader, name),  count, values);
+	glUniform4fv(r_get_uniform_loc(shader, name),  count, (const GLfloat*)values);
 }
 
 static void r_create_modes(){
@@ -878,10 +931,6 @@ static const GLFWvidmode* r_find_best_mode(){
 	return selected;
 }
 
-static void _error_callback(int err, const char* msg){
-	_e("GLFW Error (%d) %s\n", err, msg);
-}
-
 int r_create_window(r_window_info info){
 	if(!r_window_info_valid(info)){
 		return 0;
@@ -889,7 +938,7 @@ int r_create_window(r_window_info info){
 
 	_l("Loading GLFW.\n");
 
-	glfwSetErrorCallback(_error_callback);
+	glfwSetErrorCallback(glfw_err_cb);
 
 	if(!glfwInit()){
 		_e("Unable to initialize GLFW\n");

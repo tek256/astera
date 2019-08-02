@@ -1,14 +1,21 @@
 #include <linmath.h>
 
 #include "game.h"
+
+#ifndef EXCLUDE_AUDIO
 #include "audio.h"
+#endif
 #include "debug.h"
 #include "render.h"
 #include "input.h"
+#include "conf.h"
 
 #include <time.h>
 
+#ifndef EXCLUDE_AUDIO
 static a_buf buffer;
+static a_music* music;
+#endif
 
 static r_shader shader;
 static r_sheet sheet;
@@ -38,12 +45,24 @@ int g_init(){
 
 	r_anim* _anim = r_get_anim_n("test");
 
-	buffer = a_create_buffer("res/snd/test.ogg");
+#ifndef EXCLUDE_AUDIO
+	//buffer = a_create_buffer("res/snd/test.ogg");
+	
+	int data_len;
+	unsigned char* data = c_get_file_contents("res/snd/test.ogg", &data_len);
+	if(!data){
+		_l("No data loaded for music file.\n");
+	}
 
-	/*for(int i=0;i<16;++i){
+	//buffer = a_get_buf(data, data_len);
+	music = a_create_music(data, data_len, NULL);
+	_l("VALID MUSIC: %i\n", (music) ? 1 : 0);
+	a_play_music(music);
+#endif
+	for(int i=0;i<16;++i){
 		dir_x[i] = (rand() % 3) - 1;
 		dir_y[1] = (rand() % 3) - 1;
-	}*/
+	}
 
 	float offset_x = 100.f;
 	float offset_y = 100.f;
@@ -51,13 +70,13 @@ int g_init(){
 		int x = i % 4;
 		int y = i / 4;
 		r_drawable* d = r_get_drawable(_anim, shader, (vec2){16.f, 16.f}, (vec2){(32.f * x) + offset_x, (32.f * y) + offset_y});
-		/*if(!dir_x[i]){
+		if(!dir_x[i]){
 			d->flip_x = 1;	
 		}
 
 		if(dir_y[i]){
 			d->flip_y = 1;
-		}*/
+		}
 		r_anim_p(&d->anim);
 	}
 
@@ -67,6 +86,7 @@ int g_init(){
 		printf("XBOX FOUND!\n");
 	}
 
+	_l("Initialized game.\n");
 	return 1;	
 }
 
@@ -75,11 +95,13 @@ void g_exit(){
 }
 
 void g_input(long delta){
+	
 	//i_get_joy_buttons(buttons, 12);
-
+#ifndef EXCLUDE_AUDIO
 	if(i_key_clicked('P')){
-		a_play_sfx(&buffer, 1.f, (vec2){0.f, 0.f}); 
+		a_play_sfx(&buffer, NULL); 
 	}
+#endif
 
 	if(i_key_clicked('R')){
 		int r = (rand() % 15) + 1;//non-zero uid
@@ -98,7 +120,7 @@ void g_input(long delta){
 	float _x = i_joy_axis_delta(XBOX_L_X);
 	float _y = i_joy_axis_delta(XBOX_L_Y);
 	float x_axis = i_joy_axis(XBOX_L_X);
-	float y_axis = i_joy_axis(XBOX_L_Y);
+	float y_axis = -1.f * i_joy_axis(XBOX_L_Y);
 
 	if(_x != 0 || x_axis >= 0.75f || x_axis <= -0.75f){
 		_x = x_axis;
@@ -138,18 +160,22 @@ void g_input(long delta){
 }
 
 void g_update(long delta){
+
+#ifndef EXCLUDE_AUDIO
 	a_update(delta);
+#endif
 	r_update(delta);
 	r_update_batch(shader, &sheet);
 }
 
 void g_render(long delta){
-	/*for(int i=1;i<17;++i){
+	for(int i=1;i<17;++i){
 		r_drawable* d = r_get_drawablei(i);
 		d->position[0] += dir_x[i] * delta * 0.05f;
 		d->position[1] += dir_y[i] * delta * 0.05f;
 		d->change = 1;		
-	}*/
+	}
 
 	r_draw_call(shader, &sheet);
+	
 }

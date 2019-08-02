@@ -14,10 +14,9 @@
 
 //PLATFORM DETECTION
 #if defined(_WIN32)
+	#define PLAT_MSFT
 	#if defined(_WIN64)
 		#define PLAT_MSFT_64
-	#else
-		#define PLAT_MSFT
 	#endif
 #elif defined(__APPLE__)
 	#define PLAT_APPLE
@@ -62,7 +61,7 @@
 	#endif
 #endif
 
-const char* platform_get_str(int* count);
-const char* arch_get_str(int* count);
+char* platform_get_str(int* count);
+char* arch_get_str(int* count);
 
 #endif

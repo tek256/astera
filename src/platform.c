@@ -1,6 +1,6 @@
 #include "platform.h"
 
-const char* platform_get_str(int *count){
+char* platform_get_str(int *count){
     #if defined(PLAT_MSFT_64)
         *count = 5;
         return "WIN64";
@@ -122,7 +122,7 @@ const char* platform_get_str(int *count){
         #endif
 #endif
 }
-const char* arch_get_str(int *count){
+char* arch_get_str(int *count){
     #if defined(ARCH_X86_64)
         *count = 6;
         return "X86_64";
