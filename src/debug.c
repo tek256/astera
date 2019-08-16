@@ -100,9 +100,8 @@ void _fatal(const char* format, ...){
 	va_list args;
 	va_start(args, format);
 
-	vsprintf(strbuff, format, args);
+	int len = vsprintf(strbuff, format, args);
 	fprintf(stderr, "FATAL: %s", strbuff);
-	int len = strlen(strbuff);
 
 	if(logging){
 		if(timestamp){
@@ -137,9 +136,8 @@ void _e(const char* format, ...){
 	va_list args;
 	va_start(args, format);
 
-	vsprintf(strbuff, format, args);
+	int len = vsprintf(strbuff, format, args);
 	fprintf(stderr, "%s", strbuff);
-	int len = strlen(strbuff);
 
 	if(logging){
 		if(timestamp){

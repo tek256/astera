@@ -18,7 +18,7 @@ static r_window_info g_window_info;
 static GLFWmonitor* r_default_monitor;
 static const GLFWvidmode* r_vidmodes;
 static vec2 r_res;
-static unsigned int default_quad_vao;
+static u32 default_quad_vao;
 
 static char* shader_value_buff[SHADER_STR_SIZE];
 
@@ -64,7 +64,7 @@ void r_create_camera(r_camera* cam, vec2 size, vec2 position){
 	cam->near = -10.f;
 	cam->far = 10.f;
 
-	float x, y;
+	f32 x, y;
 	x = floorf(cam->pos[0]);
 	y = floorf(cam->pos[1]);
 
@@ -76,13 +76,13 @@ void r_create_camera(r_camera* cam, vec2 size, vec2 position){
 	mat4x4_rotate_z(&cam->view, cam->view,  0.0);
 }
 
-void r_move_cam(float x, float y){
+void r_move_cam(f32 x, f32 y){
 	g_camera.pos[0] -= x;
 	g_camera.pos[1] += y;
 }
 
 void r_update_camera(){
-	float x, y;
+	f32 x, y;
 	x = floorf(g_camera.pos[0]);
 	y = floorf(g_camera.pos[1]);
 	mat4x4_translate(g_camera.view, x, y, 0.f);
@@ -99,7 +99,7 @@ void r_update(long delta){
 r_tex r_get_tex(const char* fp){
 	int w, h, ch;
 	unsigned char* img = stbi_load(fp, &w, &h, &ch, 0);
-	unsigned int id;
+	u32 id;
 	glGenTextures(1, &id);
 	glBindTexture(GL_TEXTURE_2D, id);
 
@@ -118,10 +118,10 @@ r_tex r_get_tex(const char* fp){
 #endif
 
 	stbi_image_free(img);
-	return (r_tex){id, (unsigned int)w,(unsigned int)h};	
+	return (r_tex){id, (u32)w,(u32)h};	
 }
 
-r_sheet r_get_sheet(const char* fp, unsigned int subwidth, unsigned int subheight){
+r_sheet r_get_sheet(const char* fp, u32 subwidth, u32 subheight){
 	r_tex tex = r_get_tex(fp);
 #ifndef EXCLUDE_CREATE
 	int count = r_res_map.sheet_count;
@@ -139,7 +139,7 @@ r_sheet r_get_sheet(const char* fp, unsigned int subwidth, unsigned int subheigh
 int r_init_quad() {
 	int vao, vbo, vboi;
 
-	float verts[16] = {
+	f32 verts[16] = {
 		//pos       //tex
 		-0.5f, -0.5f,   0.f, 0.f,
 		-0.5f,  0.5f,   0.f, 1.f,
@@ -147,7 +147,7 @@ int r_init_quad() {
 		0.5f, -0.5f,   1.f, 0.f
 	};
 
-	unsigned short inds[6] = { 
+	u16 inds[6] = { 
 		0, 1, 2,
 		2, 3, 0
 	};
@@ -159,11 +159,11 @@ int r_init_quad() {
 	glBindVertexArray(vao);	
 
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glBufferData(GL_ARRAY_BUFFER, 16 * sizeof(float), &verts[0], GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, 16 * sizeof(f32), &verts[0], GL_STATIC_DRAW);
 	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
 
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vboi);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, 6 * sizeof(unsigned short), &inds[0], GL_STATIC_DRAW);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, 6 * sizeof(u16), &inds[0], GL_STATIC_DRAW);
 
 	glBindVertexArray(0);
 
@@ -193,7 +193,7 @@ void r_update_batch(r_shader shader, r_sheet* sheet){
 		if(g_drawable_cache.drawables[i].shader == shader){
 			if(g_drawable_cache.drawables[i].anim.sheet_id == sheet->id){
 				mat4x4_dup(cache->models[cache->count], g_drawable_cache.drawables[i].model);
-				cache->tex_ids[cache->count] = (unsigned int)g_drawable_cache.drawables[i].anim.frames[g_drawable_cache.drawables[i].anim.frame];
+				cache->tex_ids[cache->count] = (u32)g_drawable_cache.drawables[i].anim.frames[g_drawable_cache.drawables[i].anim.frame];
 				cache->flip_x[cache->count] = g_drawable_cache.drawables[i].flip_x;
 				cache->flip_y[cache->count] = g_drawable_cache.drawables[i].flip_y;
 				cache->count ++;
@@ -255,7 +255,7 @@ void r_destroy_anims(){
 	}
 }
 
-void r_destroy_quad(unsigned int vao){
+void r_destroy_quad(u32 vao){
 	glDeleteVertexArrays(1, &vao);
 }
 
@@ -265,7 +265,7 @@ void r_exit(){
 	r_destroy_window(g_window);
 	glfwTerminate();
 
-	if(c_prefs_located()){
+	if(c_has_prefs()){
 		r_save_prefs();
 	}
 }
@@ -331,6 +331,15 @@ static GLuint r_get_sub_shader(const char* fp, int type){
 	return id;	
 }
 
+r_shader r_get_shadern(const char* name){
+	for(int i=0;i<g_shader_map.count;++i){
+		if(strcmp(name, g_shader_map.names[i]) == 0){
+			return g_shader_map.shaders[i];
+		}		
+	}	
+	return 0; 
+}
+
 r_shader r_get_shader(const char* vert, const char* frag){
 	GLuint v = r_get_sub_shader(vert, GL_VERTEX_SHADER);
 	GLuint f = r_get_sub_shader(frag, GL_FRAGMENT_SHADER);
@@ -369,14 +378,14 @@ r_shader r_get_shader(const char* vert, const char* frag){
 /*
 	
 	const char* sheet_path[RENDER_SHEET_CACHE];
-	unsigned int sheet_ids[RENDER_SHEET_CACHE];
-	unsigned int sheets[RENDER_SHEET_CACHE];
-	unsigned int sheet_count;
+	u32 sheet_ids[RENDER_SHEET_CACHE];
+	u32 sheets[RENDER_SHEET_CACHE];
+	u32 sheet_count;
 
 	const char* tex_paths[RENDER_SHEET_CACHE];
-	unsigned int tex_ids[RENDER_SHEET_CACHE];
-	unsigned int texs[RENDER_SHEET_CACHE];
-	unsigned int tex_count;
+	u32 tex_ids[RENDER_SHEET_CACHE];
+	u32 texs[RENDER_SHEET_CACHE];
+	u32 tex_count;
 
  */
 
@@ -399,7 +408,7 @@ void r_map_shader(r_shader shader, const char* name){
 		}
 	}
 
-	unsigned int count = g_shader_map.count;
+	u32 count = g_shader_map.count;
 
 	g_shader_map.shaders[count] = shader;
 	g_shader_map.names[count] = name;
@@ -428,7 +437,7 @@ void r_clear_cache(r_shader shader){
 	}
 
 	if(specific){
-		memset(specific->values, 0, sizeof(unsigned int) * RENDER_SHADER_VALUE_CACHE);
+		memset(specific->values, 0, sizeof(u32) * RENDER_SHADER_VALUE_CACHE);
 		memset(specific->names, 0, sizeof(const char*) * RENDER_SHADER_VALUE_CACHE);	
 	}	
 }
@@ -461,7 +470,7 @@ void r_remove_from_cache(r_shader shader){
 	}
 }
 
-void r_cache_uniform(r_shader shader, const char* uniform, unsigned int location){
+void r_cache_uniform(r_shader shader, const char* uniform, u32 location){
 	r_shader_cache* specific;
 
 	for(int i=0;i<g_shader_map.count;++i){
@@ -494,11 +503,12 @@ void r_destroy_shader(r_shader shader){
 	glDeleteProgram(shader);
 }
 
-void r_bind_tex(unsigned int tex){
+void r_bind_tex(u32 tex){
 	glBindTexture(GL_TEXTURE_2D, tex);
 }
 
 void r_bind_shader(r_shader shader){
+	//if shader id is negative
 	if(!shader){
 		glUseProgram(0);
 	}else{
@@ -528,6 +538,7 @@ int r_hex_multi(char* v, int len){
 	}else if(len == 1){
 		return r_hex_number(v[0])*16+r_hex_number(v[0]);
 	}
+	return -1;
 }
 
 void r_get_color(vec3 val, char* v){
@@ -552,9 +563,369 @@ void r_get_color(vec3 val, char* v){
 	}
 }
 
-r_anim  r_get_anim(r_sheet sheet, unsigned int* frames, int frame_count, int frame_rate){
-	unsigned int* _frames = malloc(sizeof(unsigned int) * frame_count);
-	memcpy(_frames, frames, sizeof(unsigned int) * frame_count);
+r_tex_box r_get_tex_box(vec2 pos, vec2 size, r_sheet sheet, u32 tex, u32 hover_tex, u32 click_tex){
+	r_tex_box box;
+
+	vec2_dup(box.pos, pos);
+	vec2_dup(box.size, size);
+
+	box.tex = tex;
+	box.hover_tex = hover_tex;
+	box.click_tex = click_tex;
+
+	box.sheet = sheet.id;
+
+	box.sub_size[0] = sheet.subwidth;	
+	box.sub_size[1] = sheet.subheight;	
+
+	box.tex_size[0] = sheet.width;
+	box.tex_size[1] = sheet.height;
+
+	return box;
+}
+
+r_box r_get_box(vec2 pos, vec2 size, vec3 color, vec3 hover_color, vec3 click_color){
+	r_box box;
+
+	vec2_dup(box.pos, pos);
+	vec2_dup(box.size, size);
+	vec3_dup(box.color, color);
+	vec3_dup(box.hover_color, hover_color);
+	vec3_dup(box.click_color, click_color);
+	box.state = UI_NONE;
+
+	return box;
+}
+
+r_slider r_get_slider(vec2 pos, vec2 size, float radius, float value, r_sheet sheet, vec3 color, vec3 hover_color, vec3 click_color, u32 tex, u32 hover_tex, u32 click_tex){
+	r_slider slider;
+	vec2_dup(slider.pos, pos);
+	vec2_dup(slider.size, size);
+	vec3_dup(slider.color, color);
+	vec3_dup(slider.hover_color, hover_color);
+	vec3_dup(slider.click_color, click_color);
+
+	slider.value = value;
+	slider.radius = radius;
+
+	slider.state = UI_NONE;
+	slider.button_state = UI_NONE;
+
+	slider.sheet = sheet.id;
+
+	slider.button = tex;
+	slider.button_hover = hover_tex;
+	slider.button_click = click_tex;
+	
+	slider.tex_size[0] = sheet.width;
+	slider.tex_size[1] = sheet.height;
+	
+	slider.sub_size[0] = sheet.subwidth;
+	slider.sub_size[1] = sheet.subheight;
+	
+	return slider;
+}
+
+
+
+int r_draw_box(r_box* box){
+	vec2 min, max;
+	vec2 half_size;
+
+	half_size[0] = box->size[0] * 0.5f;
+	half_size[1] = box->size[1] * 0.5f;	
+
+	min[0] = box->pos[0] - half_size[0];
+	min[1] = box->pos[0] - half_size[1];
+
+	max[0] = box->pos[0] + half_size[0];
+	max[1] = box->pos[1] + half_size[1];
+
+	int clicked = 0;
+	if(i_mouse_within_normalized(min, max)){
+		if(i_mouse_down(0)){
+			box->state = UI_CLICK;
+			clicked = 1;
+		}else if(i_mouse_released(0) && box->state == UI_CLICK){
+			box->state = UI_RELEASE;
+		}else{
+			box->state = UI_HOVER;
+		}
+	}else{
+		box->state = UI_NONE;
+	}
+
+	vec3 color;
+	if(box->state == UI_CLICK){
+		vec3_dup(color, box->click_color);
+	}else if(box->state == UI_HOVER){
+		vec3_dup(color, box->hover_color);
+	}else {
+		vec3_dup(color, box->color);
+	}
+
+	//actual draw shit
+	vec2 real_pos;
+	real_pos[0] = box->pos[0] * g_window.width;
+	real_pos[1] = box->pos[1] * g_window.height;
+
+	r_shader s = r_get_shadern("ui");
+	glUseProgram(s);
+
+	r_set_uniformi(s, "mode", 0);
+	r_set_m4(s, "proj", g_camera.proj);
+	r_set_v2(s, "offset", box->pos);
+	r_set_v2(s, "scale", box->size);
+	r_set_v3(s, "color", color);
+	
+	glBindVertexArray(default_quad_vao);
+	glEnableVertexAttribArray(0);
+
+	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
+
+	return clicked;
+}
+
+int r_draw_tex_box(r_tex_box* box){
+	vec2 min, max; 
+	vec2 half_size;
+
+	half_size[0] = box->size[0] * 0.5f;
+	half_size[1] = box->size[1] * 0.5f;	
+
+	min[0] = box->pos[0] - half_size[0];
+	min[1] = box->pos[0] - half_size[1];
+
+	max[0] = box->pos[0] + half_size[0];
+	max[1] = box->pos[1] + half_size[1];
+
+	int clicked = 0;
+	if(i_mouse_within_normalized(min, max)){
+		if(i_mouse_down(0)){
+			box->state = UI_CLICK;
+			clicked = 1;
+		}else if(i_mouse_released(0) && box->state == UI_CLICK){
+			box->state = UI_RELEASE;
+		}else{
+			box->state = UI_HOVER;
+		}
+	}else{
+		box->state = UI_NONE;
+	}
+
+	int subtex;
+	if(box->state == UI_CLICK){
+		subtex = box->click_tex;
+	}else if(box->state == UI_HOVER){
+		subtex = box->hover_tex;
+	}else{
+		subtex = box->tex;
+	}
+
+	//actually render the thing now..... cmon man
+	vec2 real_pos;
+	real_pos[0] = box->pos[0] * g_window.width;
+	real_pos[1] = box->pos[1] * g_window.height;
+
+	r_shader s = r_get_shadern("ui");
+	glUseProgram(s);
+
+	r_set_uniformi(s, "mode", 1);
+	r_set_uniformi(s, "subtex", subtex);
+	r_set_v2(s, "tex_size", box->tex_size);
+	r_set_v2(s, "sub_size", box->sub_size);
+	r_set_m4(s, "proj", g_camera.proj);
+	r_set_v2(s, "offset", box->pos);
+	r_set_v2(s, "sscale", box->size);
+	
+	glBindVertexArray(default_quad_vao);
+	glEnableVertexAttribArray(0);
+	glBindTexture(GL_TEXTURE_2D, box->sheet);
+
+	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
+
+	return clicked;
+}
+
+int r_draw_circle(r_circle* circle){
+	double m_x, m_y;
+	i_get_mouse_pos(&m_x, &m_y);
+
+	float distance = sqrtf((circle->pos[0] - m_x)*(circle->pos[0] - m_x) + (circle->pos[1]-m_y)*(circle->pos[1]-m_y));
+	int clicked = 0;
+	if(distance < circle->radius){
+		if(i_mouse_down(0)){
+			circle->state = UI_CLICK;
+			clicked = 1;
+		}else if(i_mouse_released(0) && circle->state == UI_CLICK){
+			circle->state = UI_RELEASE;
+		}else {
+			circle->state = UI_HOVER;
+		}
+	}else{
+		circle->state = UI_NONE;
+	}
+
+	vec3 color;
+	if(circle->state == UI_CLICK){
+		vec3_dup(color, circle->click_color);
+	}else if(circle->state == UI_HOVER){
+		vec3_dup(color, circle->hover_color);
+	}else {
+		vec3_dup(color, circle->color);
+	}
+
+	//actually draw stuff now
+	vec2 real_pos;
+	real_pos[0] = circle->pos[0] * g_window.width;
+	real_pos[1] = circle->pos[1] * g_window.height;
+
+	return clicked;
+}
+
+int r_draw_slider(r_slider* slider){
+	vec2 slider_pos;
+
+	vec2_dup(slider_pos, slider->pos);
+	slider_pos[0] += slider->size[0] * slider->value;
+
+	//center on y-axis
+	slider_pos[1] += slider->size[1] * 0.5f;
+
+	double m_x, m_y;
+	i_get_mouse_pos(&m_x, &m_y);
+
+	float distance = sqrtf((slider_pos[0] - m_x)*(slider_pos[0] - m_x) + (slider_pos[1]-m_y)*(slider_pos[1]-m_y));
+
+	int mouse = (i_mouse_down(0)) ? 1 : (i_mouse_released(0)) ? -1 : 0;
+	int clicked = 0;
+	int click_type = 0; //0 = default/button, 1 = zoom/bar
+
+	if(distance <= slider->radius){
+		slider->state = UI_NONE;
+		if(mouse){
+			slider->button_state = UI_CLICK;
+			clicked = 1;
+			click_type = 0;
+		}else if(mouse == -1 && slider->button_state == UI_CLICK){
+			slider->button_state = UI_RELEASE;
+		}else {
+			slider->button_state = UI_HOVER;
+		}
+	}else{
+		slider->button_state = UI_NONE;
+
+		vec2 min, max; 
+		vec2 half_size;
+
+		half_size[0] = slider->size[0] * 0.5f;
+		half_size[1] = slider->size[1] * 0.5f;	
+
+		min[0] = slider->pos[0] - half_size[0];
+		min[1] = slider->pos[0] - half_size[1];
+
+		max[0] = slider->pos[0] + half_size[0];
+		max[1] = slider->pos[1] + half_size[1];
+
+		if(i_mouse_within_normalized(min, max)){
+			if(mouse){
+				slider->state = UI_HOVER;
+				clicked = 1;
+				click_type = 1;
+			}else if(mouse == -1 && slider->state == UI_CLICK){
+				slider->state = UI_RELEASE;
+			}else{
+				slider->state = UI_NONE;
+			}
+		}
+	}
+
+	if(slider->state == UI_CLICK || slider->button_state == UI_CLICK){
+		slider_pos[0] = m_x;
+		float n_value = m_x - slider->pos[0] / slider->size[0];
+		slider->value = n_value;
+	}
+
+	vec2 bar_color;
+	unsigned int subtex; 
+
+	//actually draw this stuff now
+	if(slider->button_state == UI_HOVER){
+		subtex = slider->button_hover;	
+	}else if(slider->button_state == UI_CLICK){
+		subtex = slider->button_click;
+	}else {
+		subtex = slider->button;
+	}
+
+	if(slider->state == UI_HOVER){
+		vec3_dup(bar_color, slider->hover_color);
+	}else if(slider->state == UI_CLICK){
+		vec3_dup(bar_color, slider->click_color);
+	}else{
+		vec3_dup(bar_color, slider->color);
+	}
+
+	vec2 bar_pos;
+	vec2 bar_size;
+	vec2 button_pos, button_size;
+
+	button_pos[0] = slider_pos[0] * g_window.width;
+	button_pos[1] = slider_pos[1] * g_window.height;
+
+	button_size[0] = slider->radius * g_window.width;
+	button_size[1] = button_size[0];
+
+	bar_pos[0] = slider->pos[0] * g_window.width;
+	bar_pos[1] = slider->pos[1] * g_window.height;
+
+	bar_size[0] = slider->size[0] * g_window.width;
+	bar_size[1] = slider->size[1] * g_window.height;
+
+	//draw circle	
+	r_shader s = r_get_shadern("ui");
+	glUseProgram(s);
+
+	r_set_uniformi(s, "mode", 1);
+	r_set_uniformi(s, "subtex", subtex);
+	r_set_v2(s, "tex_size", slider->tex_size);
+	r_set_v2(s, "sub_size", slider->sub_size);
+	r_set_m4(s, "proj", g_camera.proj);
+	r_set_v2(s, "offset", bar_pos);
+	r_set_v2(s, "scale", bar_size);
+	
+	glBindVertexArray(default_quad_vao);
+	glEnableVertexAttribArray(0);
+	glBindTexture(GL_TEXTURE_2D, slider->sheet);
+
+	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
+
+	//draw bar
+	r_set_uniformi(s, "mode", 0);
+	r_set_uniformi(s, "subtex", -1);
+	r_set_m4(s, "proj", g_camera.proj);
+	r_set_v2(s, "offset", slider->pos);
+	r_set_v2(s, "sscale", slider->size);
+	r_set_v3(s, "color", bar_color);
+	
+	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
+
+	return clicked;
+}
+
+void r_draw_text(r_text* text){
+
+	vec2 text_pos;
+	text_pos[0] = text->pos[0] * g_window.width;
+	text_pos[1] = text->pos[1] * g_window.height;
+	
+	//now rasterize it
+}
+
+
+r_anim  r_get_anim(r_sheet sheet, u32* frames, int frame_count, int frame_rate){
+	u32* _frames = malloc(sizeof(u32) * frame_count);
+	memcpy(_frames, frames, sizeof(u32) * frame_count);
 	return (r_anim){
 		_frames, frame_count, frame_rate, 0, sheet.id
 	};
@@ -606,7 +977,7 @@ r_anim* r_get_anim_n(const char* name){
 	return NULL;
 }
 
-r_anim* r_get_anim_i(unsigned int uid){
+r_anim* r_get_anim_i(u32 uid){
 	for(int i=0;i<g_anim_cache.count;++i){
 		if(g_anim_cache.anims[i].uid == uid){
 			return &g_anim_cache.anims[i];
@@ -618,7 +989,7 @@ r_anim* r_get_anim_i(unsigned int uid){
 void r_drawable_set_anim(r_drawable* drawable, r_anim* anim){
 	r_animv* v = &drawable->anim;
 
-	memcpy(v->frames, anim->frames, sizeof(unsigned int) * anim->frame_count);
+	memcpy(v->frames, anim->frames, sizeof(u32) * anim->frame_count);
 	v->frame = 0;
 	v->frame_count = anim->frame_count;
 	v->frame_rate = anim->frame_rate;
@@ -629,8 +1000,8 @@ void r_drawable_set_anim(r_drawable* drawable, r_anim* anim){
 r_animv r_v_anim(r_anim* anim){
 	r_animv animv;
 
-	animv.frames = malloc(RENDER_ANIM_MAX_FRAMES * sizeof(unsigned int)); 
-	memcpy(animv.frames, anim->frames, anim->frame_count * sizeof(unsigned int));
+	animv.frames = malloc(RENDER_ANIM_MAX_FRAMES * sizeof(u32)); 
+	memcpy(animv.frames, anim->frames, anim->frame_count * sizeof(u32));
 	animv.sheet_id = anim->sheet_id;
 	animv.anim_id = anim->uid;
 
@@ -694,7 +1065,7 @@ r_drawable* r_get_drawable(r_anim* anim, r_shader shader,  vec2 size, vec2 pos){
 	return draw;	
 }
 
-r_drawable* r_get_drawablei(unsigned int uid){
+r_drawable* r_get_drawablei(u32 uid){
 	for(int i=0;i<g_drawable_cache.count;++i){
 		if(g_drawable_cache.drawables[i].uid == uid){
 			return &g_drawable_cache.drawables[i];
@@ -707,7 +1078,7 @@ r_drawable* r_get_drawablei(unsigned int uid){
 void r_update_drawable(r_drawable* drawable, long delta){
 	if(drawable->change){
 
-		float x, y;
+		f32 x, y;
 		x = floorf(drawable->position[0]);
 		y = floorf(drawable->position[1]);
 		mat4x4_translate(&drawable->model, x, y, 0.f);
@@ -719,7 +1090,7 @@ void r_update_drawable(r_drawable* drawable, long delta){
 	if(drawable->anim.state == R_ANIM_PLAY && drawable->visible){
 		r_animv* anim = &drawable->anim;
 
-		float frame_time = MS_PER_SEC / anim->frame_rate;	
+		f32 frame_time = MS_PER_SEC / anim->frame_rate;	
 		if(anim->time + delta >= frame_time){
 			if(anim->frame >= anim->frame_count-1){
 				if(!anim->loop){
@@ -743,7 +1114,7 @@ void r_update_drawable(r_drawable* drawable, long delta){
 	}
 }
 
-void r_remove_drawable(unsigned int uid){
+void r_remove_drawable(u32 uid){
 	int index = 0;
 	for(int i=0;i<g_drawable_cache.count;++i){
 		if(g_drawable_cache.drawables[i].uid == uid){
@@ -795,11 +1166,11 @@ inline int r_get_uniform_loc(r_shader shader, const char* uniform){
 	return glGetUniformLocation(shader, uniform);
 }
 
-inline void r_set_uniformf(r_shader shader, const char* name, float value){
+inline void r_set_uniformf(r_shader shader, const char* name, f32 value){
 	glUniform1f(r_get_uniform_loc(shader, name), value);
 }
 
-inline void r_set_uniformfi(int loc, float value){
+inline void r_set_uniformfi(int loc, f32 value){
 	glUniform1f(loc, value);
 }
 
@@ -843,34 +1214,34 @@ inline void r_set_m4i(int loc, mat4x4 val){
 	glUniformMatrix4fv(loc, 1, GL_FALSE, val);
 }
 
-void r_set_m4x(r_shader shader, unsigned int count, const char* name, mat4x4* values){
+void r_set_m4x(r_shader shader, u32 count, const char* name, mat4x4* values){
 	if(!count) return;
 	glUniformMatrix4fv(r_get_uniform_loc(shader, name), count, GL_FALSE, (const GLfloat*)values);
 }
 
-void r_set_ix(r_shader shader, unsigned int count, const char* name, int* values){
+void r_set_ix(r_shader shader, u32 count, const char* name, int* values){
 	if(!count) return;
 	glUniform1iv(r_get_uniform_loc(shader, name), count, (const GLint*)values);
 }
 
-void r_set_fx(r_shader shader, unsigned int count, const char* name, float* values){
+void r_set_fx(r_shader shader, u32 count, const char* name, f32* values){
 	if(!count) return;
 	glUniform1fv(r_get_uniform_loc(shader, name), count, (const GLfloat*)values);
 }
 
-void r_set_v2x(r_shader shader, unsigned int count, const char* name, vec2* values){
+void r_set_v2x(r_shader shader, u32 count, const char* name, vec2* values){
 	if(!count) return;
 
 	glUniform2fv(r_get_uniform_loc(shader, name), count, (const GLfloat*)values);
 }
 
-void r_set_v3x(r_shader shader, unsigned int count, const char* name, vec3* values){
+void r_set_v3x(r_shader shader, u32 count, const char* name, vec3* values){
 	if(!count) return;
 
 	glUniform3fv(r_get_uniform_loc(shader, name), count, (const GLfloat*)values);
 }
 
-void r_set_v4x(r_shader shader, unsigned int count, const char* name, vec4* values){
+void r_set_v4x(r_shader shader, u32 count, const char* name, vec4* values){
 	if(!count) return;
 
 	glUniform4fv(r_get_uniform_loc(shader, name),  count, (const GLfloat*)values);
@@ -936,7 +1307,7 @@ int r_create_window(r_window_info info){
 		return 0;
 	}
 
-	_l("Loading GLFW.\n");
+	_l("Creating window.\n");
 
 	glfwSetErrorCallback(glfw_err_cb);
 
@@ -951,8 +1322,6 @@ int r_create_window(r_window_info info){
 
 	GLFWwindow* window = NULL;
 	g_window = (r_window){0};
-
-	_l("Loading Window Settings.\n");
 
 	if(info.fullscreen){
 		const GLFWvidmode* selected_mode;
@@ -978,8 +1347,7 @@ int r_create_window(r_window_info info){
 
 		window = glfwCreateWindow(selected_mode->width, selected_mode->height, info.title, r_default_monitor, NULL);
 	}else{
-		glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
-		_l("Borderless: %d\n", info.borderless);
+		glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 		glfwWindowHint(GLFW_DECORATED, (info.borderless == 0) ? GLFW_TRUE : GLFW_FALSE);
 
 		if(info.refreshRate > 0){
@@ -999,8 +1367,6 @@ int r_create_window(r_window_info info){
 		window = glfwCreateWindow(info.width, info.height, info.title, NULL, NULL);
 	}
 
-	_l("Loaded window settings.\n");
-
 	if(!window){
 		_e("Error: Unable to create GLFW window.\n");
 		glfwTerminate();
@@ -1009,15 +1375,15 @@ int r_create_window(r_window_info info){
 
 	g_window.glfw = window;
 
-	_l("Attaching GL Context.\n");
 	glfwMakeContextCurrent(window);
 
-	_l("Loading GL\n");
 	gladLoadGL(glfwGetProcAddress);
 
 	if(g_window.vsync){
 		glfwSwapInterval(1);
 	}
+
+	_l("Window context created successfully.\n");
 
 	flags.allowed = 1;
 
@@ -1135,6 +1501,7 @@ static void glfw_window_size_cb(GLFWwindow* window, int w, int h){
 	g_window.height = h;
 	glViewport(0, 0, w, h);
 	flags.scaled = 1;
+	i_set_screensize(w, h);
 }
 
 static void glfw_window_close_cb(GLFWwindow* window){
@@ -1152,7 +1519,7 @@ static void glfw_key_cb(GLFWwindow* window, int key, int scancode, int action, i
 	}
 }
 
-static void glfw_char_cb(GLFWwindow* window, unsigned int c){
+static void glfw_char_cb(GLFWwindow* window, u32 c){
 	i_char_callback(c);
 }
 

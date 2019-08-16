@@ -39,7 +39,7 @@ void m_update(m_zoneinfo* info){
 
 		m_block* block = ctx->start;
 
-		//free in front, thne the rest of that stuff
+		//free in front, then the rest of that stuff
 		//divide is the last free link in the chain
 		m_block* divide = NULL;
 		while(block){

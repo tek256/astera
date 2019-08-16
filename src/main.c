@@ -1,5 +1,4 @@
 #define DEBUG_OUTPUT
-//#define EXCLUDE_AUDIO
 #define EXCLUDE_CREATE
 
 #include "platform.h"
@@ -14,9 +13,7 @@
 
 #include "debug.h"
 
-#ifndef EXCLUDE_AUDIO
 #include "audio.h"
-#endif
 
 #include "sys.h"
 #include "input.h"
@@ -36,7 +33,7 @@ int main(int argc, char** argv){
 		#endif
 	#endif
 
-	dbg_enable_log(1, "log.txt");
+	dbg_enable_log(0, "log.txt");
 	c_parse_args(argc, argv);
 
 	if(!i_init()){
@@ -45,21 +42,15 @@ int main(int argc, char** argv){
 	}
 
 	c_conf conf;
-	if(conf_flags.conf_override){
-		conf = c_parse_file(conf_flags.conf_override, 1);	
-	}else{
 		conf = c_parse_file("res/conf.ini", 1);
-	}
 	
 	if(!r_init(conf)){
 		_fatal("Unable to initialize rendering system.\n");	
 	}
 
-#ifndef EXCLUDE_AUDIO
 	if(!a_init(conf.master, conf.sfx, conf.music)){
 		_fatal("Unable to initialize audio system.\n");
 	}
-#endif
 
 	if(!g_init()){
 		_fatal("Unable to initialize game runtime.\n");
@@ -72,7 +63,7 @@ int main(int argc, char** argv){
 
 	double delta;
 	double accum = timeframe;
-	int vsync = conf.vsync;
+	int vsync = 1;
 
 	while(!r_should_close() && !d_fatal){
 		last = curr;

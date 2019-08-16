@@ -1,7 +1,6 @@
 #ifndef AUDIO_H
 #define AUDIO_H
 
-#ifndef EXCLUDE_AUDIO
 #include <AL/alc.h>
 #include <AL/al.h>
 
@@ -12,6 +11,7 @@
 #define STB_VORBIS_HEADER_ONLY
 #include <stb/stb_vorbis.c>
 
+#include "platform.h"
 #include "debug.h"
 
 #define AUDIO_DEFAULT_LAYERS
@@ -31,7 +31,7 @@
 
 #define MAX_LAYER_SFX 32
 #define MAX_LAYER_SONGS 4
-#define MAX_AUDIO_LAYERS 4
+#define MAX_AUDIO_LAYERS 2
 #define MAX_BUFFERS 64
 
 #define LAYER_STOPPED 1
@@ -48,87 +48,95 @@
 typedef struct {
     ALCcontext* context;
     ALCdevice*  device;
-	float gain;
+	f32 gain;
 	int allow : 1;
 } a_ctx;
 
 typedef struct {
-    unsigned int id;
-    unsigned short channels;
-    unsigned short length;
-    unsigned int   sample_rate;
+    u32 id;
+    u16 channels;
+    u16 length;
+    u32   sample_rate;
 } a_buf;
 
 typedef struct {
 	//non-realtime
-	unsigned short layer;
+	u16 layer;
 
 	//realtime
 	vec3 pos;
 	vec3 vel;
-	float gain, range;
-	unsigned short max_loop;
+	f32 gain, range;
+	u16 max_loop;
 	int loop : 1;
 	int stop : 1; 
 	
 	//callback
-	unsigned short loop_count;
-	float time;
+	u16 loop_count;
+	f32 time;
 } a_req;
 
 typedef struct {
-	unsigned int sample_rate;
-    unsigned int sample_size;
-    unsigned int channels;
+	u32 sample_rate;
+    u32 sample_size;
+    u32 channels;
 
     int format;
-    unsigned int source;
-    unsigned int buffers[2];
-	float gain;
+    u32 source;
+    u32 buffers[4];
+	f32 gain;
 	
-	unsigned int samples_left;
-    unsigned int total_samples;
+	u32 samples_left;
+    u32 total_samples;
     stb_vorbis* vorbis;
-    int loop;
+
+	u8* data;
+	s32 used;
+	u32 len, pos;
+
+	u16* pcm;
+	u16 pcm_len;
 
 	a_req* req;
 	int has_req;
+
+    int loop : 1;
 } a_music;
 
 typedef struct {
-    unsigned int id;
+    u32 id;
     vec3  position;
-    float range, gain;
+    f32 range, gain;
     int   loop;
 	a_req* req;
 	int has_req;
 } a_sfx;
 
 typedef struct {
-	unsigned int id;
-	float gain;
+	u32 id;
+	f32 gain;
 
-	unsigned int sfx_count;
-	unsigned int song_count;
+	u32 sfx_count;
+	u32 song_count;
 
 	a_sfx* sources[MAX_LAYER_SFX];
 	a_music* musics[MAX_LAYER_SONGS];
 } a_layer;
 
 typedef struct {
-	unsigned short song_count;
-	unsigned short song_capacity;
+	u16 song_count;
+	u16 song_capacity;
 	a_music songs[MAX_SONGS];
 
-	unsigned short sfx_count;
-	unsigned short sfx_capacity;
+	u16 sfx_count;
+	u16 sfx_capacity;
 	a_sfx sfx[MAX_SFX];
 
 	a_layer layers[MAX_AUDIO_LAYERS];
 
 
-	unsigned short buf_count;
-	unsigned short buf_capacity;
+	u16 buf_count;
+	u16 buf_capacity;
 	a_buf bufs[MAX_BUFFERS];
 	const char* buf_names[MAX_BUFFERS];
 } a_map;
@@ -140,13 +148,13 @@ static char** a_device_list;
 static int a_device_list_count = 0;
 
 
-int          a_init(unsigned int master, unsigned int sfx, unsigned int music);
+int          a_init(u32 master, u32 sfx, u32 music);
 void         a_exit();
 
 void		 a_update(long delta);
 void         a_update_sfx();
 
-a_buf        a_get_buf(unsigned char* data, unsigned int length);
+a_buf        a_get_buf(unsigned char* data, u32 length);
 a_buf*       a_get_bufn(const char* name);
 void         a_destroy_buf(a_buf buffer);
 
@@ -161,17 +169,20 @@ void         a_destroy_context();
 const char** a_get_devices(int* count);
 void         a_swap_device(const char* device_name);
 
-a_music*     a_create_music(unsigned char* data, unsigned int length, a_req* req);
+
+static void a_compute_stereo(short* output, int num_c, float** data, int d_offset, int len);
+static void  a_interleave_output(int buffer_c, short* buffer, int data_c, float** data, int data_offset, int length);
+
+a_music*     a_create_music(unsigned char* data, u32 length, a_req* req);
 int          a_update_music(a_music* music);
 void         a_destroy_music(a_music* music);
 
-float        a_get_music_len_time(a_music* music);
-float        a_get_music_time(a_music* music);
+f32        a_get_music_len_time(a_music* music);
+f32        a_get_music_time(a_music* music);
 
 void         a_play_music(a_music* music);
 void         a_stop_music(a_music* music);
 void         a_resume_music(a_music* music);
 void         a_pause_music(a_music* music);
 
-#endif
 #endif

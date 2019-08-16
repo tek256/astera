@@ -119,7 +119,10 @@ char* platform_get_str(int *count){
         #elif defined(ARCH_UNK)
             *count = 6;
             return "UNKUNK";
-        #endif
+        #else
+			*count = 6;
+			return "UNKUNK";
+		#endif
 #endif
 }
 char* arch_get_str(int *count){
@@ -138,5 +141,8 @@ char* arch_get_str(int *count){
     #elif defined(ARCH_UNK)
         *count = 3;
         return "UNK";
-    #endif
+    #else
+		*count = 3;
+		return "UNK";
+	#endif
 }

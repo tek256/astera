@@ -24,8 +24,8 @@ $env:Path += ";${mingw}\bin;${cmake}\bin"
 # The following section will build the dependencies required to compile the
 # engine.
 echo "#######################"
-echo "#######################"
-echo "#######################"
+echo "########script#########"
+echo "###written by mark w###"
 echo "#######################"
 echo "#######################"
 echo "Building openal-soft..."

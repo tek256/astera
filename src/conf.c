@@ -12,7 +12,7 @@
 #include "render.h"
 #include "audio.h"
 
-#define _MASTER
+static c_args _flags;
 
 #define match(s,n) strcmp(section, s) == 0 && strcmp(name, n) == 0
 
@@ -48,8 +48,7 @@ static int parse_handler(void* user, const char* section, const char* name, cons
 		int type = (binding / 100) + 1;
 		
 		binding = binding % 100;
-		i_add_binding(strdup(name), binding, type);
-		_l("Adding binding: %s %i %i\n", name, binding, type);
+		i_add_binding(name, binding, type);
 	}else{
 		return 0;
 	}
@@ -58,15 +57,17 @@ static int parse_handler(void* user, const char* section, const char* name, cons
 }
 
 c_conf c_parse_file(const char* fp, int prefs){
-	if(prefs){
-		c_prefs_path = fp;		
-	}
+	c_conf conf = (c_conf){1280, 720, 0, 60, 1, 0, 100, 75, 50, NULL};
 
-	c_conf conf = (c_conf){1280, 720, 0, 60, 1, 0, 100, 75, 50};
 	if(ini_parse(fp, parse_handler, &conf) < 0){
 		_e("Unable to open: %s\n", fp);
 		return conf;
 	}
+
+	if(prefs){
+		conf.path = fp;	
+	}
+
 	return conf;
 }
 
@@ -75,8 +76,8 @@ void c_parse_args(int argc, const char** argv){
 		return;
 	}
 
-	conf_flags = (c_args){
-		0, 1, 1, 0
+	_flags = (c_args){
+		0, 1, 1, 0, NULL
 	};
 
 	while(1){
@@ -88,37 +89,43 @@ void c_parse_args(int argc, const char** argv){
 
 		switch(c){
 			case 's':
-				conf_flags.verbose = -1;
+				_flags.verbose = -1;
 				break;
 			case 'r':
-				conf_flags.render = 0;
+				_flags.render = 0;
 				break;
 			case 'a':
-				conf_flags.audio = 0;
+				_flags.audio = 0;
 				break;
 			case 'v':
-				conf_flags.verbose = 1;
+				_flags.verbose = 1;
 				break;
 			case 'd':
-				conf_flags.debug = 1;
+				_flags.debug = 1;
 				break;
 			case 'c':
 				//TODO include optional config override
+				//_flags.prefs = strdup(optarg);
 				break;
 		}
 	}
 
 	for(int i=0;i<argc;++i){
 		if(!strcmp(argv[i], "debug")){
-			conf_flags.debug = 1;	
+			_flags.debug = 1;	
 		}else if(!strcmp(argv[i], "no_render")){
-			conf_flags.render = 0;
+			_flags.render = 0;
 		}else if(!strcmp(argv[i], "no_audio")){
-			conf_flags.audio = 0;
+			_flags.audio = 0;
 		}else if(!strcmp(argv[i], "verbose") || !strcmp(argv[i], "v")){
-			conf_flags.verbose = 1;	
+			_flags.verbose = 1;	
 		}else if(!strcmp(argv[i], "silent") || !strcmp(argv[i], "s")){
-			conf_flags.verbose = -1;
+			_flags.verbose = -1;
+		}else if(!strcmp(argv[i], "headless") || !strcmp(argv[i], "h")){
+			_flags.render = 0;
+			_flags.audio = 0;
+			_flags.verbose = 1;
+			_flags.debug = 1;
 		}
 	}
 }
@@ -420,27 +427,31 @@ unsigned char* c_get_file_contents(const char* fp, int* size){
 	return file;
 }
 
-int c_prefs_located(){
-	return c_prefs_path;
+int c_has_prefs(){
+	return _flags.prefs != 0;
+}
+
+char* c_get_pref_p(){
+	return _flags.prefs;
 }
 
 int c_is_debug(){
-	return conf_flags.debug;
+	return _flags.debug;
 }
 
 int c_allow_render(){
-	return conf_flags.render;
+	return _flags.render;
 }
 
 int c_allow_audio(){
-	return conf_flags.audio;
+	return _flags.audio;
 }
 
 int c_is_silent(){
-	return conf_flags.verbose == -1;
+	return _flags.verbose == -1;
 }
 
 int c_is_verbose(){
-	return conf_flags.verbose;
+	return _flags.verbose;
 }
 

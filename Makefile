@@ -1,12 +1,13 @@
 OBJS = $(wildcard src/*.c)
 
-CC = clang
-#CC = gcc
-WIN_CC = gcc 
+UNIX_CC = clang 
+WIN_CC = clang
 
-COMPILER_FLAGS = -w -g -std=c99
+#DEBUG FLAGS
+#COMPILER_FLAGS = -D_FORTIFY_SOURCE=2 -fstack-clash-protection -g -O2 -Werror=format-security -std=c99 -l 2.5
+
+UNIX_COMPILER_FLAGS = -w -std=c99 -pipe -g
 WIN_COMPILER_FLAGS = -w -std=c99
-OSX_COMPILER_FLAGS = -w -std=c99
 
 ifeq ($(OS),Windows_NT)
 	SHELL = cmd.exe
@@ -15,15 +16,15 @@ else
 	MAKE_DIR = $(shell pwd)
 endif
 
-INCLUDES = -I$(MAKE_DIR)/dep/openal-soft/include/ -I$(MAKE_DIR)/dep/glfw/include/ -I$(MAKE_DIR)/dep/ 
+INCLUDES = -I$(MAKE_DIR)/dep/ -I$(MAKE_DIR)/dep/openal-soft/include/ -I$(MAKE_DIR)/dep/glfw/include/
 
-LINKER_FLAGS = -L$(MAKE_DIR)/dep/glfw/src/ -lglfw -lGL -lGLU -lX11 -lXi -lXrandr -lXxf86vm -lXinerama -lpthread -ldl -lXcursor -lm -L$(MAKE_DIR)/dep/openal-soft/ -lopenal
+UNIX_LINKER_FLAGS = -L$(MAKE_DIR)/dep/glfw/src/ -lglfw -lGL -lGLU -lX11 -lXi -lXrandr -lXxf86vm -lXinerama -lpthread -ldl -lXcursor -lm -L$(MAKE_DIR)/dep/openal-soft/ -lopenal
 WIN_LINKER_FLAGS = -lopengl32 -L$(MAKE_DIR)/dep/glfw/src/ -lglfw3 -lgdi32 -lm -L$(MAKE_DIR)/dep/openal-soft/ -lopenal32
 OSX_LINKER_FLAGS = -lGL -lGLU -L$(MAKE_DIR)/dep/glfw/src/ -lglfw -lX11 -lXxf86vm -lXrandr -lpthread -lXi -lXinerama -ldl -lXcursor -L$(MAKE_DIR/dep/openal-soft/ -lopenal -lm 
 
-EXEC_NAME = engine
-WIN_EXEC_NAME = $(EXEC_NAME).exe
-OSX_EXEC_NAME = $(EXEC_NAME).app
+UNIX_EXEC_NAME = astera 
+WIN_EXEC_NAME = $(UNIX_EXEC_NAME).exe
+OSX_EXEC_NAME = $(UNIX_EXEC_NAME).app
 
 ifeq ($(OS),Windows_NT)
 	RM_CMD = -del
@@ -44,14 +45,14 @@ else
 	RM_CMD = -rm
 	
 	ifeq ($(UNAME_S),Linux)
-		TARGET_CC := $(CC)
-		TARGET_COMPILER_FLAGS := $(COMPILER_FLAGS)
-		TARGET_LINKER_FLAGS := $(LINKER_FLAGS)
-		TARGET_EXEC_NAME := $(EXEC_NAME)
+		TARGET_CC := $(UNIX_CC)
+		TARGET_COMPILER_FLAGS := $(UNIX_COMPILER_FLAGS)
+		TARGET_LINKER_FLAGS := $(UNIX_LINKER_FLAGS)
+		TARGET_EXEC_NAME := $(UNIX_EXEC_NAME)
 		TARGET_COMPILER_FLAGS += -D LINUX
 	else ifeq ($(UNAME_S),Darwin)
-		TARGET_CC := $(OSX_CC)
-		TARGET_COMPILER_FLAGS := $(OSX_COMPILER_FLAGS)
+		TARGET_CC := $(UNIX_CC)
+		TARGET_COMPILER_FLAGS := $(UNIX_COMPILER_FLAGS)
 		TARGET_LINKER_FLAGS := $(OSX_LINKER_FLAGS)
 		TARGET_EXEC_NAME := $(OSX_EXEC_NAME)
 		TARGET_COMPILER_FLAGS += -D OSX

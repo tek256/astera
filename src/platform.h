@@ -1,3 +1,4 @@
+
 #ifndef PLAT_H
 #define PLAT_H
 
@@ -61,7 +62,23 @@
 	#endif
 #endif
 
-char* platform_get_str(int* count);
-char* arch_get_str(int* count);
+#define INCLUDE_TYPES
+#ifdef INCLUDE_TYPES 
+
+typedef unsigned int   u32;
+typedef unsigned short u16;
+typedef unsigned char  u8;
+
+typedef char  s8;
+typedef short s16;
+typedef int   s32;
+
+typedef float  f32;
+typedef double f64;
+
+#endif
+
+char* platform_get_str(s32* count);
+char* arch_get_str(s32* count);
 
 #endif

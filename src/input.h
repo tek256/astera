@@ -2,6 +2,7 @@
 #define INPUT_H
 
 #include "platform.h"
+#include <linmath.h>
 
 #define BINDING_KEY 1
 #define BINDING_MB 2
@@ -89,72 +90,73 @@ typedef struct {
 } i_positions;
 
 typedef struct {
-	unsigned short* prev;
-	unsigned short* curr;
+	u16* prev;
+	u16* curr;
 
-	unsigned short curr_count;
-	unsigned short prev_count;
-	unsigned short capacity;
+	u16 curr_count;
+	u16 prev_count;
+	u16 capacity;
 } i_states;
 
 typedef struct {
-	float* prev;
-	float* curr;
+	f32* prev;
+	f32* curr;
 
-	unsigned short curr_count;
-	unsigned short prev_count;
-	unsigned short capacity;	
+	u16 curr_count;
+	u16 prev_count;
+	u16 capacity;	
 } i_statesf;
 
 typedef struct {
-	const char*  name;
+	char         name[8];
 	int          value;
 	int 		 alt;
-	unsigned int type;
-	unsigned int alt_type;
+	u32 type;
+	u32 alt_type;
 	int opposing : 1;
 } key_binding;
 
-static unsigned short key_binding_track = 0;
+static u16 key_binding_track = 0;
 
-unsigned short i_init();
+u16 i_init();
 void i_exit();
 
-unsigned short i_contains(unsigned short val, unsigned short* arr, int count);
+u16 i_contains(u16 val, u16* arr, int count);
 
 i_positions i_create_p();
-i_statesf i_create_sf(unsigned short size);
-i_states i_create_s(unsigned short size);
+i_statesf i_create_sf(u16 size);
+i_states i_create_s(u16 size);
 
-void i_create_joy(unsigned short joy);
-void i_destroy_joy(unsigned short joy);
+void i_create_joy(u16 joy);
+void i_destroy_joy(u16 joy);
 
-float i_joy_axis(unsigned short axis);
+f32 i_joy_axis(u16 axis);
 
-unsigned short i_joy_button_down(unsigned short button);
-unsigned short i_joy_button_up(unsigned short button);
-unsigned short i_joy_button_clicked(unsigned short button);
-unsigned short i_joy_button_released(unsigned short button);
-void i_get_joy_buttons(unsigned short* dst, int count);
-const char* i_get_joy_name(unsigned short joy);
-unsigned short i_get_joy_type(unsigned short joy);
+u16 i_joy_button_down(u16 button);
+u16 i_joy_button_up(u16 button);
+u16 i_joy_button_clicked(u16 button);
+u16 i_joy_button_released(u16 button);
+void i_get_joy_buttons(u16* dst, int count);
+const char* i_get_joy_name(u16 joy);
+u16 i_get_joy_type(u16 joy);
 
-float i_joy_axis_delta(unsigned short joy);
+f32 i_joy_axis_delta(u16 joy);
 
 void        i_key_callback(int key, int scancode, int toggle);
-unsigned short i_key_down(unsigned short key);
-unsigned short i_key_up(unsigned short key);
-unsigned short i_key_clicked(unsigned short key);
-unsigned short i_key_released(unsigned short key);
+u16 i_key_down(u16 key);
+u16 i_key_up(u16 key);
+u16 i_key_clicked(u16 key);
+u16 i_key_released(u16 key);
 
+void   i_set_screensize(u32 width, u32 height);
 void   i_set_char_tracking(int tracking);
-void   i_char_callback(unsigned int c);
-void   i_get_chars(char* dst, unsigned short count);
+void   i_char_callback(u32 c);
+void   i_get_chars(char* dst, u16 count);
 
 void   i_set_mouse_grab(int grabbed);
 int    i_get_mouse_grab();
 
-void   i_mouse_button_callback(unsigned short button);
+void   i_mouse_button_callback(u16 button);
 void   i_mouse_pos_callback(double x, double y);
 void   i_mouse_scroll_callback(double sx, double sy);
 
@@ -162,10 +164,12 @@ void   i_get_scroll(double* x, double* y);
 double i_get_scroll_x();
 double i_get_scroll_y();
 
-unsigned short i_mouse_down(unsigned short button);
-unsigned short i_mouse_up(unsigned short button);
-unsigned short i_mouse_clicked(unsigned short button);
-unsigned short i_mouse_released(unsigned short button);
+u16 i_mouse_down(u16 button);
+u16 i_mouse_up(u16 button);
+u16 i_mouse_clicked(u16 button);
+u16 i_mouse_released(u16 button);
+
+u16   i_mouse_within(vec2 start, vec2 end);
 
 void   i_get_mouse_pos(double* x, double* y);
 double i_get_mouse_x();
@@ -177,18 +181,18 @@ double i_get_delta_y();
 
 extern void  i_add_binding(const char* name, int value, int type);
 void  i_enable_binding_track(const char* key_binding);
-unsigned short i_binding_track();
+u16 i_binding_track();
 void  i_binding_track_callback(int value, int type);
-unsigned short i_get_binding_type(const char* key_binding);
-unsigned short i_get_binding_alt_type(const char* key_bindg);
-unsigned short i_binding_clicked(const char* key_binding);
-unsigned short i_binding_released(const char* key_binding);
-unsigned short i_binding_down(const char* key_binding);
-unsigned short i_binding_up(const char* key_binding);
-float i_binding_val(const char* key_binding); //gets the value
-unsigned short i_binding_defined(const char* key_binding);
+u16 i_get_binding_type(const char* key_binding);
+u16 i_get_binding_alt_type(const char* key_bindg);
+u16 i_binding_clicked(const char* key_binding);
+u16 i_binding_released(const char* key_binding);
+u16 i_binding_down(const char* key_binding);
+u16 i_binding_up(const char* key_binding);
+f32 i_binding_val(const char* key_binding); //gets the value
+u16 i_binding_defined(const char* key_binding);
 
-float i_opposing(const char* prim, const char* sec);
+f32 i_opposing(const char* prim, const char* sec);
 
 void  i_default_bindings();
 
