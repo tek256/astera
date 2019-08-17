@@ -4,24 +4,19 @@ If you're interested in helping contribute to the project here are the current t
 - Unit Test Creation
 - Example Creation
 - Input Mappings for gamepads
-	- PS4 -- All Platforms
-	- Xbox One -- All Platforms
-	- Generic Gamepad -- All Platforms
-
+	- PS4
+	- Xbox One
+	- Generic Gamepad
 - Platform / Architecture Specific Testing
 	- Windows
-		- x86_64
-		- x86
 		- ARMv8
 	- Mac OSX
 		- x86_64
-	- System V
-		- x64
+	- Linux
 		- ARMv8
 		- ARMv7
 	- FreeBSD
 		- x86_64
 		- x86
-		- x64
 		- ARMv8
 		- ARMv7 
