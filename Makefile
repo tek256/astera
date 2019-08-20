@@ -1,12 +1,12 @@
 OBJS = $(wildcard src/*.c)
 
-UNIX_CC = clang 
+UNIX_CC = clang
 WIN_CC = clang
 
 #DEBUG FLAGS
 #COMPILER_FLAGS = -D_FORTIFY_SOURCE=2 -fstack-clash-protection -g -O2 -Werror=format-security -std=c99 -l 2.5
 
-UNIX_COMPILER_FLAGS = -w -std=c99 -pipe -g
+UNIX_COMPILER_FLAGS = -w -std=c99
 WIN_COMPILER_FLAGS = -w -std=c99
 
 ifeq ($(OS),Windows_NT)
@@ -23,15 +23,13 @@ WIN_LINKER_FLAGS = -lopengl32 -L$(MAKE_DIR)/dep/glfw/src/ -lglfw3 -lgdi32 -lm -L
 OSX_LINKER_FLAGS = -lGL -lGLU -L$(MAKE_DIR)/dep/glfw/src/ -lglfw -lX11 -lXxf86vm -lXrandr -lpthread -lXi -lXinerama -ldl -lXcursor -L$(MAKE_DIR/dep/openal-soft/ -lopenal -lm 
 
 UNIX_EXEC_NAME = astera 
-WIN_EXEC_NAME = $(UNIX_EXEC_NAME).exe
-OSX_EXEC_NAME = $(UNIX_EXEC_NAME).app
 
 ifeq ($(OS),Windows_NT)
 	RM_CMD = -del
 	TARGET_LINKER_FLAGS := $(WIN_LINKER_FLAGS)
 	TARGET_COMPILER_FLAGS := $(WIN_COMPILER_FLAGS)
 	TARGET_CC := $(WIN_CC)
-	TARGET_EXEC_NAME := $(WIN_EXEC_NAME)
+	TARGET_EXEC_NAME := $(UNIX_EXEC_NAME).exe
 	TARGET_COMPILER_FLAGS += -D WIN32
 
 	ifeq ($(PROCESSOR_ARCHITECTURE),AMD64)
@@ -54,25 +52,9 @@ else
 		TARGET_CC := $(UNIX_CC)
 		TARGET_COMPILER_FLAGS := $(UNIX_COMPILER_FLAGS)
 		TARGET_LINKER_FLAGS := $(OSX_LINKER_FLAGS)
-		TARGET_EXEC_NAME := $(OSX_EXEC_NAME)
+		TARGET_EXEC_NAME := $(UNIX_EXEC_NAME).app
 		TARGET_COMPILER_FLAGS += -D OSX
 	endif
-
-	#Default to x86_64
-	ifeq ($(UNAME_P),x86_64)
-		TARGET_COMPILER_FLAGS += -march=x86-64
-	else ifeq ($(UNAME_P),x86)
-		TARGET_COMPILER_FLAGS += -march=i386
-	else ifeq ($(UNAME_P),ARM)
-		TARGET_COMPILER_FLAGS += -march=ARM
-	else ifeq ($(UNAME_P),ARM64)
-		TARGET_COMPILER_FLAGS += -march=ARM64
-	else ifeq ($(UNAME_P),aarch64)
-		TARGET_COMPILER_FLAGS == -march=ARM64
-	else
-		TARGET_COMPILER_FLAGS += -march=x86-64
-	endif
-
 endif
 
 all : $(OBJS)

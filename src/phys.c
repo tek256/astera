@@ -1,9 +1,9 @@
 #include "phys.h"
-/*
+
 #include <linmath.h>
 
 static p_map _map;
-
+/* TODO implementation of this
 void p_init(vec2 size, vec2 block_size){
 	int _x = size.x / block_size.x;
 	int _y = size.y / block_size.y;

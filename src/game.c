@@ -157,6 +157,7 @@ void g_input(long delta){
 	if(i_key_clicked(GLFW_KEY_ESCAPE)){
 		r_request_close();	
 	}
+
 }
 
 void g_update(long delta){
@@ -166,6 +167,76 @@ void g_update(long delta){
 }
 
 void g_render(long delta){
+	/*
+	 *struct nk_ctx* ctx = g_window.ui;
+	if (nk_begin(ctx, "Demo", nk_rect(0, 0, g_window.width, g_window.height), NK_WINDOW_BORDER)){
+		enum {EASY, HARD};
+		static int op = EASY;
+		static int property = 20;
+		nk_layout_row_dynamic(ctx, 30, 4);
+		if (nk_button_label(ctx, "button"))
+			fprintf(stdout, "button pressed\n");
+		if (nk_button_label(ctx, "button"))
+			fprintf(stdout, "button pressed\n");
+		if (nk_button_label(ctx, "button"))
+			fprintf(stdout, "button pressed\n");
+		if (nk_button_label(ctx, "button"))
+			fprintf(stdout, "button pressed\n");
+
+
+		nk_layout_row_dynamic(ctx, 30, 4);
+		if (nk_option_label(ctx, "easy", op == EASY)) op = EASY;
+		if (nk_option_label(ctx, "hard", op == HARD)) op = HARD;
+
+		nk_layout_row_dynamic(ctx, 25, 4);
+		nk_property_int(ctx, "Compression:", 0, &property, 100, 10, 1);
+	}
+	nk_end(ctx);
+
+
+	 */
+
+	int width, height;
+	r_window_get_size(&width, &height);	
+
+	int ui_width = 720;
+	int ui_height = 360;
+
+	int offset_x = (width - ui_width) / 2;
+	int offset_y = (height - ui_height) / 2;
+
+	if(r_ui_window(offset_x, offset_y, 720, 360)){
+		//add spacing of 15px
+		r_ui_row(15, 1);
+		r_ui_row(35, 5);
+		r_ui_spacing(1);
+		if(r_ui_button("Test Button")) _l("Test button pressed.\n");
+		r_ui_spacing(1);
+		if(r_ui_button("Even Testier.")) _l("Testier!\n");
+
+		r_ui_row(35, 2);
+		r_ui_row(30, 4);
+		static int op = 1;
+		if(r_ui_option("One", (op == 1))) op = 1;
+		r_ui_spacing(1);
+		if(r_ui_option("Two", (op == 2))) op = 2;		
+
+		r_ui_row(25, 3);
+		r_ui_spacing(1);
+		
+		static int _prog = 5;
+		static float _slide = 10;
+		
+		//TODO progress bar styling
+		//r_ui_progress(&_prog, 100, 0);		
+			
+		if(r_ui_slider(0.f, &_slide, 100.f, 1.f)) _l("Slide Value: %f\n", _slide);
+		r_ui_row(25, 4);
+		if(r_ui_radio("Test", &_prog)) _l("Radio button");
+		if(r_ui_checkbox("Test check.", &_prog)) _l("Check box");
+	}
+	r_ui_end();
+
 	for(int i=1;i<17;++i){
 		r_drawable* d = r_get_drawablei(i);
 		d->position[0] += dir_x[i] * delta * 0.05f;
@@ -174,5 +245,8 @@ void g_render(long delta){
 	}
 
 	r_draw_call(shader, &sheet);
+
+	r_update_ui();
 	
+	r_draw_ui();
 }

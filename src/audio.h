@@ -139,9 +139,9 @@ typedef struct {
 	u16 buf_capacity;
 	a_buf bufs[MAX_BUFFERS];
 	const char* buf_names[MAX_BUFFERS];
-} a_map;
+} a_resource_map;
 
-static a_map _map;
+static a_resource_map _map;
 static a_ctx _ctx;
 
 static char** a_device_list;

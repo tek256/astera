@@ -12,6 +12,31 @@
 #include "platform.h"
 #include "conf.h"
 
+/* UI COLORS */
+
+#define COLOR_RED 253,34,45
+
+#define dark0 15,15,15
+#define dark1 22,22,22
+
+enum text_align {
+    TEXT_ALIGN_LEFT        = 0x01,
+    TEXT_ALIGN_CENTERED    = 0x02,
+    TEXT_ALIGN_RIGHT       = 0x04,
+    TEXT_ALIGN_TOP         = 0x08,
+    TEXT_ALIGN_MIDDLE      = 0x10,
+    TEXT_ALIGN_BOTTOM      = 0x20
+};
+enum text_alignment {
+    TEXT_LEFT        = TEXT_ALIGN_MIDDLE|TEXT_ALIGN_LEFT,
+    TEXT_CENTERED    = TEXT_ALIGN_MIDDLE|TEXT_ALIGN_CENTERED,
+    TEXT_RIGHT       = TEXT_ALIGN_MIDDLE|TEXT_ALIGN_RIGHT
+};
+
+
+/* END OF UI COLORS */
+
+
 //max number of quads to draw at once
 #define RENDER_BATCH_SIZE 128
 
@@ -29,6 +54,9 @@
 
 //max length of an animation in frames
 #define RENDER_ANIM_MAX_FRAMES 32
+
+#define RENDER_UI_MAX_VERT_BUFFER 512 * 1024
+#define RENDER_UI_MAX_ELEMENT_BUFFER 128 * 1024
 
 typedef struct {
 	int allowed : 1;
@@ -50,6 +78,7 @@ typedef struct {
 	int close_requested;
 	int refreshRate;
 	GLFWwindow* glfw;
+	struct nk_context* ui;
 } r_window;
 
 typedef struct {
@@ -155,19 +184,23 @@ typedef struct {
 typedef struct {
 	const char* vertex_shaders[RENDER_SHADER_CACHE];
 	const char* fragment_shaders[RENDER_SHADER_CACHE];
+	const char* shader_names[RENDER_SHADER_CACHE];
 	r_shader shader_ids[RENDER_SHADER_CACHE];
 	u32 shader_count;
-	
+
+	const char* anim_names[RENDER_ANIM_CACHE];	
 	u32 anim_ids[RENDER_ANIM_CACHE];
 	r_anim anims[RENDER_ANIM_CACHE];
 	u32 anim_count;
 
 	const char* sheet_paths[RENDER_SHEET_CACHE];
+	const char* sheet_names[RENDER_SHEET_CACHE];
 	u32 sheet_ids[RENDER_SHEET_CACHE];
 	u32 sheet_subwidths[RENDER_SHEET_CACHE];
 	u32 sheet_subheights[RENDER_SHEET_CACHE];
 	u32 sheet_count;
 
+	const char* tex_names[RENDER_SHEET_CACHE];
 	const char* tex_paths[RENDER_SHEET_CACHE];
 	u32 tex_ids[RENDER_SHEET_CACHE];
 	u32 tex_count;
@@ -198,59 +231,6 @@ typedef struct {
 	u32 uid;
 } r_drawable_cache; 
 
-// === UI ===
-#define UI_NONE  0
-#define UI_HOVER 1
-#define UI_CLICK 2
-#define UI_RELEASE 3
-
-typedef struct {
-	vec2 pos, size;
-	vec3 color, hover_color, click_color;
-	int state;
-} r_box;
-
-typedef struct {
-	vec2 pos, size;
-	unsigned int sheet;
-	unsigned int tex, hover_tex, click_tex;
-	vec2 tex_size, sub_size;
-	int state;
-} r_tex_box;
-
-typedef struct {
-	vec2 pos;
-	float radius;
-	vec3 color, hover_color, click_color;
-	int state;
-} r_circle;
-
-typedef struct {
-	vec2 pos, size;
-	vec3 color, hover_color, click_color;
-
-	unsigned int sheet;
-	vec2 tex_size, sub_size;
-	unsigned int button, button_hover, button_click;
-	float radius;
-	float value;
-	int button_state;
-
-	int state;
-} r_slider;
-
-typedef struct {
-	//size is calculated in text
-	vec2 pos, size;
-	float font_size;
-	const char* msg;
-
-	//allow for typing effect
-	int msg_start, msg_end;
-
-	int state;
-} r_text;
-
 static r_window g_window;
 static r_camera g_camera;
 
@@ -262,11 +242,12 @@ static r_shader_map g_shader_map;
 r_resource_map* r_get_map();
 #endif
 
-int r_init_quad();
+void r_init_quad();
 
 int  r_init(c_conf conf);
 void r_exit();
 void r_update(long delta);
+void r_ui_update();
 
 r_tex       r_get_tex(const char* fp);
 void        r_bind_tex(u32 tex);
@@ -276,6 +257,26 @@ r_sheet r_get_sheet(const char* fp, u32 subwidth, u32 subheight);
 void r_update_batch(r_shader shader, r_sheet* sheet);
 //NOTE: count required since we're using instanced rendering
 void r_draw_call(r_shader shader, r_sheet* sheet);
+struct nk_context* r_get_ctx();
+
+void r_ui_set_style();
+
+//blank window
+int  r_ui_end();
+int  r_ui_window(float x, float y, float w, float h);
+int  r_ui_window_t(const char* title, float x, float y, float w, float h);
+int  r_ui_button(const char* label);
+int  r_ui_checkbox(const char* label, int* value);
+int  r_ui_option(const char* label, int value);
+int  r_ui_radio(const char* label, int* value);
+void r_ui_row(float height, int columns);
+int  r_ui_slider(float min, float* value, float max, float step);
+int  r_ui_progress(int* value, int end, int modifiable);
+void r_ui_text(const char* text, int text_len, int flags);
+void r_ui_text_colored(const char* text, int text_len, int flags, vec3 color);
+void r_ui_spacing(int cols);
+
+void r_draw_ui();
 
 void r_destroy_anims();
 void r_destroy_quad(u32 vao);
@@ -299,29 +300,6 @@ void  r_get_color(vec3 val, char* v);
 int r_is_anim_cache();
 int r_is_shader_cache();
 
-r_tex_box r_get_tex_box(vec2 pos, vec2 size, r_sheet sheet, u32 tex, u32 hover_tex, u32 click_tex);
-r_box r_get_box(vec2 pos, vec2 size, vec3 color, vec3 hover_color, vec3 click_color);
-
-/*	vec2 pos, size;
-	vec3 color, hover_color, click_color;
-
-	unsigned int sheet;
-	vec2 tex_size, sub_size;
-	unsigned int button, button_hover, button_click;
-	float radius;
-	float value;
-	int button_state;
-
-	int state;*/
-r_slider r_get_slider(vec2 pos, vec2 size, float radius, float value, r_sheet sheet, vec3 color, vec3 hover_color, vec3 click_color, u32 tex, u32 hover_tex, u32 click_tex);
-
-int r_draw_box(r_box* box);
-int r_draw_tex(r_tex_box* box);
-int r_draw_slider(r_slider* slider);
-void r_draw_text(r_text* text);
-
-int  r_draw_button(vec2 pos, vec2 size, vec3 color, vec3 clicked_color);
-
 r_anim  r_get_anim(r_sheet sheet, u32* frames, int frame_count, int frame_rate);
 r_animv r_v_anim(r_anim* anim); 
 
@@ -335,8 +313,8 @@ void r_anim_h(r_animv* anim); //anim halt
 
 r_drawable* r_get_drawable(r_anim* anim, r_shader shader, vec2 size, vec2 pos);
 r_drawable* r_get_drawablei(u32 uid);
-void r_drawable_set_anim(r_drawable* drawable, r_anim* anim);
-void	   r_update_drawable(r_drawable* drawable, long delta);
+void        r_drawable_set_anim(r_drawable* drawable, r_anim* anim);
+void	    r_update_drawable(r_drawable* drawable, long delta);
 
 void r_create_camera(r_camera* camera, vec2 size, vec2 position);
 void r_update_camera();
@@ -362,6 +340,8 @@ void r_set_v4i(int loc, vec4 val);
 void r_set_v3i(int loc, vec3 val);
 void r_set_v2i(int loc, vec2 val);
 void r_set_m4i(int loc, mat4x4 val);
+
+void r_window_get_size(int* w, int* h);
 
 static void r_create_modes();
 static int  r_window_info_valid(r_window_info info);

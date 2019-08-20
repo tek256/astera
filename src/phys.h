@@ -6,6 +6,12 @@
 #define P_PLANE  2
 #define P_BOX    3
 
+#define P_MAX_EVENTS 128
+
+#define MAX_REC_COLS 128
+
+#include "platform.h"
+#include "game.h"
 #include <linmath.h>
 
 typedef struct {
@@ -20,7 +26,7 @@ typedef struct {
 
 typedef struct {
 	vec2 pos;
-	vec2 size;
+	float rot;
 	float length;
 } plane;
 
@@ -29,24 +35,29 @@ typedef struct {
 	vec2 size;
 	float rot;
 } box;
-/*
-typedef union {
-	struct {
-		aabb col;
-		char type;
-	};
-	struct {
-		circ col;
-		char type;
-	};
-	struct {
-		plane col;
-		char type;
-	};
-	struct {
-		box col;
-		char type;
-	};
+
+typedef struct {
+	union {
+		box b;
+		plane p;
+		circ c;
+	} collider;	
+	u8 collider_type;
+} world_col;
+
+typedef struct {
+	world_col cols[MAX_REC_COLS];
+	u16 _ccount;
+} p_world_map;
+
+typedef struct {
+	union {
+		aabb _aabb;
+		circ _circ;
+		plane _plane;
+		box _box;
+	} col;
+	char type;
 } collider;
 
 typedef	char p_layer;
@@ -92,12 +103,12 @@ typedef struct {
 	unsigned int count;
 } p_map;
 
-void p_init(vec2 size, vec2 block_size);
+/*void p_init(vec2 size, vec2 block_size);
 void p_load(g_entity* entities, unsigned int count);
 void p_swap(g_entity* entities, unsigned int count);
 void p_update(long delta);
 void p_selective_update(p_block* block, long delta);
-int p_interact(vec2 potential, p_entity* a, p_entity* b)
+int p_interact(vec2 potential, p_entity* a, p_entity* b);
 void p_resolve(vec2 potential, p_entity* a, p_entity* b);
 void p_exit();
 

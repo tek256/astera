@@ -1,4 +1,3 @@
-#define DEBUG_OUTPUT
 #define EXCLUDE_CREATE
 
 #include "platform.h"
@@ -71,13 +70,14 @@ int main(int argc, char** argv){
 		delta = curr - last;
 		accum = timeframe;
 
-		r_clear_window();
-		g_render(delta);
-		r_swap_buffers();
-
 		i_update();
 		glfwPollEvents();
 		g_input(delta);
+
+
+		r_clear_window();
+		g_render(delta);
+		r_swap_buffers();
 
 		g_update(delta);
 
