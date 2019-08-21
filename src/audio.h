@@ -14,49 +14,85 @@
 #include "platform.h"
 #include "debug.h"
 
-#define AUDIO_DEFAULT_LAYERS
+//#define AUDIO_DEFAULT_LAYERS
 
 #ifdef AUDIO_DEFAULT_LAYERS
-#define AUDIO_SFX_LAYER 0
-#define AUDIO_MUSIC_LAYER 1
-#define AUDIO_MISC_LAYER 2
-#define AUDIO_UI_LAYER 3
-
-#define AUDIO_SFX_GAIN 0.8f
-#define AUDIO_MUSIC_GAIN 0.5f
-#define AUDIO_MISC_GAIN 0.8f
-#define AUDIO_UI_GAIN 0.8f
-
+	#define AUDIO_SFX_LAYER 0
+	#define AUDIO_MUSIC_LAYER 1
+	#define AUDIO_MISC_LAYER 2
+	#define AUDIO_UI_LAYER 3
+	#define MAX_AUDIO_LAYERS 4
 #endif
 
-#define MAX_LAYER_SFX 32
-#define MAX_LAYER_SONGS 4
-#define MAX_AUDIO_LAYERS 2
-#define MAX_BUFFERS 64
+#ifndef AUDIO_SFX_LAYER
+	#define AUDIO_SFX_LAYER 0
+#endif
+#ifndef AUDIO_MUSIC_LAYER
+	#define AUDIO_MUSIC_LAYER 1
+#endif
+
+#ifndef MAX_AUDIO_LAYERS
+	#define MAX_AUDIO_LAYERS 2
+#endif
+
+#ifdef AUDIO_SFX_LAYER && !defined (AUDIO_SFX_GAIN)
+	#define AUDIO_SFX_GAIN 0.8f
+#endif
+#ifdef AUDIO_MUSIC_LAYER && !defined (AUDIO_MUSIC_GAIN)
+	#define AUDIO_MUSIC_GAIN 0.5f
+#endif
+#ifdef AUDIO_MISC_LAYER && !defined (AUDIO_MISC_GAIN)
+	#define AUDIO_MISC_GAIN 0.8f
+#endif
+#ifdef AUDIO_UI_LAYER && !defined (AUDIO_UI_GAIN)
+	#define AUDIO_UI_GAIN 0.8f
+#endif
+
+#ifndef MAX_LAYER_SFX
+	#define MAX_LAYER_SFX 32
+#endif
+#ifndef MAX_LAYER_SONGS
+	#define MAX_LAYER_SONGS 4
+#endif 
+#ifndef MAX_BUFFERS
+	#define MAX_BUFFERS 64
+#endif
 
 #define LAYER_STOPPED 1
 #define LAYER_PLAYING 2
 #define LAYER_PAUSED  3
 
-#define MAX_MUSIC_RUNTIME 4096
+#ifndef MAX_MUSIC_RUNTIME
+	#define MAX_MUSIC_RUNTIME 4096
+#endif
 
-#define MAX_SFX MAX_LAYER_SFX * MAX_AUDIO_LAYERS
-#define MAX_SONGS MAX_LAYER_SONGS * MAX_AUDIO_LAYERS
+#ifndef MAX_SFX
+	#define MAX_SFX MAX_LAYER_SFX * MAX_AUDIO_LAYERS
+#endif
+#ifndef MAX_SONGS
+	#define MAX_SONGS MAX_LAYER_SONGS * MAX_AUDIO_LAYERS
+#endif
 
-#define DEFAULT_SFX_RANGE 20
+#ifndef DEFAULT_SFX_RANGE
+	#define DEFAULT_SFX_RANGE 20
+#endif
 
 typedef struct {
     ALCcontext* context;
     ALCdevice*  device;
-	f32 gain;
 	int allow : 1;
 } a_ctx;
+
+typedef struct {
+	f32 gain;
+	vec3 pos;
+} a_listener;
 
 typedef struct {
     u32 id;
     u16 channels;
     u16 length;
-    u32   sample_rate;
+    u32 sample_rate;
 } a_buf;
 
 typedef struct {
@@ -121,6 +157,8 @@ typedef struct {
 
 	a_sfx* sources[MAX_LAYER_SFX];
 	a_music* musics[MAX_LAYER_SONGS];
+
+	u32 gain_change : 1;
 } a_layer;
 
 typedef struct {
@@ -133,7 +171,7 @@ typedef struct {
 	a_sfx sfx[MAX_SFX];
 
 	a_layer layers[MAX_AUDIO_LAYERS];
-
+	u16 layer_count;
 
 	u16 buf_count;
 	u16 buf_capacity;
@@ -143,16 +181,26 @@ typedef struct {
 
 static a_resource_map _map;
 static a_ctx _ctx;
-
-static char** a_device_list;
-static int a_device_list_count = 0;
-
+static a_listener _listener;
 
 int          a_init(u32 master, u32 sfx, u32 music);
 void         a_exit();
 
+void		 a_set_pos(vec3 p);
+
+void		 a_set_vol(u32 master, u32 sfx, u32 music);
+void         a_set_vol_master(u32 master);
+void		 a_set_vol_sfx(u32 sfx);
+void		 a_set_vol_music(u32 sfx);
+
+f32 		 a_get_vol_master();
+f32 	     a_get_vol_sfx();
+f32			 a_get_vol_music();
+
 void		 a_update(long delta);
 void         a_update_sfx();
+
+u32  		 a_get_device_name(char* dst, int capacity);
 
 a_buf        a_get_buf(unsigned char* data, u32 length);
 a_buf*       a_get_bufn(const char* name);
@@ -163,11 +211,8 @@ a_sfx*		 a_play_sfx(a_buf* buff, a_req* req);
 
 static int   a_get_open_sfx();
 
-int          a_load_devices();
 int          a_create_context(const char* device_name);
 void         a_destroy_context();
-const char** a_get_devices(int* count);
-void         a_swap_device(const char* device_name);
 
 
 static void a_compute_stereo(short* output, int num_c, float** data, int d_offset, int len);

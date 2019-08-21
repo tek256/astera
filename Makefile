@@ -3,15 +3,12 @@ OBJS = $(wildcard src/*.c)
 UNIX_CC = clang
 WIN_CC = clang
 
-#DEBUG FLAGS
-#COMPILER_FLAGS = -D_FORTIFY_SOURCE=2 -fstack-clash-protection -g -O2 -Werror=format-security -std=c99 -l 2.5
-
 UNIX_COMPILER_FLAGS = -w -std=c99
 WIN_COMPILER_FLAGS = -w -std=c99
 
 ifeq ($(OS),Windows_NT)
 	SHELL = cmd.exe
-	MAKE_DIR = $(shell cd)
+	MAKE_DIR = $(warning call to shell)$(shell cd)
 else
 	MAKE_DIR = $(shell pwd)
 endif
@@ -31,15 +28,8 @@ ifeq ($(OS),Windows_NT)
 	TARGET_CC := $(WIN_CC)
 	TARGET_EXEC_NAME := $(UNIX_EXEC_NAME).exe
 	TARGET_COMPILER_FLAGS += -D WIN32
-
-	ifeq ($(PROCESSOR_ARCHITECTURE),AMD64)
-		TARGET_COMPILER_FLAGS += -march=x86-64
-	else ifeq ($(PROCESSOR_ARCHITECTURE),x86)
-		TARGET_COMPILER_FLAGS += -march=i386
-	endif
 else
 	UNAME_S := $(shell uname -s)
-	UNAME_P := $(shell uname -p)
 	RM_CMD = -rm
 	
 	ifeq ($(UNAME_S),Linux)

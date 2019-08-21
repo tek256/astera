@@ -11,6 +11,14 @@
 
 #define LINMATH_H_DEFINE_VEC(n) \
 typedef float vec##n[n]; \
+LINMATH_H_FUNC int vec##n##_cmp(vec##n a, vec##n b) { \
+	for(int i=0;i<n;++i){ \
+		if(a[i] != b[i]){ \
+			return 0;\
+		}\
+		return 1;\
+	}\
+}\
 LINMATH_H_FUNC void vec##n##_add(vec##n r, vec##n const a, vec##n const b) \
 { \
 	int i; \

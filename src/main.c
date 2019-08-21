@@ -41,7 +41,7 @@ int main(int argc, char** argv){
 	}
 
 	c_conf conf;
-		conf = c_parse_file("res/conf.ini", 1);
+	conf = c_parse_file("res/conf.ini", 1);
 	
 	if(!r_init(conf)){
 		_fatal("Unable to initialize rendering system.\n");	
@@ -75,9 +75,11 @@ int main(int argc, char** argv){
 		g_input(delta);
 
 
-		r_clear_window();
-		g_render(delta);
-		r_swap_buffers();
+		if(r_allow_render()){
+			r_clear_window();
+			g_render(delta);
+			r_swap_buffers();
+		}
 
 		g_update(delta);
 

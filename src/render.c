@@ -260,8 +260,8 @@ int r_ui_button(const char* label){
 	return nk_button_label(g_window.ui, label);	
 }
 
-int r_ui_checkbox(const char* label, int* value){
-	return nk_checkbox_label(g_window.ui, label, value);
+int r_ui_checkbox(const char* label, int value){
+	return nk_check_label(g_window.ui, label, value);
 }
 
 int r_ui_option(const char* label, int value){
@@ -279,12 +279,19 @@ int r_ui_slider(float min, float* value, float max, float step){
 int r_ui_progress(int* value, int end, int mod){
 	return nk_progress(g_window.ui, value, end, mod); 
 }
+
 void r_ui_text(const char* text, int text_len, int flags){
 	nk_text(g_window.ui, text, text_len, flags);
 }
+
 void r_ui_text_colored(const char* text, int text_len, int flags, vec3 color){
 	nk_text_colored(g_window.ui, text, text_len, flags, nk_rgb(color[0] * 255, color[1] * 255, color[2] * 255));
 }
+
+void  r_ui_property(const char* text, int min, int* value, int max, int inc, float inc_per_pix){
+	nk_property_int(g_window.ui, text, min, value, max, inc, inc_per_pix);
+}
+
 void  r_ui_spacing(int cols){
 	nk_spacing(g_window.ui, cols);
 }
@@ -384,6 +391,8 @@ int r_is_anim_cache(){
 int r_is_shader_cache(){
 	return 1;	
 }
+
+
 
 static GLuint r_get_sub_shader(const char* fp, int type){
 	FILE* file;
@@ -995,6 +1004,94 @@ void r_window_get_size(int* w, int* h){
 	*h = g_window.height;
 }
 
+int r_get_videomode_str(const char* dst, int index){
+	if(index >= flags.video_mode_count){
+		index = 0;	
+	}	
+	index = (flags.video_mode_count-1) - index;
+	int str_len = sprintf(dst, "%ix%i@%i", r_vidmodes[index].width, r_vidmodes[index].height, r_vidmodes[index].refreshRate);
+	return str_len;
+}
+
+void r_select_mode(int index, int fullscreen, int vsync, int borderless){
+	if(index > flags.video_mode_count){
+		_l("Invalid video mode index, not setting.\n");
+		return;
+	}
+
+	index = (flags.video_mode_count-1) - index;
+
+	const GLFWvidmode* selected_mode = &r_vidmodes[index];
+
+	if(!fullscreen && borderless != g_window.borderless)
+	flags.allowed = 0;
+
+	if(fullscreen){
+		glfwWindowHint(GLFW_RED_BITS, selected_mode->redBits);
+		glfwWindowHint(GLFW_GREEN_BITS, selected_mode->greenBits);
+		glfwWindowHint(GLFW_BLUE_BITS, selected_mode->blueBits);
+		glfwWindowHint(GLFW_REFRESH_RATE, selected_mode->refreshRate);
+
+		g_window.refreshRate = selected_mode->refreshRate;
+
+		vec2_dup(r_res, (vec2){selected_mode->width, selected_mode->height});
+
+		glfwSetWindowMonitor(g_window.glfw, r_default_monitor, 0, 0, selected_mode->width, selected_mode->height, selected_mode->refreshRate); 
+	}else{
+		//TODO fix borderless switching back to decorated
+		if(g_window.borderless != borderless){
+			g_window.borderless = borderless;
+			glfwSetWindowAttrib(g_window.glfw, GLFW_DECORATED, (borderless == 0) ? GLFW_TRUE : GLFW_FALSE);
+			_l("Setting borderless to: %i\n", borderless);
+		}
+
+		if(selected_mode->width != g_window.width || selected_mode != g_window.height){
+			glfwSetWindowSize(g_window.glfw, selected_mode->width, selected_mode->height);
+			vec2_dup(r_res, (vec2){selected_mode->width, selected_mode->height});
+
+			r_center_window();
+		}
+
+		if(fullscreen != g_window.fullscreen){	
+			int x, y;
+			glfwGetWindowPos(g_window.glfw, &x, &y);
+			glfwSetWindowMonitor(g_window.glfw, 0, x, y, selected_mode->width, selected_mode->height, selected_mode->refreshRate); 
+		}
+
+	}
+
+	g_window.fullscreen = fullscreen;
+	g_window.vsync = vsync;
+	if(vsync){
+		glfwSwapInterval(1);
+	}
+
+	glfwGetWindowPos(g_window.glfw, &g_window.x, &g_window.y);
+	glfwGetWindowSize(g_window.glfw, &g_window.width, &g_window.height);
+
+	flags.allowed = 1;
+}
+
+int r_get_vidmode_count(){
+	return flags.video_mode_count;
+}
+
+int r_allow_render(){
+	return flags.allowed;	
+}
+
+int r_is_vsync(){
+	return g_window.vsync;
+}
+
+int r_is_fullscreen(){
+	return g_window.fullscreen;
+}
+
+int r_is_borderless(){
+	return g_window.borderless; 	
+}
+
 static void r_create_modes(){
 	if(r_default_monitor == NULL){
 		r_default_monitor = glfwGetPrimaryMonitor();
@@ -1009,7 +1106,7 @@ static int r_window_info_valid(r_window_info info){
 }
 
 static const GLFWvidmode* r_find_closest_mode(r_window_info info){
-	if(flags.video_mode_count== 0){
+	if(flags.video_mode_count == 0){
 		r_create_modes();
 	}else if(flags.video_mode_count == 1){
 		return r_vidmodes;
@@ -1098,6 +1195,7 @@ int r_create_window(r_window_info info){
 	}else{
 		glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 		glfwWindowHint(GLFW_DECORATED, (info.borderless == 0) ? GLFW_TRUE : GLFW_FALSE);
+		g_window.borderless = info.borderless;
 
 		if(info.refreshRate > 0){
 			glfwWindowHint(GLFW_REFRESH_RATE, info.refreshRate);
@@ -1174,6 +1272,8 @@ int r_create_window(r_window_info info){
 	glfwSetCursorPosCallback(g_window.glfw, glfw_mouse_pos_cb);
 	glfwSetScrollCallback(g_window.glfw, glfw_scroll_cb);
 	glfwSetJoystickCallback(glfw_joy_cb);
+
+	r_create_modes();
 
 	_l("Setting default bindings.\n");
 	i_default_bindings();

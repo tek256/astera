@@ -23,8 +23,12 @@ static int dir_y[16];
 static int buttons[MAX_JOY_BUTTONS];
 static float axes[12];
 
-static int ui_active = 0;
+static int ui_active = 1;
 static int ui_state = 0;
+
+static int fullscreen;
+static int vsync;
+static int borderless;
 
 int g_init(){
 	sheet  = r_get_sheet("res/tex/test_sheet.png", 16, 16);
@@ -84,6 +88,11 @@ int g_init(){
 		printf("XBOX FOUND!\n");
 	}
 
+	vsync = r_is_vsync();
+	fullscreen = r_is_fullscreen();
+	borderless = r_is_borderless();
+
+
 	_l("Initialized game.\n");
 	return 1;	
 }
@@ -91,11 +100,87 @@ int g_init(){
 void g_exit(){
 
 }
-
 void g_input(long delta){
+	r_update_ui();
 	if(ui_active){
+		int width, height;
+		r_window_get_size(&width, &height);	
 
-		
+		int ui_width = 720;
+		int ui_height = 360;
+
+		int offset_x = (width - ui_width) / 2;
+		int offset_y = (height - ui_height) / 2;
+
+		static float _slide = -1;
+		if(r_ui_window(offset_x, offset_y, 720, 360)){
+			//add spacing of 15px
+			r_ui_row(15, 1);
+			r_ui_row(30, 4);
+
+			static int op = 1;
+
+			if(fullscreen == -1 || vsync == -1 || borderless == -1 || _slide == -1){
+				fullscreen = r_is_fullscreen();
+				vsync = r_is_vsync();
+				borderless = r_is_borderless();
+				_slide = a_get_vol_master() * 100.f;
+			}
+
+			r_ui_row(25, 3);
+
+			static int _prog = 5;
+
+			//TODO progress bar styling
+			//r_ui_progress(&_prog, 100, 0);	
+
+			static const char* volume_text = "Volume";
+			static const int volume_text_length = 6;	
+			
+			r_ui_spacing(1);
+			r_ui_text(volume_text, volume_text_length, TEXT_ALIGN_LEFT);
+			r_ui_row(25, 3);
+			r_ui_spacing(1);
+			if(r_ui_slider(0.f, &_slide, 100.f, 1.f)){
+				a_set_vol_master(_slide / 100.f);
+				_l("Setting volume to: %f\n", _slide);	
+			}
+			r_ui_row(25, 4);
+			if(r_ui_radio("Fullscreen", &fullscreen)){
+				_l("Toggling fullscreen to: %i\n", fullscreen);
+			}
+			if(r_ui_radio("Vsync", &vsync)){
+				_l("Toggling vsync to: %i\n", vsync);
+			}
+			if(r_ui_radio("Borderless", &borderless)) {
+				_l("Toggling borderless to: %i\n", borderless);
+			}
+
+			static char res_prop[32];
+			static int res_len;
+			static int select = 0;
+			static int select_max = -1;
+
+			if(select_max == -1){
+				select_max = r_get_vidmode_count();
+			}
+
+			r_ui_row(30, 1);
+
+			memset(res_prop, 0, sizeof(char) * 32);
+
+			r_get_videomode_str(res_prop, select);
+
+			r_ui_property(res_prop, 0, &select, select_max-1, 1, 1);
+			r_ui_row(30, 3);
+			//void r_select_mode(int index, int fullscreen, int vsync, int borderless){
+			if(r_ui_button("Apply")) r_select_mode(select, fullscreen, vsync, borderless);
+			r_ui_row(45, 3);
+			r_ui_spacing(1);
+
+			if(r_ui_button("Close")) ui_active = 0; 
+		}
+		r_ui_end();
 	}else{
 		//i_get_joy_buttons(buttons, 12);
 		if(i_key_clicked('P')){
@@ -152,6 +237,10 @@ void g_input(long delta){
 		if(change_x != 0 || change_y != 0){
 			r_move_cam(change_x, change_y);
 		}
+
+		if(i_key_clicked('I')){
+			ui_active = 1;
+		}
 	}
 
 	if(i_key_clicked(GLFW_KEY_ESCAPE)){
@@ -167,76 +256,6 @@ void g_update(long delta){
 }
 
 void g_render(long delta){
-	/*
-	 *struct nk_ctx* ctx = g_window.ui;
-	if (nk_begin(ctx, "Demo", nk_rect(0, 0, g_window.width, g_window.height), NK_WINDOW_BORDER)){
-		enum {EASY, HARD};
-		static int op = EASY;
-		static int property = 20;
-		nk_layout_row_dynamic(ctx, 30, 4);
-		if (nk_button_label(ctx, "button"))
-			fprintf(stdout, "button pressed\n");
-		if (nk_button_label(ctx, "button"))
-			fprintf(stdout, "button pressed\n");
-		if (nk_button_label(ctx, "button"))
-			fprintf(stdout, "button pressed\n");
-		if (nk_button_label(ctx, "button"))
-			fprintf(stdout, "button pressed\n");
-
-
-		nk_layout_row_dynamic(ctx, 30, 4);
-		if (nk_option_label(ctx, "easy", op == EASY)) op = EASY;
-		if (nk_option_label(ctx, "hard", op == HARD)) op = HARD;
-
-		nk_layout_row_dynamic(ctx, 25, 4);
-		nk_property_int(ctx, "Compression:", 0, &property, 100, 10, 1);
-	}
-	nk_end(ctx);
-
-
-	 */
-
-	int width, height;
-	r_window_get_size(&width, &height);	
-
-	int ui_width = 720;
-	int ui_height = 360;
-
-	int offset_x = (width - ui_width) / 2;
-	int offset_y = (height - ui_height) / 2;
-
-	if(r_ui_window(offset_x, offset_y, 720, 360)){
-		//add spacing of 15px
-		r_ui_row(15, 1);
-		r_ui_row(35, 5);
-		r_ui_spacing(1);
-		if(r_ui_button("Test Button")) _l("Test button pressed.\n");
-		r_ui_spacing(1);
-		if(r_ui_button("Even Testier.")) _l("Testier!\n");
-
-		r_ui_row(35, 2);
-		r_ui_row(30, 4);
-		static int op = 1;
-		if(r_ui_option("One", (op == 1))) op = 1;
-		r_ui_spacing(1);
-		if(r_ui_option("Two", (op == 2))) op = 2;		
-
-		r_ui_row(25, 3);
-		r_ui_spacing(1);
-		
-		static int _prog = 5;
-		static float _slide = 10;
-		
-		//TODO progress bar styling
-		//r_ui_progress(&_prog, 100, 0);		
-			
-		if(r_ui_slider(0.f, &_slide, 100.f, 1.f)) _l("Slide Value: %f\n", _slide);
-		r_ui_row(25, 4);
-		if(r_ui_radio("Test", &_prog)) _l("Radio button");
-		if(r_ui_checkbox("Test check.", &_prog)) _l("Check box");
-	}
-	r_ui_end();
-
 	for(int i=1;i<17;++i){
 		r_drawable* d = r_get_drawablei(i);
 		d->position[0] += dir_x[i] * delta * 0.05f;
@@ -245,8 +264,6 @@ void g_render(long delta){
 	}
 
 	r_draw_call(shader, &sheet);
-
-	r_update_ui();
 	
 	r_draw_ui();
 }

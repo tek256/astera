@@ -17,15 +17,12 @@
 #include <string.h>
 
 int a_init(u32 master, u32 sfx, u32 music){
-	if(!a_load_devices()){
-		_e("Unable to load audio devices\n");
-		return -1;
-	}
-
-	if(!a_create_context(NULL)){
+	if(!a_create_context(0)){
 		_e("Unable to create audio context.\n");
 		return -1;
 	}
+
+	_map.layer_count = MAX_AUDIO_LAYERS;
 	
 	//Initialize cached audio subsystem
 	for(int i=0;i<MAX_SFX;++i){
@@ -56,32 +53,117 @@ int a_init(u32 master, u32 sfx, u32 music){
 		_map.songs[i].has_req = 0;
 	}
 
+	float master_f = master / 100.f;
+	_listener.gain = master_f;
+	alListenerf(AL_GAIN, _listener.gain);
+	a_set_pos(_listener.pos);
+
 	for(int i=0;i<MAX_AUDIO_LAYERS;++i){
 		_map.layers[i].gain = 1.f;
+	}
 
+	//TODO convert to processor bounds check
 #ifdef AUDIO_MUSIC_LAYER
-		if(i == AUDIO_MUSIC_LAYER){
-			_map.layers[i].gain = AUDIO_MUSIC_GAIN;  
-		}
+	if(_map.layer_count > AUDIO_MUSIC_LAYER){
+		_map.layers[AUDIO_MUSIC_LAYER].gain = (music / 100.f);  
+	}else{
+		_e("Not enough layers generated to set volume for music layer on: %i\n", AUDIO_MUSIC_LAYER);	
+	}
 #endif
 #ifdef AUDIO_SFX_LAYER
-		if(i == AUDIO_SFX_LAYER){
-			_map.layers[i].gain = AUDIO_SFX_GAIN; 
-		}
+	if(_map.layer_count > AUDIO_SFX_LAYER){
+		_map.layers[AUDIO_SFX_LAYER].gain = (sfx / 100.f); 
+	}else{
+		_e("Not enough layers generated to set volume for sfx layer on: %i\n", AUDIO_SFX_LAYER);	
+	}
 #endif
 #ifdef AUDIO_MISC_LAYER
-		if(i == AUDIO_MISC_LAYER){
-			_map.layers[i].gain = AUDIO_MISC_GAIN;
-		}
+	if(_map.layer_count > AUDIO_MISC_LAYER){
+		_map.layers[AUDIO_MISC_LAYER].gain = AUDIO_MISC_GAIN;
+	}else{
+		_e("Not enough layers generated to set volume for misc layer on: %i\n", AUDIO_MISC_LAYER);	
+	}
 #endif
 #ifdef AUDIO_UI_LAYER
-		if(i == AUDIO_UI_LAYER){
-			_map.layers[i].gain = AUDIO_UI_GAIN;
-		}
+	if(_map.layer_count > AUDIO_UI_LAYER){
+		_map.layers[AUDIO_UI_LAYER].gain = AUDIO_UI_GAIN;
+	}else{	
+		_e("Not enough layers generated to set volume for UI layer on: %i\n", AUDIO_UI_LAYER);	
+	}
 #endif
-	}		
-
 	return 1;
+}
+
+void a_set_pos(vec3 p){
+	alListener3f(AL_POSITION, p[0], p[1], p[2]);	
+}
+
+void a_set_vol(u32 master, u32 sfx, u32 music){
+	a_set_vol_master(master);
+	a_set_vol_sfx(sfx);
+	a_set_vol_music(music);
+}
+
+void a_set_vol_master(u32 master){
+	_listener.gain = master / 100.f;
+	alListenerf(AL_GAIN, _listener.gain);
+}
+
+void a_set_vol_sfx(u32 sfx){
+#ifdef AUDIO_SFX_LAYER
+	if(_map.layer_count > AUDIO_SFX_LAYER){
+		float value = sfx / 100.f;
+		if(_map.layers[AUDIO_SFX_LAYER].gain != value){
+			_map.layers[AUDIO_SFX_LAYER].gain = value;
+			_map.layers[AUDIO_SFX_LAYER].gain_change = 1;
+		}
+	}else{
+		_e("Unable to set SFX vol on layer out of bounds: %i\n", AUDIO_SFX_LAYER);
+	}
+#endif
+}
+
+void a_set_vol_music(u32 music){
+#ifdef AUDIO_MUSIC_LAYER
+	if(_map.layer_count > AUDIO_MUSIC_LAYER){
+		float value = (music / 100.f);
+		if(value != _map.layers[AUDIO_MUSIC_LAYER].gain){
+			_map.layers[AUDIO_MUSIC_LAYER].gain = value;  
+			_map.layers[AUDIO_MUSIC_LAYER].gain_change = 1;
+		}
+	}else{	
+		_e("Unable to set music vol on layer out of bounds: %i\n", AUDIO_MUSIC_LAYER);
+	}
+#endif
+}
+
+f32 a_get_vol_master(){
+	return _listener.gain;
+}
+f32 a_get_vol_sfx(){
+#ifdef AUDIO_SFX_LAYER
+	if(AUDIO_SFX_LAYER < _map.layer_count){
+		return _map.layers[AUDIO_SFX_LAYER].gain;	
+	}else{
+		_e("Unable to get volume for SFX layer, [%i] out of bounds.\n", AUDIO_SFX_LAYER);
+		return 0.f;
+	}
+#else
+	return 0.f;
+#endif	
+}
+
+f32 a_get_vol_music(){
+#ifdef AUDIO_MUSIC_LAYER
+	if(AUDIO_MUSIC_LAYER < _map.layer_count){
+		return _map.layers[AUDIO_MUSIC_LAYER].gain;	
+	}else{
+		_e("Unable to get volume for music layer, [%i] out of bounds.\n", AUDIO_MUSIC_LAYER);
+		return 0.f;
+	}
+#else
+	return 0.f;
+#endif	
 }
 
 void a_exit(){
@@ -94,199 +176,125 @@ void a_exit(){
 }
 
 void a_update(long delta){
-	for(int i=0;i<_map.sfx_capacity;++i){
-		if(_map.sfx[i].has_req){
-			a_req* req = _map.sfx[i].req;
-
-			ALenum state;
-			alGetSourcei(_map.sfx[i].id, AL_SOURCE_STATE, &state);
-			if(state == AL_STOPPED){
-				alSourcei(_map.sfx[i].id, AL_BUFFER, 0);
-				_map.sfx[i].req = NULL;
-				_map.sfx[i].has_req = 0;
-			}else if(req){
-				if(req->stop){
-					alSourcei(_map.sfx[i].id, AL_BUFFER, 0);
-					_map.sfx[i].req = NULL;
-					_map.sfx[i].has_req = 0;					
+	for(int i=0;i<MAX_AUDIO_LAYERS;++i){
+		a_layer* layer = &_map.layers[i];
+		for(int j=0;j<layer->sfx_count;++j){
+			a_sfx* sfx = &layer->sources[j];
+			if(sfx->has_req){
+				a_req* req = sfx->req;	
+				if(sfx->gain != req->gain || layer->gain_change){
+					float n_gain = layer->gain * req->gain;
+				   	sfx->gain = req->gain;	
+					alSourcef(sfx->id, AL_GAIN, n_gain);
 				}
-			}	
-		}	
-	}
 
-	for(int i=0;i<_map.song_capacity;++i){
-		if(_map.songs[i].has_req){
-			a_req* req = _map.songs[i].req;
-			ALenum state;
-			ALint proc;
-			alGetSourcei(_map.songs[i].source, AL_SOURCE_STATE, &state);
-			alGetSourcei(_map.songs[i].source, AL_BUFFERS_PROCESSED, &proc);
+				if(!vec3_cmp(sfx->position, req->pos)){
+					vec3_dup(sfx->position, req->pos);
+					alSource3f(sfx->id, AL_POSITION, req->pos[0], req->pos[1], req->pos[2]);
+				}
 
-			if(state == AL_STOPPED){
-				alSourcei(_map.songs[i].source, AL_BUFFER, 0);
-				_map.songs[i].req = NULL;	
-				_map.songs[i].has_req = 0;
-			} else if(req){
-				alSourcei(_map.songs[i].source, AL_BUFFER, 0);
-				_map.songs[i].req = NULL;
-				_map.songs[i].has_req = NULL;
-			} else if(proc > 0){
-				a_music* mus = &_map.songs[i];
-				int ending = 0;
-				int sample_count = 0;
-				int num_left = proc;
-
-				
-				//Stop music
-				if(mus->samples_left <= 0){
-					alSourceStop(mus->source);
-
-					int offset = rand();
-					if(offset < 0) offset = -offset;
-					offset %= (mus->len / MAX_MUSIC_RUNTIME);
-
-					mus->pos = offset;
-
-					mus->samples_left = mus->total_samples;
-				}else{
-					for(int i=0;i<num_left;++i){
-						if(_map.songs[i].samples_left >= MAX_MUSIC_RUNTIME){
-							sample_count = MAX_MUSIC_RUNTIME;
-						}else {
-							sample_count = _map.songs[i].samples_left;
-						}
-
-						int k = 0;
-						int n;
-						float* l, *r;
-						float** out;
-						int num_c;
-						int q = MAX_MUSIC_RUNTIME;
-						if(q > mus->len - mus->pos)
-						   q = mus->len - mus->pos;
-
-						int num_samples = stb_vorbis_decode_frame_pushdata(mus->vorbis, mus->data+mus->pos, q, &num_c, &out, &n);	
-						a_interleave_output(mus->channels, mus->pcm, num_c, out, mus->pos, num_samples);
-						if(num_samples == 0){
-							if(mus->loop){
-								if(mus->pos + q == mus->len){
-									mus->pos = rand();
-									if(mus->pos < 0){
-										mus->pos = -mus->pos;
-									}
-									mus->pos %= (mus->len - MAX_MUSIC_RUNTIME);
-									stb_vorbis_flush_pushdata(mus->vorbis);
-									q = 128;
-									num_samples = stb_vorbis_decode_frame_pushdata(mus->vorbis, mus->data+mus->pos, q, &num_c, &out, &n);
-
-									if(!num_samples){
-										_e("Unable to decode on loop from frame pushdata.\n");
-									}
-								}else{
-									if(q < 128){
-										q = 128;
-									}
-									q *= 2;
-
-									int num_samples = stb_vorbis_decode_frame_pushdata(mus->vorbis, mus->data + mus->pos, q, &num_c, &out, &n);
-									if(!num_samples){
-										_e("Unable to decode on loop from frame pushdata.\n");
-									}
-								}
-							}else{
-								mus->req->stop = 1;
-							}
-							break;	
-						}
-
-						mus->pos += num_samples;
-
-						//Update buffers for the music by rotating it out
-						ALuint buff = 0;
-						alSourceUnqueueBuffers(mus->source, 1, &buff);
-						if(alGetError() != AL_INVALID_VALUE){
-							//alBufferData(buff, mus->format, out, num_samples * (mus->sample_size / 8 * mus->channels), mus->sample_rate);
-								
-							alSourceQueueBuffers(mus->source, 1, &buff);
-						}else{
-							_e("Unable to unqueue audio buffer for music.\n");
-						}
-
-						mus->samples_left -= num_samples;
+				ALenum state;
+				alGetSourcei(sfx->id, AL_SOURCE_STATE, &state);
+				if(state == AL_STOPPED){
+					alSourcei(sfx->id, AL_BUFFER, 0);
+					sfx->req = NULL;
+					sfx->has_req = 0;
+				}else if(req){
+					if(req->stop){
+						alSourcei(_map.sfx[i].id, AL_BUFFER, 0);
+						sfx->req = NULL;
+						sfx->has_req = 0;					
 					}
 				}	
+			}		
+		}
+
+		for(int j=0;j<layer->song_count;++j){
+			a_music* mus = &layer->musics[j];
+			if(mus->has_req){
+				a_req* req = mus->req;
+
+				if(mus->gain != req->gain || layer->gain_change){
+					float n_gain = layer->gain * req->gain;
+				   	mus->gain = req->gain;
+					//NOTE: n_gain is a calculated product, not what we want to store	
+					alSourcef(mus->source, AL_GAIN, n_gain);
+				}
+
+				if(!vec3_cmp(mus->pos, req->pos)){
+					vec3_dup(mus->pos, req->pos);
+					alSource3f(mus->source, AL_POSITION, req->pos[0], req->pos[1], req->pos[2]);
+				}
+
+				ALenum state;
+				ALint proc;
+				alGetSourcei(mus->source, AL_SOURCE_STATE, &state);
+				alGetSourcei(mus->source, AL_BUFFERS_PROCESSED, &proc);
+
+				if(state == AL_STOPPED || req->stop){
+					alSourcei(mus->source, AL_BUFFER, 0);
+					mus->req = NULL;	
+					mus->has_req = 0;
+				} else if(proc > 0){
+					int ending = 0;
+					int sample_count = 0;
+					int num_left = proc;
+
+					//Stop music
+					if(mus->samples_left <= 0 && req->loop){
+						alSourceStop(mus->source);
+
+						int offset = rand();
+						if(offset < 0) offset = -offset;
+						offset %= (mus->len / MAX_MUSIC_RUNTIME);
+
+						mus->pos = offset;
+
+						mus->samples_left = mus->total_samples;
+					}else if(mus->samples_left <= 0 && !req->loop){
+						alSourceStop(mus->source);
+						mus->pos = 0;	
+					}else{
+						for(int i=0;i<num_left;++i){
+							if(_map.songs[i].samples_left >= MAX_MUSIC_RUNTIME){
+								sample_count = MAX_MUSIC_RUNTIME;
+							}else {
+								sample_count = _map.songs[i].samples_left;
+							}
+
+							//TODO actually process the music
+
+							//Update buffers for the music by rotating it out
+							ALuint buff = 0;
+							ALint err;
+							alSourceUnqueueBuffers(mus->source, 1, &buff);
+							if((err = alGetError()) != AL_INVALID_VALUE){
+								alSourceQueueBuffers(mus->source, 1, &buff);
+							}else{
+								_e("Unable to unqueue audio buffer for music err [%i]: %i\n", err, buff);
+							}
+						}
+					}	
+				}	
 			}	
+
 		}	
 	}
-
 }
 
-/*
- *ALenum state;
-		int num_left = processed;
-		int sample_count = 0;
-
-		for(int i=0;i<num_left;++i){
-			if(music->samples_left >= MAX_MUSIC_RUNTIME){
-				sample_count = MAX_MUSIC_RUNTIME;
-			}else{
-				sample_count = music->samples_left;
-			}
-
-		}
-
-		free(pcm);
-
-		if(ending){
-			a_stop_music(music);
-			if(music->loop){
-				a_play_music(music);
-			}
-		}
-	}
-
- */
-
-int a_load_devices(){
-	char* device_list;
-
-	if(alcIsExtensionPresent(NULL, "ALC_ENUMERATE_ALL_EXT") != AL_FALSE){
-		device_list = (char*)alcGetString(NULL, ALC_ALL_DEVICES_SPECIFIER);
+u32  a_get_device_name(char* dst, int capacity){
+	ALchar* name;
+	if(_ctx.device){
+		name = alcGetString(_ctx.device, ALC_DEVICE_SPECIFIER);
 	}else{
-		device_list = (char*)alcGetString(NULL, ALC_DEVICE_SPECIFIER);
-	}
+		name = alcGetString(NULL, ALC_DEFAULT_DEVICE_SPECIFIER);
+	}	
+	
+	int length = strlen(name);
+	int limit = (length > capacity) ? capacity : length;
+	memcpy(dst, name, sizeof(char) * limit);
 
-	if(!device_list){
-		_e("No device list\n");
-	}
-
-	char* start = &device_list[0];
-
-	char** list;
-	int count = 0;
-	int totalSize = 0;
-	while(*device_list != '\0'){
-		++count;
-		size_t len = strlen(device_list) + 1;
-		totalSize += sizeof(char) * len;
-		device_list += len;
-	}
-
-	device_list = start;
-	list = malloc(sizeof(char) * totalSize);
-
-	int index = 0;
-	while(*device_list != '\0'){
-		size_t len = strlen(device_list) + 1;
-		list[index] = device_list;
-		device_list += len;
-		++index;
-	}
-
-	a_device_list = list;
-	a_device_list_count = count;
-
-	return 1;
+	return limit;	
 }
 
 int a_create_context(const char* device_name){
@@ -309,111 +317,6 @@ int a_create_context(const char* device_name){
 	_l("Loaded audio device.\n");
 
 	return 1;
-}
-
-const char** a_get_devices(int* count){
-	const char** device_names = malloc(sizeof(const char*) * a_device_list_count);
-	for(int i=0;i<a_device_list_count; ++i){
-		device_names[i] = a_device_list[i];
-	}
-	*count = a_device_list_count;
-	return device_names;
-}
-
-void a_swap_device(const char* device_name){
-	_ctx.allow = 0;
-
-	alcDestroyContext(_ctx.context);
-	alcCloseDevice(_ctx.device);
-
-	ALCdevice* device = NULL;
-	if(device_name != NULL){
-		for(int i=0;i<a_device_list_count;++i){
-			if(strcmp(a_device_list[i], device_name) == 0){
-				device_name = a_device_list[i];
-				break;
-			}
-		}
-	}
-	alcOpenDevice(device_name);
-
-	ALCcontext* context = NULL;
-	context = alcCreateContext(device, NULL);
-	alcMakeContextCurrent(context);
-
-	_ctx.context = context;
-	_ctx.device = device;
-
-	_ctx.allow = 1;
-}
-
-static void a_compute_stereo(short* output, int num_c, float** data, int d_offset, int len){
-	#define BUFFER_SIZE  32
-	float buffer[BUFFER_SIZE];
-	int i,j,o,n = BUFFER_SIZE >> 1;
-	// o is the offset in the source data
-	check_endianness();
-	for (o = 0; o < len; o += BUFFER_SIZE >> 1) {
-		// o2 is the offset in the output data
-		int o2 = o << 1;
-		memset(buffer, 0, sizeof(buffer));
-		if (o + n > len) n = len - o;
-		for (j=0; j < num_c; ++j) {
-			int m = channel_position[num_c][j] & (PLAYBACK_LEFT | PLAYBACK_RIGHT);
-			if (m == (PLAYBACK_LEFT | PLAYBACK_RIGHT)) {
-				for (i=0; i < n; ++i) {
-					buffer[i*2+0] += data[j][d_offset+o+i];
-					buffer[i*2+1] += data[j][d_offset+o+i];
-				}
-			} else if (m == PLAYBACK_LEFT) {
-				for (i=0; i < n; ++i) {
-					buffer[i*2+0] += data[j][d_offset+o+i];
-				}
-			} else if (m == PLAYBACK_RIGHT) {
-				for (i=0; i < n; ++i) {
-					buffer[i*2+1] += data[j][d_offset+o+i];
-				}
-			}
-		}
-		for (i=0; i < (n<<1); ++i) {
-			FASTDEF(temp);
-			int v = FAST_SCALED_FLOAT_TO_INT(temp,buffer[i],15);
-			if ((unsigned int) (v + 32768) > 65535)
-				v = v < 0 ? -32768 : 32767;
-			output[o2+i] = v;
-		}
-	}
-}
-
-static void a_interleave_output(int buffer_c, short* buffer, int data_c, float** data, int data_offset, int length){
-	int i;
-	if(buffer_c != data_c && buffer_c <= 2 && data_c <= 6){
-		if(!buffer_c == 2){
-			_e("Invalid buffer channel count.\n");
-			return;
-		}
-		for(int i=0;i<buffer_c;++i){
-			a_compute_stereo(buffer, data_c, data, data_offset, length);
-		}
-	}else{
-		int limit = buffer_c < data_c ? buffer_c : data_c;
-		int j;
-		for(j=0;j<length;++j){
-			for(i=0;i<limit;++i){
-				FASTDEF(temp);
-				float f = data[i][data_offset+j];
-				float v = FAST_SCALED_FLOAT_TO_INT(temp, f, 15);
-				if ((unsigned int)(v + 32768) > 65535){ //short max
-					v = v < 0 ? -32768 : 32767;
-				}
-				*buffer++ = v;
-			}
-
-			for( ; i < buffer_c; ++i){
-				*buffer++ = 0;
-			}
-		}	
-	}
 }
 
 a_buf a_get_buf(unsigned char* data, u32 length){

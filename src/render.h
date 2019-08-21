@@ -27,6 +27,7 @@ enum text_align {
     TEXT_ALIGN_MIDDLE      = 0x10,
     TEXT_ALIGN_BOTTOM      = 0x20
 };
+
 enum text_alignment {
     TEXT_LEFT        = TEXT_ALIGN_MIDDLE|TEXT_ALIGN_LEFT,
     TEXT_CENTERED    = TEXT_ALIGN_MIDDLE|TEXT_ALIGN_CENTERED,
@@ -59,9 +60,9 @@ enum text_alignment {
 #define RENDER_UI_MAX_ELEMENT_BUFFER 128 * 1024
 
 typedef struct {
-	int allowed : 1;
-	int scaled  : 1;
-	unsigned char video_mode_count : 6; //0 - 63
+	int allowed;
+	int scaled;
+	int video_mode_count;
 } r_flags;
 
 typedef struct {
@@ -74,7 +75,7 @@ typedef struct {
 typedef struct {
 	int width, height;
 	int x, y;
-	int fullscreen, vsync;
+	int fullscreen, vsync, borderless;
 	int close_requested;
 	int refreshRate;
 	GLFWwindow* glfw;
@@ -266,7 +267,7 @@ int  r_ui_end();
 int  r_ui_window(float x, float y, float w, float h);
 int  r_ui_window_t(const char* title, float x, float y, float w, float h);
 int  r_ui_button(const char* label);
-int  r_ui_checkbox(const char* label, int* value);
+int  r_ui_checkbox(const char* label, int value);
 int  r_ui_option(const char* label, int value);
 int  r_ui_radio(const char* label, int* value);
 void r_ui_row(float height, int columns);
@@ -274,6 +275,7 @@ int  r_ui_slider(float min, float* value, float max, float step);
 int  r_ui_progress(int* value, int end, int modifiable);
 void r_ui_text(const char* text, int text_len, int flags);
 void r_ui_text_colored(const char* text, int text_len, int flags, vec3 color);
+void r_ui_property(const char* text, int min, int* value, int max, int inc, float inc_per_pix);
 void r_ui_spacing(int cols);
 
 void r_draw_ui();
@@ -342,6 +344,17 @@ void r_set_v2i(int loc, vec2 val);
 void r_set_m4i(int loc, mat4x4 val);
 
 void r_window_get_size(int* w, int* h);
+
+//return length of the string
+int r_get_videomode_str(const char* dst, int index);
+void r_set_videomode(int index);
+void r_select_mode(int index, int fullscreen, int vsync, int borderless);
+int r_get_vidmode_count();
+
+int r_allow_render();
+int r_is_vsync();
+int r_is_fullscreen();
+int r_is_borderless();
 
 static void r_create_modes();
 static int  r_window_info_valid(r_window_info info);
