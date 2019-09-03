@@ -1,0 +1,39 @@
+#!/bin/sh
+
+JOB_COUNT=5
+
+if [ ! -d "build" ]; then
+	mkdir build
+	#If the cmake files aren't compiled, make them.
+   	if [ ! -f "dep/glfw/CMakeCache.txt" ]; then
+		echo "Building GLFW."
+		cd dep/glfw/
+		cmake -G "Unix Makefiles"
+		make
+		cd ../../
+	fi	
+
+	if [ ! -f "dep/openal-soft/CMakeCache.txt" ]; then
+		echo "Building OpenAL."
+		cd dep/openal-soft/
+		cmake -G "Unix Makefiles"
+		make
+		cd ../../
+	fi
+
+	cp dep/glfw/src/*.so* build
+	cp dep/openal-soft/*.so* build	
+	cp -r res build
+fi
+
+#Generate checksums of each directory
+src_sum="$(find res -type f -exec md5sum {} + | sort -k 2 | awk '{ print $1 }' | md5sum)"
+bld_sum="$(find build/res -type f -exec md5sum {} + | sort -k 2 | awk '{ print $1 }' | md5sum)"
+
+if [ "$src_sum" != "$bld_sum" ]; then
+	echo "Updating resources."
+	cp -r res build
+fi
+
+make -j"$JOB_COUNT"
+mv astera build
