@@ -1,4 +1,3 @@
-
 #ifndef PLAT_H
 #define PLAT_H
 
@@ -62,6 +61,7 @@
 	#endif
 #endif
 
+//NOTE: Optional, but it'll break a lot otherwise lol
 #define INCLUDE_TYPES
 #ifdef INCLUDE_TYPES 
 
@@ -77,8 +77,4 @@ typedef float  f32;
 typedef double f64;
 
 #endif
-
-char* platform_get_str(s32* count);
-char* arch_get_str(s32* count);
-
 #endif

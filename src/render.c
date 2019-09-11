@@ -28,6 +28,7 @@
 
 #include "input.h"
 #include "sys.h"
+#include "game.h"
 #include "debug.h"
 
 static r_flags flags;
@@ -244,6 +245,11 @@ void r_ui_set_style(){
 
 }
 
+r_ui_font r_ui_add_font(const char* fp, float size){
+	struct nk_font* nk = nk_font_atlas_add_from_file(_atlas.nk, fp, size, 0);
+	return (r_ui_font){nk, fp, size};
+}
+
 int r_ui_end(){
 	nk_end(g_window.ui);
 }
@@ -298,6 +304,34 @@ void  r_ui_spacing(int cols){
 
 void r_ui_row(float height, int columns){
 	nk_layout_row_dynamic(g_window.ui, height, columns);
+}
+
+void r_ui_row_start(float height, int columns){
+	nk_layout_row_begin(g_window.ui, NK_DYNAMIC, height, columns);
+}
+
+void r_ui_row_push(float ratio){
+	nk_layout_row_push(g_window.ui, ratio);
+}
+
+void r_ui_row_end(){
+	nk_layout_row_end(g_window.ui);
+}
+
+int r_ui_combo_start(const char* text, float width, float height){
+	return nk_combo_begin_label(g_window.ui, text, nk_vec2(width, height));
+}
+
+void r_ui_combo_end(){
+	nk_combo_end(g_window.ui);
+}
+
+int r_ui_combo_item_label(const char* text, int alignment){
+	return nk_combo_item_label(g_window.ui, text, alignment);
+}
+
+int r_ui_width(){
+	return nk_widget_width(g_window.ui);
 }
 
 void r_draw_ui(){
@@ -1066,8 +1100,11 @@ void r_select_mode(int index, int fullscreen, int vsync, int borderless){
 		glfwSwapInterval(1);
 	}
 
-	glfwGetWindowPos(g_window.glfw, &g_window.x, &g_window.y);
-	glfwGetWindowSize(g_window.glfw, &g_window.width, &g_window.height);
+	if(!fullscreen){
+		int mon_w, mon_h;
+		const GLFWvidmode* monitor_mode = glfwGetVideoMode(r_default_monitor);
+		glfwSetWindowPos(g_window.glfw, (monitor_mode->width - g_window.width) / 2, (monitor_mode->height - g_window.height) / 2);
+	}
 
 	flags.allowed = 1;
 }
@@ -1256,9 +1293,11 @@ int r_create_window(r_window_info info){
 	//Add UI Font
 	struct nk_font_atlas* atlas;
 	nk_glfw3_font_stash_begin(&atlas);
-	struct nk_font* proggy  = nk_font_atlas_add_from_file(atlas, "res/fnt/Proggy.ttf", 13, 0);
+	_atlas = (r_ui_font_atlas){atlas};
+	r_ui_font proggy = r_ui_add_font("res/fnt/Proggy.ttf", 13);
+	//struct nk_font* proggy  = nk_font_atlas_add_from_file(atlas, "res/fnt/Proggy.ttf", 13, 0);
 	nk_glfw3_font_stash_end();
-	nk_style_set_font(ui_ctx, &proggy->handle);
+	nk_style_set_font(ui_ctx, &proggy.nk->handle);
 
 	r_ui_set_style();
 	_l("Setting Callbacks.\n");
@@ -1363,6 +1402,7 @@ static void glfw_window_size_cb(GLFWwindow* window, int w, int h){
 	glViewport(0, 0, w, h);
 	flags.scaled = 1;
 	i_set_screensize(w, h);
+	g_update_configer();
 }
 
 static void glfw_window_close_cb(GLFWwindow* window){

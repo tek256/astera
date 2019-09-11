@@ -430,7 +430,7 @@ u16 i_key_up(u16 key){
 }
 
 u16 i_key_clicked(u16 key){
-	return i_key_down(key) && !i_contains(key, keyboard.prev, keyboard.prev_count);
+	return i_contains(key, keyboard.curr, keyboard.curr_count) && !i_contains(key, keyboard.prev, keyboard.prev_count);
 }
 
 u16 i_key_released(u16 key){
@@ -853,10 +853,13 @@ void i_update(){
 
 	
 	int overlap = (keyboard.curr_count > keyboard.prev_count) ? keyboard.curr_count : keyboard.prev_count;
-	memcpy(keyboard.prev, keyboard.curr, sizeof(u16) * overlap);
+	memset(keyboard.prev, 0, sizeof(u16) * keyboard.prev_count);
+	memcpy(keyboard.prev, keyboard.curr, sizeof(u16) *  keyboard.curr_count);
 	keyboard.prev_count = keyboard.curr_count;
+
 	memset(keyboard.curr, 0, keyboard.curr_count * sizeof(u16));
-	keyboard.curr_count = 0;
+	memcpy(keyboard.curr, current_keys, current_key_count * sizeof(u16)); 
+	keyboard.curr_count = current_key_count;
 
 	overlap = (mouse_b.curr_count > mouse_b.prev_count) ? mouse_b.curr_count : mouse_b.prev_count;
 	memcpy(mouse_b.prev, mouse_b.curr, sizeof(u16) * overlap);

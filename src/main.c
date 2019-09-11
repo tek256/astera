@@ -9,21 +9,52 @@
 #include <unistd.h>
 
 #include "conf.h"
-
 #include "debug.h"
-
 #include "audio.h"
 
 #include "sys.h"
 #include "input.h"
 #include "render.h"
 #include "game.h"
-#include "mem.h"
+
+#define CONF_PATH "res/conf.ini"
 
 #define CREATE_MODE 
 
 int target_fps = 120;
 int max_fps = 120;
+
+int init_sys(){
+	if(!i_init()){
+		_fatal("Unable to initialize input system.\n");
+		return EXIT_FAILURE;
+	}
+
+	c_conf conf;
+	conf = c_parse_file(CONF_PATH, 1);
+	
+	if(!r_init(conf)){
+		_fatal("Unable to initialize rendering system.\n");	
+		return EXIT_FAILURE;
+	}
+
+	if(!a_init(conf.master, conf.sfx, conf.music)){
+		_fatal("Unable to initialize audio system.\n");
+		return EXIT_FAILURE;
+	}
+
+	if(!g_init()){
+		_fatal("Unable to initialize game runtime.\n");
+		return EXIT_FAILURE;
+	}
+
+	if(!l_init()){
+		_fatal("Unable to initialize starting level.\n");	
+		return EXIT_FAILURE;
+	}
+
+	return 1;
+}
 
 int main(int argc, char** argv){
 	#ifdef __MINGW32__
@@ -35,25 +66,7 @@ int main(int argc, char** argv){
 	dbg_enable_log(0, "log.txt");
 	c_parse_args(argc, argv);
 
-	if(!i_init()){
-		_fatal("Unable to initialize input system.\n");
-		return EXIT_FAILURE;
-	}
-
-	c_conf conf;
-	conf = c_parse_file("res/conf.ini", 1);
-	
-	if(!r_init(conf)){
-		_fatal("Unable to initialize rendering system.\n");	
-	}
-
-	if(!a_init(conf.master, conf.sfx, conf.music)){
-		_fatal("Unable to initialize audio system.\n");
-	}
-
-	if(!g_init()){
-		_fatal("Unable to initialize game runtime.\n");
-	}
+	init_sys();
 
 	double timeframe = MS_PER_SEC / (double) target_fps;
 	double curr = t_get_time();

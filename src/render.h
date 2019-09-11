@@ -232,8 +232,20 @@ typedef struct {
 	u32 uid;
 } r_drawable_cache; 
 
+typedef struct {
+	struct nk_font_atlas* nk;
+} r_ui_font_atlas;
+
+typedef struct {
+	struct nk_font* nk;
+	const char* fp;
+	float size;
+} r_ui_font;
+
 static r_window g_window;
 static r_camera g_camera;
+
+static r_ui_font_atlas _atlas;
 
 static r_anim_cache g_anim_cache;
 static r_drawable_cache g_drawable_cache;
@@ -262,6 +274,8 @@ struct nk_context* r_get_ctx();
 
 void r_ui_set_style();
 
+r_ui_font r_add_font(const char* filepath, float font_size);
+
 //blank window
 int  r_ui_end();
 int  r_ui_window(float x, float y, float w, float h);
@@ -277,6 +291,13 @@ void r_ui_text(const char* text, int text_len, int flags);
 void r_ui_text_colored(const char* text, int text_len, int flags, vec3 color);
 void r_ui_property(const char* text, int min, int* value, int max, int inc, float inc_per_pix);
 void r_ui_spacing(int cols);
+void r_ui_row_push(float ratio);
+void r_ui_start_row(float height, int columns);
+void r_ui_end_row();
+int r_ui_combo_start(const char* text, float width, float height);
+void r_ui_combo_end();
+int r_ui_combo_item_label(const char* text, int alignment);
+int r_ui_width();
 
 void r_draw_ui();
 

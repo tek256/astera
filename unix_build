@@ -35,5 +35,5 @@ if [ "$src_sum" != "$bld_sum" ]; then
 	cp -r res build
 fi
 
-make -j"$JOB_COUNT"
+make dynamic -j"$JOB_COUNT"
 mv astera build

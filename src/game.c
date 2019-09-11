@@ -20,15 +20,10 @@ static r_anim anim;
 static int dir_x[16];
 static int dir_y[16];
 
-static int buttons[MAX_JOY_BUTTONS];
-static float axes[12];
-
 static int ui_active = 1;
 static int ui_state = 0;
 
-static int fullscreen;
-static int vsync;
-static int borderless;
+static g_configer confer;
 
 int g_init(){
 	sheet  = r_get_sheet("res/tex/test_sheet.png", 16, 16);
@@ -58,8 +53,8 @@ int g_init(){
 	}
 
 	//buffer = a_get_buf(data, data_len);
-	music = a_create_music(data, data_len, NULL);
-	a_play_music(music);
+	//music = a_create_music(data, data_len, NULL);
+	//a_play_music(music);
 
 	for(int i=0;i<16;++i){
 		dir_x[i] = (rand() % 3) - 1;
@@ -88,13 +83,213 @@ int g_init(){
 		printf("XBOX FOUND!\n");
 	}
 
-	vsync = r_is_vsync();
-	fullscreen = r_is_fullscreen();
-	borderless = r_is_borderless();
-
+	g_set_configer();
 
 	_l("Initialized game.\n");
 	return 1;	
+}
+
+void g_set_configer(){
+	g_update_configer();
+	
+	confer.sub_window = G_CONF_DISPLAY;
+	confer.vidmode_select = 0;
+
+	confer.master = a_get_vol_master() * 100.f;
+	confer.sfx = a_get_vol_sfx() * 100.f;
+	confer.music = a_get_vol_music() * 100.f;
+
+	_l("[%f, %f, %f]\n", confer.master, confer.sfx, confer.music);
+}
+
+void g_update_configer(){
+	r_window_get_size(&confer.current_width, &confer.current_height);
+	
+	confer.ui_width = 720;
+	confer.ui_height = 360;
+
+	//max to size of window
+	if(confer.ui_width > confer.current_width) confer.ui_width = confer.current_width;
+	if(confer.ui_height > confer.current_height) confer.ui_height = confer.current_height;
+
+	confer.ui_x = (confer.current_width - confer.ui_width) / 2;
+	confer.ui_y = (confer.current_height - confer.ui_height) / 2;
+
+	confer.fullscreen = r_is_fullscreen();
+	confer.vsync = r_is_vsync();
+	confer.borderless = r_is_borderless();
+
+	confer.vidmode_max = r_get_vidmode_count();
+}
+
+void g_show_configer(){
+	if(r_ui_window(confer.ui_x, confer.ui_y, confer.ui_width, confer.ui_height)){
+		//header padding
+		r_ui_row(16, 1);
+		//option row
+		r_ui_row(25, 3);
+		if(confer.sub_window != G_CONF_DISPLAY){
+			if(r_ui_button("DISPLAY")){
+				confer.sub_window = G_CONF_DISPLAY;
+			}
+		}else {
+			r_ui_text("DISPLAY", 7, TEXT_ALIGN_CENTERED | TEXT_ALIGN_MIDDLE);
+		}
+
+		if(confer.sub_window != G_CONF_AUDIO){
+			if(r_ui_button("AUDIO")){
+				confer.sub_window = G_CONF_AUDIO;
+			}
+		}else{
+			r_ui_text("AUDIO", 5, TEXT_ALIGN_CENTERED | TEXT_ALIGN_MIDDLE);
+		}
+
+		if(confer.sub_window != G_CONF_GAME){
+			if(r_ui_button("GAME")){
+				confer.sub_window = G_CONF_GAME;
+			}
+		}else{
+			r_ui_text("GAME", 4, TEXT_ALIGN_CENTERED | TEXT_ALIGN_MIDDLE);
+		}
+
+		r_ui_row(15, 1);
+
+		switch(confer.sub_window){
+			case G_CONF_DISPLAY:
+				r_ui_row_start(32, 4);
+				r_ui_row_push(0.35f);
+				r_ui_spacing(1);
+
+				r_ui_row_push(0.2f);
+				if(r_ui_radio("Fullscreen", &confer.fullscreen)){
+					_l("Toggling fullscreen to: %i\n", confer.fullscreen);
+				}
+
+				r_ui_row_push(0.2f);
+				if(r_ui_radio("Borderless", &confer.borderless)) {
+					_l("Toggling borderless to: %i\n", confer.borderless);
+				}
+
+				r_ui_row_push(0.2f);
+				if(r_ui_radio("Vsync", &confer.vsync)){
+					_l("Toggling vsync to: %i\n", confer.vsync);
+				}
+
+				r_ui_row_end();
+
+				r_ui_row_start(32, 2);
+				
+				r_ui_row_push(0.35f);
+				r_ui_spacing(1);
+				r_ui_row_push(0.5f);
+
+				static char resolution_text[32];
+				int res_text_length = r_get_videomode_str(resolution_text, confer.vidmode_select);
+				//combo box resolution selector
+				if(r_ui_combo_start(resolution_text, r_ui_width(), 150)){
+					r_ui_row(25, 1);
+					for(int i=0;i<confer.vidmode_max;++i){
+						int res_text_length = r_get_videomode_str(resolution_text, i);
+						if(i != confer.vidmode_select){
+							if(r_ui_combo_item_label(resolution_text, TEXT_ALIGN_CENTERED | TEXT_ALIGN_MIDDLE)){
+								confer.vidmode_select = i;
+							}
+						}else{
+							r_ui_text(resolution_text, res_text_length, TEXT_ALIGN_CENTERED | TEXT_ALIGN_MIDDLE); 
+						}
+					}	
+					r_ui_combo_end();	
+				}
+
+				r_ui_row_end();
+
+				//r_ui_property(resolution_text, 0, &confer.vidmode_select, confer.vidmode_max-1, 1, 1);
+
+				//10px bottom padding	
+				r_ui_row(10, 1);
+				r_ui_row_start(30.f, 2);
+				r_ui_row_push(0.4f);
+				r_ui_spacing(1);
+				r_ui_row_push(0.2f);
+				if(r_ui_button("Apply")){
+					r_select_mode(confer.vidmode_select, confer.fullscreen, confer.vsync, confer.borderless);
+				}
+				r_ui_row_end();
+
+				r_ui_row(30, 1);
+
+				break;
+			case G_CONF_AUDIO:
+				r_ui_row(16, 4);
+				static char digit_text[6];
+				static int digit_text_length = 6;
+
+				static float master_vol = 0.f;
+				static float sfx_vol = 0.f;
+				static float music_vol = 0.f;
+				
+				r_ui_row_start(16, 4);
+				r_ui_row_push(0.1f);
+				r_ui_spacing(1);
+
+				r_ui_row_push(0.1f);
+				r_ui_text("MASTER", 6, TEXT_ALIGN_LEFT | TEXT_ALIGN_MIDDLE);
+
+				r_ui_row_push(0.1f);
+				memset(digit_text, 0, sizeof(char) * 6);
+				digit_text_length = sprintf(digit_text, "%i", (int)confer.master);	
+				r_ui_text(digit_text, digit_text_length, TEXT_ALIGN_RIGHT | TEXT_ALIGN_MIDDLE);
+
+				r_ui_row_push(0.4f);
+				if(r_ui_slider(0, &confer.master, 100.f, 1.f)){
+					//r_set_vol_master(confer.master);
+				}
+
+				r_ui_row_end();
+				r_ui_row_start(16, 4);
+				
+				r_ui_row_push(0.1f);
+				r_ui_spacing(1);
+				
+				r_ui_row_push(0.1f);
+				r_ui_text("SFX", 3, TEXT_ALIGN_LEFT | TEXT_ALIGN_MIDDLE);
+
+				r_ui_row_push(0.1f);
+				memset(digit_text, 0, sizeof(char) * 6);
+				digit_text_length = sprintf(digit_text, "%i", (int)confer.sfx);
+				r_ui_text(digit_text, digit_text_length, TEXT_ALIGN_RIGHT | TEXT_ALIGN_MIDDLE);
+
+				r_ui_row_push(0.4f);
+				if(r_ui_slider(0, &confer.sfx, 100.f, 1.f)){
+
+				}
+
+				r_ui_row_end();
+				r_ui_row_start(16, 4);
+
+				r_ui_row_push(0.1f);
+				r_ui_spacing(1);
+				
+				r_ui_row_push(0.1f);
+				r_ui_text("MUSIC", 5, TEXT_ALIGN_LEFT | TEXT_ALIGN_MIDDLE);
+
+				r_ui_row_push(0.1f);
+				memset(digit_text, 0, sizeof(char) * 6);
+				digit_text_length = sprintf(digit_text, "%i", (int)confer.music);
+				r_ui_text(digit_text, digit_text_length, TEXT_ALIGN_RIGHT | TEXT_ALIGN_MIDDLE);
+
+				r_ui_row_push(0.4f);
+				if(r_ui_slider(0, &confer.music, 100.f, 1.f)){
+				
+				}
+
+				break;
+			case G_CONF_GAME:
+				break;
+			default:
+				break;
+		}
+	}
 }
 
 void g_exit(){
@@ -103,86 +298,9 @@ void g_exit(){
 void g_input(long delta){
 	r_update_ui();
 	if(ui_active){
-		int width, height;
-		r_window_get_size(&width, &height);	
-
-		int ui_width = 720;
-		int ui_height = 360;
-
-		int offset_x = (width - ui_width) / 2;
-		int offset_y = (height - ui_height) / 2;
-
-		static float _slide = -1;
-		if(r_ui_window(offset_x, offset_y, 720, 360)){
-			//add spacing of 15px
-			r_ui_row(15, 1);
-			r_ui_row(30, 4);
-
-			static int op = 1;
-
-			if(fullscreen == -1 || vsync == -1 || borderless == -1 || _slide == -1){
-				fullscreen = r_is_fullscreen();
-				vsync = r_is_vsync();
-				borderless = r_is_borderless();
-				_slide = a_get_vol_master() * 100.f;
-			}
-
-			r_ui_row(25, 3);
-
-			static int _prog = 5;
-
-			//TODO progress bar styling
-			//r_ui_progress(&_prog, 100, 0);	
-
-			static const char* volume_text = "Volume";
-			static const int volume_text_length = 6;	
-			
-			r_ui_spacing(1);
-			r_ui_text(volume_text, volume_text_length, TEXT_ALIGN_LEFT);
-			r_ui_row(25, 3);
-			r_ui_spacing(1);
-			if(r_ui_slider(0.f, &_slide, 100.f, 1.f)){
-				a_set_vol_master(_slide / 100.f);
-				_l("Setting volume to: %f\n", _slide);	
-			}
-			r_ui_row(25, 4);
-			if(r_ui_radio("Fullscreen", &fullscreen)){
-				_l("Toggling fullscreen to: %i\n", fullscreen);
-			}
-			if(r_ui_radio("Vsync", &vsync)){
-				_l("Toggling vsync to: %i\n", vsync);
-			}
-			if(r_ui_radio("Borderless", &borderless)) {
-				_l("Toggling borderless to: %i\n", borderless);
-			}
-
-			static char res_prop[32];
-			static int res_len;
-			static int select = 0;
-			static int select_max = -1;
-
-			if(select_max == -1){
-				select_max = r_get_vidmode_count();
-			}
-
-			r_ui_row(30, 1);
-
-			memset(res_prop, 0, sizeof(char) * 32);
-
-			r_get_videomode_str(res_prop, select);
-
-			r_ui_property(res_prop, 0, &select, select_max-1, 1, 1);
-			r_ui_row(30, 3);
-			//void r_select_mode(int index, int fullscreen, int vsync, int borderless){
-			if(r_ui_button("Apply")) r_select_mode(select, fullscreen, vsync, borderless);
-			r_ui_row(45, 3);
-			r_ui_spacing(1);
-
-			if(r_ui_button("Close")) ui_active = 0; 
-		}
+		g_show_configer();
 		r_ui_end();
 	}else{
-		//i_get_joy_buttons(buttons, 12);
 		if(i_key_clicked('P')){
 			a_play_sfx(&buffer, NULL); 
 		}
@@ -237,14 +355,20 @@ void g_input(long delta){
 		if(change_x != 0 || change_y != 0){
 			r_move_cam(change_x, change_y);
 		}
+	}
 
-		if(i_key_clicked('I')){
-			ui_active = 1;
-		}
+	if(i_key_clicked('I')){
+		_l("BBBBBB\n");
+		ui_active = (ui_active) ? 0 : 1;
 	}
 
 	if(i_key_clicked(GLFW_KEY_ESCAPE)){
-		r_request_close();	
+		_l("AAAA\n");
+		if(ui_active){
+			ui_active = 0;
+		}else{
+			r_request_close();	
+		}
 	}
 
 }
