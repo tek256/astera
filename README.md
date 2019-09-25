@@ -39,6 +39,7 @@ If you're interested in helping contribute to this project, please consider supp
 		- ARMv7</code></pre> 
 </div>
 <div id="changelog">
+<h2>Change Log</h2>
 <pre><code>Sept 24, 2019
 - Added ZIP Functionality
 - Moved CONTRIBUTING.md & LICENSE into README.md
