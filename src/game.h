@@ -26,11 +26,18 @@ typedef struct {
 	
 	//game
 	char* save_dir;
+	//TIME IN GAME I GUESS
+	long game_time, start_time;
 } g_configer;
 
-void g_set_configer();
+/*
+void g_set_configer();	
 void g_update_configer();
 void g_show_configer();
+*/
+
+void g_init_ui();
+void g_update_ui();
 
 int g_init();
 void g_exit(); 

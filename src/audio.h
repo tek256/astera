@@ -14,7 +14,11 @@
 #include "platform.h"
 #include "debug.h"
 
-//#define AUDIO_DEFAULT_LAYERS
+#define AUDIO_FRAME_SIZE 4096
+#define AUDIO_DEFAULT_FRAMES_PER_BUFFER 8
+#define AUDIO_BUFFERS_PER_MUSIC 2
+
+#define AUDIO_DEFAULT_LAYERS
 
 #ifdef AUDIO_DEFAULT_LAYERS
 	#define AUDIO_SFX_LAYER 0
@@ -113,25 +117,32 @@ typedef struct {
 } a_req;
 
 typedef struct {
-	u32 sample_rate;
-    u32 sample_size;
-    u32 channels;
-
     int format;
     u32 source;
-    u32 buffers[4];
+    u32 buffers[AUDIO_BUFFERS_PER_MUSIC];
 	f32 gain;
 	
+	u32 current_sample;
 	u32 samples_left;
     u32 total_samples;
     stb_vorbis* vorbis;
 
+	u32* keyframes;
+	u32* keyframe_offsets;
+	u32 keyframe_count;
+
+	s32 sample_rate, sample_count;
+
+	s16 packets_per_buffer;
+
 	u8* data;
-	s32 used;
-	u32 len, pos;
+	s32 data_length, data_offset;
+	s32 header_end;
 
 	u16* pcm;
-	u16 pcm_len;
+	u16 pcm_length;
+
+	f32 delta;
 
 	a_req* req;
 	int has_req;
@@ -214,11 +225,10 @@ static int   a_get_open_sfx();
 int          a_create_context(const char* device_name);
 void         a_destroy_context();
 
-
 static void a_compute_stereo(short* output, int num_c, float** data, int d_offset, int len);
 static void  a_interleave_output(int buffer_c, short* buffer, int data_c, float** data, int data_offset, int length);
 
-a_music*     a_create_music(unsigned char* data, u32 length, a_req* req);
+a_music*     a_create_music(unsigned char* data, u32 length, s32 sample_count, s32* keyframes, s32* keyframe_offsets, s32 keyframe_size, a_req* req);
 int          a_update_music(a_music* music);
 void         a_destroy_music(a_music* music);
 

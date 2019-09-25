@@ -1,7 +1,7 @@
 OBJS := $(wildcard src/*.c)
 
 TARGET_CC := gcc
-TARGET_COMPILER_FLAGS := -w -std=c99
+TARGET_COMPILER_FLAGS := -w -std=c99 -g
 
 ifeq ($(OS),Windows_NT)
 	SHELL := cmd.exe
@@ -17,7 +17,7 @@ EXEC_NAME := astera
 
 ifeq ($(OS),Windows_NT)
 	RM_CMD := -del
-	TARGET_LINKER_FLAGS := -lopengl32 -lglfw3 -lgdi32 -lm -lopenal32
+	TARGET_LINKER_FLAGS := -lopengl32 -lglfw3 -lgdi32 -lm -lopenal32 -lzip
 	TARGET_EXEC_NAME := $(EXEC_NAME).exe
 	TARGET_COMPILER_FLAGS += -D WIN32
 else
@@ -25,11 +25,11 @@ else
 	RM_CMD := -rm
 	
 	ifeq ($(UNAME_S),Linux)
-		TARGET_LINKER_FLAGS := -lglfw3 -lGL -lGLU -lX11 -lXi -lXrandr -lXxf86vm -lXinerama -lpthread -ldl -lXcursor -lm -lopenal
+		TARGET_LINKER_FLAGS := -lglfw3 -lGL -lGLU -lX11 -lXi -lXrandr -lXxf86vm -lXinerama -lpthread -ldl -lXcursor -lm -lopenal -lzip
 		TARGET_EXEC_NAME := $(EXEC_NAME)
 		TARGET_COMPILER_FLAGS += -D LINUX
 	else ifeq ($(UNAME_S),Darwin)
-		TARGET_LINKER_FLAGS := -lGL -lGLU -lglfw -lX11 -lXxf86vm -lXrandr -lpthread -lXi -lXinerama -ldl -lXcursor -lopenal -lm
+		TARGET_LINKER_FLAGS := -lGL -lGLU -lglfw -lX11 -lXxf86vm -lXrandr -lpthread -lXi -lXinerama -ldl -lXcursor -lopenal -lm -lzip
 		TARGET_EXEC_NAME := $(EXEC_NAME).app
 		TARGET_COMPILER_FLAGS += -D OSX
 	endif

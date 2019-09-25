@@ -179,8 +179,10 @@ void   i_get_moues_delta(double* x, double* y);
 double i_get_delta_x();
 double i_get_delta_y();
 
-extern void  i_add_binding(const char* name, int value, int type);
+void  i_add_binding(const char* name, int value, int type);
 void  i_enable_binding_track(const char* key_binding);
+u16 i_binding_count();
+
 u16 i_binding_track();
 void  i_binding_track_callback(int value, int type);
 u16 i_get_binding_type(const char* key_binding);

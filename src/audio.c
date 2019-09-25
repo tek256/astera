@@ -39,17 +39,21 @@ int a_init(u32 master, u32 sfx, u32 music){
 		_map.sfx[i].has_req = 0;
 	}
 
+	unsigned int sources[MAX_SONGS];
+	unsigned int buffers[MAX_SONGS * AUDIO_BUFFERS_PER_MUSIC];
+
+	alGenSources(MAX_SONGS, &sources);
+	alGenBuffers(MAX_SONGS * AUDIO_BUFFERS_PER_MUSIC, &buffers);
+
 	for(int i=0;i<MAX_SONGS;++i){
-		u32 src_id;
-		u32 buff_ids[2];		
+
+		_map.songs[i].source = sources[i];
 		
-		alGenSources(1, &src_id);
-		alGenBuffers(2, &buff_ids);
-		
+		for(int j=0;j<AUDIO_BUFFERS_PER_MUSIC;++j){
+			_map.songs[i].buffers[j] = buffers[(i*AUDIO_BUFFERS_PER_MUSIC)+j];
+		}
+
 		_map.songs[i].gain = 1.f;
-		_map.songs[i].source = src_id;
-		_map.songs[i].buffers[0] = buff_ids[0];
-		_map.songs[i].buffers[1] = buff_ids[1];
 		_map.songs[i].has_req = 0;
 	}
 
@@ -221,63 +225,91 @@ void a_update(long delta){
 					alSourcef(mus->source, AL_GAIN, n_gain);
 				}
 
-				if(!vec3_cmp(mus->pos, req->pos)){
-					vec3_dup(mus->pos, req->pos);
-					alSource3f(mus->source, AL_POSITION, req->pos[0], req->pos[1], req->pos[2]);
-				}
+				alSource3f(mus->source, AL_POSITION, req->pos[0], req->pos[1], req->pos[2]);
 
 				ALenum state;
 				ALint proc;
 				alGetSourcei(mus->source, AL_SOURCE_STATE, &state);
 				alGetSourcei(mus->source, AL_BUFFERS_PROCESSED, &proc);
 
-				if(state == AL_STOPPED || req->stop){
+				if(req->stop){
 					alSourcei(mus->source, AL_BUFFER, 0);
+					alSourceStop(mus->source);
 					mus->req = NULL;	
 					mus->has_req = 0;
 				} else if(proc > 0){
-					int ending = 0;
-					int sample_count = 0;
-					int num_left = proc;
-
 					//Stop music
 					if(mus->samples_left <= 0 && req->loop){
-						alSourceStop(mus->source);
-
-						int offset = rand();
-						if(offset < 0) offset = -offset;
-						offset %= (mus->len / MAX_MUSIC_RUNTIME);
-
-						mus->pos = offset;
-
+						mus->data_offset = mus->header_end;
 						mus->samples_left = mus->total_samples;
 					}else if(mus->samples_left <= 0 && !req->loop){
 						alSourceStop(mus->source);
-						mus->pos = 0;	
+						mus->data_offset = 0;
+						req->stop = 1;	
 					}else{
-						for(int i=0;i<num_left;++i){
-							if(_map.songs[i].samples_left >= MAX_MUSIC_RUNTIME){
-								sample_count = MAX_MUSIC_RUNTIME;
-							}else {
-								sample_count = _map.songs[i].samples_left;
+						int max_samples;
+						for(int k=0;k<proc;++k){
+							if(mus->samples_left > AUDIO_FRAME_SIZE){
+								max_samples = AUDIO_FRAME_SIZE;
+							}else{
+								max_samples = mus->samples_left;
 							}
 
-							//TODO actually process the music
+							u32 buffer;
+							s32 al_err;
 
-							//Update buffers for the music by rotating it out
-							ALuint buff = 0;
-							ALint err;
-							alSourceUnqueueBuffers(mus->source, 1, &buff);
-							if((err = alGetError()) != AL_INVALID_VALUE){
-								alSourceQueueBuffers(mus->source, 1, &buff);
+							alSourceUnqueueBuffers(mus->source, 1, &buffer);
+						
+							memset(mus->pcm, 0, mus->pcm_length * sizeof(short));
+							s32 pcm_total_length = 0;
+							s32 pcm_index = 0, frame_size = 0;
+							s32 bytes_used = 0, num_samples = 0, num_channels = 0;
+							float** out;
+
+							for(int p=0;p<mus->packets_per_buffer;++p){
+								frame_size = mus->data_length - mus->data_offset;
+								if(frame_size > AUDIO_FRAME_SIZE) frame_size = AUDIO_FRAME_SIZE;	
+								bytes_used = stb_vorbis_decode_frame_pushdata(mus->vorbis, mus->data + mus->data_offset, frame_size, &num_channels, &out, &num_samples);	
+								if(!bytes_used){
+									_l("Unable to load samples from [%i] bytes.\n", frame_size);
+									continue;
+								}
+
+								mus->data_offset += bytes_used;
+
+								if(num_samples > 0){
+									int short_count = num_samples * num_channels;
+									int pcm_length = sizeof(short) * short_count;
+									pcm_total_length += pcm_length;
+									if(pcm_length + pcm_index > mus->pcm_length){
+										_e("Uhhh.\n");
+										break;
+									}
+
+									for(int s=0;s<num_samples;++s){
+										for(int c=0;c<num_channels;++c){
+											mus->pcm[pcm_index] = out[c][s] * 32767;
+											++pcm_index;
+										}
+									}
+								}
+							}
+
+							alBufferData(buffer, mus->format, mus->pcm, pcm_total_length, mus->vorbis->sample_rate); 
+
+							if((al_err = alGetError()) != AL_INVALID_VALUE){
+								alSourceQueueBuffers(mus->source, 1, &buffer);	
 							}else{
-								_e("Unable to unqueue audio buffer for music err [%i]: %i\n", err, buff);
+								_e("Unable to unqueue audio buffer for music err [%i]: %i\n", al_err, buffer);
 							}
 						}
+
+						if(proc == AUDIO_BUFFERS_PER_MUSIC){
+							alSourcePlay(mus->source);
+						}	
 					}	
 				}	
 			}	
-
 		}	
 	}
 }
@@ -530,7 +562,7 @@ a_sfx* a_play_sfx(a_buf* buff, a_req* req){
 
 
 
-a_music* a_create_music(unsigned char* data, u32 length, a_req* req){
+a_music* a_create_music(unsigned char* data, u32 length, s32 sample_count, s32* keyframes, s32* keyframe_offsets, s32 keyframe_count, a_req* req){
 	if(!data || !length){
 		_e("No data passed to create music.\n");
 		return NULL;
@@ -560,81 +592,109 @@ a_music* a_create_music(unsigned char* data, u32 length, a_req* req){
 		_e("Unable to get source for music initialization.\n");
 	}
 
-	s32 p, q, error;
+	s32 error, used;
 
-	p = 0;
-	q = 1;
-
-	music->len = length;
+	music->data_length = length;
 	music->data = data;
-	music->vorbis = stb_vorbis_open_pushdata(music->data, q, &music->used, &error, NULL);
-	
-	while(!music->vorbis){
-		if(error == VORBIS_need_more_data){
-			q += 1;
-			music->vorbis = stb_vorbis_open_pushdata(music->data, q, &music->used, &error, NULL);
-		}else{
-			_e("Unable to load vorbis data. errno: %i\n", error);
-			break;	
-		}
+	music->vorbis = stb_vorbis_open_pushdata(music->data, length, &used, &error, NULL);
+
+	if(!music->vorbis){
+		music->data = 0;
+		music->req = 0;
+		music->data_length = 0;
+		_l("Unable to load header from %i bytes.\n", length);
+		return NULL;
 	}
 
-	music->used += p;
+	music->header_end = used;	
 
-	if(music->vorbis == NULL){
-		_e("Audio data could not be loaded.\n");
-		data = 0;
-		return music;
-	}else{
-		stb_vorbis_info info = stb_vorbis_get_info(music->vorbis);
+	music->data_offset += used;
 
-		music->sample_rate = info.sample_rate;
-		music->sample_size = 16;
+	stb_vorbis_info info = stb_vorbis_get_info(music->vorbis);
 
-		if(info.channels > 0 && info.channels < 3){
-			music->channels = info.channels;
-		}else {
-			_e("Invalid channel size for audio system: %i\n", info.channels);
-			return 0;
-		}
+	music->sample_rate = info.sample_rate;
 
-		if(info.channels == 1){
-			music->format = AL_FORMAT_MONO16;
-		}else if(info.channels == 2){
-			music->format = AL_FORMAT_STEREO16;
-		}
+	if(info.channels < 0 || info.channels > 3){
+		_e("Invalid channel size for audio system: %i\n", info.channels);
+		return 0;
+	}
 
-		music->pcm_len = MAX_MUSIC_RUNTIME * music->sample_size / 8 * music->channels;
-		//music->pcm = calloc(music->pcm_len, 1);
+	if(info.channels == 1){
+		music->format = AL_FORMAT_MONO16;
+	}else if(info.channels == 2){
+		music->format = AL_FORMAT_STEREO16;
+	}
 
-		if(!music->pcm){
-			_e("Unable to allocate space for PCM in music: %i\n", music->pcm_len);
-			music->pcm = 0;
-			return 0;
-		}
+	music->pcm_length = AUDIO_FRAME_SIZE * AUDIO_DEFAULT_FRAMES_PER_BUFFER * info.channels;
+	music->pcm = malloc(music->pcm_length * sizeof(short));
+	memset(music->pcm, 0, sizeof(short) * music->pcm_length);
+	//music->pcm = calloc(music->pcm_len, 1);
+
+	if(!music->pcm){
+		_e("Unable to allocate space for PCM in music: %i\n", music->pcm_length);
+		music->pcm = 0;
+		music->data = 0;
+		music->data_length = 0;
+		music->pcm_length = 0;
+		return 0;
+	}
+
+	alSourcef(music->source, AL_PITCH, 1.f);
+	music->total_samples = sample_count;
+
+	music->keyframes = keyframes;
+   	music->keyframe_offsets = keyframe_offsets;
+	music->keyframe_count = keyframe_count;	
 
 
-		alSourcef(music->source, AL_PITCH, 1.f);
+	for(int i=0;i<AUDIO_BUFFERS_PER_MUSIC;++i){
+		unsigned int buffer = music->buffers[i];
+		int pcm_index = 0, pcm_total_length = 0;
+		int bytes_used, num_channels, num_samples;
+		int frame_size = 0;
+		float** out;
 
-		if(music->channels == 2){
-			u32 id[2];
-			alGenBuffers(2, &id);
+		memset(music->pcm, 0, music->pcm_length);
 
-			music->buffers[2] = id[0];
-			music->buffers[3] = id[1];	
-		}
+		for(int j=0;j<music->packets_per_buffer;++j){
+			frame_size = music->data_length - music->data_offset;
+			if(frame_size > AUDIO_FRAME_SIZE) frame_size = AUDIO_FRAME_SIZE;
+			bytes_used = stb_vorbis_decode_frame_pushdata(music->vorbis, music->data + music->data_offset, frame_size, &num_channels, &out, &num_samples);
 
-		music->total_samples = (u32)stb_vorbis_stream_length_in_samples(music->vorbis);
-		music->samples_left = music->total_samples;
+			if(bytes_used == 0){
+				_e("Unable to process samples out of [%i] bytes.\n", frame_size);
+				break;
+			}
 
-		if(req){
-			alSourcef(music->source, AL_GAIN, req->gain);
-			music->loop = req->loop;
+			music->data_offset += bytes_used;
 
-			if(req->loop){
-				alSourcei(music->source, AL_LOOPING, AL_TRUE);
+			if(num_samples){
+				int sample_count = num_channels * num_samples;
+				int pcm_size = sample_count * sizeof(short);
+				pcm_total_length += pcm_size;
+
+				for(int s=0;s<num_samples;++s){
+					for(int c=0;c<num_channels;++c){
+						music->pcm[pcm_index] = out[c][s] * 32676;
+						++pcm_index;
+					}
+				}
 			}
 		}
+
+		alBufferData(buffer, music->format, music->pcm, pcm_total_length, music->vorbis->sample_rate);
+		alSourceQueueBuffers(music->source, 1, buffer);
+	}
+
+	//music->total_samples = (u32)stb_vorbis_stream_length_in_samples(music->vorbis);
+	//music->samples_left = music->total_samples;
+
+	if(req){
+		alSourcef(music->source, AL_GAIN, req->gain);
+		music->loop = req->loop;
+
+		//NOTE: AL_LOOPING will repeat a buffer, not a multi buffered object like a song
+		//alSourcei(music->source, AL_LOOPING, AL_TRUE);
 	}
 
 	return music;

@@ -11,6 +11,14 @@ if [ ! -d "build" ]; then
 		cmake -G "Unix Makefiles"
 		make
 		cd ../../
+	fi
+
+	if [ ! -f "dep/zip/CMakeCache.txt" ]; then
+		echo "Building Zip."
+		cd dep/zip/
+		cmake -G "Unix Makefiles"
+		make
+		cd ../../
 	fi	
 
 	if [ ! -f "dep/openal-soft/CMakeCache.txt" ]; then

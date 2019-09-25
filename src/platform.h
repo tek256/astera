@@ -1,6 +1,8 @@
 #ifndef PLAT_H
 #define PLAT_H
 
+#include <stdint.h>
+
 //Define POSIX features for C99
 #if !defined(_XOPEN_SOURCE) && !defined(_POSIX_C_SOURCE)
 #if defined(__cplusplus)
@@ -65,13 +67,15 @@
 #define INCLUDE_TYPES
 #ifdef INCLUDE_TYPES 
 
-typedef unsigned int   u32;
-typedef unsigned short u16;
-typedef unsigned char  u8;
+typedef uint8_t  u8;
+typedef uint16_t u16;
+typedef uint32_t u32;
+typedef uint64_t u64;
 
-typedef char  s8;
-typedef short s16;
-typedef int   s32;
+typedef int8_t  s8;
+typedef int16_t s16;
+typedef int32_t s32;
+typedef int64_t s64;
 
 typedef float  f32;
 typedef double f64;

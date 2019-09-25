@@ -12,31 +12,6 @@
 #include "platform.h"
 #include "conf.h"
 
-/* UI COLORS */
-
-#define COLOR_RED 253,34,45
-
-#define dark0 15,15,15
-#define dark1 22,22,22
-
-enum text_align {
-    TEXT_ALIGN_LEFT        = 0x01,
-    TEXT_ALIGN_CENTERED    = 0x02,
-    TEXT_ALIGN_RIGHT       = 0x04,
-    TEXT_ALIGN_TOP         = 0x08,
-    TEXT_ALIGN_MIDDLE      = 0x10,
-    TEXT_ALIGN_BOTTOM      = 0x20
-};
-
-enum text_alignment {
-    TEXT_LEFT        = TEXT_ALIGN_MIDDLE|TEXT_ALIGN_LEFT,
-    TEXT_CENTERED    = TEXT_ALIGN_MIDDLE|TEXT_ALIGN_CENTERED,
-    TEXT_RIGHT       = TEXT_ALIGN_MIDDLE|TEXT_ALIGN_RIGHT
-};
-
-
-/* END OF UI COLORS */
-
 
 //max number of quads to draw at once
 #define RENDER_BATCH_SIZE 128
@@ -55,9 +30,6 @@ enum text_alignment {
 
 //max length of an animation in frames
 #define RENDER_ANIM_MAX_FRAMES 32
-
-#define RENDER_UI_MAX_VERT_BUFFER 512 * 1024
-#define RENDER_UI_MAX_ELEMENT_BUFFER 128 * 1024
 
 typedef struct {
 	int allowed;
@@ -79,7 +51,6 @@ typedef struct {
 	int close_requested;
 	int refreshRate;
 	GLFWwindow* glfw;
-	struct nk_context* ui;
 } r_window;
 
 typedef struct {
@@ -232,20 +203,8 @@ typedef struct {
 	u32 uid;
 } r_drawable_cache; 
 
-typedef struct {
-	struct nk_font_atlas* nk;
-} r_ui_font_atlas;
-
-typedef struct {
-	struct nk_font* nk;
-	const char* fp;
-	float size;
-} r_ui_font;
-
 static r_window g_window;
 static r_camera g_camera;
-
-static r_ui_font_atlas _atlas;
 
 static r_anim_cache g_anim_cache;
 static r_drawable_cache g_drawable_cache;
@@ -273,31 +232,6 @@ void r_draw_call(r_shader shader, r_sheet* sheet);
 struct nk_context* r_get_ctx();
 
 void r_ui_set_style();
-
-r_ui_font r_add_font(const char* filepath, float font_size);
-
-//blank window
-int  r_ui_end();
-int  r_ui_window(float x, float y, float w, float h);
-int  r_ui_window_t(const char* title, float x, float y, float w, float h);
-int  r_ui_button(const char* label);
-int  r_ui_checkbox(const char* label, int value);
-int  r_ui_option(const char* label, int value);
-int  r_ui_radio(const char* label, int* value);
-void r_ui_row(float height, int columns);
-int  r_ui_slider(float min, float* value, float max, float step);
-int  r_ui_progress(int* value, int end, int modifiable);
-void r_ui_text(const char* text, int text_len, int flags);
-void r_ui_text_colored(const char* text, int text_len, int flags, vec3 color);
-void r_ui_property(const char* text, int min, int* value, int max, int inc, float inc_per_pix);
-void r_ui_spacing(int cols);
-void r_ui_row_push(float ratio);
-void r_ui_start_row(float height, int columns);
-void r_ui_end_row();
-int r_ui_combo_start(const char* text, float width, float height);
-void r_ui_combo_end();
-int r_ui_combo_item_label(const char* text, int alignment);
-int r_ui_width();
 
 void r_draw_ui();
 

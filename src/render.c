@@ -223,10 +223,7 @@ void r_update_batch(r_shader shader, r_sheet* sheet){
 	}
 }
 
-struct nk_context* r_get_ctx(){
-	return g_window.ui;
-}
-
+/*
 void r_ui_set_style(){
 	struct nk_context* ctx = g_window.ui;
 
@@ -237,17 +234,12 @@ void r_ui_set_style(){
 	ctx->style.window.border = 2;
 
 	//ctx->style.progress.normal = nk_style_item_color(nk_rgb(COLOR_RED));
-	ctx->style.progress.border_color = nk_rgb(dark1);
+	//ctx->style.progress.border_color = nk_rgb(dark1);
 	ctx->style.progress.border = 0;
 	ctx->style.progress.rounding = 1;
 
 	//window header	
 
-}
-
-r_ui_font r_ui_add_font(const char* fp, float size){
-	struct nk_font* nk = nk_font_atlas_add_from_file(_atlas.nk, fp, size, 0);
-	return (r_ui_font){nk, fp, size};
 }
 
 int r_ui_end(){
@@ -334,9 +326,12 @@ int r_ui_width(){
 	return nk_widget_width(g_window.ui);
 }
 
-void r_draw_ui(){
-	nk_glfw3_render(NK_ANTI_ALIASING_ON, RENDER_UI_MAX_VERT_BUFFER, RENDER_UI_MAX_ELEMENT_BUFFER); 
+void r_ui_edit_string(char* str_buff, int* length, int max_length, int flags){
+	nk_edit_string(g_window.ui, flags | NK_EDIT_FIELD, str_buff, length, max_length, nk_filter_default);
 }
+
+void r_draw_ui(){
+}*/
 
 void r_draw_call(r_shader shader, r_sheet* sheet){
 	if(!shader || !g_drawable_cache.count) return;
@@ -1288,18 +1283,9 @@ int r_create_window(r_window_info info){
 
 	_l("Initializing UI.\n");
 	struct nk_context* ui_ctx = nk_glfw3_init(window, NK_GLFW3_INSTALL_CALLBACKS);
-	g_window.ui = ui_ctx;
+	//u_init(ui_ctx);
 	
 	//Add UI Font
-	struct nk_font_atlas* atlas;
-	nk_glfw3_font_stash_begin(&atlas);
-	_atlas = (r_ui_font_atlas){atlas};
-	r_ui_font proggy = r_ui_add_font("res/fnt/Proggy.ttf", 13);
-	//struct nk_font* proggy  = nk_font_atlas_add_from_file(atlas, "res/fnt/Proggy.ttf", 13, 0);
-	nk_glfw3_font_stash_end();
-	nk_style_set_font(ui_ctx, &proggy.nk->handle);
-
-	r_ui_set_style();
 	_l("Setting Callbacks.\n");
 
 	glfwSetWindowPosCallback(g_window.glfw, glfw_window_pos_cb);

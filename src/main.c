@@ -1,11 +1,11 @@
 #define EXCLUDE_CREATE
 
+#define _POSIX_C_SOURCE 199309L
 #include "platform.h"
 
+#include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
-
-#include <time.h>
 #include <unistd.h>
 
 #include "conf.h"
