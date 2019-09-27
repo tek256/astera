@@ -4,7 +4,7 @@
       <b>astera</b><br>
 	  <span font-size="16px">a cross platform game library</span><br>
       <span font-size="12px">Made by <a href="http://tek256.com">Devon</a> with love.</span><br><br>
-      <span><a href="https://github.com/tek256/astera/wiki/Getting-Started/">Getting Started</a> | <a href="https://github.com/tek256/astera-tools">Tools</a> | <a href="https://discordapp.com/invite/63GvpMh">Discord</a> | <a href="https://patreon.com/tek256/">Patreon</a></span>
+      <span><a href="https://github.com/tek256/astera/wiki/Getting-Started/">Getting Started</a> | <a href="https://github.com/tek256/astera-tools">Tools</a> | <a href="https://discordapp.com/invite/63GvpMh">Discord</a> | <a href="https://patreon.com/tek256/>Patreon</a></span>
     </p>
 </div>
 <div id="about">
@@ -39,7 +39,6 @@ If you're interested in helping contribute to this project, please consider supp
 		- ARMv7</code></pre> 
 </div>
 <div id="changelog">
-<h2>Change Log</h2>
 <pre><code>Sept 24, 2019
 - Added ZIP Functionality
 - Moved CONTRIBUTING.md & LICENSE into README.md

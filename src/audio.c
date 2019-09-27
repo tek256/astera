@@ -11,6 +11,8 @@
 
 #include "audio.h"
 
+#include "asset.h"
+
 #undef STB_VORBIS_HEADER_ONLY
 #include <stb/stb_vorbis.c>
 
@@ -560,7 +562,12 @@ a_sfx* a_play_sfx(a_buf* buff, a_req* req){
 	return src;
 }
 
+a_keyframes a_get_keyframes(const char* name){
 
+
+	a_keyframes keyframes;
+		
+}
 
 a_music* a_create_music(unsigned char* data, u32 length, s32 sample_count, s32* keyframes, s32* keyframe_offsets, s32 keyframe_count, a_req* req){
 	if(!data || !length){

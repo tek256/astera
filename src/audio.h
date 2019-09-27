@@ -117,6 +117,12 @@ typedef struct {
 } a_req;
 
 typedef struct {
+	char** names;
+	int* offsets;
+	int count;
+} a_keyframes;
+
+typedef struct {
     int format;
     u32 source;
     u32 buffers[AUDIO_BUFFERS_PER_MUSIC];
@@ -228,6 +234,7 @@ void         a_destroy_context();
 static void a_compute_stereo(short* output, int num_c, float** data, int d_offset, int len);
 static void  a_interleave_output(int buffer_c, short* buffer, int data_c, float** data, int data_offset, int length);
 
+a_keyframes  a_get_keyframes(const char* name);
 a_music*     a_create_music(unsigned char* data, u32 length, s32 sample_count, s32* keyframes, s32* keyframe_offsets, s32 keyframe_size, a_req* req);
 int          a_update_music(a_music* music);
 void         a_destroy_music(a_music* music);

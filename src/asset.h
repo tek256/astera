@@ -23,7 +23,9 @@ typedef struct {
 
 typedef struct {
 	asset_t* assets;
-	unsigned int asset_count;	
+	unsigned int count;	
+	unsigned int capacity;
+	const char* name;
 } asset_map_t;
 
 typedef struct {
@@ -32,16 +34,36 @@ typedef struct {
 	u16 save_capacity;
 } asset_flags;
 
+typedef struct {
+	const char* name;
+	unsigned char* data;
+	unsigned int length;
+	asset_map_t* map_to;
+	int filled : 1;
+} asset_req_t;
+
+typedef struct {
+	const char* archive;
+	asset_req_t* reqs;
+	int count;
+	int capacity;
+} asset_req_stack_t; 
+
 //leave these as pointers for when they're allocated
 static asset_map_t* asset_maps[ASSET_MAX_MAPS];
 static int asset_map_count = 0;
 
 static asset_flags flags;
+static asset_req_stack_t req_stack;
 
+asset_t* asset_to_map(asset_t asset, asset_map_t* map);
 asset_t load_asset(const char* archive, const char* filename);
+asset_req_t* asset_request(const char* archive, const char* filename, asset_map_t* map_to);
 
-void asset_save(asset_t* a);
-asset_map_t* asset_load_cache(const char* filename, const char* section);
+void asset_pop_stack();
+void asset_clear_stack();
+
+asset_map_t* asset_create_map(const char* name, unsigned int capacity);
 void asset_destroy_cache(asset_map_t* map); 
 
 #endif
