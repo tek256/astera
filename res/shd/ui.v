@@ -1,36 +1,52 @@
 #version 330
 
+#define MAX_PASS 128
+
 layout(location = 0) in vec4 vert;
 
-uniform float unit_size;
-
-uniform int sub_tex = -1;
-
-uniform vec2 tex_size;
-uniform vec2 sub_size;
-
-uniform vec2 offset;
-uniform vec2 scale;
 uniform mat4 proj;
 
-out vec2 tex_coord;
+uniform vec2 tex_size; 
+
+uniform int draw_mode = 0; // 0 = standard, 1 = text
+
+uniform vec4 texcoords[MAX_PASS];
+uniform vec4 posoffsets[MAX_PASS];
+uniform vec3 colors[MAX_PASS];
+
+out int color_mode;
+out vec3 _color;
+out vec2 _texc;
 
 void main(){
-	vec2 tex_c = vert.zw;
+	vec2 tex_coord = vert.zw;
+	vec4 pass_coord = texcoords[gl_InstanceID];
+	vec3 color = colors[gl_InstanceID];
 
-	if(sub_tex != -1){
-		int per_width = int(tex_size.x / sub_size.x);
-		vec2 _offset = vec2(sub_size.x * (_tex_id % per_width), sub_size.y * (_tex_id / per_width));
-	
-		tex_c = (_offset / tex_size) + (sub_size / tex_size)  * tex_c;
+	if(draw_mode == 0){
+		vec2 sub_size = texcoords[gl_InstanceID].xy;
 
-		tex_coord = tex_c;
+		int per_width = sub_size.x / tex_size.x;
+		int tex_id = (int)texcoords[gl_InstanceID].z; 
+		int sub_x = tex_id % per_width;
+		int sub_y = tex_id / per_width;
+		vec2 _texcoord = (vec2(sub_x * sub_size.x, sub_y * sub_size.y) / tex_size) * tex_coord;
+
+		_texc = _texcoord;
+	}else{
+		//TODO refactor into less operations
+		vec2 _sub_size = vec2(pass_coord.z - pass_coord.x, pass_coord.w - pass_coord.y);
+		vec2 _sub_offfset = vec2(pass_coord.x, pass_coord.y);
+		vec2 _texcoord = ((_sub_size / tex_size) + (_sub_offset / tex_size)) * tex_coord;
+		
+		_texc = _texcoord;	
 	}
 
-	vec3 pos = vec3(offset, 1) + vec3(vert.xy, 1);
-	pos *= vec3(scale, 1.0);
+	_color = color;
 	
-	//TODO pixel clamping	
-	vec4 out_position = proj * vec4(pos.x, pos.y, 1.0);
-	gl_Postition = out_position;
+	mat4 model;
+	translate(model, vec4(posoffsets[gl_InstanceID].xy, 0.0, 1.0));
+	scale(model, vec4(posoffsets[gl_InstanceID].zw, 1.0, 1.0));
+
+	gl_Position = proj * model * vec4(vert.xy, 1.0);
 }

@@ -41,6 +41,8 @@ int a_init(u32 master, u32 sfx, u32 music){
 		_map.sfx[i].has_req = 0;
 	}
 
+	_map.sfx_count = MAX_SFX;
+
 	unsigned int sources[MAX_SONGS];
 	unsigned int buffers[MAX_SONGS * AUDIO_BUFFERS_PER_MUSIC];
 
@@ -58,6 +60,8 @@ int a_init(u32 master, u32 sfx, u32 music){
 		_map.songs[i].gain = 1.f;
 		_map.songs[i].has_req = 0;
 	}
+
+	_map.song_count = MAX_SONGS;
 
 	float master_f = master / 100.f;
 	_listener.gain = master_f;
@@ -177,6 +181,16 @@ void a_exit(){
 		return;
 	}
 
+	for(int i=0;i<_map.song_count;++i){
+		alDeleteSources(1, &_map.songs[i].source);
+		alDeleteBuffers(AUDIO_BUFFERS_PER_MUSIC, &_map.songs[i].buffers);
+	}
+
+	for(int i=0;i<_map.sfx_count;++i){
+		alDeleteSources(1, &_map.sfx[i].id);
+	}
+
+	alcMakeContextCurrent(NULL);
 	alcDestroyContext(_ctx.context);
 	alcCloseDevice(_ctx.device);
 }
@@ -348,7 +362,9 @@ int a_create_context(const char* device_name){
 	}
 	_ctx = (a_ctx){context, device};
 
+#if defined(INIT_DEBUG)
 	_l("Loaded audio device.\n");
+#endif
 
 	return 1;
 }

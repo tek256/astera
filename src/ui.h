@@ -2,225 +2,165 @@
 #define UI_H
 
 #include <linmath.h>
-#include <nuklear.h>
 #include "platform.h"
+#include "render.h"
 
-#define U_TEXT 1
-#define U_TEXT_COLOR 2
-#define U_OPTION 3
-#define U_RADIO 4
-#define U_CHECK 5
-#define U_BUTTON 6
-#define U_SLIDER 7
-#define U_PROGRESS 8
-#define U_EDIT_STR 9
-
-#define U_ROW_CUSTOM 0
-#define U_ROW_STANDARD 1
-#define U_ROW_PADDING 2
-
-#define MAX_VERT_BUFFER 512 * 1024
-#define MAX_ELEMENT_BUFFER 128 * 1024
-
-enum text_align {
-    TEXT_ALIGN_LEFT        = 0x01,
-    TEXT_ALIGN_CENTERED    = 0x02,
-    TEXT_ALIGN_RIGHT       = 0x04,
-    TEXT_ALIGN_TOP         = 0x08,
-    TEXT_ALIGN_MIDDLE      = 0x10,
-    TEXT_ALIGN_BOTTOM      = 0x20
-};
-
-enum text_alignment {
-    TEXT_LEFT        = TEXT_ALIGN_MIDDLE|TEXT_ALIGN_LEFT,
-    TEXT_CENTERED    = TEXT_ALIGN_MIDDLE|TEXT_ALIGN_CENTERED,
-    TEXT_RIGHT       = TEXT_ALIGN_MIDDLE|TEXT_ALIGN_RIGHT
-};
+#define UI_BUFFER_SIZE 4096
 
 typedef struct {
-	struct nk_context* nk;	
-} u_ctx;
+	u16 x, y;
+	u16 width, height;
+	u16 layer;
+} u_bounds_t;
 
 typedef struct {
+	u_bounds_t bounds;
 	u16 uid;
-	u16 prev;
-	u16 next;
-} u_focus_link;
-
-typedef struct {
-	u_focus_link* start;
-	u_focus_link* selected;
-	u16 length;
-	u16 loop;
-} u_focus_group;
-
-typedef struct {
-	const char* str;
-	u16 str_len;
-	u16 flags;
-} u_text_t;
-
-typedef struct {
-	const char* str;
-	u16 str_len;
-	vec3 color;
-	u16 flags;
-} u_text_color_t;
-
-typedef struct {
-	const char* text;
-	u16 value;
-} u_option_t;
-
-typedef struct {
-	const char* text;
-	u32* value;
-} u_radio_t;
-
-typedef struct {
-	const char* text;
-	u16 value;
-} u_check_t;
-
-typedef struct {
 	const char* text;
 } u_button_t;
 
 typedef struct {
-	float min;
-	float* value;
-	float max;
-	float step;
+	u_bounds_t bounds;
+	u16 uid;
+	const char* text;
+} u_text_t;
+
+typedef struct {
+	u_bounds_t bounds;
+	u16 uid;
+	int state;
+} u_check_t;
+
+typedef struct {
+	u_bounds_t bounds;
+	u16 uid;
+	int max, value, step;
 } u_slider_t;
 
 typedef struct {
-	u16* value;
-	u16 end;
-	u16 modifiable;
-} u_progress_t;
-
-typedef struct {
-	char* str_buff;
-	u16* length;
-	u16 max_length;
-	u16 flags;
-} u_edit_str_t;
-
-typedef struct {
+	u_bounds_t bounds;
 	u16 uid;
-	u16 column;
-	u16 type;
-	const char* name;
-	union {
-		u_text_t text;
-		u_text_color_t text_color;
-		u_option_t option;
-		u_radio_t radio;
-		u_check_t check;
-		u_button_t button;
-		u_slider_t slider;
-		u_progress_t progress;
-		//NOTE: implement if needed
-		//u_edit_str_t edit_str;
-	} data;
-} u_element;
+	r_sheet sheet;
+	u16 sub_img;
+	vec2 min, max;
+} u_img_t;
 
 typedef struct {
-	u16 columns;
-	u16 standard;
-	float height;
-	u_element* elements;
-	u16 element_count;
-	float* ratios;
-	u16 ratio_count;
-} u_row_t;
-
-typedef struct {
+	u_bounds_t bounds;
 	u16 uid;
-	char name[8];
-	u_row_t* rows;
+	vec3 color;
+} u_box_t;
+
+typedef struct {
+	u_bounds_t bounds;
+	u16 uid;
+	u16 option_count, selected;
+	u16 active, rows;
+	const char** options;
+} u_dropdown_t;
+
+typedef struct {
+	u_bounds_t bounds;
+	u16 uid;
 	u16 count;
-	u_focus_group focus;	
-} u_section;
 
-typedef struct {
-	u16 columns;
-	float height;
+	u_img_t* imgs;		
+	u16 img_count, img_cap;
+
+	u_box_t* boxes;
+	u16 box_count, box_cap;
+
+	u_dropdown_t* dropdowns;
+	u16 drop_count, drop_cap;
+
+	u_text_t* texts;
+	u16 text_count, text_cap;
+
+	u_button_t* buttons;
+	u16 button_count, button_cap;
 	
-	u_element* elements;
-	u16 element_count;
-	u16 element_capacity;
+	u_check_t* checks;
+	u16 check_count, check_cap;	
 
-	float* ratios;
-	u16 ratio_count;
-	u16 ratio_capacity;
-} u_row_con;
+	u_slider_t* sliders;
+	u16 slider_count, slider_cap;
+} u_window_t;
 
 typedef struct {
-	u16 uid;
-	char name[8];
-	u_row_t* rows;
-	u16 row_count;
-	u16 row_capacity;
+	u_window_t* windows;
+	u16 count, capacity;
+	u32 element_count;
+	u16 selected_window;
 
-	u_focus_link* focus_linkage;
-	u16 focus_count;
-	u16 focus_capacity;
-} u_section_con;
+	u16 selected_element;
 
-//create the arrays
-void u_init(struct nk_context* handle);
+	u32 texture;
 
-void u_con_start();
-void u_con_end();
+	u32 quad;
+	u32 quad_count;
 
-u16 u_check_add();
+	vec2 tex_size;
 
-void u_set_style();
+	vec3 colors[UI_BUFFER_SIZE];
+	vec4 texcs[UI_BUFFER_SIZE]; //0,1 = sub_size, 2 = tex_id
+	vec4 bounds[UI_BUFFER_SIZE]; //0,1 = size, 1,2 = offset 
 
-u16  u_start();
-u16  u_end();
+	r_font* font;
+	vec2 text_tex_size;
+	u32 text_count;
+	vec3 text_colors[UI_BUFFER_SIZE];
+	vec4 text_texcoords[UI_BUFFER_SIZE];
+	vec4 text_bounds[UI_BUFFER_SIZE];
+} u_context_t;
 
-u16  u_section_start(const char* name);
-u16  u_section_name(const char* name);
-u16  u_section_end();
+typedef struct {
+	vec3 window_bg;
+	vec3 button_focus_bg;
+	vec3 button_focus_fg;
+	vec3 button_bg;
+	vec3 button_fg;
+	vec3 text_fg;
+	vec3 slider_bg;
+	vec3 slider_fg;
+	vec3 slider_focus_bg;
+	vec3 slider_focus_fg;
+	vec3 dropdown_bg;
+	vec3 dropdown_fg;
+	vec3 dropdown_focus_bg;
+	vec3 dropdown_focus_fg;	
+	vec3 check_bg;
+	vec3 check_fg;
+	vec3 check_focus_bg;
+	r_font default_font;
+} u_colors_t;
 
-void u_draw_section(const char* name);
+static u_context_t u_context;
+static u_colors_t u_colors;
 
-void u_focus_add(u16 uid, u16 prev, u16 next);
-u16  u_focused();
+void u_render();
 
-u16  u_button(const char* name, const char* msg);
-u16  u_window(const char* name, float x, float y, float w, float h);
-u16  u_window_t(const char* name, const char* title, float x, float y, float w, float h);
-u16  u_checkbox(const char* name, const char* label, int value);
-u16  u_option(const char* name, const char* label, int value);
-u16  u_radio(const char* name, const char* label, int* value);
-void u_text(const char* text, u16 text_length, u16 flags);
-void u_color_text(const char* text, u16 text_length, u16 flags, vec3 color);
-u16  u_slider(const char* name, float min, float* value, float max, float step);
-u16  u_progress(const char* name, u16* value, u16 end, u16 modifiable);
-/* TODO implement if needed
- * void u_edit_str(char* str_buff, u16* length, u16 max_length, u16 flags);*/
+u16 u_init();
 
-void u_row(float height, int columns);
-void u_row_padding(float height);
+void u_set_texture(unsigned int texture);
 
-u16  u_row_add(u_element element);
+void u_add_quad(u_bounds_t bounds, vec2 sub_size, unsigned int tex_id, vec3 color);
 
-void u_row_start(float height, int columns);
-void u_row_push(float ratio);
-void u_row_end();
+void u_add_text(u_bounds_t bounds, const char* text, vec3 color);
+s16 u_check_buffer(void** buffer, u16 element_size, u16* count, u16* capacity, u16 grow);
 
-void u_space(int columns);
+void u_set_color(u_colors_t* colors, const char* str, const char* color);
 
-u16  u_combo_start(const char* text, float width, float height);
-u16  u_combo_label(const char* text, u16 flags);
-void u_combo_end();
+u16 u_select_window(u_window_t* window);
+u_window_t* u_get_selected_window();
 
-u16  u_width();
-void u_push_event(u16 uid);
-u16  u_has_event(u16 uid);
-void u_update();
+u_window_t* u_window(u_context_t* context, u_bounds_t bounds);
+u_button_t* u_button(u_bounds_t bounds, const char* text);
+u_text_t* u_text(u_bounds_t bounds, const char* text);
+u_check_t* u_check(u_bounds_t bounds, u16 state);
+u_slider_t* u_slider(u_bounds_t bounds, int step, int max, int value);
+u_dropdown_t* u_dropdown(u_bounds_t bounds, const char** options, u16 option_count, u16 selected_option);
+
+u_img_t* u_img(u_bounds_t bounds, r_sheet sheet, unsigned int sub_tex);
+u_box_t* u_box(u_bounds_t bounds, vec3 color);
 
 #endif

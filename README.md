@@ -39,6 +39,7 @@ If you're interested in helping contribute to this project, please consider supp
 		- ARMv7</code></pre> 
 </div>
 <div id="changelog">
+<h2>Change Log</h2>
 <pre><code>Sept 24, 2019
 - Added ZIP Functionality
 - Moved CONTRIBUTING.md & LICENSE into README.md
@@ -49,7 +50,7 @@ If you're interested in helping contribute to this project, please consider supp
 <div id="license">
 	<h2>License</h2>
 	<p>The Unlicense</p>
-	<pre><code>This is free and unencumbered software released into the public domain.
+<pre><code>This is free and unencumbered software released into the public domain.
 
 Anyone is free to copy, modify, publish, use, compile, sell, or
 distribute this software, either in source code form or as a compiled
@@ -72,5 +73,4 @@ OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
 ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 OTHER DEALINGS IN THE SOFTWARE.
 
-For more information, please refer to <http://unlicense.org></code></pre>
-</div>
+For more information, please refer to <http://unlicense.org></code></pre></div>

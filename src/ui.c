@@ -1,524 +1,448 @@
 #include "ui.h"
+#include "render.h"
 
-#ifdef INC_UI
+#include <stb/stb_truetype.h>
 
-#include "input.h"
 #include <string.h>
 
-static u_ctx _ctx;
-
-//non-zero starting IDs to allow for null pointing
-static u16 element_id = 1;
-static u_section* active_section;
-static u_section* sections;
-static u16 section_count = 0;
-
-static u_section_con* con_sec;
-static u_row_con* con_row;
-
-static u16 element_events[16];
-static u16 event_count;
-
-//create the arrays
-void u_init(struct nk_context* handle){
-	_ctx = (u_ctx){handle};
-	u_set_style();
-	memset(element_events, 0, sizeof(u16) * 16);
-	event_count = 0;
+void u_push_frame(mat4x4 proj){
+	glBindVertexArray(u_context.quad);
 }
 
-void u_con_start(){
-	con_sec = (u_section_con*)malloc(sizeof(u_section_con));
-	con_sec->rows = (u_row_t*)malloc(sizeof(u_row_con) * 4);
-	con_sec->row_capacity = 4;
-	con_sec->focus_linkage = (u_focus_link*)malloc(sizeof(u_focus_link) * 8);
-	con_sec->focus_count = 0;
-	con_sec->focus_capacity = 8;
-	
-	con_row = (u_row_con*)malloc(sizeof(u_row_con));
-	con_row->ratios = (float*)malloc(sizeof(float) * 8);
-	con_row->ratio_capacity = 8;
-	con_row->elements = (u_element*)malloc(sizeof(u_element) * 8);
-	con_row->element_capacity = 8;
-}
-
-void u_con_end(){
-	free(con_sec->rows);
-	free(con_sec->focus_linkage);
-	free(con_sec);
-	con_sec = 0;
-
-	free(con_row->ratios);
-	free(con_row->elements);
-	free(con_row);
-	con_row = 0;
-}
-
-u16 u_check_add(){
-	if(con_row->element_count - con_row->element_capacity == 0){
-		u_element* elements =(u_element*)malloc(sizeof(u_element) * (con_row->element_capacity + 4));
-		if(!elements){
-			return 0;
-		}
-
-		memcpy(elements, con_row->elements, sizeof(u_element) * (con_row->element_capacity));
-		con_row->element_capacity += 4;
-		free(con_row->elements);
-		con_row->elements = elements;
-
-
-
-		float* ratios = (float*)malloc(sizeof(float) * (con_row->ratio_capacity + 4));
-		if(!ratios){
-			return 0;
-		}
-
-		memcpy(ratios, con_row->ratios, sizeof(float) * con_row->ratio_capacity);
-		con_row->ratio_capacity += 4;
-		free(con_row->ratios);
-		con_row->ratios = ratios;
-	}		
-	return 1;
-}
-
-u16 u_row_add(u_element element){
-	if(!u_check_add()){
-		return 0;
-	}
-
-	u16 index = con_row->element_count;
-
-	con_row->elements[index] = element;
-	++con_row->element_count;
-
-	if(con_row->ratios[index] == 0){
-		con_row->ratios[index] = -1.f;
-	}
-
-	return 1;	
-}
-
-void u_set_style(){
-	 
-}
-
-u16 u_start(){
-
-}
-
-u16 u_end(){
-	nk_end(_ctx.nk);
-}
-
-u16  u_section_start(const char* name){
-	if(!con_sec){
-		return 0;
-	}	
-	u16 sec_id = section_count + 1;
-	con_sec->uid = sec_id;
-	strncpy(con_sec->name, name, 8);
-}
-
-u16 u_section_name(const char* name){
-	u16 length = strlen(name);
-	strncpy(con_sec->name, name, (length > 8) ? 8 : length);	
-}
-
-u16 u_section_end(){
-	u_row_t* rows = (u_row_t*)malloc(sizeof(u_row_t) * con_sec->row_count);
-	memcpy(rows, con_sec->rows, sizeof(u_row_t) * con_sec->row_count);
-
-	u_focus_link* focus_links = (u_focus_link*)malloc(sizeof(u_focus_link) * con_sec->focus_count);
-	memcpy(focus_links, con_sec->focus_linkage, sizeof(u_focus_link) * con_sec->focus_count);
-	u_focus_group focus = (u_focus_group){
-		focus_links,
-		focus_links,
-		con_sec->focus_count,
-		0
-	};
-
-	u_section sec;
-	sec.uid = section_count;
-	memcpy(sec.name, con_sec->name, sizeof(char) * 8); 
-	sec.rows = rows;
-	sec.count = con_sec->row_count;
-	sec.focus = focus;
-
-	u_section* secs = (u_section*)malloc(sizeof(u_section) * (section_count + 1));
-	memcpy(secs, sections, sizeof(u_section) * section_count);
-	secs[section_count] = sec;	
-
-	free(sections);
-	sections = secs;
-
-	memset(con_sec->focus_linkage, 0, sizeof(u_focus_link) * con_sec->focus_count);
-	con_sec->focus_count = 0;
-	
-	return sec.uid;	
-}
-
-void u_draw(){
-	nk_glfw3_render(NK_ANTI_ALIASING_ON, MAX_VERT_BUFFER, MAX_ELEMENT_BUFFER); 
-}
-
-void u_focus_add(u16 uid, u16 prev, u16 next){
-	
-}
-
-u16 u_focused(){
-	if(active_section){
-		if(active_section->focus.selected){
-			return active_section->focus.selected->uid;
-		}
-	}
-	return 0;
-}
-
-u16 u_button(const char* name, const char* msg){
-	u16 uid = element_id;
-	++element_id;
-
-	u_element element;
-	
-	element.column = con_row->element_count;	
-	element.type = U_BUTTON;
-	element.name = name;
-	element.data.button = (u_button_t){msg};
-	element.uid = uid;
-
-	return u_row_add(element);	 
-}
-
-u16 u_window(const char* name, float x, float y, float w, float h){
-
-}
-u16 u_window_t(const char* name, const char* title, float x, float y, float w, float h){
-
-}
-
-u16 u_checkbox(const char* name, const char* label, int value){
-	u16 uid = element_id;
-	++element_id;
-
-	u_element element;	
-	element.column = con_row->element_count;	
-	element.type = U_CHECK;
-	element.name = name;
-	element.data.check = (u_check_t){label, value};
-	element.uid = uid;
-	return u_row_add(element);	 
-}
-
-u16 u_option(const char* name, const char* label, int value){
- 	u16 uid = element_id;
-	++element_id;
-
-	u_element element;	
-	element.column = con_row->element_count;	
-	element.type = U_OPTION;
-	element.name = name;
-	element.data.option = (u_option_t){label, value};
-	element.uid = uid;
-
-	return u_row_add(element);	 
-}
-
-u16 u_radio(const char* name, const char* label, int* value){
-  	u16 uid = element_id;
-	++element_id;
-
-	u_element element;	
-	element.column = con_row->element_count;	
-	element.type = U_RADIO;
-	element.name = name;
-	element.data.radio = (u_radio_t){label, value};
-	element.uid = uid;
-
-	return u_row_add(element);	 
-}
-
-void u_text(const char* text, u16 text_length, u16 flags){
-  	u16 uid = element_id;
-	++element_id;
-
-	u_element element;	
-	element.column = con_row->element_count;	
-	element.type = U_TEXT;
-	element.data.text = (u_text_t){text, text_length, flags};
-	element.uid = uid;
-
-	u_row_add(element);
-}
-
-void u_color_text(const char* text, u16 text_length, u16 flags, vec3 color){
-  	u16 uid = element_id;
-	++element_id;
-
-	u_element element;	
-	element.column = con_row->element_count;	
-	element.type = U_TEXT_COLOR;
-	u_text_color_t text_color;
-	text_color.str = text;
-	text_color.str_len= text_length;
-	text_color.flags = flags;
-	vec3_dup(text_color.color, color);
-	element.data.text_color = text_color;
-	
-	element.uid = uid;
-
-	u_row_add(element);
-}
-
-u16  u_slider(const char* name, float min, float* value, float max, float step){
-  	u16 uid = element_id;
-	++element_id;
-
-	u_element element;	
-	element.column = con_row->element_count;	
-	element.type = U_SLIDER;
-	element.name = name;
-	element.data.slider = (u_slider_t){min, value, max, step};
-	element.uid = uid;
-
-	return u_row_add(element);	 
-}
-
-u16 u_progress(const char* name, u16* value, u16 end, u16 modifiable){
-  	u16 uid = element_id;
-	++element_id;
-
-	u_element element;	
-	element.column = con_row->element_count;	
-	element.type = U_PROGRESS;
-	element.name = name;
-	element.data.progress= (u_progress_t){value, end, modifiable};
-	element.uid = uid;
-
-	return u_row_add(element);	 
-}
-
-/* TODO implement if needed
-void u_edit_str(char* str_buff, u16* length, u16 max_length, u16 flags){
-
-}*/
-
-void u_row(float height, int columns){
-	u_check_add();
-}
-
-void u_check_row_add(){
-	if(con_sec->row_count == con_sec->row_capacity){
-		u_row_t* rows = (u_row_t*)malloc(sizeof(u_row_t) * (con_sec->row_capacity + 4));
-		if(!rows){
-			_e("Unable to malloc added 4 rows.\n");
-			return 0;
-		}
-		memcpy(rows, con_sec->rows, sizeof(u_row_t)	* con_sec->capacity);
-		free(con_sec->rows);
-		con_sec->rows = rows;
-		con_sec->row_capacity += 4;
-	}
-	return 1;
-}
-
-void u_row_padding(float height){
-	if(!u_check_row_add()){
-		return;
-	}	
-	
-	u_row_t padding = (u_row_t){1, U_ROW_PADDING, height, NULL, 0, NULL, 0};			
-	con_sec->rows[con_sec->row_count] = padding;
-	++con_sec->row_count;	
-}
-
-void u_row_start(float height, int columns){
-	if(!u_check_row_add()){
-		return;
-	}
-
-	con_row->element_count = 0;
-	con_row->ratio_count = 0;
-
-	memset(con_row->ratios, 0, sizeof(float) * con_row->ratio_capacity);
-	memset(con_row->elements, 0, sizeof(u_element) * con_row->element_capacity);
-}
-
-void u_row_push(float ratio){
-	if(!u_add_check()){
-		return;	
-	}
-	con_sec->ratios[con_sec->ratio_count] = ratio;
-	++con_sec->ratio_count;
-}
-
-void u_row_end(){
-
-}
-
-void u_space(int columns){
-
-}
-
-u16 u_combo_start(const char* text, float width, float height){
-
-}
-
-u16 u_combo_label(const char* text, u16 flags){
-
-}
-
-void u_combo_end(){
-
-}
-
-u16 u_width(){
-
-}
-
-//static u16 element_events[16];
-//static u16 event_count;
-
-void u_push_event(u16 uid){
-	if(event_count == 16){
-		return;
-	}
-
-	for(int i=0;i<event_count;++i){
-		if(element_events[i] == uid){
-			return;
-		}
-	}
-
-	element_events[event_count] = uid;
-	++event_count;
-}
-
-u16 u_has_event(u16 uid){
-	for(int i=0;i<event_count;++i){
-		if(element_events[i] == uid){
-			return 1;
-		}
-	}
-	return 0;
-}
-
-void u_update(){
-	memset(element_events, 0, sizeof(u16) * event_count);
-	event_count = 0;
-}
-
-void u_draw_section(const char* name){
-	u_section* sect;
-	for(int i=0;i<section_count;++i){
-		if(strncmp(name, sections[i].name, 8) == 0){
-			sect = &sections[i];
-			break;	
-		}
-	}
-
-	u16 select_down = i_binding_val("select");
-	s16 horizontal = i_binding_val("horizontal");
-	s16 vertical = i_binding_val("vertical");
-
-	if(active_section){
-		u_focus_group* focus = &active_section->focus;
-
-		if(horizontal != 0 || select_down){
-			u_push_event(focus->selected->uid);
-		}
-
-		if(vertical != 0){
-			if(vertical > 0){
-				if(focus->selected->next){
-					for(int i=0;i<focus->length;++i){
-						if(focus->start[i].uid == focus->selected->next){
-							focus->selected = &focus->start[i];
-							break;
-						}	
-					}
-				}else if(focus->loop){
-					focus->selected = focus->start;
+void u_render(){
+	u_colors_t colors = u_colors;
+	for(int i=0;i<u_context.count;++i){
+		u_window_t* window = &u_context.windows[i];
+		
+		//geometry pass
+		for(int j=0;j<window->drop_count;++j){
+			u_dropdown_t* drop = &window->dropdowns[j];
+			if(drop->active){
+				u_bounds_t bounds;
+				bounds.x = drop->bounds.x;
+				bounds.y = drop->bounds.y;
+				bounds.width = drop->bounds.width;
+				bounds.height = drop->bounds.height * drop->rows;
+				bounds.layer += 1;
+				u_add_quad(bounds, 0, 0, colors.dropdown_focus_bg);
+
+				int rows_remaining = drop->option_count - drop->selected; 
+				int start_row = -1;
+				if(rows_remaining < drop->rows){
+					start_row = drop->option_count - drop->rows;
+				}
+
+				for(int k=0;k<drop->rows;++k){
+					u_bounds_t bounds = drop->bounds;
+					bounds.layer += 2;
+					bounds.y += k * bounds.height;
+					u_add_text(bounds, drop->options[k], colors.dropdown_focus_fg);	
 				}	
 			}else{
-				if(focus->selected->prev){
-					for(int i=0;i<focus->length;++i){
-						if(focus->start[i].uid == focus->selected->prev){
-							focus->selected = &focus->start[i];
-							break;
-						}	
-					}
-				}else if(focus->loop){
-					focus->selected = focus->start;
-				}	
-			}	
+				u_add_quad(drop->bounds, 0, 0, colors.dropdown_bg);
+				u_add_text(drop->bounds, drop->options[drop->selected], colors.dropdown_fg); 
+			}
+		}
+
+		for(int j=0;j<window->check_count;++j){
+			u_check_t* check = &window->checks[j];
+			u_add_quad(check->bounds, 0, 0, (check->state) ? colors.check_fg : colors.check_bg);	
+		}
+
+		for(int j=0;j<window->button_count;++j){
+			u_button_t* button = &window->buttons[j];
+			if(u_context.selected_element == button->uid){
+				u_add_quad(button->bounds, 0, 0, colors.button_focus_bg);
+				u_add_text(button->bounds, button->text, colors.button_focus_fg);	
+			}else{
+				u_add_quad(button->bounds, 0, 0, colors.button_bg);
+				u_add_text(button->bounds, button->text, colors.button_fg);
+			}
+		}
+
+		for(int j=0;j<window->box_count;++j){
+			u_box_t* box = &window->boxes[j];
+			u_add_quad(box->bounds, 0, 0, box->color); 
+		}
+
+		for(int j=0;j<window->img_count;++j){
+			u_img_t* img = &window->imgs[j];
+			u_add_quad(img->bounds, img->min, img->max, 0);			
+		}
+
+		for(int j=0;j<window->text_count;++j){
+			u_text_t* text = &window->texts[j];
+			u_add_text(text->bounds, text->text, colors.text_fg);
+		}
+
+		for(int j=0;j<window->slider_count;++j){
+			u_slider_t* slider = &window->sliders[j];
+			u_bounds_t sub_bounds = slider->bounds;
+			float percentage = slider->value / slider->max;
+			sub_bounds.width *= percentage;
+			sub_bounds.layer += 1;
+
+			if(u_context.selected_element == slider->uid){
+				u_add_quad(slider->bounds, 0, 0, colors.slider_focus_bg);
+				u_add_quad(sub_bounds, 0, 0, colors.slider_focus_fg);
+			}else{
+				u_add_quad(slider->bounds, 0, 0, colors.slider_bg);
+				u_add_quad(sub_bounds, 0, 0, colors.slider_fg);	
+			}
+		}
+	}	
+}
+
+u16 u_init(){
+	f32 verts[16] = {
+		//pos       //tex
+		-0.5f, -0.5f,   0.f, 0.f,
+		-0.5f,  0.5f,   0.f, 1.f,
+		0.5f,  0.5f,   1.f, 1.f,
+		0.5f, -0.5f,   1.f, 0.f
+	};
+
+	u16 inds[6] = { 
+		0, 1, 2,
+		2, 3, 0
+	};
+
+	unsigned int vao, vbo, vboi;
+
+	glGenVertexArrays(1, &vao);
+	glGenBuffers(1, &vbo);
+	glGenBuffers(1, &vboi);
+
+	glBindVertexArray(vao);	
+
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glBufferData(GL_ARRAY_BUFFER, 16 * sizeof(f32), &verts[0], GL_STATIC_DRAW);
+	glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vboi);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, 6 * sizeof(u16), &inds[0], GL_STATIC_DRAW);
+
+	glBindVertexArray(0);
+	u_context.quad = vao;
+}
+
+void u_add_text(u_bounds_t bounds, const char* text, vec3 color){
+	r_font font = u_colors.default_font;
+	float x, y;
+	float x_offset, y_offset;
+
+	x_offset = bounds.x;
+	y_offset = bounds.y;
+	float last_x = 0;
+
+	while(*text){
+		if(*text >= 32 && *text < 128){
+			stbtt_aligned_quad q;
+			stbtt_GetBakedQuad(font.data, 512, 512, *text-32, &x, &y, &q, 1);
+				
+			vec4 text_bounds;	
+			text_bounds[0] = q.x0 + x_offset;
+			text_bounds[1] = q.y0 + y_offset;
+			text_bounds[2] = q.x1 + x_offset;
+			text_bounds[3] = q.y1 + y_offset;
+			vec4_dup(u_context.text_bounds[u_context.text_count], text_bounds);
+
+			vec4 text_texcoords;
+			text_texcoords[0] = q.s0;
+			text_texcoords[1] = q.t0;
+			text_texcoords[2] = q.s1;
+			text_texcoords[3] = q.t1;
+			vec4_dup(u_context.text_texcoords[u_context.text_count], text_texcoords);
+			
+			vec3_dup(u_context.text_colors[u_context.text_count], color);
+
+			if(x_offset + x > bounds.width){
+				y_offset += y;
+				x_offset = bounds.x;
+			}else{
+				x_offset += x;
+			}
+
+			last_x = x;
+
+			++u_context.text_count;	
+		}else if(*text == ' '){
+			x_offset += last_x; 
+		}
+
+		++text;
+	}	
+}
+
+void u_add_quad(u_bounds_t bounds, vec2 sub_size, u32 sub_tex, vec3 color){
+	u_context_t* ctx = &u_context;
+
+	vec4 position;
+	position[0] = bounds.x;
+	position[1] = bounds.y;
+	position[2] = bounds.width;
+	position[3] = bounds.height;
+
+	vec4 texc;
+	texc[0] = sub_size[0];
+	texc[1] = sub_size[1];
+	texc[2] = sub_tex;
+	ctx->texcs;
+
+	if(!color){
+		ctx->colors[ctx->quad_count][0] = 1.f;
+		ctx->colors[ctx->quad_count][1] = 1.f;
+		ctx->colors[ctx->quad_count][2] = 1.f;
+	}else{
+		vec3_dup(ctx->colors[ctx->quad_count], color);
+	}
+
+	++ctx->quad_count;
+}
+
+void u_set_color(u_colors_t* colors, const char* str, const char* color){
+	if(!strcmp(str, "dropdown_focus_bg")){
+		r_get_color(colors->dropdown_focus_bg, color); 
+	}else if(!strcmp(str, "dropdown_focus_fg")){
+		r_get_color(colors->dropdown_focus_fg, color); 
+	}else if(!strcmp(str, "dropdown_bg")){
+		r_get_color(colors->dropdown_bg, color); 
+	}else if(!strcmp(str, "dropdown_fg")){
+		r_get_color(colors->dropdown_fg, color); 
+	}else if(!strcmp(str, "window_bg")){
+		r_get_color(colors->window_bg, color); 
+	}else if(!strcmp(str, "button_focus_bg")){
+		r_get_color(colors->button_focus_bg, color); 
+	}else if(!strcmp(str, "button_focus_fg")){
+		r_get_color(colors->button_focus_fg, color); 
+	}else if(!strcmp(str, "button_bg")){
+		r_get_color(colors->button_bg, color); 
+	}else if(!strcmp(str, "button_fg")){
+		r_get_color(colors->button_bg, color); 
+	}else if(!strcmp(str, "text_fg")){
+		r_get_color(colors->text_fg, color); 
+	}else if(!strcmp(str, "slider_bg")){	
+		r_get_color(colors->slider_bg, color); 
+	}else if(!strcmp(str, "slider_fg")){
+		r_get_color(colors->slider_fg, color); 
+	}else if(!strcmp(str, "slider_focus_bg")){
+		r_get_color(colors->slider_focus_bg, color); 
+	}else if(!strcmp(str, "slider_focus_fg")){
+		r_get_color(colors->slider_focus_fg, color); 
+	}else if(!strcmp(str, "check_bg")){
+		r_get_color(colors->check_bg, color);
+	}else if(!strcmp(str, "check_focus_bg")){
+		r_get_color(colors->check_focus_bg, color);
+	}
+}
+
+s16 u_check_buffer(void** buffer, u16 element_size, u16* count, u16* capacity, u16 grow){
+	if(count == capacity){
+		void* new_buffer = malloc(element_size * (*capacity + grow));
+		if(!new_buffer){
+			return -1;	
+		}
+		memcpy(new_buffer, *buffer, element_size * *capacity);
+		free(*buffer);
+		*capacity += grow;	
+		*buffer = new_buffer;
+		return 1;	
+	}
+	return 0;
+}
+
+u16 u_select_window(u_window_t* window){
+	if(!window) return 0;
+
+	u_context.selected_window = window->uid;
+	return window->uid;
+}
+
+u_window_t* u_get_selected_window(){
+	if(u_context.capacity == 0){
+		return 0;
+	}
+
+	for(int i=0;i<u_context.count;++i){
+		if(u_context.windows[i].uid == u_context.selected_window){
+			return &u_context.windows[i];
 		}
 	}
 
-	for(int i=0;i<sect->count;++i){
-		u_row_t* row = &sect->rows[i];
-		if(row->standard == U_ROW_STANDARD){
-			u_row(row->height, row->columns);
-		}else if(row->standard == U_ROW_CUSTOM){
-			u_row_start(row->height, row->columns);
-		}else if(row->standard == U_ROW_PADDING){
-			u_row_padding(row->height);
-			continue;
-		}
-
-		for(int j=0;j<row->element_count;++j){
-			if(j < row->ratio_count && !row->standard){
-				u_row_push(row->ratios[j]);
-			}
-			u_element* element = &row->elements[j];
-			switch(element->type){
-				case U_TEXT:
-					{
-					u_text_t data_text = element->data.text;
-					nk_text(_ctx.nk, data_text.str, data_text.str_len, data_text.flags); 
-					}
-					break;
-				case U_TEXT_COLOR:
-					{
-					u_text_color_t data_text_c = element->data.text_color;
-					nk_text_colored(_ctx.nk, data_text_c.str, data_text_c.str_len, data_text_c.flags, nk_rgb(data_text_c.color[0] * 255, data_text_c.color[1] * 255, data_text_c.color[2] * 255));
-					}
-					break;
-				case U_BUTTON:
-					if(nk_button_label(_ctx.nk, element->data.button.text)){
-						u_push_event(element->uid);
-					}
-					break;
-				case U_OPTION:
-					if(nk_option_label(_ctx.nk, element->data.option.text, element->data.option.value)){
-						u_push_event(element->uid);
-					}	
-					break;
-				case U_RADIO:
-					if(nk_radio_label(_ctx.nk, element->data.radio.text, element->data.radio.value)){
-						u_push_event(element->uid);
-					}
-					break;
-				case U_CHECK:
-					if(nk_check_label(_ctx.nk, element->data.check.text, element->data.check.value)){
-						u_push_event(element->uid);	
-					}
-					break;
-				case U_SLIDER:
-					if(nk_slider_float(_ctx.nk, element->data.slider.min, element->data.slider.value, element->data.slider.max, element->data.slider.step)){
-						u_push_event(element->uid);
-					}
-					break;
-				case U_PROGRESS:
-					if(nk_progress(_ctx.nk, element->data.progress.value, element->data.progress.end, element->data.progress.modifiable)){
-						u_push_event(element->uid);
-					}
-					break;
-				case U_EDIT_STR:
-					//TODO: implement this if needed
-					break;
-			}
-		}	
-			
-	}	
+	return 0;
 }
-#endif
+
+u_window_t* u_window(u_context_t* context, u_bounds_t bounds){
+	if(!context){
+		_e("No u_context.passed.\n");
+		return 0;
+	}
+
+	if(context->capacity == 0){
+		context->windows = (u_window_t*)malloc(sizeof(u_window_t) * 2);
+		context->capacity = 2;
+	}else if(context->capacity == context->count){
+		u_window_t* nu = (u_window_t*)malloc(sizeof(u_window_t) * context->capacity + 2);
+		memcpy(nu, context->windows, sizeof(u_window_t) * context->capacity);
+		free(context->windows);
+		context->windows = nu;
+		context->capacity += 2;		
+	}
+
+	u_window_t* window = &context->windows[context->count];
+	window->bounds = bounds;
+
+	++context->count;
+
+	return window;
+}	
+
+u_button_t* u_button(u_bounds_t bounds, const char* text){
+	u_window_t* window = u_get_selected_window();
+	if(!window) return 0;
+
+	if(u_check_buffer(&window->buttons, sizeof(u_button_t), &window->button_count, &window->button_cap, 2) < 0){
+		_e("Uhoh\n");
+		return NULL;
+	}
+
+	u_button_t* button = &window->buttons[window->button_count];
+	++u_context.element_count;
+	button->uid = u_context.element_count;
+	button->bounds = bounds;
+	button->text = text;
+	++window->button_count;
+	return button;
+}
+
+u_text_t* u_text(u_bounds_t bounds, const char* msg){
+	u_window_t* window = u_get_selected_window();
+	if(!window) return 0;
+
+	if(u_check_buffer(&window->texts, sizeof(u_text_t), &window->text_count, &window->text_cap, 2) < 0){
+		_e("Uhoh\n");
+		return NULL;
+	}
+
+	u_text_t* text = &window->texts[window->text_count];
+	++u_context.element_count;
+	text->uid = u_context.element_count;
+	text->bounds = bounds;
+	text->text = msg; 
+	++window->text_count;
+	return text;
+}
+
+u_check_t* u_check(u_bounds_t bounds, u16 state){
+	u_window_t* window = u_get_selected_window();
+	if(!window) return 0;
+
+	if(u_check_buffer(&window->checks, sizeof(u_check_t), &window->check_count, &window->check_cap, 2) < 0){
+		_e("Uhoh\n");
+		return NULL;
+	}
+
+	u_check_t* check = &window->checks[window->check_count];
+	++u_context.element_count;
+	check->uid = u_context.element_count;
+	check->bounds = bounds;
+	check->state = state;
+	++window->check_count;
+	return check;
+}
+
+u_slider_t* u_slider(u_bounds_t bounds, int step, int max, int value){
+	u_window_t* window = u_get_selected_window();
+	if(!window) return 0;
+
+	if(u_check_buffer(&window->sliders, sizeof(u_slider_t), &window->slider_count, &window->slider_cap, 2) < 0){
+		_e("Uhoh\n");
+		return NULL;
+	}
+
+	u_slider_t* slider = &window->sliders[window->slider_count];
+	slider->bounds = bounds;
+	++u_context.element_count;
+	slider->uid = u_context.element_count;
+	++window->check_count;
+	return slider;
+}
+
+u_dropdown_t* u_dropdown(u_bounds_t bounds, const char** options, u16 option_count, u16 selected_option){
+	u_window_t* window = u_get_selected_window();
+	if(!window) return 0;
+
+	if(u_check_buffer(&window->dropdowns, sizeof(u_dropdown_t), &window->drop_count, &window->drop_cap, 2) < 0){
+		_e("Uhoh\n");
+		return NULL;
+	}
+
+	u_dropdown_t* drop = &window->dropdowns[window->drop_count];
+	++u_context.element_count;
+	drop->uid = u_context.element_count;
+	drop->bounds = bounds;
+	drop->options = options;
+	drop->option_count = option_count;
+	drop->selected = selected_option;
+
+	++window->drop_count;
+	return drop;
+}
+
+u_img_t* u_img(u_bounds_t bounds, r_sheet sheet, unsigned int sub_tex){
+	u_window_t* window = u_get_selected_window();
+	if(!window) return 0;
+
+	if(u_check_buffer(&window->dropdowns, sizeof(u_img_t), &window->img_count, &window->img_cap, 2) < 0){
+		_e("Uhoh\n");
+		return NULL;
+	}
+
+	u_img_t* img = &window->imgs[window->img_count];
+
+	int sub_x, sub_y, per_width;
+	vec2 scale;
+
+	per_width = img->sheet.width / img->sheet.subwidth;
+	
+	sub_x = img->sub_img % per_width;
+	sub_y = img->sub_img / per_width;
+
+	scale[0] = img->sheet.subwidth / img->sheet.width;
+	scale[1] = img->sheet.subheight / img->sheet.height;
+
+	img->min[0] = scale[0] * sub_x;
+	img->min[1] = scale[1] * sub_y;
+
+	img->max[0] = scale[0] * (sub_x + 1);
+	img->max[1] = scale[1] * (sub_y + 1);
+
+	++u_context.element_count;
+	img->uid = u_context.element_count;
+
+	img->bounds = bounds;
+	img->sheet = sheet;
+	img->sub_img = sub_tex;	
+	
+	return img;
+}
+
+u_box_t* u_box(u_bounds_t bounds, vec3 color){
+	u_window_t* window = u_get_selected_window();
+	if(!window) return 0;
+
+	if(u_check_buffer(&window->dropdowns, sizeof(u_box_t), &window->box_count, &window->box_cap, 2) < 0){
+		_e("Uhoh\n");
+		return NULL;
+	}
+
+	u_box_t* box = &window->boxes[window->box_count];
+	vec3_dup(box->color, color);
+
+	++u_context.element_count;
+	box->uid = u_context.element_count;
+
+	box->bounds = bounds;
+
+	return box;
+}

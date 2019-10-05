@@ -12,6 +12,7 @@
 #include "platform.h"
 #include "conf.h"
 
+#include <stb/stb_truetype.h>
 
 //max number of quads to draw at once
 #define RENDER_BATCH_SIZE 128
@@ -66,6 +67,10 @@ typedef struct {
 
 typedef u32 r_shader;
 
+typedef struct { 
+	u32 id;
+} r_extern_shader;
+
 typedef struct {
 	r_shader shader;
 
@@ -95,15 +100,6 @@ typedef struct {
 	u32 capacity;	
 } r_shader_map;
 
-/*
- *
-static r_drawable drawables[RENDER_BATCH_SIZE];
-static int drawable_count = 0;
-
-static u32 drawable_uid = 1;
-
-
- */
 typedef struct {
 	u32 id;
 	u32 width, height;
@@ -203,6 +199,12 @@ typedef struct {
 	u32 uid;
 } r_drawable_cache; 
 
+typedef struct {
+	const char* name;
+	stbtt_bakedchar data[96];
+	unsigned int tex_id;	
+} r_font;
+
 static r_window g_window;
 static r_camera g_camera;
 
@@ -219,7 +221,6 @@ void r_init_quad();
 int  r_init(c_conf conf);
 void r_exit();
 void r_update(long delta);
-void r_ui_update();
 
 r_tex       r_get_tex(const char* fp);
 void        r_bind_tex(u32 tex);
@@ -227,23 +228,22 @@ void        r_bind_tex(u32 tex);
 r_sheet r_get_sheet(const char* fp, u32 subwidth, u32 subheight);
 
 void r_update_batch(r_shader shader, r_sheet* sheet);
+
 //NOTE: count required since we're using instanced rendering
 void r_draw_call(r_shader shader, r_sheet* sheet);
-struct nk_context* r_get_ctx();
-
-void r_ui_set_style();
-
-void r_draw_ui();
 
 void r_destroy_anims();
 void r_destroy_quad(u32 vao);
 
 static GLuint r_get_sub_shader(const char* filePath, int type);
 r_shader      r_get_shader(const char* vert, const char* frag);
+r_shader 	  r_get_extern_shader(const char* vert_program, const char* frag_program);	
 r_shader      r_get_shadern(const char* name);
 void          r_bind_shader(r_shader shader);
 void          r_destroy_shader(r_shader shader);
 int           r_get_uniform_loc(r_shader shader, const char* name);
+
+r_font 	      r_load_font(const char* name, unsigned char* data, unsigned int length);
 
 void          r_map_shader(r_shader shader, const char* name);
 void 		  r_cache_uniform(r_shader shader, const char* uniform, u32 location);
@@ -254,8 +254,8 @@ int  r_hex_number(char v);
 int  r_hex_multi(char* v, int len);
 void  r_get_color(vec3 val, char* v);
 
-int r_is_anim_cache();
-int r_is_shader_cache();
+int r_is_anim_cache(void);
+int r_is_shader_cache(void);
 
 r_anim  r_get_anim(r_sheet sheet, u32* frames, int frame_count, int frame_rate);
 r_animv r_v_anim(r_anim* anim); 
@@ -274,7 +274,7 @@ void        r_drawable_set_anim(r_drawable* drawable, r_anim* anim);
 void	    r_update_drawable(r_drawable* drawable, long delta);
 
 void r_create_camera(r_camera* camera, vec2 size, vec2 position);
-void r_update_camera();
+void r_update_camera(void);
 void r_move_cam(f32 x, f32 y);
 
 void r_set_uniformf(r_shader shader, const char* name, f32 value);
@@ -304,39 +304,27 @@ void r_window_get_size(int* w, int* h);
 int r_get_videomode_str(const char* dst, int index);
 void r_set_videomode(int index);
 void r_select_mode(int index, int fullscreen, int vsync, int borderless);
-int r_get_vidmode_count();
+int r_get_vidmode_count(void);
 
-int r_allow_render();
-int r_is_vsync();
-int r_is_fullscreen();
-int r_is_borderless();
+int r_allow_render(void);
+int r_is_vsync(void);
+int r_is_fullscreen(void);
+int r_is_borderless(void);
 
-static void r_create_modes();
+static void r_create_modes(void);
 static int  r_window_info_valid(r_window_info info);
 static const GLFWvidmode* r_find_closest_mode(r_window_info info);
-static const GLFWvidmode* r_find_best_mode();
-
-static void glfw_err_cb(int error, const char* msg);
-static void glfw_window_pos_cb(GLFWwindow* window, int x, int y);
-static void glfw_window_size_cb(GLFWwindow* window, int w, int h);
-static void glfw_window_close_cb(GLFWwindow* window);
-static void glfw_key_cb(GLFWwindow* window, int key, int scancode, int action, int mods);
-static void glfw_mouse_pos_cb(GLFWwindow* window, double x, double y);
-static void glfw_mouse_button_cb(GLFWwindow* window, int button, int action, int mods);
-static void glfw_scroll_cb(GLFWwindow* window, double dx, double dy);
-static void glfw_joy_cb(int joystick, int action);
-static void glfw_char_cb(GLFWwindow* window, u32 c);
+static const GLFWvidmode* r_find_best_mode(void);
 
 int  r_create_window(r_window_info info);
-void r_destroy_window();
-void r_request_close();
-void r_save_prefs();
+void r_destroy_window(void);
+void r_request_close(void);
 
-void r_center_window();
+void r_center_window(void);
 void r_set_window_pos(int x, int y);
 
-int r_should_close();
+int r_should_close(void);
 
-void r_swap_buffers();
-void r_clear_window();
+void r_swap_buffers(void);
+void r_clear_window(void);
 #endif

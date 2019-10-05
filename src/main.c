@@ -1,5 +1,4 @@
 #define EXCLUDE_CREATE
-
 #define _POSIX_C_SOURCE 199309L
 #include "platform.h"
 
@@ -7,6 +6,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+
+#define CREATE_MODE 
+#define INIT_DEBUG
 
 #include "conf.h"
 #include "debug.h"
@@ -18,8 +20,6 @@
 #include "game.h"
 
 #define CONF_PATH "res/conf.ini"
-
-#define CREATE_MODE 
 
 int target_fps = 120;
 int max_fps = 120;

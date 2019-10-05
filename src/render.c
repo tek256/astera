@@ -10,21 +10,12 @@
 
 #include <glad_gl.c>
 
-#define NK_INCLUDE_FIXED_TYPES
-#define NK_INCLUDE_STANDARD_IO
-#define NK_INCLUDE_STANDARD_VARARGS
-#define NK_INCLUDE_DEFAULT_ALLOCATOR
-#define NK_INCLUDE_VERTEX_BUFFER_OUTPUT
-#define NK_INCLUDE_FONT_BAKING
-#define NK_INCLUDE_DEFAULT_FONT
-#define NK_IMPLEMENTATION
-#define NK_GLFW_GL3_IMPLEMENTATION
-#define NK_KEYSTATE_BASED_INPUT
-#include <nuklear.h>
-#include <nuklear_glfw_gl3.h>
-
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb/stb_image.h>
+
+
+#define STB_TRUETYPE_IMPLEMENTATION 
+#include <stb/stb_truetype.h>
 
 #include "input.h"
 #include "sys.h"
@@ -35,7 +26,6 @@ static r_flags flags;
 
 static const char* r_window_title = "demo";
 
-static r_window_info g_window_info;
 static GLFWmonitor* r_default_monitor;
 static const GLFWvidmode* r_vidmodes;
 static vec2 r_res;
@@ -49,6 +39,71 @@ r_resource_map* r_get_map(){
 	return &r_res_map;
 }
 #endif
+
+#ifndef CUSTOM_GLFW_CALLBACKS
+static void glfw_err_cb(int error, const char* msg){
+	_e("ERROR: %i %s\n", error, msg);
+}
+
+static void glfw_window_pos_cb(GLFWwindow* window, int x, int y){
+	g_window.x = x;
+	g_window.y = y;
+}
+
+static void glfw_window_size_cb(GLFWwindow* window, int w, int h){
+	g_window.width = w;
+	g_window.height = h;
+	glViewport(0, 0, w, h);
+	flags.scaled = 1;
+	i_set_screensize(w, h);
+}
+
+static void glfw_window_close_cb(GLFWwindow* window){
+	g_window.close_requested = 1;
+}
+
+static void glfw_key_cb(GLFWwindow* window, int key, int scancode, int action, int mods){
+	if(action == GLFW_PRESS || action == GLFW_REPEAT){
+		i_key_callback(key, scancode, 1);
+		if(i_key_binding_track()){
+			i_binding_track_callback(key, BINDING_KEY);
+		}
+	}else if(action == GLFW_RELEASE){
+		i_key_callback(key, scancode, 0);
+	}
+}
+
+static void glfw_char_cb(GLFWwindow* window, u32 c){
+	i_char_callback(c);
+}
+
+static void glfw_mouse_pos_cb(GLFWwindow* window, double x, double y){
+	i_mouse_pos_callback(x, y);
+}
+
+static void glfw_mouse_button_cb(GLFWwindow* window, int button, int action, int mods){
+	//UI callback
+	if(action == GLFW_PRESS || action == GLFW_REPEAT){
+		i_mouse_button_callback(button);
+		if(i_key_binding_track()){
+			i_binding_track_callback(button, BINDING_MB);
+		}
+	}
+}
+
+static void glfw_scroll_cb(GLFWwindow* window, double dx, double dy){
+	//System Callback
+	i_mouse_scroll_callback(dx, dy);
+}
+
+static void glfw_joy_cb(int joystick, int action){
+	if(action == GLFW_CONNECTED){
+		i_create_joy(joystick);
+	}else if(action == GLFW_DISCONNECTED){
+		i_destroy_joy(joystick);
+	}
+}
+#endif 
 
 int r_init(c_conf conf){
 	r_window_info info;
@@ -102,7 +157,7 @@ void r_move_cam(f32 x, f32 y){
 	g_camera.pos[1] += y;
 }
 
-void r_update_camera(){
+void r_update_camera(void){
 	f32 x, y;
 	x = floorf(g_camera.pos[0]);
 	y = floorf(g_camera.pos[1]);
@@ -115,10 +170,6 @@ void r_update(long delta){
 	}
 
 	r_update_camera();	
-}
-
-void r_update_ui(){
-	nk_glfw3_new_frame();	
 }
 
 r_tex r_get_tex(const char* fp){
@@ -161,7 +212,23 @@ r_sheet r_get_sheet(const char* fp, u32 subwidth, u32 subheight){
 	return (r_sheet){tex.id, tex.width, tex.height, subwidth, subheight};
 }
 
-void r_init_quad() {
+static unsigned char tmp_font[512*512];
+r_font r_load_font(const char* name, unsigned char* data, unsigned int length){
+	r_font font;
+	
+	stbtt_BakeFontBitmap(data, 0, 16.0, tmp_font, 512, 512, 32, 96, font.data);
+	font.name = name;
+	
+	glGenTextures(1, &font.tex_id);
+	glBindTexture(GL_TEXTURE_2D, font.tex_id);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, 512, 512, 0, GL_ALPHA, GL_UNSIGNED_BYTE, tmp_font);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	return font;
+}
+
+void r_init_quad(void) {
 	f32 verts[16] = {
 		//pos       //tex
 		-0.5f, -0.5f,   0.f, 0.f,
@@ -223,116 +290,6 @@ void r_update_batch(r_shader shader, r_sheet* sheet){
 	}
 }
 
-/*
-void r_ui_set_style(){
-	struct nk_context* ctx = g_window.ui;
-
-	//window
-	ctx->style.window.background = nk_rgb(15, 15, 15);
-	ctx->style.window.border_color = nk_rgb(15, 15, 15);
-	ctx->style.window.tooltip_border_color = nk_rgb(22, 22, 22);
-	ctx->style.window.border = 2;
-
-	//ctx->style.progress.normal = nk_style_item_color(nk_rgb(COLOR_RED));
-	//ctx->style.progress.border_color = nk_rgb(dark1);
-	ctx->style.progress.border = 0;
-	ctx->style.progress.rounding = 1;
-
-	//window header	
-
-}
-
-int r_ui_end(){
-	nk_end(g_window.ui);
-}
-
-int r_ui_window(float x, float y, float w, float h){
-	return nk_begin(g_window.ui, "", nk_rect(x, y, w, h), NK_WINDOW_BORDER);	
-}
-
-int r_ui_window_t(const char* title, float x, float y, float w, float h){
-	return nk_begin(g_window.ui, title, nk_rect(x, y, w, h), NK_WINDOW_BORDER);
-}
-
-int r_ui_button(const char* label){
-	return nk_button_label(g_window.ui, label);	
-}
-
-int r_ui_checkbox(const char* label, int value){
-	return nk_check_label(g_window.ui, label, value);
-}
-
-int r_ui_option(const char* label, int value){
-	return nk_option_label(g_window.ui, label, value);
-}
-
-int r_ui_radio(const char* label, int* value){
-	return nk_radio_label(g_window.ui, label, value);
-}
-
-int r_ui_slider(float min, float* value, float max, float step){
-	return nk_slider_float(g_window.ui, min, value, max, step); 
-}
-
-int r_ui_progress(int* value, int end, int mod){
-	return nk_progress(g_window.ui, value, end, mod); 
-}
-
-void r_ui_text(const char* text, int text_len, int flags){
-	nk_text(g_window.ui, text, text_len, flags);
-}
-
-void r_ui_text_colored(const char* text, int text_len, int flags, vec3 color){
-	nk_text_colored(g_window.ui, text, text_len, flags, nk_rgb(color[0] * 255, color[1] * 255, color[2] * 255));
-}
-
-void  r_ui_property(const char* text, int min, int* value, int max, int inc, float inc_per_pix){
-	nk_property_int(g_window.ui, text, min, value, max, inc, inc_per_pix);
-}
-
-void  r_ui_spacing(int cols){
-	nk_spacing(g_window.ui, cols);
-}
-
-void r_ui_row(float height, int columns){
-	nk_layout_row_dynamic(g_window.ui, height, columns);
-}
-
-void r_ui_row_start(float height, int columns){
-	nk_layout_row_begin(g_window.ui, NK_DYNAMIC, height, columns);
-}
-
-void r_ui_row_push(float ratio){
-	nk_layout_row_push(g_window.ui, ratio);
-}
-
-void r_ui_row_end(){
-	nk_layout_row_end(g_window.ui);
-}
-
-int r_ui_combo_start(const char* text, float width, float height){
-	return nk_combo_begin_label(g_window.ui, text, nk_vec2(width, height));
-}
-
-void r_ui_combo_end(){
-	nk_combo_end(g_window.ui);
-}
-
-int r_ui_combo_item_label(const char* text, int alignment){
-	return nk_combo_item_label(g_window.ui, text, alignment);
-}
-
-int r_ui_width(){
-	return nk_widget_width(g_window.ui);
-}
-
-void r_ui_edit_string(char* str_buff, int* length, int max_length, int flags){
-	nk_edit_string(g_window.ui, flags | NK_EDIT_FIELD, str_buff, length, max_length, nk_filter_default);
-}
-
-void r_draw_ui(){
-}*/
-
 void r_draw_call(r_shader shader, r_sheet* sheet){
 	if(!shader || !g_drawable_cache.count) return;
 
@@ -388,7 +345,7 @@ void r_draw_call(r_shader shader, r_sheet* sheet){
 	glBindVertexArray(0);
 }
 
-void r_destroy_anims(){
+void r_destroy_anims(void){
 	for(int i=0;i<g_anim_cache.count;++i){
 		free(g_anim_cache.anims[i].frames);
 	}
@@ -398,30 +355,22 @@ void r_destroy_quad(u32 vao){
 	glDeleteVertexArrays(1, &vao);
 }
 
-void r_exit(){
+void r_exit(void){
 	r_destroy_anims();
 	r_destroy_quad(default_quad_vao);
-	r_destroy_window(g_window);
+	r_destroy_window();
 	glfwTerminate();
-
-	if(c_has_prefs()){
-		r_save_prefs();
-	}
 }
 
-void r_save_prefs(){
-			
-}
-
-int r_is_anim_cache(){
+//TODO implement anim cache toggle
+int r_is_anim_cache(void){
 	return 1; 
 }
 
-int r_is_shader_cache(){
+//TODO implement shader cache toggle
+int r_is_shader_cache(void){
 	return 1;	
 }
-
-
 
 static GLuint r_get_sub_shader(const char* fp, int type){
 	FILE* file;
@@ -604,7 +553,7 @@ void r_remove_from_cache(r_shader shader){
 			g_shader_map.caches[i] = g_shader_map.caches[i+1];
 		}
 
-		g_shader_map.names[g_shader_map.count] == "";
+		g_shader_map.names[g_shader_map.count] == 0;
 		g_shader_map.shaders[g_shader_map.count] = 0;
 		g_shader_map.caches[g_shader_map.count] = (r_shader_cache){0};
 		g_shader_map.count --;
@@ -1096,7 +1045,6 @@ void r_select_mode(int index, int fullscreen, int vsync, int borderless){
 	}
 
 	if(!fullscreen){
-		int mon_w, mon_h;
 		const GLFWvidmode* monitor_mode = glfwGetVideoMode(r_default_monitor);
 		glfwSetWindowPos(g_window.glfw, (monitor_mode->width - g_window.width) / 2, (monitor_mode->height - g_window.height) / 2);
 	}
@@ -1104,27 +1052,27 @@ void r_select_mode(int index, int fullscreen, int vsync, int borderless){
 	flags.allowed = 1;
 }
 
-int r_get_vidmode_count(){
+int r_get_vidmode_count(void){
 	return flags.video_mode_count;
 }
 
-int r_allow_render(){
+int r_allow_render(void){
 	return flags.allowed;	
 }
 
-int r_is_vsync(){
+int r_is_vsync(void){
 	return g_window.vsync;
 }
 
-int r_is_fullscreen(){
+int r_is_fullscreen(void){
 	return g_window.fullscreen;
 }
 
-int r_is_borderless(){
+int r_is_borderless(void){
 	return g_window.borderless; 	
 }
 
-static void r_create_modes(){
+static void r_create_modes(void){
 	if(r_default_monitor == NULL){
 		r_default_monitor = glfwGetPrimaryMonitor();
 	}
@@ -1158,7 +1106,7 @@ static const GLFWvidmode* r_find_closest_mode(r_window_info info){
 	return closest;
 }
 
-static const GLFWvidmode* r_find_best_mode(){
+static const GLFWvidmode* r_find_best_mode(void){
 	if(flags.video_mode_count == 0){
 		r_create_modes();
 	}else if(flags.video_mode_count == 1){
@@ -1184,7 +1132,9 @@ int r_create_window(r_window_info info){
 		return 0;
 	}
 
+#if defined(INIT_DEBUG)
 	_l("Creating window.\n");
+#endif
 
 	glfwSetErrorCallback(glfw_err_cb);
 
@@ -1262,7 +1212,9 @@ int r_create_window(r_window_info info){
 		glfwSwapInterval(1);
 	}
 
+#if defined(INIT_DEBUG)
 	_l("Window context created successfully.\n");
+#endif
 
 	flags.allowed = 1;
 
@@ -1281,13 +1233,10 @@ int r_create_window(r_window_info info){
 	r_get_color(color, "222");
 	glClearColor(color[0], color[1], color[2], 1.f);
 
-	_l("Initializing UI.\n");
-	struct nk_context* ui_ctx = nk_glfw3_init(window, NK_GLFW3_INSTALL_CALLBACKS);
-	//u_init(ui_ctx);
-	
-	//Add UI Font
+#if !defined(CUSTOM_GLFW_CALLBACKS)
+#if defined(INIT_DEBUG)
 	_l("Setting Callbacks.\n");
-
+#endif
 	glfwSetWindowPosCallback(g_window.glfw, glfw_window_pos_cb);
 	glfwSetWindowSizeCallback(g_window.glfw, glfw_window_size_cb);
 	glfwSetWindowCloseCallback(g_window.glfw, glfw_window_close_cb);
@@ -1297,16 +1246,20 @@ int r_create_window(r_window_info info){
 	glfwSetCursorPosCallback(g_window.glfw, glfw_mouse_pos_cb);
 	glfwSetScrollCallback(g_window.glfw, glfw_scroll_cb);
 	glfwSetJoystickCallback(glfw_joy_cb);
+#endif
 
 	r_create_modes();
 
+#if defined(INIT_DEBUG)
 	_l("Setting default bindings.\n");
+#endif
+
 	i_default_bindings();
 
 	return 1;
 }
 
-void r_center_window(){
+void r_center_window(void){
 	GLFWmonitor* mon = NULL;
 	int monitor_count;
 	GLFWmonitor** monitors =  glfwGetMonitors(&monitor_count);
@@ -1344,7 +1297,7 @@ void r_set_window_pos(int x, int y){
 	glfwSetWindowPos(g_window.glfw, x, y);
 }
 
-void r_destroy_window(){
+void r_destroy_window(void){
 	flags.allowed = 0;
 
 	glfwDestroyWindow(g_window.glfw);
@@ -1357,87 +1310,18 @@ void r_destroy_window(){
 	g_window.vsync = 0;
 }
 
-void r_request_close(){
+void r_request_close(void){
 	g_window.close_requested = 1;
 }
 
-int r_should_close(){
+int r_should_close(void){
 	return g_window.close_requested;
 }
 
-void r_swap_buffers(){
+void r_swap_buffers(void){
 	glfwSwapBuffers(g_window.glfw);
 }
 
-void r_clear_window(){
+void r_clear_window(void){
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-}
-
-static void glfw_err_cb(int error, const char* msg){
-	_e("ERROR: %i %s\n", error, msg);
-}
-
-static void glfw_window_pos_cb(GLFWwindow* window, int x, int y){
-	g_window.x = x;
-	g_window.y = y;
-}
-
-static void glfw_window_size_cb(GLFWwindow* window, int w, int h){
-	g_window.width = w;
-	g_window.height = h;
-	glViewport(0, 0, w, h);
-	flags.scaled = 1;
-	i_set_screensize(w, h);
-	g_update_configer();
-}
-
-static void glfw_window_close_cb(GLFWwindow* window){
-	g_window.close_requested = 1;
-}
-
-static void glfw_key_cb(GLFWwindow* window, int key, int scancode, int action, int mods){
-	if(action == GLFW_PRESS || action == GLFW_REPEAT){
-		i_key_callback(key, scancode, 1);
-		if(i_binding_track()){
-			i_binding_track_callback(key, BINDING_KEY);
-		}
-	}else if(action == GLFW_RELEASE){
-		i_key_callback(key, scancode, 0);
-	}
-}
-
-static void glfw_char_cb(GLFWwindow* window, u32 c){
-	nk_glfw3_char_callback(window, c);
-	i_char_callback(c);
-}
-
-static void glfw_mouse_pos_cb(GLFWwindow* window, double x, double y){
-	i_mouse_pos_callback(x, y);
-}
-
-static void glfw_mouse_button_cb(GLFWwindow* window, int button, int action, int mods){
-	//UI callback
-	nk_glfw3_mouse_button_callback(window, button, action, mods);
-
-	if(action == GLFW_PRESS || action == GLFW_REPEAT){
-		i_mouse_button_callback(button);
-		if(i_binding_track()){
-			i_binding_track_callback(button, BINDING_MB);
-		}
-	}
-}
-
-static void glfw_scroll_cb(GLFWwindow* window, double dx, double dy){
-	//UI Callback
-	nk_gflw3_scroll_callback(window, dx, dy);
-	//System Callback
-	i_mouse_scroll_callback(dx, dy);
-}
-
-static void glfw_joy_cb(int joystick, int action){
-	if(action == GLFW_CONNECTED){
-		i_create_joy(joystick);
-	}else if(action == GLFW_DISCONNECTED){
-		i_destroy_joy(joystick);
-	}
 }

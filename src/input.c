@@ -37,7 +37,7 @@ key_binding* key_bindings;
 key_binding* tracked_key_binding;
 int key_binding_count;
 
-u16 i_init(){
+u16 i_init(void){
 	mouse_b = i_create_s(MAX_MOUSE_BUTTONS);
 	if(!mouse_b.curr || !mouse_b.prev){
 		_e("Unable to malloc space for mouse.\n");
@@ -75,7 +75,7 @@ u16 i_init(){
 	return 1;
 }
 
-i_positions i_create_p(){
+i_positions i_create_p(void){
 	return (i_positions){ 0, 0, 0, 0};
 }
 
@@ -105,7 +105,7 @@ i_statesf i_create_sf(u16 size){
 	};
 }
 
-void i_exit(){
+void i_exit(void){
 	if(mouse_b.curr)
 		free(mouse_b.curr);
 	if(mouse_b.prev)
@@ -310,7 +310,7 @@ void i_set_mouse_grab(int grab){
 	}
 }
 
-int i_get_mouse_grab(){
+int i_get_mouse_grab(void){
 	int value = glfwGetInputMode(g_window.glfw, GLFW_CURSOR);
 
 	if(value == GLFW_CURSOR_DISABLED){
@@ -348,6 +348,10 @@ void i_get_scroll(double* x, double* y){
 	*y = mouse_s.dy;
 }
 
+u16 i_key_binding_track(void){
+	return key_binding_track;
+}
+
 u16 i_mouse_down(u16 button){
 	return i_contains(button, mouse_b.curr, mouse_b.curr_count);
 }
@@ -364,11 +368,11 @@ u16 i_mouse_released(u16 button){
 	return i_mouse_up(button) && !i_contains(button, mouse_b.prev, mouse_b.prev_count);
 }
 
-double i_get_scroll_x(){
+double i_get_scroll_x(void){
 	return mouse_s.x;
 }
 
-double i_get_scroll_y(){
+double i_get_scroll_y(void){
 	return mouse_s.y;
 }
 
@@ -400,11 +404,11 @@ void i_get_mouse_pos(double* x, double* y){
 	*y = mouse_p.y;
 }
 
-double i_get_mouse_x(){
+double i_get_mouse_x(void){
 	return mouse_p.x;
 }
 
-double i_get_mouse_y(){
+double i_get_mouse_y(void){
 	return mouse_p.y;
 }
 
@@ -413,11 +417,11 @@ void i_get_mouse_delta(double* x, double* y){
 	*y = mouse_p.dy;
 }
 
-double i_get_delta_x(){
+double i_get_delta_x(void){
 	return mouse_p.dx;
 }
 
-double i_get_delta_y(){
+double i_get_delta_y(void){
 	return mouse_p.dy;
 }
 
@@ -491,7 +495,7 @@ void i_enable_binding_track(const char* key_binding){
 	}
 }
 
-u16 i_binding_track(){
+u16 i_binding_track(void){
 	return key_binding_track;
 }
 
@@ -781,7 +785,7 @@ f32 i_opposing(const char* prim, const char* sec){
 	return prim_f + sec_f;
 }
 
-void i_default_bindings(){
+void i_default_bindings(void){
 	if(!i_binding_defined("left")){
 		i_add_binding("left", GLFW_KEY_A, BINDING_KEY);
 	}
@@ -833,7 +837,7 @@ void i_default_bindings(){
 	}
 }
 
-void i_update(){
+void i_update(void){
 	mouse_p.dx = mouse_p.x - mouse_l.x;
 	mouse_p.dy = mouse_p.y - mouse_l.y;
 

@@ -118,12 +118,12 @@ typedef struct {
 
 static u16 key_binding_track = 0;
 
-u16 i_init();
-void i_exit();
+u16 i_init(void);
+void i_exit(void);
 
 u16 i_contains(u16 val, u16* arr, int count);
 
-i_positions i_create_p();
+i_positions i_create_p(void);
 i_statesf i_create_sf(u16 size);
 i_states i_create_s(u16 size);
 
@@ -148,21 +148,23 @@ u16 i_key_up(u16 key);
 u16 i_key_clicked(u16 key);
 u16 i_key_released(u16 key);
 
+u16 i_key_binding_track(void);
+
 void   i_set_screensize(u32 width, u32 height);
 void   i_set_char_tracking(int tracking);
 void   i_char_callback(u32 c);
 void   i_get_chars(char* dst, u16 count);
 
 void   i_set_mouse_grab(int grabbed);
-int    i_get_mouse_grab();
+int    i_get_mouse_grab(void);
 
 void   i_mouse_button_callback(u16 button);
 void   i_mouse_pos_callback(double x, double y);
 void   i_mouse_scroll_callback(double sx, double sy);
 
 void   i_get_scroll(double* x, double* y);
-double i_get_scroll_x();
-double i_get_scroll_y();
+double i_get_scroll_x(void);
+double i_get_scroll_y(void);
 
 u16 i_mouse_down(u16 button);
 u16 i_mouse_up(u16 button);
@@ -172,18 +174,17 @@ u16 i_mouse_released(u16 button);
 u16   i_mouse_within(vec2 start, vec2 end);
 
 void   i_get_mouse_pos(double* x, double* y);
-double i_get_mouse_x();
-double i_get_mouse_y();
+double i_get_mouse_x(void);
+double i_get_mouse_y(void);
 
 void   i_get_moues_delta(double* x, double* y);
-double i_get_delta_x();
-double i_get_delta_y();
+double i_get_delta_x(void);
+double i_get_delta_y(void);
 
 void  i_add_binding(const char* name, int value, int type);
 void  i_enable_binding_track(const char* key_binding);
-u16 i_binding_count();
+u16 i_binding_count(void);
 
-u16 i_binding_track();
 void  i_binding_track_callback(int value, int type);
 u16 i_get_binding_type(const char* key_binding);
 u16 i_get_binding_alt_type(const char* key_bindg);
@@ -196,8 +197,8 @@ u16 i_binding_defined(const char* key_binding);
 
 f32 i_opposing(const char* prim, const char* sec);
 
-void  i_default_bindings();
+void  i_default_bindings(void);
 
-void  i_update();
+void  i_update(void);
 
 #endif
