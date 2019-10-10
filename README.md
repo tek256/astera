@@ -15,7 +15,7 @@ If you're interested in helping contribute to this project, please consider supp
 </div>
 <div id="contributing">
 	<h2>Contributing</h2>
-	<pre><code>If you're interested in helping contribute to the project here are the current things that would be helpful!
+	<pre><code>Here are some things you can do to help contribute!
 - Bug Review & Search
 - Wiki / Code Documentation
 - Unit Test Creation
@@ -62,43 +62,35 @@ Sept 24, 2019
 <pre><code>UI
 - Rendering
 - Gamepad / Keyboard Support
-
-Audio
+Audio  
 - Seek Test
-
 Game Rendering
 - Particle Effects
 - Framebuffer Effects
 - Move to cached / managed assets
 - Patch shader cache system to be dynamic
-
 Level System
 - Runtime Management
 - Serialization 
 - Loading from file
-
 Physics
 - All of it
-
 Tooling
 - Level Editor
 - Build optimization
-
 Documentation
 - API Documentation
 - Technical Breakdowns of each system
 - Examples
-
 Release 
 - Library style refactor
-
 Optional
 - Multi Language Support (wide characters)
 - Configuration Editor documentation
 - Tool repository integration
 - Integrate minimal/own versions of dependencies
 - World Domination, OR just some chicken strips.
-</pre></code>
+</code></pre>
 </div>
 <div id="license">
 	<h2>License</h2>
