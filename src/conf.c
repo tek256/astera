@@ -1,6 +1,10 @@
 #include "conf.h"
 
+#include "debug.h"
+#include "input.h"
+
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
 
@@ -51,7 +55,7 @@ static int parse_handler(void* user, const char* section, const char* name, cons
 	return 1;
 }
 
-c_conf c_parse_file(const char* fp, int prefs){
+c_conf c_parse_file(char* fp, int prefs){
 	c_conf conf = (c_conf){1280, 720, 0, 60, 1, 0, 100, 75, 50, NULL};
 
 	if(ini_parse(fp, parse_handler, &conf) < 0){
@@ -66,7 +70,7 @@ c_conf c_parse_file(const char* fp, int prefs){
 	return conf;
 }
 
-void c_parse_args(int argc, const char** argv){
+void c_parse_args(int argc, char** argv){
 	if(!argv || !argc){
 		return;
 	}

@@ -32,7 +32,7 @@ typedef struct {
 	asset_t** to_save;	
 	u16 save_count;
 	u16 save_capacity;
-} asset_flags;
+} asset_flags_t;
 
 typedef struct {
 	const char* name;
@@ -53,11 +53,15 @@ typedef struct {
 static asset_map_t* asset_maps[ASSET_MAX_MAPS];
 static int asset_map_count = 0;
 
-static asset_flags flags;
+static asset_flags_t asset_flags;
 static asset_req_stack_t req_stack;
 
+void asset_init();
+
+asset_t asset_load(const char* archive, const char* filename);
+void asset_free(asset_t asset);
+
 asset_t* asset_to_map(asset_t asset, asset_map_t* map);
-asset_t load_asset(const char* archive, const char* filename);
 asset_req_t* asset_request(const char* archive, const char* filename, asset_map_t* map_to);
 
 void asset_pop_stack();

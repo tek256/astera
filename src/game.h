@@ -1,6 +1,7 @@
 #ifndef GAME_H
 #define GAME_H 
 
+#include "config.h"
 #include <linmath.h>
 
 int g_init(void);

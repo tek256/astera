@@ -49,7 +49,7 @@ typedef struct {
 	l_ent_res ents[MAX_REC_ENT * MAX_REC_CHUNK];
 	u16 ent_count;
 
-	r_resource_map* r_map;
+	//r_resource_map* r_map;
 	//p_world_map* p_map;
 	a_resource_map* a_map;
 } l_resource;

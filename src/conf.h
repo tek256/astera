@@ -1,6 +1,8 @@
 #ifndef CONF_H
 #define CONF_H
 
+#include "config.h"
+
 typedef struct {
 	int render;
 	int audio;
@@ -18,8 +20,8 @@ typedef struct {
 	char* path;
 } c_conf;
 
-void c_parse_args(int argc, const char** argv);
-c_conf c_parse_file(const char* f, int prefs);
+void c_parse_args(int argc, char** argv);
+c_conf c_parse_file(char* f, int prefs);
 
 //void c_write_table(const char* table, char* keys, char* values, int count);
 

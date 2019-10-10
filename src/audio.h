@@ -1,6 +1,8 @@
 #ifndef AUDIO_H
 #define AUDIO_H
 
+#include "config.h"
+
 #include <AL/alc.h>
 #include <AL/al.h>
 
@@ -106,7 +108,7 @@ typedef struct {
 	//realtime
 	vec3 pos;
 	vec3 vel;
-	f32 gain, range;
+	f32 gain, range, max_range;
 	u16 max_loop;
 	int loop : 1;
 	int stop : 1; 

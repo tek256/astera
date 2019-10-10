@@ -121,7 +121,7 @@ int l_load(l_level* dst, l_data* data){
 	level.chunks = (l_chunk*)malloc(sizeof(l_chunk) * to_process);
 	if(!level.chunks){
 		_e("Unable to malloc chunks.\n");
-		return;
+		return 0;
 	}
 
 	for(int i=0;i<data->chunk_count;++i){
@@ -187,7 +187,7 @@ int l_load(l_level* dst, l_data* data){
 
 #ifdef CREATE_MODE
 int l_write_level(const char* fp, l_level* level){
-	char str_buff[512];
+	/*char str_buff[512];
 	char table_buff[32];
 	char type_buff[32];
 
@@ -273,5 +273,7 @@ int l_write_level(const char* fp, l_level* level){
 	}
 
 	a_resource_map* a_map = res.a_map;
+	*/
+	return 1;
 }
 #endif

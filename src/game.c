@@ -9,8 +9,7 @@
 #include "input.h"
 #include "conf.h"
 
-#define U_ENTER_CON_ON_INIT
-#include "ui.h"
+#include "asset.h"
 
 #include <time.h>
 
@@ -25,29 +24,29 @@ static int dir_x[16];
 static int dir_y[16];
 
 int g_init(void){
-	sheet  = r_get_sheet("res/tex/test_sheet.png", 16, 16);
-	shader = r_get_shader("res/shd/main.v", "res/shd/main.f");
+	asset_map_t* a_map = asset_create_map("default", 32); 
+
+	asset_t tex_sheet = asset_load("res.zip", "test_sheet.png");
+	asset_t shader_vert = asset_load("res.zip", "main.v");
+	asset_t shader_frag = asset_load("res.zip", "main.f");
+
+	sheet = r_get_sheet(tex_sheet, 16, 16);
+	shader = r_get_shader(shader_vert, shader_frag);
+
 	r_map_shader(shader, "default");
-	unsigned int frames[5] = { 4, 5, 6, 7, 4};
-	unsigned int frames2[5] = { 0, 1, 2, 3, 1};
+	unsigned int frames[4] = { 4, 5, 6, 7};
+	unsigned int frames2[4] = { 0, 1, 2, 3};
 
 	time_t t;
 	srand((unsigned) time(&t));
 
-	anim = r_get_anim(sheet, frames, 5, 24);
-	r_anim anim2 = r_get_anim(sheet, frames2, 5, 24);
+	anim = r_get_anim(sheet, frames, 4, 24);
+	r_anim anim2 = r_get_anim(sheet, frames2, 4, 24);
 
 	r_cache_anim(anim, "test");
 	r_cache_anim(anim2, "test2");
 
 	r_anim* _anim = r_get_anim_n("test");
-
-	int data_len;
-	unsigned char* data = c_get_file_contents("res/snd/test.ogg", &data_len);
-
-	if(!data){
-		_l("No data loaded for music file.\n");
-	}
 
 	for(int i=0;i<16;++i){
 		dir_x[i] = (rand() % 3) - 1;
@@ -76,7 +75,7 @@ int g_init(void){
 		printf("XBOX FOUND!\n");
 	}
 
-#if defined(INIT_DEBUG)
+#ifdef INIT_DEBUG
 	_l("Initialized game.\n");
 #endif
 
@@ -89,7 +88,6 @@ void g_exit(void){
 }
 
 void g_input(long delta){
-	//r_update_ui();
 	if(i_key_clicked('P')){
 		a_play_sfx(&buffer, NULL); 
 	}

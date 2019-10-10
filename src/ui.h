@@ -2,6 +2,7 @@
 #define UI_H
 
 #include <linmath.h>
+#include "config.h"
 #include "platform.h"
 #include "render.h"
 

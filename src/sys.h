@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 
+#include "config.h"
 #include "platform.h"
 
 #define TIMER_NAME_LENGTH 8
@@ -19,11 +20,9 @@
 #define MS_PER_NS  1e-6
 #define SEC_PER_NS 1e-9
 
-#define S_MAX_THREADS 6
-
 typedef double time_s;
 
-typedef struct  {
+typedef struct {
     char name[TIMER_NAME_LENGTH];
     time_s timestamp;
 } timer_s;

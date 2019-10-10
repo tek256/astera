@@ -40,12 +40,65 @@ If you're interested in helping contribute to this project, please consider supp
 </div>
 <div id="changelog">
 <h2>Change Log</h2>
-<pre><code>Sept 24, 2019
+<pre><code>Oct 10, 2019
+- Update ZIP Dependency
+- Refactoring into more legible code
+- Prepping some files for proper library release
+- Finishing UI Implementation
+- Audio cleanup fix
+- Writing include options / toggles
+- Documenting parts of the engine in the wiki
+- Transitioning to clang/LLVM workflow
+
+Sept 24, 2019
 - Added ZIP Functionality
 - Moved CONTRIBUTING.md & LICENSE into README.md
 - Initial Update of Audio Push System
 - Migrating UI System into ui.c/h
 </code></pre>
+</div>
+<div id="todo">
+<h2>To Do</h2>
+<pre><code>UI
+- Rendering
+- Gamepad / Keyboard Support
+
+Audio
+- Seek Test
+
+Game Rendering
+- Particle Effects
+- Framebuffer Effects
+- Move to cached / managed assets
+- Patch shader cache system to be dynamic
+
+Level System
+- Runtime Management
+- Serialization 
+- Loading from file
+
+Physics
+- All of it
+
+Tooling
+- Level Editor
+- Build optimization
+
+Documentation
+- API Documentation
+- Technical Breakdowns of each system
+- Examples
+
+Release 
+- Library style refactor
+
+Optional
+- Multi Language Support (wide characters)
+- Configuration Editor documentation
+- Tool repository integration
+- Integrate minimal/own versions of dependencies
+- World Domination, OR just some chicken strips.
+</pre></code>
 </div>
 <div id="license">
 	<h2>License</h2>

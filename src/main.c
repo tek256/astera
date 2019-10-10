@@ -1,14 +1,12 @@
 #define EXCLUDE_CREATE
 #define _POSIX_C_SOURCE 199309L
+
 #include "platform.h"
 
 #include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-
-#define CREATE_MODE 
-#define INIT_DEBUG
 
 #include "conf.h"
 #include "debug.h"
@@ -18,6 +16,7 @@
 #include "input.h"
 #include "render.h"
 #include "game.h"
+#include "level.h"
 
 #define CONF_PATH "res/conf.ini"
 
@@ -42,6 +41,7 @@ int init_sys(){
 		_fatal("Unable to initialize audio system.\n");
 		return EXIT_FAILURE;
 	}
+
 
 	if(!g_init()){
 		_fatal("Unable to initialize game runtime.\n");
@@ -86,7 +86,6 @@ int main(int argc, char** argv){
 		i_update();
 		glfwPollEvents();
 		g_input(delta);
-
 
 		if(r_allow_render()){
 			r_clear_window();
@@ -139,7 +138,6 @@ int main(int argc, char** argv){
 	}
 
 	g_exit();
-
 	r_exit();
 	a_exit();
 	

@@ -12,6 +12,8 @@
 #include "platform.h"
 #include "conf.h"
 
+#include "asset.h"
+
 #include <stb/stb_truetype.h>
 
 //max number of quads to draw at once
@@ -43,6 +45,7 @@ typedef struct {
 	int fullscreen, vsync, borderless;
 	int refreshRate;
 	char* title;
+	char* icon;
 } r_window_info;
 
 typedef struct {
@@ -66,10 +69,6 @@ typedef struct {
 } r_camera;
 
 typedef u32 r_shader;
-
-typedef struct { 
-	u32 id;
-} r_extern_shader;
 
 typedef struct {
 	r_shader shader;
@@ -222,10 +221,10 @@ int  r_init(c_conf conf);
 void r_exit();
 void r_update(long delta);
 
-r_tex       r_get_tex(const char* fp);
-void        r_bind_tex(u32 tex);
+r_tex r_get_tex(asset_t asset);
+void  r_bind_tex(u32 tex);
 
-r_sheet r_get_sheet(const char* fp, u32 subwidth, u32 subheight);
+r_sheet r_get_sheet(asset_t asset, u32 subwidth, u32 subheight);
 
 void r_update_batch(r_shader shader, r_sheet* sheet);
 
@@ -235,9 +234,8 @@ void r_draw_call(r_shader shader, r_sheet* sheet);
 void r_destroy_anims();
 void r_destroy_quad(u32 vao);
 
-static GLuint r_get_sub_shader(const char* filePath, int type);
-r_shader      r_get_shader(const char* vert, const char* frag);
-r_shader 	  r_get_extern_shader(const char* vert_program, const char* frag_program);	
+static GLuint r_get_sub_shader(asset_t asset, int type);
+r_shader      r_get_shader(asset_t vert, asset_t frag);
 r_shader      r_get_shadern(const char* name);
 void          r_bind_shader(r_shader shader);
 void          r_destroy_shader(r_shader shader);

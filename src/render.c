@@ -46,23 +46,30 @@ static void glfw_err_cb(int error, const char* msg){
 }
 
 static void glfw_window_pos_cb(GLFWwindow* window, int x, int y){
-	g_window.x = x;
-	g_window.y = y;
+	if(g_window.glfw == window){
+		g_window.x = x;
+		g_window.y = y;
+	}
 }
 
 static void glfw_window_size_cb(GLFWwindow* window, int w, int h){
-	g_window.width = w;
-	g_window.height = h;
-	glViewport(0, 0, w, h);
-	flags.scaled = 1;
-	i_set_screensize(w, h);
+	if(g_window.glfw == window){
+		g_window.width = w;
+		g_window.height = h;
+		glViewport(0, 0, w, h);
+		flags.scaled = 1;
+		i_set_screensize(w, h);
+	}
 }
 
 static void glfw_window_close_cb(GLFWwindow* window){
-	g_window.close_requested = 1;
+	if(g_window.glfw == window)
+		g_window.close_requested = 1;
 }
 
 static void glfw_key_cb(GLFWwindow* window, int key, int scancode, int action, int mods){
+	if(g_window.glfw != window) return;
+	
 	if(action == GLFW_PRESS || action == GLFW_REPEAT){
 		i_key_callback(key, scancode, 1);
 		if(i_key_binding_track()){
@@ -74,11 +81,13 @@ static void glfw_key_cb(GLFWwindow* window, int key, int scancode, int action, i
 }
 
 static void glfw_char_cb(GLFWwindow* window, u32 c){
-	i_char_callback(c);
+	if(window == g_window.glfw)
+		i_char_callback(c);
 }
 
 static void glfw_mouse_pos_cb(GLFWwindow* window, double x, double y){
-	i_mouse_pos_callback(x, y);
+	if(window == g_window.glfw)
+		i_mouse_pos_callback(x, y);
 }
 
 static void glfw_mouse_button_cb(GLFWwindow* window, int button, int action, int mods){
@@ -92,8 +101,8 @@ static void glfw_mouse_button_cb(GLFWwindow* window, int button, int action, int
 }
 
 static void glfw_scroll_cb(GLFWwindow* window, double dx, double dy){
-	//System Callback
-	i_mouse_scroll_callback(dx, dy);
+	if(g_window.glfw == window)
+		i_mouse_scroll_callback(dx, dy);
 }
 
 static void glfw_joy_cb(int joystick, int action){
@@ -107,6 +116,7 @@ static void glfw_joy_cb(int joystick, int action){
 
 int r_init(c_conf conf){
 	r_window_info info;
+
 	info.width = conf.width;
 	info.height = conf.height;
 	info.fullscreen = conf.fullscreen;
@@ -114,6 +124,7 @@ int r_init(c_conf conf){
 	info.borderless = conf.borderless;
 	info.refreshRate = conf.refreshRate;
 	info.title = r_window_title; 
+	info.icon = "icon.png";
 
 	if(!r_create_window(info)){ 
 		_e("Unable to create window.\n");
@@ -172,9 +183,9 @@ void r_update(long delta){
 	r_update_camera();	
 }
 
-r_tex r_get_tex(const char* fp){
+r_tex r_get_tex(asset_t asset){
 	int w, h, ch;
-	unsigned char* img = stbi_load(fp, &w, &h, &ch, 0);
+	unsigned char* img = stbi_load_from_memory(asset.data, asset.data_length, &w, &h, &ch, 0);
 	u32 id;
 	glGenTextures(1, &id);
 	glBindTexture(GL_TEXTURE_2D, id);
@@ -189,7 +200,7 @@ r_tex r_get_tex(const char* fp){
 #ifndef EXCLUDE_CREATE
 	int count = r_res_map.tex_count;
 	r_res_map.tex_ids[count] = id;
-	r_res_map.tex_paths[count] = strdup(fp);
+	r_res_map.tex_paths[count] = strdup(asset.name);
 	++r_res_map.tex_count;
 #endif
 
@@ -197,15 +208,15 @@ r_tex r_get_tex(const char* fp){
 	return (r_tex){id, (u32)w,(u32)h};	
 }
 
-r_sheet r_get_sheet(const char* fp, u32 subwidth, u32 subheight){
-	r_tex tex = r_get_tex(fp);
+r_sheet r_get_sheet(asset_t asset, u32 subwidth, u32 subheight){
+	r_tex tex = r_get_tex(asset);
 #ifndef EXCLUDE_CREATE
 	int count = r_res_map.sheet_count;
 
 	r_res_map.sheet_ids[count] = tex.id;
 	r_res_map.sheet_subwidths[count] = subwidth;
 	r_res_map.sheet_subheights[count] = subheight;
-	r_res_map.sheet_paths[count] = strdup(fp);
+	r_res_map.sheet_paths[count] = strdup(asset.name);
 
 	++ r_res_map.sheet_count;	
 #endif
@@ -372,32 +383,11 @@ int r_is_shader_cache(void){
 	return 1;	
 }
 
-static GLuint r_get_sub_shader(const char* fp, int type){
-	FILE* file;
-	unsigned char* data = NULL;
-	int count = 0;
-	file = fopen(fp, "rt");
-	if(file != NULL){
-		fseek(file, 0, SEEK_END);
-		count = ftell(file);
-		rewind(file);
-
-		if(count > 0){
-			data = malloc(sizeof(unsigned char)*(count+1));
-			count = fread(data, sizeof(unsigned char), count, file);
-			data[count] = '\0';
-		}
-
-		fclose(file);
-	}else{
-		_l("Unable to open file: %s\n", fp);
-		return 0;
-	}
-	
+static GLuint r_get_sub_shader(asset_t asset, int type){
 	GLint success = 0;
 	GLuint id = glCreateShader(type);
 
-	const char* ptr = data;
+	const char* ptr = asset.data;
 
 	glShaderSource(id, 1, &ptr, NULL);
 	glCompileShader(id);
@@ -416,8 +406,6 @@ static GLuint r_get_sub_shader(const char* fp, int type){
 		free(log);
 	}
 
-	free(data);
-
 	return id;	
 }
 
@@ -430,7 +418,7 @@ r_shader r_get_shadern(const char* name){
 	return 0; 
 }
 
-r_shader r_get_shader(const char* vert, const char* frag){
+r_shader r_get_shader(asset_t vert, asset_t frag){
 	GLuint v = r_get_sub_shader(vert, GL_VERTEX_SHADER);
 	GLuint f = r_get_sub_shader(frag, GL_FRAGMENT_SHADER);
 
@@ -452,10 +440,10 @@ r_shader r_get_shader(const char* vert, const char* frag){
 		_l("%s\n", log);
 		free(log);
 	}
-#ifndef EXCLUDE_CREATE
+#if defined(CREATE_MODE)
 	int shader_count = r_res_map.shader_count;
-	r_res_map.vertex_shaders[shader_count] = strdup(vert);
-	r_res_map.fragment_shaders[shader_count] = strdup(frag);
+	r_res_map.vertex_shaders[shader_count] = strdup(vert.name);
+	r_res_map.fragment_shaders[shader_count] = strdup(frag.name);
 	r_res_map.shader_ids[shader_count] = id;
 	r_res_map.shader_count ++;
 #endif
@@ -464,20 +452,6 @@ r_shader r_get_shader(const char* vert, const char* frag){
 #endif
 	return (r_shader){id};
 }
-
-/*
-	
-	const char* sheet_path[RENDER_SHEET_CACHE];
-	u32 sheet_ids[RENDER_SHEET_CACHE];
-	u32 sheets[RENDER_SHEET_CACHE];
-	u32 sheet_count;
-
-	const char* tex_paths[RENDER_SHEET_CACHE];
-	u32 tex_ids[RENDER_SHEET_CACHE];
-	u32 texs[RENDER_SHEET_CACHE];
-	u32 tex_count;
-
- */
 
 void r_map_shader(r_shader shader, const char* name){
 	if(g_shader_map.capacity == 0){
@@ -1200,6 +1174,22 @@ int r_create_window(r_window_info info){
 		_e("Error: Unable to create GLFW window.\n");
 		glfwTerminate();
 		return 0;
+	}
+
+	if(info.icon){
+		int w, h, ch;
+		asset_t raw_asset = asset_load("res.zip", info.icon);
+		if(raw_asset.data_length != 0){
+			unsigned char* img = stbi_load_from_memory(raw_asset.data, raw_asset.data_length, &w, &h, &ch, 0);
+
+			GLFWimage glfw_img = (GLFWimage){ w, h, img };
+			glfwSetWindowIcon(window, 1, &glfw_img);
+
+			free(img);
+			asset_free(raw_asset);
+		}else{
+			_l("Unable to load %s from archive.\n", info.icon);
+		}
 	}
 
 	g_window.glfw = window;

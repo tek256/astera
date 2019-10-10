@@ -10,7 +10,6 @@
 #endif
 
 #include "audio.h"
-
 #include "asset.h"
 
 #undef STB_VORBIS_HEADER_ONLY

@@ -1,6 +1,7 @@
 #ifndef PLAT_H
 #define PLAT_H
 
+#include "config.h"
 #include <stdint.h>
 
 //Define POSIX features for C99

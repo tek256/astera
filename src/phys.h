@@ -1,5 +1,7 @@
 #ifndef PHYS_H
 #define PHYS_H
+/*
+#include "config.h"
 
 #define P_CIRCLE 0
 #define P_AABB   1
@@ -103,7 +105,7 @@ typedef struct {
 	unsigned int count;
 } p_map;
 
-/*void p_init(vec2 size, vec2 block_size);
+void p_init(vec2 size, vec2 block_size);
 void p_load(g_entity* entities, unsigned int count);
 void p_swap(g_entity* entities, unsigned int count);
 void p_update(long delta);

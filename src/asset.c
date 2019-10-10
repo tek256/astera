@@ -1,9 +1,15 @@
 #include "asset.h"
+#include "debug.h"
 
 #include <string.h>
 
 #define REQ_STACK_START_SIZE 8
 #define REQ_STACK_GROWTH 8
+
+void asset_init(){
+	req_stack.reqs = (asset_req_t*)malloc(sizeof(asset_req_t) * REQ_STACK_START_SIZE);
+	req_stack.capacity = REQ_STACK_START_SIZE;	
+}
 
 asset_t* asset_to_map(asset_t asset, asset_map_t* map){
 	if(!map){
@@ -47,11 +53,26 @@ asset_t* asset_to_map(asset_t asset, asset_map_t* map){
 	return &map->assets[map->count-1];	
 }
 
-asset_t load_asset(const char* archive, const char* filename){
-	struct zip_t* zip = zip_open(archive, 0, 'r');
-	zip_entry_open(zip, filename);
+asset_t asset_load(const char* archive, const char* filename){
+	struct zip_t* zip = zip_open(archive, COMPRESSION_LEVEL, 'r');
+	
+	if(!zip){
+		_e("Unable to open archive: %s\n", archive); 
+		return (asset_t){0, 0, 0, filename};
+	}
 
-	unsigned int file_size = zip_entry_size(zip);
+	if(zip_entry_open(zip, filename) < 0){
+		_l("Unable to open file: %s in archive: %s\n", filename, archive);
+		zip_close(zip);
+		return (asset_t){0, 0, 0, filename};
+	}
+
+	int file_size = zip_entry_size(zip);
+	if(!file_size){
+		_l("Size of file: %s is 0.\n", filename);
+		return (asset_t){0, 0, 0, filename};
+	}
+
 	unsigned char* data = (unsigned char*)malloc(sizeof(unsigned char) * file_size);
 
 	zip_entry_noallocread(zip, (void*)data, file_size);
@@ -59,6 +80,10 @@ asset_t load_asset(const char* archive, const char* filename){
 	zip_close(zip);
 
 	return (asset_t){0, data, file_size, filename};
+}
+
+void asset_free(asset_t asset){
+	free(asset.data);
 }
 
 asset_req_t* asset_request(const char* archive, const char* filename, asset_map_t* map_to){
@@ -71,6 +96,11 @@ asset_req_t* asset_request(const char* archive, const char* filename, asset_map_
 
 	req.name = filename;
 	req.map_to = map_to;
+
+	if(!req_stack.reqs){
+		req_stack.reqs = (asset_req_t*)malloc(sizeof(asset_req_t) * REQ_STACK_START_SIZE);
+		req_stack.capacity = REQ_STACK_START_SIZE;
+	}
 
 	if(req_stack.archive){
 		if(strcmp(archive, req_stack.archive) == 0){
@@ -107,7 +137,9 @@ asset_req_t* asset_request(const char* archive, const char* filename, asset_map_
 }
 
 void asset_pop_stack(){
-	struct zip_t* zip = zip_open(req_stack.archive, 0, 'r');
+	//Compression level found in config.h
+	struct zip_t* zip = zip_open(req_stack.archive, COMPRESSION_LEVEL, 'r');
+	//_l("Opening archive: %s\n", req_stack.archive);
 
 	for(int i=0;i<req_stack.count;++i){
 		asset_req_t* req = &req_stack.reqs[i];
@@ -161,6 +193,12 @@ asset_map_t* asset_create_map(const char* name, unsigned int capacity){
 
 	int index = -1;
 	for(int i=0;i<ASSET_MAX_MAPS;++i){
+		if(!asset_maps[i]){
+			asset_maps[i] = (asset_map_t*)malloc(sizeof(asset_map_t));
+			index = i;
+			break;
+		}
+
 		if(!asset_maps[i]->name){
 			index = i;
 			break;
@@ -168,8 +206,8 @@ asset_map_t* asset_create_map(const char* name, unsigned int capacity){
 	}
 
 	asset_map_t* map = &asset_maps[index];
-	asset_t* cache = (asset_t*)malloc(sizeof(asset_t) * capacity);
-	if(!cache){
+	map->assets= (asset_t*)malloc(sizeof(asset_t) * capacity);
+	if(!map->assets){
 		_e("Unable to allocate space for cache with [%i] bytes.\n", sizeof(asset_t) * capacity);
 		return 0;
 	}
