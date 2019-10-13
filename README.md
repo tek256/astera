@@ -4,42 +4,36 @@
       <b>astera</b><br>
 	  <span font-size="16px">a cross platform game library</span><br>
       <span font-size="12px">Made by <a href="http://tek256.com">Devon</a> with love.</span><br><br>
-      <span><a href="https://github.com/tek256/astera/wiki/Getting-Started/">Getting Started</a> | <a href="https://github.com/tek256/astera-tools">Tools</a> | <a href="https://discordapp.com/invite/63GvpMh">Discord</a> | <a href="https://patreon.com/tek256/">Patreon</a></span>
+      <span><a href="https://github.com/tek256/astera/wiki/Getting-Started/">Getting Started</a> | <a href="https://github.com/tek256/astera/tree/master/tool">Tools</a> | <a href="https://discordapp.com/invite/63GvpMh">Discord</a> | <a href="https://patreon.com/tek256/">Patreon</a></span>
     </p>
 </div>
 <div id="about">
-	<h2>About</h2>
-	<p>The goal of this repository is to show that you're able to make a cross platform game engine in C. The idea is to provide an education resource for those interested in game engine / game development in general. Lots of the systems can be made from scratch, but for simplicity's sake, the early versions will use outside dependencies. In future updates, the systems may be migrated to our own in house made & maintained systems.
+	<h3>About</h3>
+	<p>The goal of this repository is to show that you're able to make a cross platform game engine in C that is easily ported to a system.<br>
 If you're interested in helping contribute to this project, please consider supporting on <a href="https://patreon.com/tek256">Patreon</a> or helping with any of the items listed below.
 	</p>
 </div>
 <div id="contributing">
-	<h2>Contributing</h2>
+	<h3>Contributing</h3>
 	<pre><code>Here are some things you can do to help contribute!
 - Bug Review & Search
 - Wiki / Code Documentation
 - Unit Test Creation
 - Example Creation
-- Input Mappings for gamepads
+- Input Mappings
 	- PS4
 	- Xbox One
 	- Generic Gamepad
-- Platform / Architecture Specific Testing
-	- Windows
-		- ARMv8
+- Platform Specific Testing
 	- Mac OSX
 		- x86_64
 	- Linux
 		- ARMv8
-		- ARMv7
-	- FreeBSD
-		- x86_64
-		- x86
-		- ARMv8
-		- ARMv7</code></pre> 
+	- BSD
+		- x86_64</code></pre> 
 </div>
 <div id="changelog">
-<h2>Change Log</h2>
+<h3>Change Log</h3>
 <pre><code>Oct 10, 2019
 - Update ZIP Dependency
 - Refactoring into more legible code
@@ -49,7 +43,6 @@ If you're interested in helping contribute to this project, please consider supp
 - Writing include options / toggles
 - Documenting parts of the engine in the wiki
 - Transitioning to clang/LLVM workflow
-
 Sept 24, 2019
 - Added ZIP Functionality
 - Moved CONTRIBUTING.md & LICENSE into README.md
@@ -58,7 +51,7 @@ Sept 24, 2019
 </code></pre>
 </div>
 <div id="todo">
-<h2>To Do</h2>
+<h3>To Do</h3>
 <pre><code>UI
 - Rendering
 - Gamepad / Keyboard Support
@@ -87,13 +80,12 @@ Release
 Optional
 - Multi Language Support (wide characters)
 - Configuration Editor documentation
-- Tool repository integration
 - Integrate minimal/own versions of dependencies
-- World Domination, OR just some chicken strips.
+- World Domination OR just some chicken strips.
 </code></pre>
 </div>
 <div id="license">
-	<h2>License</h2>
+	<h3>License</h3>
 	<p>The Unlicense</p>
 <pre><code>This is free and unencumbered software released into the public domain.
 
