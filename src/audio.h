@@ -22,7 +22,7 @@
 
 #define AUDIO_DEFAULT_LAYERS
 
-#ifdef AUDIO_DEFAULT_LAYERS
+#if defined(AUDIO_DEFAULT_LAYERS)
 	#define AUDIO_SFX_LAYER 0
 	#define AUDIO_MUSIC_LAYER 1
 	#define AUDIO_MISC_LAYER 2
@@ -30,37 +30,37 @@
 	#define MAX_AUDIO_LAYERS 4
 #endif
 
-#ifndef AUDIO_SFX_LAYER
+#if !defined(AUDIO_SFX_LAYER)
 	#define AUDIO_SFX_LAYER 0
 #endif
-#ifndef AUDIO_MUSIC_LAYER
+#if !defined(AUDIO_MUSIC_LAYER)
 	#define AUDIO_MUSIC_LAYER 1
 #endif
 
-#ifndef MAX_AUDIO_LAYERS
+#if !defined(MAX_AUDIO_LAYERS)
 	#define MAX_AUDIO_LAYERS 2
 #endif
 
-#ifdef AUDIO_SFX_LAYER && !defined (AUDIO_SFX_GAIN)
+#if defined(AUDIO_SFX_LAYER) && !defined (AUDIO_SFX_GAIN)
 	#define AUDIO_SFX_GAIN 0.8f
 #endif
-#ifdef AUDIO_MUSIC_LAYER && !defined (AUDIO_MUSIC_GAIN)
+#if defined(AUDIO_MUSIC_LAYER) && !defined (AUDIO_MUSIC_GAIN)
 	#define AUDIO_MUSIC_GAIN 0.5f
 #endif
-#ifdef AUDIO_MISC_LAYER && !defined (AUDIO_MISC_GAIN)
+#if defined(AUDIO_MISC_LAYER) && !defined (AUDIO_MISC_GAIN)
 	#define AUDIO_MISC_GAIN 0.8f
 #endif
-#ifdef AUDIO_UI_LAYER && !defined (AUDIO_UI_GAIN)
+#if defined(AUDIO_UI_LAYER) && !defined (AUDIO_UI_GAIN)
 	#define AUDIO_UI_GAIN 0.8f
 #endif
 
-#ifndef MAX_LAYER_SFX
+#if !defined(MAX_LAYER_SFX)
 	#define MAX_LAYER_SFX 32
 #endif
-#ifndef MAX_LAYER_SONGS
+#if !defined(MAX_LAYER_SONGS)
 	#define MAX_LAYER_SONGS 4
 #endif 
-#ifndef MAX_BUFFERS
+#if !defined(MAX_BUFFERS)
 	#define MAX_BUFFERS 64
 #endif
 
@@ -68,18 +68,18 @@
 #define LAYER_PLAYING 2
 #define LAYER_PAUSED  3
 
-#ifndef MAX_MUSIC_RUNTIME
+#if !defined(MAX_MUSIC_RUNTIME)
 	#define MAX_MUSIC_RUNTIME 4096
 #endif
 
-#ifndef MAX_SFX
+#if !defined(MAX_SFX)
 	#define MAX_SFX MAX_LAYER_SFX * MAX_AUDIO_LAYERS
 #endif
-#ifndef MAX_SONGS
+#if !defined(MAX_SONGS)
 	#define MAX_SONGS MAX_LAYER_SONGS * MAX_AUDIO_LAYERS
 #endif
 
-#ifndef DEFAULT_SFX_RANGE
+#if !defined(DEFAULT_SFX_RANGE)
 	#define DEFAULT_SFX_RANGE 20
 #endif
 

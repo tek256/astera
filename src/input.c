@@ -3,6 +3,7 @@
 
 #include "input.h"
 #include "render.h"
+#include "debug.h"
 
 #include <GLFW/glfw3.h>
 #include <stdio.h>
@@ -194,7 +195,9 @@ u16 i_get_joy_type(u16 joy){
 		}
 	}else{
 		return GENERIC_PAD;
-	}		
+	}	
+
+	return 0;	
 }
 
 void i_destroy_joy(u16 joy_id){
@@ -767,8 +770,8 @@ u16 i_binding_defined(const char* key_binding){
 
 	if(key_binding_count > 0){
 		for(int i=0;i<key_binding_count;++i){
-			if(key_bindings[i].name){
-				int len = strlen(key_bindings[i].name);
+			int len = strlen(key_bindings[i].name);
+			if(len != 0){
 				len = (len > 8) ? 8 : len;
 				if(!strncmp(key_bindings[i].name, key_binding, len)){
 					return 1;

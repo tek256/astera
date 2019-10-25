@@ -1,7 +1,7 @@
 OBJS := $(wildcard src/*.c)
 
 TARGET_CC := clang
-TARGET_COMPILER_FLAGS := -w -g -ferror-limit=500#-Wall -Wextra -pedantic -std=c99
+TARGET_COMPILER_FLAGS := -g -ferror-limit=500 -Wall -Wextra -pedantic -std=c11
 
 ifeq ($(OS),Windows_NT)
 	SHELL := cmd.exe

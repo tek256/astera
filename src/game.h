@@ -2,7 +2,6 @@
 #define GAME_H 
 
 #include "config.h"
-#include <linmath.h>
 
 int g_init(void);
 void g_exit(void); 

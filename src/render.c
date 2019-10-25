@@ -29,8 +29,6 @@ static const GLFWvidmode* r_vidmodes;
 static vec2 r_res;
 static u32 default_quad_vao, default_quad_vbo, default_quad_vboi;
 
-static char* shader_value_buff[SHADER_STR_SIZE];
-
 #ifndef EXCLUDE_CREATE
 static r_resource_map r_res_map;
 r_resource_map* r_get_map(){
@@ -130,8 +128,8 @@ int r_init(r_window_info info){
 		//pos       //tex
 		-0.5f, -0.5f,   0.f, 0.f,
 		-0.5f,  0.5f,   0.f, 1.f,
-		0.5f,  0.5f,   1.f, 1.f,
-		0.5f, -0.5f,   1.f, 0.f
+	 	 0.5f,  0.5f,   1.f, 1.f,
+	 	 0.5f, -0.5f,   1.f, 0.f
 	};
 
 	u16 inds[6] = { 
@@ -168,12 +166,12 @@ void r_cam_create(r_camera* cam, vec2 size, vec2 position){
 	x = floorf(cam->pos[0]);
 	y = floorf(cam->pos[1]);
 
-	mat4x4_ortho(&cam->proj, 0, cam->size[0], cam->size[1], 0, cam->near, cam->far);
+	mat4x4_ortho(cam->proj, 0, cam->size[0], cam->size[1], 0, cam->near, cam->far);
 
-	mat4x4_translate(&cam->view, x, y, 0.f);
-	mat4x4_rotate_x(&cam->view, cam->view, 0.0);
-	mat4x4_rotate_y(&cam->view, cam->view, 0.0);
-	mat4x4_rotate_z(&cam->view, cam->view,  0.0);
+	mat4x4_translate(cam->view, x, y, 0.f);
+	mat4x4_rotate_x(cam->view, cam->view, 0.0);
+	mat4x4_rotate_y(cam->view, cam->view, 0.0);
+	mat4x4_rotate_z(cam->view, cam->view,  0.0);
 }
 
 void r_cam_move(f32 x, f32 y){
@@ -189,7 +187,7 @@ void r_cam_update(void){
 }
 
 void r_update(long delta){
-	for(int i=0;i<g_drawable_cache.count;++i){
+	for(unsigned int i=0;i<g_drawable_cache.count;++i){
 		r_drawable_update(&g_drawable_cache.drawables[i], delta);
 	}
 
@@ -239,7 +237,7 @@ r_sheet r_get_sheet(asset_t* asset, u32 subwidth, u32 subheight){
 
 void r_update_batch(r_shader shader, r_sheet* sheet){
 	int cache_index = -1;
-	for(int i=0;i<g_shader_map.count;++i){
+	for(unsigned int i=0;i<g_shader_map.count;++i){
 		if(g_shader_map.batches[i].shader == shader){
 			cache_index = i;
 			break;
@@ -252,14 +250,14 @@ void r_update_batch(r_shader shader, r_sheet* sheet){
 	}
 
 	r_shader_batch* cache = &g_shader_map.batches[cache_index];
-	for(int i=0;i<g_drawable_cache.count;++i){
+	for(unsigned int i=0;i<g_drawable_cache.count;++i){
 		if(cache->count >= cache->capacity){
 			_e("Reached cache limit for shader: %d\n", shader);
 			break;
 		}
 		if(g_drawable_cache.drawables[i].shader == shader){
 			if(g_drawable_cache.drawables[i].anim.sheet_id == sheet->id){
-				r_shader_add_to_array(shader, "models", &g_drawable_cache.drawables[i].model, sizeof(mat4x4), 1);
+				r_shader_add_to_array(shader, "models", &g_drawable_cache.drawables[i].model,  1);
 
 				unsigned int id = 0;
 				if(g_drawable_cache.drawables[i].animated){
@@ -268,9 +266,9 @@ void r_update_batch(r_shader shader, r_sheet* sheet){
 					id = (u32)g_drawable_cache.drawables[i].tex.sub_id;
 				}
 				
-				r_shader_add_to_array(shader, "tex_ids", &id, sizeof(int), 1);
-				r_shader_add_to_array(shader, "flip_x", &g_drawable_cache.drawables[i].flip_x, sizeof(int), 1); 
-				r_shader_add_to_array(shader, "flip_y", &g_drawable_cache.drawables[i].flip_x, sizeof(int), 1);
+				r_shader_add_to_array(shader, "tex_ids", &id, 1);
+				r_shader_add_to_array(shader, "flip_x", &g_drawable_cache.drawables[i].flip_x, 1); 
+				r_shader_add_to_array(shader, "flip_y", &g_drawable_cache.drawables[i].flip_x, 1);
 				
 				cache->count ++;
 			}
@@ -353,7 +351,7 @@ static GLuint r_shader_create_sub(asset_t* asset, int type){
 }
 
 r_shader r_get_shadern(const char* name){
-	for(int i=0;i<g_shader_map.count;++i){
+	for(unsigned int i=0;i<g_shader_map.count;++i){
 		if(strcmp(name, g_shader_map.names[i]) == 0){
 			return g_shader_map.batches[i].shader;
 		}		
@@ -409,7 +407,7 @@ void r_shader_setup(r_shader shader, const char* name){
 		return;
 	}
 
-	for(int i=0;i<g_shader_map.count;++i){
+	for(unsigned int i=0;i<g_shader_map.count;++i){
 		if(g_shader_map.batches[i].shader == shader){
 			_l("Shader: %d already contained with alias of: %s\n", shader, g_shader_map.names[i]);
 			return;
@@ -427,7 +425,7 @@ void r_shader_clear_arrays(r_shader shader){
 	r_shader_batch* batch = r_shader_get_batch(shader);
 	if(!batch) return;
 
-	for(int i=0;i<batch->uniform_array_count;++i){
+	for(unsigned int i=0;i<batch->uniform_array_count;++i){
 		r_uniform_array* array = &batch->uniform_arrays[i];	
 		memset(array->data, 0, array->stride * array->capacity);
 		array->count = 0;
@@ -437,7 +435,7 @@ void r_shader_clear_arrays(r_shader shader){
 }
 
 r_shader_batch* r_shader_get_batch(r_shader shader){
-	for(int i=0;i<g_shader_map.count;++i){
+	for(unsigned int i=0;i<g_shader_map.count;++i){
 		if(g_shader_map.batches[i].shader == shader){
 			return &g_shader_map.batches[i];
 		}
@@ -448,7 +446,7 @@ r_shader_batch* r_shader_get_batch(r_shader shader){
 void r_shader_destroy_batch(r_shader shader){
 	r_shader_batch* batch = r_shader_get_batch(shader);
 
-	for(int i=0;i<batch->uniform_array_count;++i){
+	for(unsigned int i=0;i<batch->uniform_array_count;++i){
 		free(batch->uniform_arrays[i].data);
 	}
 
@@ -648,9 +646,9 @@ r_drawable* r_get_drawable_t(r_subtex sub_tex, r_shader shader, vec2 size, vec2 
 		return NULL;
 	}
 
-	mat4x4_identity(&draw->model);	
-	mat4x4_translate(&draw->model, pos[0], pos[1], 0.f);
-	mat4x4_scale_aniso(&draw->model, draw->model, size[0], size[1], 1.f);
+	mat4x4_identity(draw->model);	
+	mat4x4_translate(draw->model, pos[0], pos[1], 0.f);
+	mat4x4_scale_aniso(draw->model, draw->model, size[0], size[1], 1.f);
 
 	vec2_dup(draw->size, size);
 	vec2_dup(draw->position, pos);
@@ -678,9 +676,9 @@ r_drawable* r_drawable_create(r_anim* anim, r_shader shader,  vec2 size, vec2 po
 		return NULL;
 	}
 
-	mat4x4_identity(&draw->model);	
-	mat4x4_translate(&draw->model, pos[0], pos[1], 0.f);
-	mat4x4_scale_aniso(&draw->model, draw->model, size[0], size[1], 1.f);
+	mat4x4_identity(draw->model);	
+	mat4x4_translate(draw->model, pos[0], pos[1], 0.f);
+	mat4x4_scale_aniso(draw->model, draw->model, size[0], size[1], 1.f);
 
 	vec2_dup(draw->size, size);
 	vec2_dup(draw->position, pos);
@@ -775,8 +773,8 @@ void r_drawable_update(r_drawable* drawable, long delta){
 		f32 x, y;
 		x = floorf(drawable->position[0]);
 		y = floorf(drawable->position[1]);
-		mat4x4_translate(&drawable->model, x, y, 0.f);
-		mat4x4_scale_aniso(drawable->model, drawable->model, drawable->size[0], drawable->size[1], drawable->size[2]);
+		mat4x4_translate(drawable->model, x, y, 0.f);
+		mat4x4_scale_aniso(drawable->model, drawable->model, drawable->size[0], drawable->size[0], drawable->size[1]);
 
 		drawable->change = 0;
 	}
@@ -833,7 +831,7 @@ r_uniform_array* r_shader_get_array(r_shader shader, const char* name){
 		return 0;
 	}
 
-	for(int i=0;i<batch->uniform_array_count;++i){
+	for(unsigned int i=0;i<batch->uniform_array_count;++i){
 		if(strcmp(batch->uniform_arrays[i].name, name) == 0){
 			return &batch->uniform_arrays[i];
 		}
@@ -863,7 +861,7 @@ void r_shader_setup_array(r_shader shader, const char* name, int stride, int cap
 	batch->uniform_array_count++;
 }
 
-void r_shader_add_to_array(r_shader shader, const char* name, void* data, int stride, int count){
+void r_shader_add_to_array(r_shader shader, const char* name, void* data, int count){
 	r_uniform_array* array = r_shader_get_array(shader, name);
 
 	void* data_ptr = array->data + (array->stride * array->count);
@@ -923,7 +921,7 @@ void r_shader_set_arrays(r_shader shader){
 	r_shader_batch* batch = r_shader_get_batch(shader);
 	if(!batch) return;
 
-	for(int i=0;i<batch->uniform_array_count;++i){
+	for(unsigned int i=0;i<batch->uniform_array_count;++i){
 		r_uniform_array* array = &batch->uniform_arrays[i];
 		switch(array->type){
 			case r_vec2:
@@ -996,11 +994,11 @@ inline void r_set_v2i(int loc, vec2 val){
 }
 
 inline void r_set_m4(r_shader shader, const char* name, mat4x4 value){
-	glUniformMatrix4fv(glGetUniformLocation(shader, name), 1, GL_FALSE, value);
+	glUniformMatrix4fv(glGetUniformLocation(shader, name), 1, GL_FALSE, (GLfloat*)value);
 }
 
 inline void r_set_m4i(int loc, mat4x4 val){
-	glUniformMatrix4fv(loc, 1, GL_FALSE, val);
+	glUniformMatrix4fv(loc, 1, GL_FALSE, (GLfloat*)val);
 }
 
 void r_set_m4x(r_shader shader, u32 count, const char* name, mat4x4* values){
@@ -1082,7 +1080,7 @@ void r_select_mode(int index, int fullscreen, int vsync, int borderless){
 			_l("Setting borderless to: %i\n", borderless);
 		}
 
-		if(selected_mode->width != g_window.width || selected_mode != g_window.height){
+		if(selected_mode->width != g_window.width || selected_mode->height != g_window.height){
 			glfwSetWindowSize(g_window.glfw, selected_mode->width, selected_mode->height);
 			vec2_dup(r_res, (vec2){selected_mode->width, selected_mode->height});
 
@@ -1131,7 +1129,7 @@ int r_is_borderless(void){
 	return g_window.borderless; 	
 }
 
-static void r_create_modes(void){
+static void r_window_get_modes(void){
 	if(r_default_monitor == NULL){
 		r_default_monitor = glfwGetPrimaryMonitor();
 	}
@@ -1140,13 +1138,9 @@ static void r_create_modes(void){
 	flags.video_mode_count = count;
 }
 
-static int r_window_info_valid(r_window_info info){
-	return info.width > 0 && info.height > 0;
-}
-
 static const GLFWvidmode* r_find_closest_mode(r_window_info info){
 	if(flags.video_mode_count == 0){
-		r_create_modes();
+		r_window_get_modes();
 	}else if(flags.video_mode_count == 1){
 		return r_vidmodes;
 	}
@@ -1167,7 +1161,7 @@ static const GLFWvidmode* r_find_closest_mode(r_window_info info){
 
 static const GLFWvidmode* r_find_best_mode(void){
 	if(flags.video_mode_count == 0){
-		r_create_modes();
+		r_window_get_modes();
 	}else if(flags.video_mode_count == 1){
 		return r_vidmodes;
 	}
@@ -1208,8 +1202,8 @@ int r_window_create(r_window_info info){
 
 	if(info.fullscreen){
 		const GLFWvidmode* selected_mode;
-
-		if(r_window_info_valid(info)){
+		
+		if(info.width > 0 && info.height > 0 && info.refreshRate > 0){
 			selected_mode = r_find_closest_mode(info);
 		}else{
 			selected_mode = r_find_best_mode();
@@ -1247,7 +1241,6 @@ int r_window_create(r_window_info info){
 
 		g_window.fullscreen = 0;
 		g_window.vsync = info.vsync;
-
 
 		window = glfwCreateWindow(info.width, info.height, info.title, NULL, NULL);
 	}
@@ -1311,7 +1304,7 @@ int r_window_create(r_window_info info){
 	glfwSetJoystickCallback(glfw_joy_cb);
 #endif
 
-	r_create_modes();
+	r_window_get_modes();
 
 #if defined(INIT_DEBUG)
 	_l("Setting default bindings.\n");
@@ -1392,18 +1385,18 @@ void r_window_destroy(void){
 	g_window.vsync = 0;
 }
 
-void r_request_close(void){
+void r_window_request_close(void){
 	g_window.close_requested = 1;
 }
 
-int r_should_close(void){
+int r_window_should_close(void){
 	return g_window.close_requested;
 }
 
-void r_swap_buffers(void){
+void r_window_swap_buffers(void){
 	glfwSwapBuffers(g_window.glfw);
 }
 
-void r_clear_window(void){
+void r_window_clear(void){
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }

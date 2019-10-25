@@ -77,7 +77,7 @@ typedef struct {
 
 typedef struct {
 	r_anim anims[RENDER_ANIM_CACHE];
-	char*  names[RENDER_ANIM_CACHE];
+	const char* names[RENDER_ANIM_CACHE];
 
 	u16 count;
 	u16 capacity;
@@ -99,7 +99,7 @@ typedef struct {
 } r_animv;
 
 typedef struct {
-	char* name;
+	const char* name;
 	int type;
 	r_shader shader;
 
@@ -171,7 +171,7 @@ typedef struct {
 	union {
 		r_animv anim;
 		r_subtex tex;
-	};	
+	};
 
 	mat4x4 model;
 	u8 layer;
@@ -213,7 +213,6 @@ r_sheet r_sheet_create(asset_t* asset, u32 subwidth, u32 subheight);
 void r_update_batch(r_shader shader, r_sheet* sheet);
 void r_draw_call(r_shader shader);
 
-static GLuint r_shader_create_sub(asset_t* asset, int type);
 r_shader      r_shader_create(asset_t* vert, asset_t* frag);
 r_shader      r_get_shadern(const char* name);
 
@@ -224,15 +223,13 @@ void 		  r_shader_setup_array(r_shader shader, const char* name, int stride, int
 r_uniform_array* r_shader_get_array(r_shader shader, const char* name);
 r_shader_batch*  r_shader_get_batch(r_shader shader);
 
-void		  r_shader_add_to_array(r_shader shader, const char* name, void* data, int stride, int count);
+void		  r_shader_add_to_array(r_shader shader, const char* name, void* data, int count);
 int 	  	  r_shader_clear_array(r_shader shader, const char* name);
 
 void          r_shader_setup(r_shader shader, const char* name);
 void          r_shader_clear_arrays(r_shader shader);
 void          r_shader_destroy_batch(r_shader shader);
 
-static int r_hex_number(char v);
-static int r_hex_multi(char* v, int len);
 void       r_get_color(vec3 val, char* v);
 
 r_anim  r_anim_create(r_sheet sheet, u32* frames, int frame_count, int frame_rate);
@@ -285,12 +282,6 @@ int r_allow_render(void);
 int r_is_vsync(void);
 int r_is_fullscreen(void);
 int r_is_borderless(void);
-
-
-static void r_window_get_modes(void);
-static int  r_window_info_valid(r_window_info info);
-static const GLFWvidmode* r_find_closest_mode(r_window_info info);
-static const GLFWvidmode* r_find_best_mode(void);
 
 int  r_window_create(r_window_info info);
 void r_window_destroy(void);

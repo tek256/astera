@@ -1,5 +1,4 @@
 #define EXCLUDE_CREATE
-#define _POSIX_C_SOURCE 199309L
 
 #include "platform.h"
 
@@ -16,7 +15,6 @@
 #include "input.h"
 #include "render.h"
 #include "game.h"
-#include "level.h"
 
 int target_fps = 120;
 int max_fps = 120;
@@ -65,14 +63,8 @@ int init_sys(){
 		return EXIT_FAILURE;
 	}
 
-
 	if(!g_init()){
 		_fatal("Unable to initialize game runtime.\n");
-		return EXIT_FAILURE;
-	}
-
-	if(!l_init()){
-		_fatal("Unable to initialize starting level.\n");	
 		return EXIT_FAILURE;
 	}
 
@@ -80,8 +72,9 @@ int init_sys(){
 }
 
 int main(int argc, char** argv){
-	#ifdef __MINGW32__
-		#ifndef DEBUG_OUTPUT
+	//Free up the extra console initialized with programs in windows
+	#if defined(__MINGW32__)
+		#if !defined(DEBUG_OUTPUT)
 			FreeConsole();
 		#endif
 	#endif
@@ -100,7 +93,7 @@ int main(int argc, char** argv){
 	double accum = timeframe;
 	int vsync = 1;
 
-	while(!r_should_close() && !d_fatal){
+	while(!r_window_should_close() && !d_fatal){
 		last = curr;
 		curr = t_get_time(); 
 		delta = curr - last;
@@ -115,10 +108,10 @@ int main(int argc, char** argv){
 		}
 
 		if(r_allow_render()){
-			r_clear_window();
+			r_window_clear();
 			r_update(delta);
 			g_render(delta);
-			r_swap_buffers();
+			r_window_swap_buffers();
 		}
 
 		g_update(delta);

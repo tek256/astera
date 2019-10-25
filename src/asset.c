@@ -28,7 +28,7 @@ void asset_free(asset_t* asset){
 
 void asset_map_free(const char* map_name){
 	asset_map_t* map;
-	for(int i=0;i<asset_map_count;++i){
+	for(unsigned int i=0;i<asset_map_count;++i){
 		if(strcmp(asset_maps[i].name, map_name) == 0){
 			map = &asset_maps[i];
 			break;
@@ -43,7 +43,7 @@ void asset_map_free(const char* map_name){
 		return;
 	}
 
-	for(int i=0;i<map->capacity;++i){
+	for(unsigned int i=0;i<map->capacity;++i){
 		asset_t* asset = &map->assets[i];
 		if(asset->data){
 			free(asset->data);
@@ -59,55 +59,6 @@ void asset_map_free(const char* map_name){
 	map->filename = 0;
 }
 
-/*
-		FILE* f = fopen(file, "r");
-		if(!f){
-			_e("Couldn't open file: %s\n", file);
-			return NULL;
-		}
-
-		fseek(f, 0, SEEK_SET);
-		int file_length = ftell(f);
-
-		unsigned char* file_buffer = (unsigned char*)malloc(sizeof(unsigned char) * file_length);
-
-		if(!file_buffer){
-			fclose(f);
-			_e("Unable to allocate: %i bytes.\n", file_length);
-		}
-
-		int read_length = fread(file_buffer, sizeof(unsigned char), file_length, f);
-
-		if(read_length != file_length){
-			free(file_buffer);
-			fclose(f);
-			_e("Unable to read correct amount from file: %i vs %i.\n", file_length, read_length);
-			return NULL;	
-		}
-		
-		asset_t* asset_ptr = NULL;
-		for(int i=0;i<map->capacity;++i){
-			if(!map->assets[i].filled && !map->assets[i].req){
-				asset_ptr = &map->assets[i];
-				break;
-			}
-		}
-		
-		if(!asset_ptr) {
-			if(map->capacity < MAX_ASSET_CACHE){
-				asset_t* n_array = (asset_t*)malloc(sizeof(asset_t) * (map->capacity + ASSET_CACHE_GROWTH)); 
-
-				if(!n_array){
-					_e("Unable to malloc array to expand cache.\n"); 
-				}
-
-				memcpy(n_array, map->assets, sizeof(asset_t) * map->capacity);
-				map->capacity += ASSET_CACHE_GROWTH;
-				free(map->assets);
-				map->assets = n_array;
-			}	
-		}	
- */
 asset_t* asset_get(const char* map_name, const char* file){	
 	asset_map_t* map = NULL;
 	if(!map_name){
@@ -135,7 +86,7 @@ asset_t* asset_get(const char* map_name, const char* file){
 
 	asset_t* asset = NULL;
 	int free = 0;
-	for(int i=0;i<map->capacity;++i){
+	for(unsigned int i=0;i<map->capacity;++i){
 		if(!map->assets[i].filled && !map->assets[i].req){
 			++free;
 			continue;
@@ -152,7 +103,7 @@ asset_t* asset_get(const char* map_name, const char* file){
 	//At capacity for asset map
 	if(!free) return 0;
 
-	for(int i=0;i<map->capacity;++i){
+	for(unsigned int i=0;i<map->capacity;++i){
 		if(!map->assets[i].filled && !map->assets[i].req){
 			asset = &map->assets[i];
 			break;			
@@ -252,7 +203,7 @@ asset_t* asset_req(const char* map_name, const char* file){
 
 	asset_t* asset;
 	int free = 0;
-	for(int i=0;i<map->capacity;++i){
+	for(unsigned int i=0;i<map->capacity;++i){
 		if(!map->assets[i].filled && !map->assets[i].req){
 			++free;
 			continue;
@@ -269,7 +220,7 @@ asset_t* asset_req(const char* map_name, const char* file){
 	//At capacity for asset map
 	if(!free) return 0;
 
-	for(int i=0;i<map->capacity;++i){
+	for(unsigned int i=0;i<map->capacity;++i){
 		if(!map->assets[i].filled && !map->assets[i].req){
 			asset = &map->assets[i];
 			break;			
@@ -324,8 +275,7 @@ asset_map_t* asset_create_map(const char* filename, const char* name, unsigned i
 void asset_update_map(asset_map_t* map){
 	struct zip_t* zip;
 
-	unsigned int reqs = 0;
-	for(int i=0;i<map->capacity;++i){
+	for(unsigned int i=0;i<map->capacity;++i){
 		if(map->assets[i].req_free){
 			free(map->assets[i].data);
 			memset(&map->assets[i], 0, sizeof(asset_t));

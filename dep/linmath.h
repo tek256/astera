@@ -16,8 +16,8 @@ LINMATH_H_FUNC int vec##n##_cmp(vec##n a, vec##n b) { \
 		if(a[i] != b[i]){ \
 			return 0;\
 		}\
-		return 1;\
 	}\
+	return 1; \
 }\
 LINMATH_H_FUNC void vec##n##_add(vec##n r, vec##n const a, vec##n const b) \
 { \

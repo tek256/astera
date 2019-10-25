@@ -26,7 +26,7 @@ void g_exit(void){
 
 void g_input(long delta){
 	if(i_key_clicked(GLFW_KEY_ESCAPE)){
-		r_request_close();	
+		r_window_request_close();	
 	}
 }
 

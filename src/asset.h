@@ -27,8 +27,8 @@ typedef struct {
 } asset_map_t;
 
 static asset_map_t asset_maps[ASSET_MAX_MAPS];
-static int asset_map_count = 0;
-static int asset_uid_count = 0;
+static unsigned int asset_map_count = 0;
+static unsigned int asset_uid_count = 0;
 
 int asset_init();
 void asset_exit();

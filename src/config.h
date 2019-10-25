@@ -3,11 +3,25 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+// --- SYSTEM STANDARDS ---
+#define _POSIX_C_SOURCE 199309L
+
+//Define POSIX features for C99
+#if !defined(_XOPEN_SOURCE) && !defined(_POSIX_C_SOURCE)
+#if defined(__cplusplus)
+#define _XOPEN_SOURCE 700   /* SUS v4, POSIX 1003.1 2008/13 (POSIX 2008/13) */
+#elif __STDC_VERSION__ >= 199901L
+#define _XOPEN_SOURCE 700   /* SUS v4, POSIX 1003.1 2008/13 (POSIX 2008/13) */
+#else
+#define _XOPEN_SOURCE 500   /* SUS v2, POSIX 1003.1 1997 */
+#endif /* __STDC_VERSION__ */
+#endif /* !_XOPEN_SOURCE && !_POSIX_C_SOURCE */
+
 // --- DISPLAY CONFIG ---
 #define WINDOW_TITLE "demo"
 
 //Configuration INI File path
-//#define CONF_PATH "res/conf.ini"
+#define CONF_PATH "res/conf.ini"
 
 //Enable / Disable the resources for level editor usage
 //#define CREATE_MODE

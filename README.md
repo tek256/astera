@@ -9,8 +9,7 @@
 </div>
 <div id="about">
 	<h3>About</h3>
-	<p>The goal of this repository is to show that you're able to make a cross platform game engine in C that is easily ported to a system.<br>
-If you're interested in helping contribute to this project please consider helping with any of the items listed below.
+	<p>Astera is a 2D cross platform game library. It uses OpenGL, GLFW, OpenAL-Soft, GLAD, various STB libraries, and a few others at this point. 
 	</p>
 </div>
 <div id="contributing">
@@ -18,23 +17,19 @@ If you're interested in helping contribute to this project please consider helpi
 	<pre><code>Here are some things you can do to help contribute!
 - Bug Review & Search
 - Wiki / Code Documentation
-- Unit Test Creation
-- Example Creation
-- Input Mappings
-	- PS4
-	- Xbox One
-	- Generic Gamepad
-- Platform Specific Testing
-	- Mac OSX
-		- x86_64
-	- Linux
-		- ARMv8
-	- BSD
-		- x86_64</code></pre> 
+- Example Creation</code></pre> 
 </div>
 <div id="changelog">
 <h3>Change Log</h3>
-<pre><code>Oct 21, 2019
+<pre><code>Oct 24, 2019
+- Removing level.c/h until functional
+- Updating to comply with pedantic compilation
+- Buttoning up some semantics
+- Refactoring to have consistent API naming
+- Really wanting chicken strips
+- Moving to C11 for anonymous union support
+- Working on CI Support in other repository
+Oct 21, 2019
 - Working on render cache
 - UI implementation work
 Oct 10, 2019
