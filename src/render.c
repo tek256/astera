@@ -24,8 +24,6 @@
 
 static r_flags flags;
 
-static const char* r_window_title = "demo";
-
 static GLFWmonitor* r_default_monitor;
 static const GLFWvidmode* r_vidmodes;
 static vec2 r_res;
@@ -114,132 +112,20 @@ static void glfw_joy_cb(int joystick, int action){
 }
 #endif 
 
-int r_init(c_conf conf){
-	r_window_info info;
-
-	info.width = conf.width;
-	info.height = conf.height;
-	info.fullscreen = conf.fullscreen;
-	info.vsync = conf.vsync;
-	info.borderless = conf.borderless;
-	info.refreshRate = conf.refreshRate;
-	info.title = r_window_title; 
-	info.icon = "icon.png";
-
-	if(!r_create_window(info)){ 
+int r_init(r_window_info info){
+	if(!r_window_create(info)){ 
 		_e("Unable to create window.\n");
 		return 0;
 	}
 
-	r_center_window();
+	r_window_center();
 
-	r_create_camera(&g_camera, (vec2){r_res[0], r_res[1]}, (vec2){0.f, 0.f});
+	r_cam_create(&g_camera, (vec2){r_res[0], r_res[1]}, (vec2){0.f, 0.f});
 
 	g_anim_cache.capacity = RENDER_ANIM_CACHE;
 	g_shader_map.capacity = RENDER_SHADER_CACHE;
 	g_drawable_cache.capacity = RENDER_BATCH_SIZE;
 
-	r_init_quad();
-
-	return 1;
-}
-
-void r_create_camera(r_camera* cam, vec2 size, vec2 position){
-	vec3_dup(cam->pos, (vec3){position[0], position[1], 0.f});
-	vec2_dup(cam->size, size);
-
-	cam->near = -10.f;
-	cam->far = 10.f;
-
-	f32 x, y;
-	x = floorf(cam->pos[0]);
-	y = floorf(cam->pos[1]);
-
-	mat4x4_ortho(&cam->proj, 0, cam->size[0], cam->size[1], 0, cam->near, cam->far);
-
-	mat4x4_translate(&cam->view, x, y, 0.f);
-	mat4x4_rotate_x(&cam->view, cam->view, 0.0);
-	mat4x4_rotate_y(&cam->view, cam->view, 0.0);
-	mat4x4_rotate_z(&cam->view, cam->view,  0.0);
-}
-
-void r_move_cam(f32 x, f32 y){
-	g_camera.pos[0] -= x;
-	g_camera.pos[1] += y;
-}
-
-void r_update_camera(void){
-	f32 x, y;
-	x = floorf(g_camera.pos[0]);
-	y = floorf(g_camera.pos[1]);
-	mat4x4_translate(g_camera.view, x, y, 0.f);
-}
-
-void r_update(long delta){
-	for(int i=0;i<g_drawable_cache.count;++i){
-		r_update_drawable(&g_drawable_cache.drawables[i], delta);
-	}
-
-	r_update_camera();	
-}
-
-r_tex r_get_tex(asset_t asset){
-	int w, h, ch;
-	unsigned char* img = stbi_load_from_memory(asset.data, asset.data_length, &w, &h, &ch, 0);
-	u32 id;
-	glGenTextures(1, &id);
-	glBindTexture(GL_TEXTURE_2D, id);
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, img);
-
-#ifndef EXCLUDE_CREATE
-	int count = r_res_map.tex_count;
-	r_res_map.tex_ids[count] = id;
-	r_res_map.tex_paths[count] = strdup(asset.name);
-	++r_res_map.tex_count;
-#endif
-
-	stbi_image_free(img);
-	return (r_tex){id, (u32)w,(u32)h};	
-}
-
-r_sheet r_get_sheet(asset_t asset, u32 subwidth, u32 subheight){
-	r_tex tex = r_get_tex(asset);
-#ifndef EXCLUDE_CREATE
-	int count = r_res_map.sheet_count;
-
-	r_res_map.sheet_ids[count] = tex.id;
-	r_res_map.sheet_subwidths[count] = subwidth;
-	r_res_map.sheet_subheights[count] = subheight;
-	r_res_map.sheet_paths[count] = strdup(asset.name);
-
-	++ r_res_map.sheet_count;	
-#endif
-	return (r_sheet){tex.id, tex.width, tex.height, subwidth, subheight};
-}
-
-static unsigned char tmp_font[512*512];
-r_font r_load_font(const char* name, unsigned char* data, unsigned int length){
-	r_font font;
-	
-	stbtt_BakeFontBitmap(data, 0, 16.0, tmp_font, 512, 512, 32, 96, font.data);
-	font.name = name;
-	
-	glGenTextures(1, &font.tex_id);
-	glBindTexture(GL_TEXTURE_2D, font.tex_id);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, 512, 512, 0, GL_ALPHA, GL_UNSIGNED_BYTE, tmp_font);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-	return font;
-}
-
-void r_init_quad(void) {
 	f32 verts[16] = {
 		//pos       //tex
 		-0.5f, -0.5f,   0.f, 0.f,
@@ -267,12 +153,94 @@ void r_init_quad(void) {
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, 6 * sizeof(u16), &inds[0], GL_STATIC_DRAW);
 
 	glBindVertexArray(0);
+
+	return 1;
+}
+
+void r_cam_create(r_camera* cam, vec2 size, vec2 position){
+	vec3_dup(cam->pos, (vec3){position[0], position[1], 0.f});
+	vec2_dup(cam->size, size);
+
+	cam->near = -10.f;
+	cam->far = 10.f;
+
+	f32 x, y;
+	x = floorf(cam->pos[0]);
+	y = floorf(cam->pos[1]);
+
+	mat4x4_ortho(&cam->proj, 0, cam->size[0], cam->size[1], 0, cam->near, cam->far);
+
+	mat4x4_translate(&cam->view, x, y, 0.f);
+	mat4x4_rotate_x(&cam->view, cam->view, 0.0);
+	mat4x4_rotate_y(&cam->view, cam->view, 0.0);
+	mat4x4_rotate_z(&cam->view, cam->view,  0.0);
+}
+
+void r_cam_move(f32 x, f32 y){
+	g_camera.pos[0] -= x;
+	g_camera.pos[1] += y;
+}
+
+void r_cam_update(void){
+	f32 x, y;
+	x = floorf(g_camera.pos[0]);
+	y = floorf(g_camera.pos[1]);
+	mat4x4_translate(g_camera.view, x, y, 0.f);
+}
+
+void r_update(long delta){
+	for(int i=0;i<g_drawable_cache.count;++i){
+		r_drawable_update(&g_drawable_cache.drawables[i], delta);
+	}
+
+	r_cam_update();	
+}
+
+r_tex r_get_tex(asset_t* asset){
+	int w, h, ch;
+	unsigned char* img = stbi_load_from_memory(asset->data, asset->data_length, &w, &h, &ch, 0);
+	u32 id;
+	glGenTextures(1, &id);
+	glBindTexture(GL_TEXTURE_2D, id);
+
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, img);
+
+#if defined(CREATE_MODE)
+	int count = r_res_map.tex_count;
+	r_res_map.tex_ids[count] = id;
+	r_res_map.tex_paths[count] = strdup(asset->name);
+	++r_res_map.tex_count;
+#endif
+
+	stbi_image_free(img);
+	asset->req_free = 1;
+	return (r_tex){id, (u32)w,(u32)h};	
+}
+
+r_sheet r_get_sheet(asset_t* asset, u32 subwidth, u32 subheight){
+	r_tex tex = r_get_tex(asset);
+#if defined(CREATE_MODE)
+	int count = r_res_map.sheet_count;
+
+	r_res_map.sheet_ids[count] = tex.id;
+	r_res_map.sheet_subwidths[count] = subwidth;
+	r_res_map.sheet_subheights[count] = subheight;
+	r_res_map.sheet_paths[count] = strdup(asset.name);
+
+	++ r_res_map.sheet_count;	
+#endif
+	return (r_sheet){tex.id, tex.width, tex.height, subwidth, subheight};
 }
 
 void r_update_batch(r_shader shader, r_sheet* sheet){
 	int cache_index = -1;
 	for(int i=0;i<g_shader_map.count;++i){
-		if(g_shader_map.shaders[i] == shader){
+		if(g_shader_map.batches[i].shader == shader){
 			cache_index = i;
 			break;
 		}
@@ -291,45 +259,36 @@ void r_update_batch(r_shader shader, r_sheet* sheet){
 		}
 		if(g_drawable_cache.drawables[i].shader == shader){
 			if(g_drawable_cache.drawables[i].anim.sheet_id == sheet->id){
-				mat4x4_dup(cache->models[cache->count], g_drawable_cache.drawables[i].model);
-				cache->tex_ids[cache->count] = (u32)g_drawable_cache.drawables[i].anim.frames[g_drawable_cache.drawables[i].anim.frame];
-				cache->flip_x[cache->count] = g_drawable_cache.drawables[i].flip_x;
-				cache->flip_y[cache->count] = g_drawable_cache.drawables[i].flip_y;
+				r_shader_add_to_array(shader, "models", &g_drawable_cache.drawables[i].model, sizeof(mat4x4), 1);
+
+				unsigned int id = 0;
+				if(g_drawable_cache.drawables[i].animated){
+					id = (u32)g_drawable_cache.drawables[i].anim.frames[g_drawable_cache.drawables[i].anim.frame];
+				}else{
+					id = (u32)g_drawable_cache.drawables[i].tex.sub_id;
+				}
+				
+				r_shader_add_to_array(shader, "tex_ids", &id, sizeof(int), 1);
+				r_shader_add_to_array(shader, "flip_x", &g_drawable_cache.drawables[i].flip_x, sizeof(int), 1); 
+				r_shader_add_to_array(shader, "flip_y", &g_drawable_cache.drawables[i].flip_x, sizeof(int), 1);
+				
 				cache->count ++;
 			}
 		}
 	}
 }
 
-void r_draw_call(r_shader shader, r_sheet* sheet){
+void r_draw_call(r_shader shader){
 	if(!shader || !g_drawable_cache.count) return;
 
-	int cache_index = -1;
+	r_shader_batch* batch = r_shader_get_batch(shader);
+	r_sheet* sheet = batch->sheet;
 
-	for(int i=0;i<g_shader_map.count;++i){
-		if(g_shader_map.shaders[i] == shader){
-			cache_index = i;
-			break;
-		}		
-	}
+	r_shader_bind(shader);
+	r_shader_set_arrays(shader);
 
-	if(cache_index == -1){
-		_e("Unable to find shader cache for: %d\n", shader);
-		return;
-	}
-
-	r_shader_batch* cache = &g_shader_map.batches[cache_index];
-
-	r_bind_shader(shader);
-
-	r_set_m4x(shader, 128, "models",  cache->models);
-	r_set_ix(shader, 128, "tex_ids", cache->tex_ids);
-	r_set_ix(shader, 128, "flip_x", cache->flip_x);
-	r_set_ix(shader, 128, "flip_y", cache->flip_y);
-
-	vec2 sub_size;
+	vec2 sub_size, tex_size;
 	vec2_dup(sub_size, (vec2){ sheet->subwidth, sheet->subheight });
-	vec2 tex_size;
 	vec2_dup(tex_size, (vec2){ sheet->width, sheet->height });
 
 	r_set_v2(shader, "sub_size", sub_size);
@@ -338,7 +297,7 @@ void r_draw_call(r_shader shader, r_sheet* sheet){
 	r_set_m4(shader, "proj", g_camera.proj);
 	r_set_m4(shader, "view", g_camera.view);	
 
-	r_bind_tex(sheet->id);
+	r_tex_bind(sheet->id);
 
 	glBindVertexArray(default_quad_vao);
 	glBindBuffer(GL_ARRAY_BUFFER, default_quad_vbo);
@@ -347,47 +306,31 @@ void r_draw_call(r_shader shader, r_sheet* sheet){
 
 	glEnableVertexAttribArray(0);
 
-	glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0, cache->count);
+	glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0, batch->count);
 
-	cache->count = 0;
+	r_shader_clear_arrays(shader);
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
 }
 
-void r_destroy_anims(void){
+void r_exit(void){
 	for(int i=0;i<g_anim_cache.count;++i){
 		free(g_anim_cache.anims[i].frames);
 	}
-}
 
-void r_destroy_quad(u32 vao){
-	glDeleteVertexArrays(1, &vao);
-}
-
-void r_exit(void){
-	r_destroy_anims();
-	r_destroy_quad(default_quad_vao);
-	r_destroy_window();
+	glDeleteVertexArrays(1, &default_quad_vao);
+	
+	r_window_destroy();
 	glfwTerminate();
 }
 
-//TODO implement anim cache toggle
-int r_is_anim_cache(void){
-	return 1; 
-}
-
-//TODO implement shader cache toggle
-int r_is_shader_cache(void){
-	return 1;	
-}
-
-static GLuint r_get_sub_shader(asset_t asset, int type){
+static GLuint r_shader_create_sub(asset_t* asset, int type){
 	GLint success = 0;
 	GLuint id = glCreateShader(type);
 
-	const char* ptr = asset.data;
+	const char* ptr = asset->data;
 
 	glShaderSource(id, 1, &ptr, NULL);
 	glCompileShader(id);
@@ -412,15 +355,15 @@ static GLuint r_get_sub_shader(asset_t asset, int type){
 r_shader r_get_shadern(const char* name){
 	for(int i=0;i<g_shader_map.count;++i){
 		if(strcmp(name, g_shader_map.names[i]) == 0){
-			return g_shader_map.shaders[i];
+			return g_shader_map.batches[i].shader;
 		}		
 	}	
 	return 0; 
 }
 
-r_shader r_get_shader(asset_t vert, asset_t frag){
-	GLuint v = r_get_sub_shader(vert, GL_VERTEX_SHADER);
-	GLuint f = r_get_sub_shader(frag, GL_FRAGMENT_SHADER);
+r_shader r_shader_create(asset_t* vert, asset_t* frag){
+	GLuint v = r_shader_create_sub(vert, GL_VERTEX_SHADER);
+	GLuint f = r_shader_create_sub(frag, GL_FRAGMENT_SHADER);
 
 	GLuint id = glCreateProgram();
 
@@ -442,18 +385,19 @@ r_shader r_get_shader(asset_t vert, asset_t frag){
 	}
 #if defined(CREATE_MODE)
 	int shader_count = r_res_map.shader_count;
-	r_res_map.vertex_shaders[shader_count] = strdup(vert.name);
-	r_res_map.fragment_shaders[shader_count] = strdup(frag.name);
+	r_res_map.vertex_shaders[shader_count] = strdup(vert->name);
+	r_res_map.fragment_shaders[shader_count] = strdup(frag->name);
 	r_res_map.shader_ids[shader_count] = id;
 	r_res_map.shader_count ++;
 #endif
 #ifdef DEBUG_OUTPUT
 	_l("r_shader program loaded: %i\n", id);
 #endif
+
 	return (r_shader){id};
 }
 
-void r_map_shader(r_shader shader, const char* name){
+void r_shader_setup(r_shader shader, const char* name){
 	if(g_shader_map.capacity == 0){
 		_e("No shader cache available.\n");
 		return;
@@ -466,7 +410,7 @@ void r_map_shader(r_shader shader, const char* name){
 	}
 
 	for(int i=0;i<g_shader_map.count;++i){
-		if(g_shader_map.shaders[i] == shader){
+		if(g_shader_map.batches[i].shader == shader){
 			_l("Shader: %d already contained with alias of: %s\n", shader, g_shader_map.names[i]);
 			return;
 		}
@@ -474,104 +418,57 @@ void r_map_shader(r_shader shader, const char* name){
 
 	u32 count = g_shader_map.count;
 
-	g_shader_map.shaders[count] = shader;
 	g_shader_map.names[count] = name;
-
-	g_shader_map.caches[count].shader = shader;
-	g_shader_map.caches[count].capacity = RENDER_BATCH_SIZE;
-
 	g_shader_map.batches[count].shader = shader;
-	g_shader_map.batches[count].capacity = RENDER_BATCH_SIZE;
-
 	g_shader_map.count ++;
 }
 
-/*
- *	 */
+void r_shader_clear_arrays(r_shader shader){
+	r_shader_batch* batch = r_shader_get_batch(shader);
+	if(!batch) return;
 
-void r_clear_cache(r_shader shader){
-	r_shader_cache* specific;
-	int index = 0;
-
-	for(int i=0;i<g_shader_map.count;++i){
-		if(g_shader_map.shaders[i] == shader){
-			specific = &g_shader_map.caches[i];
-			index = i;
-		}
+	for(int i=0;i<batch->uniform_array_count;++i){
+		r_uniform_array* array = &batch->uniform_arrays[i];	
+		memset(array->data, 0, array->stride * array->capacity);
+		array->count = 0;
 	}
 
-	if(specific){
-		memset(specific->values, 0, sizeof(u32) * RENDER_SHADER_VALUE_CACHE);
-		memset(specific->names, 0, sizeof(const char*) * RENDER_SHADER_VALUE_CACHE);	
-	}	
+	batch->count = 0;
 }
 
-void r_remove_from_cache(r_shader shader){
-	if(!g_shader_map.count){
-		_e("No shaders to remove from cache.\n");
-		return; 
-	}
-
-	int index = -1;
+r_shader_batch* r_shader_get_batch(r_shader shader){
 	for(int i=0;i<g_shader_map.count;++i){
-		if(g_shader_map.shaders[i] == shader){
-			index = i;
-			break;
+		if(g_shader_map.batches[i].shader == shader){
+			return &g_shader_map.batches[i];
 		}
 	}
-
-	if(index){
-		for(int i=index;i<g_shader_map.count-1;++i){
-			g_shader_map.names[i] = g_shader_map.names[i+1];
-			g_shader_map.shaders[i] = g_shader_map.shaders[i+1];
-			g_shader_map.caches[i] = g_shader_map.caches[i+1];
-		}
-
-		g_shader_map.names[g_shader_map.count] == 0;
-		g_shader_map.shaders[g_shader_map.count] = 0;
-		g_shader_map.caches[g_shader_map.count] = (r_shader_cache){0};
-		g_shader_map.count --;
-	}
+	return 0;
 }
 
-void r_cache_uniform(r_shader shader, const char* uniform, u32 location){
-	r_shader_cache* specific;
+void r_shader_destroy_batch(r_shader shader){
+	r_shader_batch* batch = r_shader_get_batch(shader);
 
-	for(int i=0;i<g_shader_map.count;++i){
-		if(g_shader_map.shaders[i] == shader){
-			specific = &g_shader_map.caches[i];
-			break;
-		}	
+	for(int i=0;i<batch->uniform_array_count;++i){
+		free(batch->uniform_arrays[i].data);
 	}
 
-	for(int i=0;i<specific->count;++i){
-		if(strcmp(specific->names[i], uniform) == 0){
-			_l("Uniform: %s for shader: %d already cached.\n", uniform, shader);
-			return;
-		}
-	}
-
-	if(specific->capacity <= specific->count){
-		//TODO implement shader cache overflow
-		_e("Shader uniform cache space unavailable.\n");
-		return;
-	}
-
-	specific->values[specific->count] = location;
-	specific->names[specific->count] = uniform;
-	specific->count ++;
+	free(batch->uniform_arrays);
+	batch->uniform_array_count = 0;	
+	batch->shader = 0;
+	batch->count = 0;
+	batch->capacity = 0;
 }
 
-void r_destroy_shader(r_shader shader){
-	r_remove_from_cache(shader);
+void r_shader_destroy(r_shader shader){
+	r_shader_destroy_batch(shader);
 	glDeleteProgram(shader);
 }
 
-void r_bind_tex(u32 tex){
+void r_tex_bind(u32 tex){
 	glBindTexture(GL_TEXTURE_2D, tex);
 }
 
-void r_bind_shader(r_shader shader){
+void r_shader_bind(r_shader shader){
 	//if shader id is negative
 	if(!shader){
 		glUseProgram(0);
@@ -580,7 +477,7 @@ void r_bind_shader(r_shader shader){
 	}
 }
 
-int r_hex_number(char v){
+static int r_hex_number(char v){
 	if(v >= '0' && v <= '9'){
 		return v - 0x30;
 	}else{
@@ -596,7 +493,7 @@ int r_hex_number(char v){
 	}
 }
 
-int r_hex_multi(char* v, int len){
+static int r_hex_multi(char* v, int len){
 	if(len == 2){
 		return r_hex_number(v[0])*16+r_hex_number(v[1]);
 	}else if(len == 1){
@@ -739,7 +636,37 @@ void r_anim_h(r_animv* anim){
 	anim->state = R_ANIM_PAUSE;
 }
 
-r_drawable* r_get_drawable(r_anim* anim, r_shader shader,  vec2 size, vec2 pos){
+r_drawable* r_get_drawable_t(r_subtex sub_tex, r_shader shader, vec2 size, vec2 pos){
+	r_drawable* draw;
+
+	if(g_drawable_cache.count < RENDER_BATCH_SIZE){
+		draw = &g_drawable_cache.drawables[g_drawable_cache.count];
+		g_drawable_cache.count ++;
+		g_drawable_cache.uid ++;
+		draw->uid = g_drawable_cache.uid;
+	}else{
+		return NULL;
+	}
+
+	mat4x4_identity(&draw->model);	
+	mat4x4_translate(&draw->model, pos[0], pos[1], 0.f);
+	mat4x4_scale_aniso(&draw->model, draw->model, size[0], size[1], 1.f);
+
+	vec2_dup(draw->size, size);
+	vec2_dup(draw->position, pos);
+	draw->tex = sub_tex;
+	draw->layer = 0;
+	draw->animated = 0;
+	draw->visible = 1;
+	draw->change = 0;
+	draw->flip_x = 0;
+	draw->flip_y = 0;
+	draw->shader = shader;
+
+	return draw;	
+}
+
+r_drawable* r_drawable_create(r_anim* anim, r_shader shader,  vec2 size, vec2 pos){
 	r_drawable* draw;
 
 	if(g_drawable_cache.count < RENDER_BATCH_SIZE){
@@ -763,14 +690,14 @@ r_drawable* r_get_drawable(r_anim* anim, r_shader shader,  vec2 size, vec2 pos){
 	draw->change = 0;
 	draw->flip_x = 0;
 	draw->flip_y = 0;
-	draw->c_tex = 0;
+	draw->animated = 1;
 	draw->shader = shader;
 
 	return draw;	
 }
 
 r_drawable* r_get_drawablei(u32 uid){
-	for(int i=0;i<g_drawable_cache.count;++i){
+	for(unsigned int i=0;i<g_drawable_cache.count;++i){
 		if(g_drawable_cache.drawables[i].uid == uid){
 			return &g_drawable_cache.drawables[i];
 		}
@@ -779,9 +706,72 @@ r_drawable* r_get_drawablei(u32 uid){
 	return NULL;
 }
 
-void r_update_drawable(r_drawable* drawable, long delta){
-	if(drawable->change){
+void r_destroy_drawable(r_drawable* drawable){
+	unsigned int index = 0, found = 0;
+	for(unsigned int i=0;i<g_drawable_cache.count;++i){
+		if(g_drawable_cache.drawables[i].uid == drawable->uid){
+			index = i;
+			found = 1;
+			break;	
+		}
+	}
 
+	if(drawable->animated){
+		free(drawable->anim.frames);
+	}
+
+	if(!found){
+		return;
+	}
+
+	for(unsigned int i=index;i<g_drawable_cache.count-1;++i){
+		g_drawable_cache.drawables[i] = g_drawable_cache.drawables[i+1];
+	}
+
+	if(g_drawable_cache.count == g_drawable_cache.capacity){
+		memset(&g_drawable_cache.drawables[g_drawable_cache.count], 0, sizeof(r_drawable));
+	}
+
+	g_drawable_cache.count --;
+}
+
+void r_destroy_drawables(r_drawable* drawable_list, unsigned int list_size){
+	int drawable_ids[list_size];
+	int drawable_indexes[list_size];
+
+	int found_index = 0;
+
+	for(unsigned int i=0;i<g_drawable_cache.count;++i){
+		for(unsigned int j=0;j<list_size;++j){
+			if(drawable_list->uid == g_drawable_cache.drawables[i].uid){
+				drawable_ids[found_index] = drawable_list->uid;
+				drawable_indexes[found_index] = i;
+				++found_index;
+				continue;
+			}	
+		}
+	}
+
+	//TODO single pass remove
+	//int remove_index = 0;
+	for(unsigned int i=0;i<g_drawable_cache.count;++i){
+		for(int j=0;j<found_index;++j){
+			if(i == drawable_indexes[j]){
+				for(unsigned int k=drawable_indexes[j];k<g_drawable_cache.count-1;++k){
+					g_drawable_cache.drawables[k] = g_drawable_cache.drawables[k+1];
+				}	
+				
+				memset(&g_drawable_cache.drawables[g_drawable_cache.count-1], 0, sizeof(r_drawable));
+				//g_drawable_cache.drawables[g_drawable_cache.count-1] = 0;
+				g_drawable_cache.count --;
+				break;
+			}		
+		}	
+	}		
+}
+
+void r_drawable_update(r_drawable* drawable, long delta){
+	if(drawable->change){
 		f32 x, y;
 		x = floorf(drawable->position[0]);
 		y = floorf(drawable->position[1]);
@@ -791,87 +781,182 @@ void r_update_drawable(r_drawable* drawable, long delta){
 		drawable->change = 0;
 	}
 
-	if(drawable->anim.state == R_ANIM_PLAY && drawable->visible){
-		r_animv* anim = &drawable->anim;
+	if(drawable->animated){
+		if(drawable->anim.state == R_ANIM_PLAY && drawable->visible){
+			r_animv* anim = &drawable->anim;
 
-		f32 frame_time = MS_PER_SEC / anim->frame_rate;	
-		if(anim->time + delta >= frame_time){
-			if(anim->frame >= anim->frame_count-1){
-				if(!anim->loop){
-					anim->state = R_ANIM_STOP;
-					anim->pstate = R_ANIM_PLAY;
+			f32 frame_time = MS_PER_SEC / anim->frame_rate;	
+			if(anim->time + delta >= frame_time){
+				if(anim->frame >= anim->frame_count-1){
+					if(!anim->loop){
+						anim->state = R_ANIM_STOP;
+						anim->pstate = R_ANIM_PLAY;
+					}
+
+					anim->frame = 0;
+				}else{
+					anim->frame ++;
 				}
 
-				anim->frame = 0;
+				anim->time -= frame_time;
 			}else{
-				anim->frame ++;
+				anim->time += delta;
 			}
 
-			anim->time -= frame_time;
-		}else{
-			anim->time += delta;
-		}
-
-		if(anim->frame > anim->frame_count-1){
-			anim->frame = 0;
+			if(anim->frame > anim->frame_count-1){
+				anim->frame = 0;
+			}
 		}
 	}
 }
 
-void r_remove_drawable(u32 uid){
+void r_drawable_remove(u32 uid){
 	int index = 0;
-	for(int i=0;i<g_drawable_cache.count;++i){
+	for(unsigned int i=0;i<g_drawable_cache.count;++i){
 		if(g_drawable_cache.drawables[i].uid == uid){
 			index = i;
 			break;
 		}
 	}
 
-	int range = (g_drawable_cache.count == RENDER_BATCH_SIZE) ? RENDER_BATCH_SIZE - 1 : g_drawable_cache.count;
-	for(int i=index;i<range;++i){
+	unsigned int range = (g_drawable_cache.count == RENDER_BATCH_SIZE) ? RENDER_BATCH_SIZE - 1 : g_drawable_cache.count;
+	for(unsigned int i=index;i<range;++i){
 		g_drawable_cache.drawables[i] = g_drawable_cache.drawables[i+1];
 	}
 
 	memset(&g_drawable_cache.drawables[range], 0, sizeof(r_drawable));
 }
 
-int r_get_cached(r_shader shader, const char* uniform){
-	if(shader && g_shader_map.count){
-		r_shader_cache* specific;
-		for(int i=0;i<g_shader_map.count;++i){
-			if(g_shader_map.shaders[i] == shader){
-				specific = &g_shader_map.caches[i];
-				break;
-			}
-		}
-
-		if(specific){
-			for(int i=0;i<specific->count;++i){
-				if(strcmp(uniform, specific->names[i]) == 0){
-					return specific->values[i];
-				}
-			}
-		}	
+r_uniform_array* r_shader_get_array(r_shader shader, const char* name){
+	r_shader_batch* batch = r_shader_get_batch(shader);
+	if(!batch){
+		return 0;
 	}
 
-	return -1;
+	for(int i=0;i<batch->uniform_array_count;++i){
+		if(strcmp(batch->uniform_arrays[i].name, name) == 0){
+			return &batch->uniform_arrays[i];
+		}
+	}
+
+	return 0;
 }
 
-inline int r_get_uniform_loc(r_shader shader, const char* uniform){
-	/*int cache_loc = r_get_cached(shader, uniform);
+void r_shader_setup_array(r_shader shader, const char* name, int stride, int capacity, int type){
+	r_shader_batch* batch = r_shader_get_batch(shader); 
 
-	if(!cache_loc){
-		cache_loc = glGetUniformLocation(shader, uniform);
-		r_cache_uniform(shader, uniform, cache_loc);
+	if(!batch){
+		return;
+	}
+
+	r_uniform_array array = (r_uniform_array){0};
+	void* data = malloc(stride * capacity);
+	array.data = data;
+	array.type = type;
+	array.name = name;
+
+	r_uniform_array* new_array = (r_uniform_array*)malloc(sizeof(r_uniform_array) * (batch->uniform_array_count + 1));
+
+	memcpy(new_array, batch->uniform_arrays, sizeof(r_uniform_array) * batch->uniform_array_count);
+	free(batch->uniform_arrays);
+	batch->uniform_arrays = new_array;
+	batch->uniform_array_count++;
+}
+
+void r_shader_add_to_array(r_shader shader, const char* name, void* data, int stride, int count){
+	r_uniform_array* array = r_shader_get_array(shader, name);
+
+	void* data_ptr = array->data + (array->stride * array->count);
+	void* array_ptr = data;
+
+	for(int i=0;i<count;++i){
+		if(!data_ptr || !array_ptr || array->count == array->capacity) break;
+	
+		memcpy(data_ptr, array_ptr, array->stride);
+		
+		array->count ++;
+		array_ptr += array->stride;
+	   	data_ptr += array->stride;
 	}	
-
-	return cache_loc;*/
-
-	return glGetUniformLocation(shader, uniform);
 }
 
+int r_shader_clear_array(r_shader shader, const char* name){
+	r_uniform_array* array = r_shader_get_array(shader, name);
+	memset(array->data, 0, array->stride * array->capacity);
+
+	int count = array->count;	
+	array->count = 0;
+
+	return count;
+}
+
+void r_set_array(r_shader shader, const char* name){
+	r_uniform_array* array = r_shader_get_array(shader, name);
+	switch(array->type){
+		case r_vec2:
+			r_set_v2x(shader, array->count, name, array->data);
+		break;
+   		case r_vec3:
+			r_set_v3x(shader, array->count, name, array->data);
+		break;
+	   	case r_vec4:
+			r_set_v4x(shader, array->count, name, array->data);
+	   	break;
+		case r_float:
+			r_set_fx(shader, array->count, name, array->data);
+		break;
+	   	case r_int:
+			r_set_ix(shader, array->count, name, array->data);
+		break;
+   		case r_uint:
+			//TODO implement uint into shaders (maybe not needed?)
+		break;
+		case r_mat:
+			r_set_m4x(shader, array->count, name, array->data);
+		break;
+		default:
+		break;
+	}
+}
+
+void r_shader_set_arrays(r_shader shader){
+	r_shader_batch* batch = r_shader_get_batch(shader);
+	if(!batch) return;
+
+	for(int i=0;i<batch->uniform_array_count;++i){
+		r_uniform_array* array = &batch->uniform_arrays[i];
+		switch(array->type){
+			case r_vec2:
+				r_set_v2x(shader, array->count, array->name, array->data);
+				break;
+			case r_vec3:
+				r_set_v3x(shader, array->count, array->name, array->data);
+				break;
+			case r_vec4:
+				r_set_v4x(shader, array->count, array->name, array->data);
+				break;
+			case r_float:
+				r_set_fx(shader, array->count, array->name, array->data);
+				break;
+			case r_int:
+				r_set_ix(shader, array->count, array->name, array->data);
+				break;
+			case r_uint:
+				//TODO implement uint into shaders (maybe not needed?)
+				break;
+			case r_mat:
+				r_set_m4x(shader, array->count, array->name, array->data);
+				break;
+			default:
+				break;
+		}
+
+		memset(array->data, 0, array->stride * array->capacity);
+		array->count = 0;
+	}
+}
 inline void r_set_uniformf(r_shader shader, const char* name, f32 value){
-	glUniform1f(r_get_uniform_loc(shader, name), value);
+	glUniform1f(glGetUniformLocation(shader, name), value);
 }
 
 inline void r_set_uniformfi(int loc, f32 value){
@@ -879,7 +964,7 @@ inline void r_set_uniformfi(int loc, f32 value){
 }
 
 inline void r_set_uniformi(r_shader shader, const char* name, int value){
-	glUniform1i(r_get_uniform_loc(shader, name), value);
+	glUniform1i(glGetUniformLocation(shader, name), value);
 }
 
 inline void r_set_uniformii(int loc, int val){
@@ -887,7 +972,7 @@ inline void r_set_uniformii(int loc, int val){
 }
 
 inline void r_set_v4(r_shader shader, const char* name, vec4 value){
-	glUniform4f(r_get_uniform_loc(shader, name), value[0], value[1], value[2], value[3]);
+	glUniform4f(glGetUniformLocation(shader, name), value[0], value[1], value[2], value[3]);
 }
 
 inline void r_set_v4i(int loc, vec4 value){
@@ -895,7 +980,7 @@ inline void r_set_v4i(int loc, vec4 value){
 }
 
 inline void r_set_v3(r_shader shader, const char* name, vec3 value){
-	glUniform3f(r_get_uniform_loc(shader, name), value[0], value[1], value[2]);
+	glUniform3f(glGetUniformLocation(shader, name), value[0], value[1], value[2]);
 }
 
 inline void r_set_v3i(int loc, vec3 val){
@@ -903,7 +988,7 @@ inline void r_set_v3i(int loc, vec3 val){
 }
 
 inline void r_set_v2(r_shader shader, const char* name, vec2 value){
-	glUniform2f(r_get_uniform_loc(shader, name), value[0], value[1]);
+	glUniform2f(glGetUniformLocation(shader, name), value[0], value[1]);
 }
 
 inline void r_set_v2i(int loc, vec2 val){
@@ -911,7 +996,7 @@ inline void r_set_v2i(int loc, vec2 val){
 }
 
 inline void r_set_m4(r_shader shader, const char* name, mat4x4 value){
-	glUniformMatrix4fv(r_get_uniform_loc(shader, name), 1, GL_FALSE, value);
+	glUniformMatrix4fv(glGetUniformLocation(shader, name), 1, GL_FALSE, value);
 }
 
 inline void r_set_m4i(int loc, mat4x4 val){
@@ -920,35 +1005,35 @@ inline void r_set_m4i(int loc, mat4x4 val){
 
 void r_set_m4x(r_shader shader, u32 count, const char* name, mat4x4* values){
 	if(!count) return;
-	glUniformMatrix4fv(r_get_uniform_loc(shader, name), count, GL_FALSE, (const GLfloat*)values);
+	glUniformMatrix4fv(glGetUniformLocation(shader, name), count, GL_FALSE, (const GLfloat*)values);
 }
 
 void r_set_ix(r_shader shader, u32 count, const char* name, int* values){
 	if(!count) return;
-	glUniform1iv(r_get_uniform_loc(shader, name), count, (const GLint*)values);
+	glUniform1iv(glGetUniformLocation(shader, name), count, (const GLint*)values);
 }
 
 void r_set_fx(r_shader shader, u32 count, const char* name, f32* values){
 	if(!count) return;
-	glUniform1fv(r_get_uniform_loc(shader, name), count, (const GLfloat*)values);
+	glUniform1fv(glGetUniformLocation(shader, name), count, (const GLfloat*)values);
 }
 
 void r_set_v2x(r_shader shader, u32 count, const char* name, vec2* values){
 	if(!count) return;
 
-	glUniform2fv(r_get_uniform_loc(shader, name), count, (const GLfloat*)values);
+	glUniform2fv(glGetUniformLocation(shader, name), count, (const GLfloat*)values);
 }
 
 void r_set_v3x(r_shader shader, u32 count, const char* name, vec3* values){
 	if(!count) return;
 
-	glUniform3fv(r_get_uniform_loc(shader, name), count, (const GLfloat*)values);
+	glUniform3fv(glGetUniformLocation(shader, name), count, (const GLfloat*)values);
 }
 
 void r_set_v4x(r_shader shader, u32 count, const char* name, vec4* values){
 	if(!count) return;
 
-	glUniform4fv(r_get_uniform_loc(shader, name),  count, (const GLfloat*)values);
+	glUniform4fv(glGetUniformLocation(shader, name),  count, (const GLfloat*)values);
 }
 
 void r_window_get_size(int* w, int* h){
@@ -1001,7 +1086,7 @@ void r_select_mode(int index, int fullscreen, int vsync, int borderless){
 			glfwSetWindowSize(g_window.glfw, selected_mode->width, selected_mode->height);
 			vec2_dup(r_res, (vec2){selected_mode->width, selected_mode->height});
 
-			r_center_window();
+			r_window_center();
 		}
 
 		if(fullscreen != g_window.fullscreen){	
@@ -1101,11 +1186,7 @@ static const GLFWvidmode* r_find_best_mode(void){
 	return selected;
 }
 
-int r_create_window(r_window_info info){
-	if(!r_window_info_valid(info)){
-		return 0;
-	}
-
+int r_window_create(r_window_info info){
 #if defined(INIT_DEBUG)
 	_l("Creating window.\n");
 #endif
@@ -1127,6 +1208,7 @@ int r_create_window(r_window_info info){
 
 	if(info.fullscreen){
 		const GLFWvidmode* selected_mode;
+
 		if(r_window_info_valid(info)){
 			selected_mode = r_find_closest_mode(info);
 		}else{
@@ -1177,19 +1259,8 @@ int r_create_window(r_window_info info){
 	}
 
 	if(info.icon){
-		int w, h, ch;
-		asset_t raw_asset = asset_load("res.zip", info.icon);
-		if(raw_asset.data_length != 0){
-			unsigned char* img = stbi_load_from_memory(raw_asset.data, raw_asset.data_length, &w, &h, &ch, 0);
-
-			GLFWimage glfw_img = (GLFWimage){ w, h, img };
-			glfwSetWindowIcon(window, 1, &glfw_img);
-
-			free(img);
-			asset_free(raw_asset);
-		}else{
-			_l("Unable to load %s from archive.\n", info.icon);
-		}
+		asset_t* icon = asset_get("sys", info.icon);
+		r_window_set_icon(icon);
 	}
 
 	g_window.glfw = window;
@@ -1211,6 +1282,8 @@ int r_create_window(r_window_info info){
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
 	glEnable(GL_CULL_FACE);
+
+	glEnable(GL_SCISSOR_TEST);
 
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -1249,7 +1322,7 @@ int r_create_window(r_window_info info){
 	return 1;
 }
 
-void r_center_window(void){
+void r_window_center(void){
 	GLFWmonitor* mon = NULL;
 	int monitor_count;
 	GLFWmonitor** monitors =  glfwGetMonitors(&monitor_count);
@@ -1258,7 +1331,7 @@ void r_center_window(void){
 		return;
 	}else if(monitor_count == 1){
 		const GLFWvidmode* mode = glfwGetVideoMode(monitors[0]);
-		r_set_window_pos((mode->width - g_window.width) / 2, (mode->height - g_window.height) / 2);
+		r_window_set_pos((mode->width - g_window.width) / 2, (mode->height - g_window.height) / 2);
 		return;
 	}
 
@@ -1279,15 +1352,34 @@ void r_center_window(void){
 	}
 
 	if(mon != NULL){
-		r_set_window_pos((mon_w - g_window.width) / 2, (mon_h - g_window.height) / 2);
+		r_window_set_pos((mon_w - g_window.width) / 2, (mon_h - g_window.height) / 2);
 	}
 }
 
-void r_set_window_pos(int x, int y){
+void r_window_set_pos(int x, int y){
 	glfwSetWindowPos(g_window.glfw, x, y);
 }
 
-void r_destroy_window(void){
+int r_window_set_icon(asset_t* asset){
+	if(asset->filled){
+		int w, h, ch;
+		unsigned char* img = stbi_load_from_memory(asset->data, asset->data_length, &w, &h, &ch, 0);
+
+		GLFWimage glfw_img = (GLFWimage){ w, h, img };
+		glfwSetWindowIcon(g_window.glfw, 1, &glfw_img);
+
+		free(img);
+
+		asset->req_free = 1;
+	}else{
+		_l("No window icon passed to set.\n");
+		return 0;
+	}
+
+	return 1;
+}
+
+void r_window_destroy(void){
 	flags.allowed = 0;
 
 	glfwDestroyWindow(g_window.glfw);

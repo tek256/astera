@@ -23,6 +23,8 @@ typedef struct {
 void c_parse_args(int argc, char** argv);
 c_conf c_parse_file(char* f, int prefs);
 
+c_conf c_defaults();
+
 //void c_write_table(const char* table, char* keys, char* values, int count);
 
 unsigned char* c_get_file_contents(const char* fp, int* size);

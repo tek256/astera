@@ -4,13 +4,13 @@
       <b>astera</b><br>
 	  <span font-size="16px">a cross platform game library</span><br>
       <span font-size="12px">Made by <a href="http://tek256.com">Devon</a> with love.</span><br><br>
-      <span><a href="https://github.com/tek256/astera/wiki/Getting-Started/">Getting Started</a> | <a href="https://github.com/tek256/astera/tree/master/tool">Tools</a> | <a href="https://discordapp.com/invite/63GvpMh">Discord</a> | <a href="https://patreon.com/tek256/">Patreon</a></span>
+      <span><a href="https://github.com/tek256/astera/wiki/Getting-Started/">Getting Started</a> | <a href="https://github.com/tek256/astera/tree/master/tool">Tools</a> | <a href="https://discordapp.com/invite/63GvpMh">Discord</a> | <a href="https://github.com/sponsors/tek256">Support</a></span>
     </p>
 </div>
 <div id="about">
 	<h3>About</h3>
 	<p>The goal of this repository is to show that you're able to make a cross platform game engine in C that is easily ported to a system.<br>
-If you're interested in helping contribute to this project, please consider supporting on <a href="https://patreon.com/tek256">Patreon</a> or helping with any of the items listed below.
+If you're interested in helping contribute to this project please consider helping with any of the items listed below.
 	</p>
 </div>
 <div id="contributing">
@@ -34,7 +34,10 @@ If you're interested in helping contribute to this project, please consider supp
 </div>
 <div id="changelog">
 <h3>Change Log</h3>
-<pre><code>Oct 10, 2019
+<pre><code>Oct 21, 2019
+- Working on render cache
+- UI implementation work
+Oct 10, 2019
 - Update ZIP Dependency
 - Refactoring into more legible code
 - Prepping some files for proper library release

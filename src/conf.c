@@ -70,6 +70,10 @@ c_conf c_parse_file(char* fp, int prefs){
 	return conf;
 }
 
+c_conf c_defaults(){
+	return (c_conf){1280, 720, 0, 60, 1, 0, 100, 75, 50, NULL};
+}
+
 void c_parse_args(int argc, char** argv){
 	if(!argv || !argc){
 		return;

@@ -205,6 +205,8 @@ static a_listener _listener;
 int          a_init(u32 master, u32 sfx, u32 music);
 void         a_exit();
 
+int 		 a_allow_play(void);
+
 void		 a_set_pos(vec3 p);
 
 void		 a_set_vol(u32 master, u32 sfx, u32 music);
@@ -212,12 +214,12 @@ void         a_set_vol_master(u32 master);
 void		 a_set_vol_sfx(u32 sfx);
 void		 a_set_vol_music(u32 sfx);
 
-f32 		 a_get_vol_master();
-f32 	     a_get_vol_sfx();
-f32			 a_get_vol_music();
+f32 		 a_get_vol_master(void);
+f32 	     a_get_vol_sfx(void);
+f32			 a_get_vol_music(void);
 
 void		 a_update(long delta);
-void         a_update_sfx();
+void         a_update_sfx(void);
 
 u32  		 a_get_device_name(char* dst, int capacity);
 
@@ -228,10 +230,10 @@ void         a_destroy_buf(a_buf buffer);
 a_sfx*       a_play_sfxn(const char* name, a_req* req);
 a_sfx*		 a_play_sfx(a_buf* buff, a_req* req);
 
-static int   a_get_open_sfx();
+static int   a_get_open_sfx(void);
 
 int          a_create_context(const char* device_name);
-void         a_destroy_context();
+void         a_destroy_context(void);
 
 static void a_compute_stereo(short* output, int num_c, float** data, int d_offset, int len);
 static void  a_interleave_output(int buffer_c, short* buffer, int data_c, float** data, int data_offset, int length);

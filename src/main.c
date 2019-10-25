@@ -18,21 +18,44 @@
 #include "game.h"
 #include "level.h"
 
-#define CONF_PATH "res/conf.ini"
-
 int target_fps = 120;
 int max_fps = 120;
 
 int init_sys(){
+	if(!asset_init()){
+		_fatal("Unable to initialize asset system.\n");
+		return EXIT_FAILURE;
+	}
+
 	if(!i_init()){
 		_fatal("Unable to initialize input system.\n");
 		return EXIT_FAILURE;
 	}
 
 	c_conf conf;
+	r_window_info info;
+#if defined(CONF_PATH)
 	conf = c_parse_file(CONF_PATH, 1);
-	
-	if(!r_init(conf)){
+#else
+	conf = c_defaults();
+#endif
+
+	info.width = conf.width;
+	info.height = conf.height;
+	info.fullscreen = conf.fullscreen;
+	info.vsync = conf.vsync;
+	info.borderless = conf.borderless;
+	info.refreshRate = conf.refreshRate;
+#if defined(WINDOW_TITLE)
+	info.title = WINDOW_TITLE;
+#else
+	info.title = "demo";
+#endif
+
+	//TODO add icon baking support
+	info.icon = NULL;
+
+	if(!r_init(info)){
 		_fatal("Unable to initialize rendering system.\n");	
 		return EXIT_FAILURE;
 	}
@@ -87,8 +110,13 @@ int main(int argc, char** argv){
 		glfwPollEvents();
 		g_input(delta);
 
+		if(a_allow_play()){
+			a_update(delta);
+		}
+
 		if(r_allow_render()){
 			r_clear_window();
+			r_update(delta);
 			g_render(delta);
 			r_swap_buffers();
 		}

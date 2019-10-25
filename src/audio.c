@@ -17,6 +17,10 @@
 
 #include <string.h>
 
+int a_allow_play(void){
+	return _ctx.allow;
+}
+
 int a_init(u32 master, u32 sfx, u32 music){
 	if(!a_create_context(0)){
 		_e("Unable to create audio context.\n");
@@ -146,10 +150,11 @@ void a_set_vol_music(u32 music){
 #endif
 }
 
-f32 a_get_vol_master(){
+f32 a_get_vol_master(void){
 	return _listener.gain;
 }
-f32 a_get_vol_sfx(){
+
+f32 a_get_vol_sfx(void){
 #ifdef AUDIO_SFX_LAYER
 	if(AUDIO_SFX_LAYER < _map.layer_count){
 		return _map.layers[AUDIO_SFX_LAYER].gain;	
@@ -162,7 +167,7 @@ f32 a_get_vol_sfx(){
 #endif	
 }
 
-f32 a_get_vol_music(){
+f32 a_get_vol_music(void){
 #ifdef AUDIO_MUSIC_LAYER
 	if(AUDIO_MUSIC_LAYER < _map.layer_count){
 		return _map.layers[AUDIO_MUSIC_LAYER].gain;	
@@ -175,7 +180,7 @@ f32 a_get_vol_music(){
 #endif	
 }
 
-void a_exit(){
+void a_exit(void){
 	if(_ctx.context == NULL){
 		return;
 	}
@@ -757,7 +762,7 @@ void a_pause_music(a_music* music){
 	alSourcePause(music->source);
 }
 
-static int a_get_open_sfx(){
+static int a_get_open_sfx(void){
 	for(int i=0;i<MAX_SFX;++i){
 		if(!_map.sfx[i].has_req){
 			return i;

@@ -10,29 +10,10 @@
 #include <stdio.h>
 
 #include "platform.h"
-#include "conf.h"
-
+#include "config.h"
 #include "asset.h"
 
 #include <stb/stb_truetype.h>
-
-//max number of quads to draw at once
-#define RENDER_BATCH_SIZE 128
-
-//max length of a uniform string
-#define SHADER_STR_SIZE 64
-
-//number of animations to cache at max
-#define RENDER_ANIM_CACHE 64
-
-//number of shaders to store in map at max
-#define RENDER_SHADER_CACHE 2
-
-//number of uniform locations to store
-#define RENDER_SHADER_VALUE_CACHE 32
-
-//max length of an animation in frames
-#define RENDER_ANIM_MAX_FRAMES 32
 
 typedef struct {
 	int allowed;
@@ -71,35 +52,6 @@ typedef struct {
 typedef u32 r_shader;
 
 typedef struct {
-	r_shader shader;
-
-	mat4x4 models[RENDER_BATCH_SIZE];
-	u32 tex_ids[RENDER_BATCH_SIZE];
-	u32 flip_x[RENDER_BATCH_SIZE];
-	u32 flip_y[RENDER_BATCH_SIZE];
-
-	u16 count;
-	u16 capacity;
-} r_shader_batch;
-
-typedef struct {
-	r_shader shader;
-	u32 values[RENDER_SHADER_VALUE_CACHE];
-	const char* names[RENDER_SHADER_VALUE_CACHE];
-	u16 count;
-	u16 capacity;
-} r_shader_cache;
-
-typedef struct {
-	r_shader shaders[RENDER_SHADER_CACHE];
-	const char* names[RENDER_SHADER_CACHE];
-	r_shader_cache caches[RENDER_SHADER_CACHE];
-	r_shader_batch batches[RENDER_SHADER_CACHE];
-	u32 count;
-	u32 capacity;	
-} r_shader_map;
-
-typedef struct {
 	u32 id;
 	u32 width, height;
 } r_tex;
@@ -110,10 +62,10 @@ typedef struct {
 	u32 subwidth, subheight;
 } r_sheet;
 
-//animation states
-#define R_ANIM_STOP  0x00
-#define R_ANIM_PLAY  0x01
-#define R_ANIM_PAUSE 0x10
+typedef struct {
+	r_sheet sheet;
+	u32 sub_id;
+} r_subtex;
 
 typedef struct {
 	u32* frames;
@@ -146,6 +98,38 @@ typedef struct {
 	int loop : 1; 
 } r_animv;
 
+typedef struct {
+	char* name;
+	int type;
+	r_shader shader;
+
+	void* data;
+
+	unsigned int count;
+	unsigned int capacity;
+	unsigned int stride;
+} r_uniform_array;
+
+typedef struct {
+	r_shader shader;
+
+	r_uniform_array* uniform_arrays;
+	u32 uniform_array_count;	
+
+	r_sheet* sheet;	
+
+	u16 count;
+	u16 capacity;
+} r_shader_batch;
+
+typedef struct {
+	const char* names[RENDER_SHADER_CACHE];
+	r_shader_batch batches[RENDER_SHADER_CACHE];
+	u32 count;
+	u32 capacity;	
+} r_shader_map;
+
+
 #ifndef EXCLUDE_CREATE
 #define RENDER_SHEET_CACHE 32
 typedef struct {
@@ -174,22 +158,30 @@ typedef struct {
 } r_resource_map;
 #endif
 
-//#endif
-
 typedef struct {
-	r_animv anim;
-	r_shader shader;
-	vec2 size;
-	vec2 position;
-	mat4x4 model;
+	vec2 position, size;
 
-	u16 c_tex;
-	unsigned char layer;
 	int visible : 1;
 	int change  : 1;
+	int animated : 1;
+
 	u32 uid;
-	u32 flip_x, flip_y;
+
+	r_shader shader;
+	union {
+		r_animv anim;
+		r_subtex tex;
+	};	
+
+	mat4x4 model;
+	u8 layer;
+	u8 flip_x, flip_y;
 } r_drawable;
+
+typedef struct {
+	vec2 position, velocity;
+	float life;
+} r_particle;
 
 typedef struct {
 	r_drawable drawables[RENDER_BATCH_SIZE];
@@ -197,12 +189,6 @@ typedef struct {
 	u32 capacity;
 	u32 uid;
 } r_drawable_cache; 
-
-typedef struct {
-	const char* name;
-	stbtt_bakedchar data[96];
-	unsigned int tex_id;	
-} r_font;
 
 static r_window g_window;
 static r_camera g_camera;
@@ -215,65 +201,63 @@ static r_shader_map g_shader_map;
 r_resource_map* r_get_map();
 #endif
 
-void r_init_quad();
-
-int  r_init(c_conf conf);
+int  r_init(r_window_info info);
 void r_exit();
 void r_update(long delta);
 
-r_tex r_get_tex(asset_t asset);
-void  r_bind_tex(u32 tex);
+r_tex r_tex_create(asset_t* asset);
+void  r_tex_bind(u32 tex);
 
-r_sheet r_get_sheet(asset_t asset, u32 subwidth, u32 subheight);
+r_sheet r_sheet_create(asset_t* asset, u32 subwidth, u32 subheight);
 
 void r_update_batch(r_shader shader, r_sheet* sheet);
+void r_draw_call(r_shader shader);
 
-//NOTE: count required since we're using instanced rendering
-void r_draw_call(r_shader shader, r_sheet* sheet);
-
-void r_destroy_anims();
-void r_destroy_quad(u32 vao);
-
-static GLuint r_get_sub_shader(asset_t asset, int type);
-r_shader      r_get_shader(asset_t vert, asset_t frag);
+static GLuint r_shader_create_sub(asset_t* asset, int type);
+r_shader      r_shader_create(asset_t* vert, asset_t* frag);
 r_shader      r_get_shadern(const char* name);
-void          r_bind_shader(r_shader shader);
-void          r_destroy_shader(r_shader shader);
-int           r_get_uniform_loc(r_shader shader, const char* name);
 
-r_font 	      r_load_font(const char* name, unsigned char* data, unsigned int length);
+void          r_shader_bind(r_shader shader);
+void          r_shader_destroy(r_shader shader);
+void 		  r_shader_setup_array(r_shader shader, const char* name, int stride, int capacity, int array);
 
-void          r_map_shader(r_shader shader, const char* name);
-void 		  r_cache_uniform(r_shader shader, const char* uniform, u32 location);
-void          r_clear_cache(r_shader shader);
-void          r_remove_from_cache(r_shader shader);
+r_uniform_array* r_shader_get_array(r_shader shader, const char* name);
+r_shader_batch*  r_shader_get_batch(r_shader shader);
 
-int  r_hex_number(char v);
-int  r_hex_multi(char* v, int len);
-void  r_get_color(vec3 val, char* v);
+void		  r_shader_add_to_array(r_shader shader, const char* name, void* data, int stride, int count);
+int 	  	  r_shader_clear_array(r_shader shader, const char* name);
 
-int r_is_anim_cache(void);
-int r_is_shader_cache(void);
+void          r_shader_setup(r_shader shader, const char* name);
+void          r_shader_clear_arrays(r_shader shader);
+void          r_shader_destroy_batch(r_shader shader);
 
-r_anim  r_get_anim(r_sheet sheet, u32* frames, int frame_count, int frame_rate);
-r_animv r_v_anim(r_anim* anim); 
+static int r_hex_number(char v);
+static int r_hex_multi(char* v, int len);
+void       r_get_color(vec3 val, char* v);
 
-r_anim* r_get_anim_n(const char* name);
-r_anim* r_get_anim_i(u32 uid);
+r_anim  r_anim_create(r_sheet sheet, u32* frames, int frame_count, int frame_rate);
+r_animv r_anim_v(r_anim* anim); 
+
+r_anim* r_get_animn(const char* name);
+r_anim* r_get_animi(u32 uid);
 void    r_cache_anim(r_anim anim, const char* name);
 
 void r_anim_p(r_animv* anim); //anim play
 void r_anim_s(r_animv* anim); //anim stop
 void r_anim_h(r_animv* anim); //anim halt
 
-r_drawable* r_get_drawable(r_anim* anim, r_shader shader, vec2 size, vec2 pos);
-r_drawable* r_get_drawablei(u32 uid);
+r_drawable* r_create_drawable(r_anim* anim, r_shader shader, vec2 size, vec2 pos);
+r_drawable* r_get_drawable(u32 uid);
+void        r_drawable_destroy(r_drawable* drawable);
 void        r_drawable_set_anim(r_drawable* drawable, r_anim* anim);
-void	    r_update_drawable(r_drawable* drawable, long delta);
+void	    r_drawable_update(r_drawable* drawable, long delta);
 
-void r_create_camera(r_camera* camera, vec2 size, vec2 position);
-void r_update_camera(void);
-void r_move_cam(f32 x, f32 y);
+void r_shader_set_array(r_shader shader, const char* name);
+void r_shader_set_arrays(r_shader shader);
+
+void r_cam_create(r_camera* camera, vec2 size, vec2 position);
+void r_cam_update(void);
+void r_cam_move(f32 x, f32 y);
 
 void r_set_uniformf(r_shader shader, const char* name, f32 value);
 void r_set_uniformi(r_shader shader, const char* name, int value);
@@ -289,13 +273,6 @@ void r_set_v2x(r_shader shader, u32 count, const char* name, vec2* values);
 void r_set_v3x(r_shader shader, u32 count, const char* name, vec3* values);
 void r_set_v4x(r_shader shader, u32 count, const char* name, vec4* values);
 
-void r_set_uniformfi(int loc, f32 val);
-void r_set_uniformii(int loc, int val);
-void r_set_v4i(int loc, vec4 val);
-void r_set_v3i(int loc, vec3 val);
-void r_set_v2i(int loc, vec2 val);
-void r_set_m4i(int loc, mat4x4 val);
-
 void r_window_get_size(int* w, int* h);
 
 //return length of the string
@@ -309,20 +286,22 @@ int r_is_vsync(void);
 int r_is_fullscreen(void);
 int r_is_borderless(void);
 
-static void r_create_modes(void);
+
+static void r_window_get_modes(void);
 static int  r_window_info_valid(r_window_info info);
 static const GLFWvidmode* r_find_closest_mode(r_window_info info);
 static const GLFWvidmode* r_find_best_mode(void);
 
-int  r_create_window(r_window_info info);
-void r_destroy_window(void);
-void r_request_close(void);
+int  r_window_create(r_window_info info);
+void r_window_destroy(void);
+void r_window_request_close(void);
+int  r_window_set_icon(asset_t* asset);
 
-void r_center_window(void);
-void r_set_window_pos(int x, int y);
+void r_window_center(void);
+void r_window_set_pos(int x, int y);
 
-int r_should_close(void);
+int r_window_should_close(void);
 
-void r_swap_buffers(void);
-void r_clear_window(void);
+void r_window_swap_buffers(void);
+void r_window_clear(void);
 #endif
