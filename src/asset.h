@@ -1,9 +1,6 @@
 #ifndef ASSET_H
 #define ASSET_H
 
-#include <stdio.h>
-#include <zip/zip.h>
-
 #include "config.h"
 #include "platform.h"
 

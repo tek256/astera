@@ -4,7 +4,7 @@
 #include <glad/gl.h>
 #include <GLFW/glfw3.h>
 
-#include <linmath.h>
+#include <misc/linmath.h>
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -13,7 +13,7 @@
 #include "config.h"
 #include "asset.h"
 
-#include <stb/stb_truetype.h>
+#include <misc/stb_truetype.h>
 
 typedef struct {
 	int allowed;
@@ -273,7 +273,7 @@ void r_set_v4x(r_shader shader, u32 count, const char* name, vec4* values);
 void r_window_get_size(int* w, int* h);
 
 //return length of the string
-int r_get_videomode_str(const char* dst, int index);
+int r_get_videomode_str(char* dst, int index);
 void r_set_videomode(int index);
 void r_select_mode(int index, int fullscreen, int vsync, int borderless);
 int r_get_vidmode_count(void);

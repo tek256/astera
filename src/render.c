@@ -8,14 +8,14 @@
 #include <math.h>
 #include <time.h>
 
-#include <glad_gl.c>
+#include <glad/glad_gl.c>
 
 #define STB_IMAGE_IMPLEMENTATION
-#include <stb/stb_image.h>
+#include <misc/stb_image.h>
 
 
 #define STB_TRUETYPE_IMPLEMENTATION 
-#include <stb/stb_truetype.h>
+#include <misc/stb_truetype.h>
 
 #include "input.h"
 #include "sys.h"
@@ -1039,7 +1039,7 @@ void r_window_get_size(int* w, int* h){
 	*h = g_window.height;
 }
 
-int r_get_videomode_str(const char* dst, int index){
+int r_get_videomode_str(char* dst, int index){
 	if(index >= flags.video_mode_count){
 		index = 0;	
 	}	

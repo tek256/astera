@@ -1,7 +1,7 @@
 OBJS := $(wildcard src/*.c)
 
 TARGET_CC := clang
-TARGET_COMPILER_FLAGS := -g -ferror-limit=500 -Wall -Wextra -pedantic -std=c11
+TARGET_COMPILER_FLAGS := -w -std=c11 #-g -ferror-limit=500 -Wall -Wextra -pedantic -std=c11
 
 ifeq ($(OS),Windows_NT)
 	SHELL := cmd.exe
@@ -10,7 +10,7 @@ else
 	MAKE_DIR := $(shell pwd)
 endif
 
-INCLUDES := -I$(MAKE_DIR)/dep/ -I$(MAKE_DIR)/dep/openal-soft/include/ -I$(MAKE_DIR)/dep/glfw/include/ #-I$(MAKE_DIR)/dep/microui/
+INCLUDES := -I$(MAKE_DIR)/dep/ #-I$(MAKE_DIR)/dep/openal-soft/include/ -I$(MAKE_DIR)/dep/glfw/include/ #-I$(MAKE_DIR)/dep/microui/
 DYN_FLAGS := -Wl,-rpath=$(MAKE_DIR)/ -L$(MAKE_DIR)/dep/glfw/src/ -L$(MAKE_DIR)/dep/openal-soft/
 
 EXEC_NAME := astera

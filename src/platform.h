@@ -1,6 +1,7 @@
 #ifndef PLAT_H
 #define PLAT_H
 
+#include <stdint.h>
 #include "config.h"
 
 //PLATFORM DETECTION
@@ -54,7 +55,8 @@
 
 //NOTE: Temporary, will be refactoring back out to system types
 #define INCLUDE_TYPES
-#if !defined(INCLUDE_TYPES)
+#if !defined(TYPES_INCLUDED)
+#define TYPES_INCLUDED
 
 typedef uint8_t  u8;
 typedef uint16_t u16;

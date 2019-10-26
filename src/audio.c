@@ -13,7 +13,7 @@
 #include "asset.h"
 
 #undef STB_VORBIS_HEADER_ONLY
-#include <stb/stb_vorbis.c>
+#include <misc/stb_vorbis.c>
 
 #include <string.h>
 

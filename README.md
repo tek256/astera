@@ -9,8 +9,12 @@
 </div>
 <div id="about">
 	<h3>About</h3>
-	<p>Astera is a 2D cross platform game library. It uses OpenGL, GLFW, OpenAL-Soft, GLAD, various STB libraries, and a few others at this point. 
+	<p>Astera is an in-development game library. The goal is to show how to make games and game engines work with lower level languages. Currently most of the major systems are up and running, but others are in development. Astera will eventually aim to be as dependency-free as possible. Using as low level of dependencies at official release as possible.  
 	</p>
+</div>
+<div id="building">
+<h3>Building</h3>
+<p>Please note that at this stage, the library is not complete. You can try automated building by either running unix_build or win_setup.ps1 in your operating system's terminal emulator. If you have GLFW & OpenAL-Soft installed locally, you can simply run the Makefile, i.e <code>make</code> or <code>mingw32-make</code> for Windows systems.
 </div>
 <div id="contributing">
 	<h3>Contributing</h3>
@@ -19,9 +23,26 @@
 - Wiki / Code Documentation
 - Example Creation</code></pre> 
 </div>
+<div id="dependencies">
+<h3>Dependencies</h3>
+<ul>
+<li><a href="https://github.com/glfw/glfw">GLFW</a></li>
+<li><a href="https://github.com/rxi/microui">MicroUI</a></li>
+<li><a href="https://github.com/kcat/openal-soft">OpenAL-Soft</a></li>
+<li><a href="https://github.com/nothings/stb/">STB</a> Image, Truetype, Vorbis</li>
+<li><a href="https://github.com/kuba--/zip">ZIP</a></li>
+<li><a href="https://github.com/Dav1dde/glad">GLAD</a></li>
+<li><a href="https://github.com/benhoyt/inih">inih</a></li>
+</ul>
+</div>
 <div id="changelog">
 <h3>Change Log</h3>
-<pre><code>Oct 24, 2019
+<pre><code>Oct 25, 2019
+- Cleaning up dependencies
+- Updated Makefile to reflect dependency changes
+- Updated README to be a bit more useful
+- Removed phys.c/h to be re-added when completed
+Oct 24, 2019
 - Removing level.c/h until functional
 - Updating to comply with pedantic compilation
 - Buttoning up some semantics

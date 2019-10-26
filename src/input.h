@@ -3,7 +3,7 @@
 
 #include "config.h"
 #include "platform.h"
-#include <linmath.h>
+#include <misc/linmath.h>
 
 #define BINDING_KEY 1
 #define BINDING_MB 2

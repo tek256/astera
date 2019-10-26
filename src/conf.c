@@ -8,8 +8,8 @@
 #include <unistd.h>
 #include <string.h>
 
-#include <ini.h>
-#include <ini.c>
+#include <misc/ini.h>
+#include <misc/ini.c>
 
 static c_args _flags;
 

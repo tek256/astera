@@ -1,4 +1,4 @@
-#include <linmath.h>
+#include <misc/linmath.h>
 
 #include "game.h"
 

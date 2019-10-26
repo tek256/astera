@@ -1,7 +1,9 @@
 #include "ui.h"
 #include "render.h"
-#include <microui/microui.h>
-#include <stb/stb_truetype.h>
+
+#include <misc/linmath.h>
+#include <misc/microui.h>
+#include <misc/stb_truetype.h>
 #include <string.h>
 
 #define BUFFER_SIZE 16384

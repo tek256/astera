@@ -6,12 +6,12 @@
 #include <AL/alc.h>
 #include <AL/al.h>
 
-#include <linmath.h>
+#include <misc/linmath.h>
 
 #include <stdio.h>
 
 #define STB_VORBIS_HEADER_ONLY
-#include <stb/stb_vorbis.c>
+#include <misc/stb_vorbis.c>
 
 #include "platform.h"
 #include "debug.h"

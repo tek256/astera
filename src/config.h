@@ -83,5 +83,15 @@ typedef enum {
 #define R_ANIM_PLAY  0x01
 #define R_ANIM_PAUSE 0x10
 
+// --- STB CONFIGURATION ---
+
+// STB_IMAGE
+#define STBI_NO_BMP
+#define STBI_NO_TGA
+#define STBI_NO_JPEG
+#define STBI_NO_PSD
+#define STBI_NO_PIC
+#define STBI_NO_PNM
+#define STBI_NO_HDR
 
 #endif

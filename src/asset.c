@@ -2,6 +2,8 @@
 #include "debug.h"
 
 #include <string.h>
+#include <stdio.h>
+#include <misc/zip.h>
 
 int asset_init(){
 	for(int i=0;i<ASSET_MAX_MAPS;++i){
@@ -185,7 +187,7 @@ asset_t* asset_get(const char* map_name, const char* file){
 }
 
 asset_t* asset_req(const char* map_name, const char* file){
-	asset_map_t* map;
+	asset_map_t* map = 0;
 	for(int i=0;i<asset_map_count;++i){
 		if(strcmp(asset_maps[i].name, map_name) == 0){
 			map = &asset_maps[i];	
