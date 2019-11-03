@@ -1,5 +1,4 @@
-#define EXCLUDE_CREATE
-
+#include "config.h"
 #include "platform.h"
 
 #include <time.h>
