@@ -3,7 +3,7 @@
 
 #include <string.h>
 #include <stdio.h>
-#include <zip/zip.h>
+#include <misc/zip.h>
 
 int asset_init(){
 	for(int i=0;i<ASSET_MAX_MAPS;++i){

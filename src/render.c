@@ -234,203 +234,6 @@ r_sheet r_get_sheet(asset_t* asset, u32 subwidth, u32 subheight){
 #endif
 	return (r_sheet){tex.id, tex.width, tex.height, subwidth, subheight};
 }
-/*
- *typedef struct {
-	r_particle* list;
-	unsigned int capacity, high;
-	unsigned int max_emission;
-	
-	float particle_life, system_life;
-
-	float time;
-
-	vec2 position, size, velocity;
-
-	r_particle_spawn spawn_type;
-
-	r_keyframes fade_frames;
-	r_keyframes size_frames;
-
-	union {
-		r_subtex tex;
-		r_animv anim;
-		vec4   color;
-	};
-
-	int animated : 1;
-	int texture  : 1;
-	int color    : 1;
-} r_particle_system;
- */
-
-float r_keyframe_get_value(r_keyframes frames, float point){
-	int start_index = 0;
-	for(int i=0;i<frames.count;++i){
-		if(frames.list[i].point > point){
-			start_index = -1;
-			break;
-		}
-	}
-
-	if(start_index < 0){
-		return frames.list[0].value;
-	}
-
-	if(frames.count-1 == start_index){
-		return frames.list[start_index].value;
-	}
-
-	switch(frames.list[start_index].curve){
-		case LINEAR: {
-			float point_dist = frames.list[start_index + 1].point - frames.list[start_index].point;
-			float value_dist = frames.list[start_index + 1].value - frames.list[start_index].value;
-			float avg = (point - frames.list[start_index].point) / point_dist;
-			return frames.list[start_index].value + (value_dist * avg);
-		 }
-		case EASE_IN:
-			return frames.list[start_index].value;
-		case EASE_EASE:
-			return frames.list[start_index].value;
-		case EASE_OUT:
-			return frames.list[start_index].value;
-		default:
-			return frames.list[start_index].value;
-	}	
-}
-
-void r_particle_system_init(r_particle_system* system, unsigned int particle_capacity){
-	if(system->list){
-		free(system->list);
-	}
-
-	if(system->max_emission > 1 && system->max_emission < particle_capacity){
-		particle_capacity = system->max_emission;
-		system->capacity = particle_capacity;
-	}
-
-	r_particle* particles = (r_particle*)malloc(sizeof(r_particle) * particle_capacity);
-	if(!particles){
-		_e("Unable to allocate sizeo of %i for a particle list.\n", (sizeof(r_particle) * particle_capacity));
-		system->capacity = 0;
-		system->list = 0;
-		return;
-	}
-
-	system->list = particles;
-	system->capacity = particle_capacity;
-	system->time = 0;
-}
-
-void r_particle_system_update(r_particle_system* system, double delta){
-	int last = 0;
-
-	vec2 adj_vel;
-
-	for(int i=0;i<system->capacity;++i){
-		if(system->list[i].alive){
-			r_particle* particle = &system->list[i];
-			particle->life += delta;
-
-			if(particle->life > system->particle_life){
-				particle->alive = 0;
-			}else{
-				last = i;
-				adj_vel[0] = system->velocity[0] * delta;	
-				adj_vel[1] = system->velocity[1] * delta;	
-				vec2_add(particle->position, particle->position, adj_vel);
-			}
-		}		
-	}
-
-	system->high = last;
-
-	int to_spawn = system->spawn_time / (system->spawn_rate / MS_PER_SEC);
-	if(to_spawn > (system->max_emission - system->emission_count) && system->max_emission > 0){
-		to_spawn = system->max_emission - system->emission_count; 
-	}
-
-	for(int i=0;i<system->high;++i){
-		if(!system->list[i].alive){
-			r_particle* particle;
-			switch(system->spawn_type){
-				case POINT:
-					vec2_dup(particle->position, system->position);
-					break;
-				case CIRCLE:
-					particle->position[0] = fmodf(rand(), system->size[0]);
-					particle->position[1] = fmodf(rand(), system->size[0]);
-					break;
-				case BOX:
-					particle->position[0] = fmodf(rand(), system->size[0]);
-					particle->position[1] = fmodf(rand(), system->size[1]);
-					break;
-			}
-
-			vec2_dup(particle->size, system->particle_size);
-			
-			if(system->animated){
-				particle->anim = system->anim;	
-				particle->anim.time = 0;
-				particle->anim.frame = 0;
-			}else if(system->texture){
-				particle->tex = system->tex;
-			}else if(system->color){
-				vec4_dup(particle->color, system->color);
-			}
-
-			particle->life = 0;
-
-			particle->animated = system->animated;
-			particle->tex = system->tex;
-			particle->colored = system->colored;
-
-			--to_spawn;
-			++system->emission_count;
-		}
-	}
-
-	if(to_spawn > system->capacity - system->high){
-		to_spawn = system->capacity - system->high;
-	}
-	
-	for(int i=0; i<to_spawn;++i) {
-		r_particle* particle = &system->list[system->high + i];
-		switch(system->spawn_type){
-			case POINT:
-				vec2_dup(particle->position, system->position);
-				break;
-			case CIRCLE:
-				particle->position[0] = fmodf(rand(), system->size[0]);
-				particle->position[1] = fmodf(rand(), system->size[0]);
-				break;
-			case BOX:
-				particle->position[0] = fmodf(rand(), system->size[0]);
-				particle->position[1] = fmodf(rand(), system->size[1]);
-				break;
-		}
-
-		vec2_dup(particle->size, system->particle_size);
-
-		if(system->animated){
-			particle->anim = system->anim;	
-			particle->anim.time = 0;
-			particle->anim.frame = 0;
-		}else if(system->texture){
-			particle->tex = system->tex;
-		}else if(system->color){
-			vec4_dup(particle->color, system->color);
-		}
-
-		particle->life = 0;
-
-		particle->animated = system->animated;
-		particle->tex = system->tex;
-		particle->colored = system->colored;
-
-		--to_spawn;
-		++system->emission_count;
-	}
-}
 
 void r_update_batch(r_shader shader, r_sheet* sheet){
 	int cache_index = -1;
@@ -453,7 +256,7 @@ void r_update_batch(r_shader shader, r_sheet* sheet){
 			break;
 		}
 		if(g_drawable_cache.drawables[i].shader == shader){
-			if(g_drawable_cache.drawables[i].anim.sheet.id == sheet->id){
+			if(g_drawable_cache.drawables[i].anim.sheet_id == sheet->id){
 				r_shader_add_to_array(shader, "models", &g_drawable_cache.drawables[i].model,  1);
 
 				unsigned int id = 0;
@@ -719,7 +522,7 @@ void r_get_color(vec3 val, char* v){
 	}
 }
 
-r_anim r_get_anim(r_sheet sheet, u32* frames, int frame_count, int frame_rate){
+r_anim  r_get_anim(r_sheet sheet, u32* frames, int frame_count, int frame_rate){
 	u32* _frames = malloc(sizeof(u32) * frame_count);
 	memcpy(_frames, frames, sizeof(u32) * frame_count);
 	return (r_anim){
@@ -798,7 +601,7 @@ r_animv r_v_anim(r_anim* anim){
 
 	animv.frames = malloc(RENDER_ANIM_MAX_FRAMES * sizeof(u32)); 
 	memcpy(animv.frames, anim->frames, anim->frame_count * sizeof(u32));
-	animv.sheet = anim->sheet;
+	animv.sheet_id = anim->sheet_id;
 	animv.anim_id = anim->uid;
 
 	animv.frame_count = anim->frame_count;
@@ -861,7 +664,7 @@ r_drawable* r_get_drawable_t(r_subtex sub_tex, r_shader shader, vec2 size, vec2 
 	return draw;	
 }
 
-r_drawable* r_drawable_create(r_anim* anim, r_shader shader, vec2 size, vec2 pos){
+r_drawable* r_drawable_create(r_anim* anim, r_shader shader,  vec2 size, vec2 pos){
 	r_drawable* draw;
 
 	if(g_drawable_cache.count < RENDER_BATCH_SIZE){
@@ -938,11 +741,11 @@ void r_destroy_drawables(r_drawable* drawable_list, unsigned int list_size){
 
 	for(unsigned int i=0;i<g_drawable_cache.count;++i){
 		for(unsigned int j=0;j<list_size;++j){
-			if(drawable_list[j].uid == g_drawable_cache.drawables[i].uid){
+			if(drawable_list->uid == g_drawable_cache.drawables[i].uid){
 				drawable_ids[found_index] = drawable_list->uid;
 				drawable_indexes[found_index] = i;
 				++found_index;
-				break;
+				continue;
 			}	
 		}
 	}

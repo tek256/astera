@@ -72,7 +72,7 @@ typedef struct {
 	u32  frame_count;
 	u32  frame_rate;
 	u32  uid;	
-	r_sheet sheet;
+	u32  sheet_id;
 } r_anim;
 
 typedef struct {
@@ -86,10 +86,10 @@ typedef struct {
 
 typedef struct {
 	u32* frames;
+	u32 sheet_id;
 	u32 frame_count;
 	u32 frame_rate;
 	u32 anim_id;
-	r_sheet sheet;
 
 	f32 time;
 
@@ -129,77 +129,6 @@ typedef struct {
 	u32 capacity;	
 } r_shader_map;
 
-typedef enum {
-	LINEAR = 0,
-	EASE_IN,
-	EASE_EASE,
-	EASE_OUT
-} r_keyframe_curve; 
-
-typedef struct {
-	float point;
-	float value;
-	r_keyframe_curve curve;
-} r_keyframe;
-
-typedef struct {
-	r_keyframe* list;
-	unsigned int count;
-} r_keyframes;
-
-typedef enum {
-	POINT = 0,
-	CIRCLE,
-	BOX
-} r_particle_spawn;
-
-typedef struct {
-	union {
-		r_animv anim;
-		r_subtex tex;
-		vec4 color;
-	};
-
-	float life;
-	vec2 position, size;
-
-	mat4x4 model;
-
-	int animated : 1;
-	int texture  : 1;	
-	int colored  : 1;
-	int alive    : 1;
-} r_particle;
-
-typedef struct {
-	r_particle* list;
-	unsigned int capacity, high;
-	unsigned int max_emission;
-	unsigned int emission_count;
-	
-	float particle_life, system_life;
-	float spawn_rate;
-
-	float time, spawn_time;
-
-	vec2 position, size, velocity;
-	vec2 particle_size;
-
-	r_particle_spawn spawn_type;
-
-	r_keyframes fade_frames;
-	r_keyframes size_frames;
-
-	union {
-		r_subtex tex;
-		r_animv anim;
-		vec4   color;
-	};
-
-	int animated : 1;
-	int texture  : 1;
-	int colored  : 1;
-} r_particle_system;
 
 #ifndef EXCLUDE_CREATE
 #define RENDER_SHEET_CACHE 32
@@ -230,46 +159,29 @@ typedef struct {
 #endif
 
 typedef struct {
-	r_shader shader;
-
-	union {
-		r_animv anim;
-		r_subtex tex;
-	};
-	
-	int animated: 1;
-	int layer : 8;
-	int visible : 1;
-	int flip_x : 1;
-	int flip_y : 1;
-
-	vec4 color;
-} r_renderable;
-
-typedef struct {
 	vec2 position, size;
 
-	r_renderable renderable;
+	int visible : 1;
+	int change  : 1;
+	int animated : 1;
 
 	u32 uid;
-	r_shader shader;
 
+	r_shader shader;
 	union {
 		r_animv anim;
 		r_subtex tex;
 	};
-	
-	int animated: 1;
-	int layer : 8;
-	int visible : 1;
-	int flip_x;
-	int flip_y;
-	int change : 1;
-
-	vec4 color;
 
 	mat4x4 model;
+	u8 layer;
+	u8 flip_x, flip_y;
 } r_drawable;
+
+typedef struct {
+	vec2 position, velocity;
+	float life;
+} r_particle;
 
 typedef struct {
 	r_drawable drawables[RENDER_BATCH_SIZE];
@@ -295,40 +207,6 @@ void r_update(long delta);
 
 r_tex r_tex_create(asset_t* asset);
 void  r_tex_bind(u32 tex);
-
-/*
- *typedef struct {
-	r_particle* list;
-	unsigned int capacity, high;
-	unsigned int max_emission;
-	
-	float particle_life, system_life;
-
-	float time;
-
-	vec2 position, size, velocity;
-
-	r_particle_spawn spawn_type;
-
-	r_keyframes fade_frames;
-	r_keyframes size_frames;
-
-	union {
-		r_subtex tex;
-		r_animv anim;
-		vec4   color;
-	};
-
-	int animated : 1;
-	int texture  : 1;
-	int color    : 1;
-} r_particle_system;
- */
-float r_keyframe_get_value(r_keyframes frames, float point);
-
-void r_particle_system_init(r_particle_system* system, unsigned int particle_capacity);
-
-void r_particle_system_update(r_particle_system* system, double delta);
 
 r_sheet r_sheet_create(asset_t* asset, u32 subwidth, u32 subheight);
 
@@ -365,7 +243,7 @@ void r_anim_p(r_animv* anim); //anim play
 void r_anim_s(r_animv* anim); //anim stop
 void r_anim_h(r_animv* anim); //anim halt
 
-r_drawable* r_drawable_create(r_anim* anim, r_shader shader, vec2 size, vec2 pos);
+r_drawable* r_create_drawable(r_anim* anim, r_shader shader, vec2 size, vec2 pos);
 r_drawable* r_get_drawable(u32 uid);
 void        r_drawable_destroy(r_drawable* drawable);
 void        r_drawable_set_anim(r_drawable* drawable, r_anim* anim);

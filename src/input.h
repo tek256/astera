@@ -143,7 +143,7 @@ u16 i_get_joy_type(u16 joy);
 
 f32 i_joy_axis_delta(u16 joy);
 
-void i_key_callback(int key, int scancode, int toggle);
+void        i_key_callback(int key, int scancode, int toggle);
 u16 i_key_down(u16 key);
 u16 i_key_up(u16 key);
 u16 i_key_clicked(u16 key);

@@ -25,15 +25,19 @@
 </div>
 <div id="dependencies">
 <h3>Dependencies</h3>
-<p><a href="https://github.com/glfw/glfw">GLFW</a>, <a href="https://github.com/kcat/openal-soft">OpenAL-Soft</a>, <a href="https://github.com/nothings/stb/">STB</a> Image, Truetype, Vorbis, <a href="https://github.com/kuba--/zip">ZIP</a>, <a href="https://github.com/Dav1dde/glad">GLAD</a>, and <a href="https://github.com/benhoyt/inih">inih</a></p>
+<ul>
+<li><a href="https://github.com/glfw/glfw">GLFW</a></li>
+<li><a href="https://github.com/rxi/microui">MicroUI</a></li>
+<li><a href="https://github.com/kcat/openal-soft">OpenAL-Soft</a></li>
+<li><a href="https://github.com/nothings/stb/">STB</a> Image, Truetype, Vorbis</li>
+<li><a href="https://github.com/kuba--/zip">ZIP</a></li>
+<li><a href="https://github.com/Dav1dde/glad">GLAD</a></li>
+<li><a href="https://github.com/benhoyt/inih">inih</a></li>
+</ul>
 </div>
 <div id="changelog">
 <h3>Change Log</h3>
-<pre><code>Nov 2, 2019
-- Removed TODO to Projects page on GitHub
-- Added CI Implemation for GitHub Actions
-- Updated README for legibility
-Oct 25, 2019
+<pre><code>Oct 25, 2019
 - Cleaning up dependencies
 - Updated Makefile to reflect dependency changes
 - Updated README to be a bit more useful
@@ -63,6 +67,40 @@ Sept 24, 2019
 - Moved CONTRIBUTING.md & LICENSE into README.md
 - Initial Update of Audio Push System
 - Migrating UI System into ui.c/h
+</code></pre>
+</div>
+<div id="todo">
+<h3>To Do</h3>
+<pre><code>UI
+- Rendering
+- Gamepad / Keyboard Support
+Audio  
+- Seek Test
+Game Rendering
+- Particle Effects
+- Framebuffer Effects
+- Move to cached / managed assets
+- Patch shader cache system to be dynamic
+Level System
+- Runtime Management
+- Serialization 
+- Loading from file
+Physics
+- All of it
+Tooling
+- Level Editor
+- Build optimization
+Documentation
+- API Documentation
+- Technical Breakdowns of each system
+- Examples
+Release 
+- Library style refactor
+Optional
+- Multi Language Support (wide characters)
+- Configuration Editor documentation
+- Integrate minimal/own versions of dependencies
+- World Domination OR just some chicken strips.
 </code></pre>
 </div>
 <div id="license">

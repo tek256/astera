@@ -30,7 +30,7 @@ echo "#######################"
 echo "#######################"
 echo "Building openal-soft..."
 echo "#######################"
-cd ..\dep\openal-soft
+cd dep\openal-soft
 cmake -G "MinGW Makefiles"
 mingw32-make
 
@@ -44,7 +44,7 @@ echo "#######################"
 cd ..\glfw
 cmake -G "MinGW Makefiles"
 mingw32-make
-cd ..\..\
+cd ..\..
 
 # The following section will set your user path to include the directories 
 # containing the openal and glfw DLLs so that you can run the engine once it's

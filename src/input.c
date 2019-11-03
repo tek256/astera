@@ -752,7 +752,7 @@ f32 i_binding_val(const char* key_binding){
 					val = i_joy_axis(key_bindings[i].alt);
 					break;
 				case BINDING_JOYB:
-					val = (i_joy_button_down(key_bindings[i].alt)) ? 1.0f : 0.0f;
+					val =(i_joy_button_down(key_bindings[i].alt)) ? 1.0f : 0.0f;
 					break;
 			}
 
@@ -782,7 +782,6 @@ u16 i_binding_defined(const char* key_binding){
 	return 0;
 }
 
-//TODO test code for removal
 f32 i_opposing(const char* prim, const char* sec){
 	f32 prim_f = i_binding_down(prim) ? 2.f : 0.f;
 	f32 sec_f = i_binding_down(sec) ? -1.f : 0.f;
