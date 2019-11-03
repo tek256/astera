@@ -11,11 +11,20 @@
 
 #include "asset.h"
 
+typedef struct {
+	r_drawable* drawable;
+} g_entity;
+
+g_entity ent;
+
 int g_init(void){
 	asset_t* window_icon = asset_get("sys", "res/tex/icon.png");
 	r_window_set_icon(window_icon);
 	asset_free(window_icon);
 	window_icon = 0;	
+
+	ent = (g_entity){0};
+	//ent.drawable = r_drawable_create();	
 
 	return 1;
 }

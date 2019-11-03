@@ -30,6 +30,8 @@
 //#define INIT_DEBUG
 
 #define DEBUG_OUTPUT
+//Exclude all create mode things
+//#define EXCLUDE_CREATE
 
 //Define whether or not to use files or packed files
 #define FILE_MODE

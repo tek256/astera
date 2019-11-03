@@ -1,0 +1,38 @@
+name: C Build Check (Linux)
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-18.04
+    
+    steps:
+    - uses: actions/checkout@v1
+    - name: install dependencies
+      run: |
+          sudo apt-get update --fix-missing
+          sudo apt-get install xorg-dev freeglut3-dev libsdl2-dev libopenal-dev -y
+    - name: build openal-soft
+      run: | 
+          cd dep/openal-soft
+          cmake -G "Unix Makefiles"
+          make
+          sudo make install
+          cd ../../
+    - name: build glfw
+      run: |
+          cd dep/glfw/
+          cmake -G "Unix Makefiles"
+          make
+          sudo make install
+          cd ../../
+    - name: build zip
+      run: |
+          cd dep/zip/
+          cmake -G "Unix Makefiles"
+          make
+          sudo make install
+          cd ../../
+    - name: build engine
+      run: |
+          make

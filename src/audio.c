@@ -245,6 +245,8 @@ void a_update(long delta){
 					alSourcef(mus->source, AL_GAIN, n_gain);
 				}
 
+				//TODO update position on change	
+
 				alSource3f(mus->source, AL_POSITION, req->pos[0], req->pos[1], req->pos[2]);
 
 				ALenum state;
@@ -258,11 +260,10 @@ void a_update(long delta){
 					mus->req = NULL;	
 					mus->has_req = 0;
 				} else if(proc > 0){
-					//Stop music
 					if(mus->samples_left <= 0 && req->loop){
 						mus->data_offset = mus->header_end;
 						mus->samples_left = mus->total_samples;
-					}else if(mus->samples_left <= 0 && !req->loop){
+					}else if(mus->samples_left <= 0 && !req->loop){ //Stop music
 						alSourceStop(mus->source);
 						mus->data_offset = 0;
 						req->stop = 1;	
