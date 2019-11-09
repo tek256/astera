@@ -1,5 +1,7 @@
 #version 330
 
+//I should document these as well.
+
 in vec2 o_texc;
 
 uniform int c_mode = -1;
@@ -23,6 +25,4 @@ void main(){
             out_c = sample_c * c;
         }
     }
-
-    out_c = vec4(1.0, 0, 0, 1.0);
 }

@@ -301,12 +301,21 @@ int r_anim_get_index(const char *name);
 r_anim *r_anim_get(int uid);
 int r_anim_cache(r_anim anim, const char *name);
 
+void r_anim_play(r_anim *anim);
+void r_anim_stop(r_anim *anim);
+void r_anim_pause(r_anim *anim);
+
 // ---------- SPRITE FUNCTIONS -------------
 
 r_sprite r_sprite_create(r_shader shader, vec2 pos, vec2 size);
 
 r_sheet r_sprite_get_sheet(r_sprite sprite);
 int r_sprite_get_sheet_id(r_sprite sprite);
+
+// Aliases for animation functions
+void r_sprite_play(r_sprite *sprite);
+void r_sprite_pause(r_sprite *sprite);
+void r_sprite_stop(r_sprite *sprite);
 
 int r_sprite_get_tex_id(r_sprite sprite);
 void r_sprite_set_anim(r_sprite *drawable, r_anim anim);

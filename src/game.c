@@ -16,7 +16,8 @@ typedef struct {
 
 g_entity ent;
 
-r_sprite sprite;
+r_sprite sprite, sprite2;
+u32 *frames;
 
 static int tex_ids, models, flip_x, flip_y;
 
@@ -42,6 +43,29 @@ int g_init(void) {
   r_sheet default_sheet = r_sheet_create(default_sheet_file, 16, 16);
   asset_free(default_sheet_file);
 
+  // r_anim r_anim_create(r_sheet sheet, u32 *frames, int frame_count,
+  //                  int frame_rate);
+
+  // TODO make this not terrible. (It's gotten better)
+  // Let me look at the picture and see if I'm actually just stupid
+  // Pointers are silly
+  frames = malloc(sizeof(u32) * 4);
+  frames[0] = 0;
+  frames[1] = 1;
+  frames[2] = 2;
+  frames[3] = 3;
+
+  // frames = (u32 *){0, 1, 2, 3, 4};
+
+  // I think I'm gonna call stream here tho, it's been a solid 8 hours.
+  // I'm gonna send you guys over to my friend Tsoding, I'll be live again here
+  // soon. Join the discord if you wanna chat with me off stream!
+  //
+  // Thanks for hanging out, I'll see yall later!
+  r_anim anim = r_anim_create(default_sheet, frames, 4, 21);
+  anim.loop = 1;
+  r_anim_cache(anim, "default");
+
   // Initialize Uniform Arrays
   // void r_shader_setup_array(r_shader shader, r_sheet sheet, const char *name,
   //                          int capacity, int type, int uid);
@@ -50,16 +74,20 @@ int g_init(void) {
   models = r_shader_setup_array(default_shader, "models", 512, r_mat);
   tex_ids = r_shader_setup_array(default_shader, "tex_ids", 512, r_int);
 
-  vec2 size, position;
-  size[0] = 1000.f;
-  size[1] = 1000.f;
+  vec2 size, position, position2;
+  size[0] = 100.f;
+  size[1] = 100.f;
 
-  r_subtex sub_tex = (r_subtex){default_sheet, 0};
+  position2[0] = 100.f;
+
+  // Maybe you are in a game.
+  r_subtex sub_tex = (r_subtex){default_sheet, 1};
+  r_subtex sub_tex2 = (r_subtex){default_sheet, 6};
 
   sprite = r_sprite_create(default_shader, position, size);
+  sprite2 = r_sprite_create(default_shader, position2, size);
   r_sprite_set_tex(&sprite, sub_tex);
-
-  sprite.visible = 1;
+  r_sprite_set_anim(&sprite2, anim);
 
   return 1;
 }
@@ -82,11 +110,19 @@ void g_input(long delta) {
   else if (i_key_down('S'))
     dir_y = -1;
 
+  // I mean, it does something I guess.
+  // Let's make it loop
+  if (i_key_clicked('P'))
+    r_sprite_play(&sprite2);
+  else if (i_key_clicked('O'))
+    r_sprite_pause(&sprite2);
+
   r_cam_move(dir_x * 1.f * delta, dir_y * 1.f * delta);
 }
 
 void g_update(long delta) { //
   r_sprite_update(&sprite, delta);
+  r_sprite_update(&sprite2, delta);
 }
 
 void g_render(long delta) {
@@ -97,4 +133,12 @@ void g_render(long delta) {
   r_shader_sprite_uniform(sprite, models, &sprite.model);
   r_shader_sprite_uniform(sprite, flip_x, &sprite.flip_x);
   r_shader_sprite_uniform(sprite, flip_y, &sprite.flip_y);
+
+  tex_id = r_sprite_get_tex_id(sprite2);
+
+  r_sprite_draw(sprite2);
+  r_shader_sprite_uniform(sprite2, tex_ids, &tex_id);
+  r_shader_sprite_uniform(sprite2, models, &sprite2.model);
+  r_shader_sprite_uniform(sprite2, flip_x, &sprite2.flip_x);
+  r_shader_sprite_uniform(sprite2, flip_y, &sprite2.flip_y);
 }

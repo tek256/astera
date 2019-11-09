@@ -962,12 +962,26 @@ void r_get_color(vec3 val, char *v) {
     val[2] = r_hex_multi(&v[offset + 4], 2) / 255.f;
   }
 }
+// It'd probably help if I actually updated the creation method
+// This one is ~3 months old
+/*   u32 **frames;
+  u32 frame;
+  u32 frame_count;
+  u32 frame_rate;
+  u32 uid;
+  r_sheet sheet;
+
+  u8 pstate;
+  u8 state;
+
+  float time;
+
+  int loop : 1;
+  int use : 1;*/
 
 r_anim r_anim_create(r_sheet sheet, u32 *frames, int frame_count,
                      int frame_rate) {
-  u32 *_frames = malloc(sizeof(u32) * frame_count);
-  memcpy(_frames, frames, sizeof(u32) * frame_count);
-  return (r_anim){_frames, frame_count, frame_rate, 0, sheet.id};
+  return (r_anim){frames, 0, frame_count, frame_rate, 0, sheet, 0, 0, 0, 0, 1};
 }
 
 void r_anim_destroy(int uid) {
@@ -988,6 +1002,7 @@ int r_anim_cache(r_anim anim, const char *name) {
       g_anim_map.anims[i].frames = anim.frames;
       g_anim_map.anims[i] = anim;
       g_anim_map.names[i] = name;
+      g_anim_map.anims[i].use = 1;
 
       if (i > g_anim_map.high) {
         g_anim_map.high = i;
@@ -1000,6 +1015,21 @@ int r_anim_cache(r_anim anim, const char *name) {
   }
 
   return -1;
+}
+
+void r_anim_play(r_anim *anim) {
+  anim->pstate = anim->state;
+  anim->state = R_ANIM_PLAY;
+}
+
+void r_anim_stop(r_anim *anim) {
+  anim->pstate = anim->state;
+  anim->state = R_ANIM_STOP;
+}
+
+void r_anim_pause(r_anim *anim) {
+  anim->pstate = anim->state;
+  anim->state = R_ANIM_PAUSE;
 }
 
 int r_anim_get_index(const char *name) {
@@ -1030,23 +1060,37 @@ r_anim *r_anim_get(int uid) {
 int r_sprite_get_tex_id(r_sprite sprite) {
   if (sprite.animated) {
     int current_frame = sprite.render.anim.frame;
-    return sprite.render.anim.frames[current_frame];
+    u32 *frames = sprite.render.anim.frames;
+    return frames[current_frame];
   } else {
     return sprite.render.tex.sub_id;
   }
 }
 
+void r_sprite_play(r_sprite *sprite) {
+  if (!sprite->animated)
+    return;
+  r_anim_play(&sprite->render.anim);
+}
+
+void r_sprite_pause(r_sprite *sprite) {
+  if (!sprite->animated)
+    return;
+  r_anim_pause(&sprite->render.anim);
+}
+
+void r_sprite_stop(r_sprite *sprite) {
+  if (!sprite->animated)
+    return;
+  r_anim_stop(&sprite->render.anim);
+}
+
 void r_sprite_set_anim(r_sprite *drawable, r_anim anim) {
-  r_anim view;
-  view.frames = anim.frames;
+  r_anim view = anim;
   view.frame = 0;
-  view.frame_count = anim.frame_count;
-  view.frame_rate = anim.frame_rate;
-  view.uid = anim.uid;
   view.time = 0;
 
   drawable->animated = 1;
-
   drawable->render.anim = view;
 }
 
@@ -1063,6 +1107,9 @@ r_sprite r_sprite_create(r_shader shader, vec2 pos, vec2 size) {
 
   vec2_dup(sprite.size, size);
   vec2_dup(sprite.position, pos);
+
+  sprite.flip_x = 0;
+  sprite.flip_y = 0;
 
   sprite.visible = 1;
   sprite.shader = shader;
@@ -1084,7 +1131,7 @@ void r_sprite_update(r_sprite *drawable, long delta) {
 
   if (drawable->animated) {
     r_anim *anim = &drawable->render.anim;
-    if (anim->state == R_ANIM_PLAY && drawable->visible) {
+    if (anim->state == R_ANIM_PLAY) {
       f32 frame_time = MS_PER_SEC / anim->frame_rate;
       if (anim->time + delta >= frame_time) {
         if (anim->frame >= anim->frame_count - 1) {
@@ -1101,10 +1148,6 @@ void r_sprite_update(r_sprite *drawable, long delta) {
         anim->time -= frame_time;
       } else {
         anim->time += delta;
-      }
-
-      if (anim->frame > anim->frame_count - 1) {
-        anim->frame = 0;
       }
     }
   }
