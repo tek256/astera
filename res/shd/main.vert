@@ -1,4 +1,5 @@
 #version 330
+#define MAX_BATCH_SIZE 512
 
 layout(location = 0) in vec4 in_pos;
 
@@ -8,11 +9,11 @@ uniform mat4 view;
 uniform vec2 tex_size;
 uniform vec2 sub_size;
 
-uniform int tex_ids[128];
-uniform mat4 models[128];
+uniform int tex_ids[MAX_BATCH_SIZE];
+uniform mat4 models[MAX_BATCH_SIZE];
 
-uniform int flip_x[128];
-uniform int flip_y[128];
+uniform int flip_x[MAX_BATCH_SIZE];
+uniform int flip_y[MAX_BATCH_SIZE];
 
 out vec2 o_texc;
 

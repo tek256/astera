@@ -7,13 +7,14 @@ else
 	MAKE_DIR := $(shell pwd)
 endif
 
-TARGET_COMPILER_FLAGS :=-w -std=c11 #-Werror -pedantic -Wall -Wextra
+# Lets go back to C99, C11 is overrated.
+TARGET_COMPILER_FLAGS := -g -w -std=c99 -ferror-limit=500#-Werror -pedantic -Wall -Wextra
 
 EXEC_NAME := astera
 
 ifeq ($(OS),Windows_NT)
 	RM_CMD := -del
-	TARGET_LINKER_FLAGS := -I$(MAKE_DIR)\dep\ -I$(MAKE_DIR)\dep\glfw\include -I$(MAKE_DIR)\dep\openal-soft\include\ -I$(MAKE_DIR)\dep\zip\src\ -lopengl32 -lglfw -lgdi32 -lm -lopenal
+	TARGET_LINKER_FLAGS := -I$(MAKE_DIR)\dep\ -I$(MAKE_DIR)\dep\glfw\include -I$(MAKE_DIR)\dep\openal-soft\include\ -L$(MAKE_DIR)\dep\glfw\src -L$(MAKE_DIR)\dep\openal-soft\ -lopengl32 -lglfw3 -lgdi32 -lm -lopenal32
 	TARGET_EXEC_NAME := $(EXEC_NAME)
 	TARGET_COMPILER_FLAGS += -D WIN32
 	CC=gcc

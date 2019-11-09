@@ -29,7 +29,11 @@
 </div>
 <div id="changelog">
 <h3>Change Log</h3>
-<pre><code>Nov 2, 2019
+<pre><code>Nov 9, 2019
+- Changed rendering to use less cache
+- Made r_sprite live on the stack vs heap
+- Lots of other changes, see git diff
+Nov 2, 2019
 - Removed TODO to Projects page on GitHub
 - Added CI Implemation for GitHub Actions
 - Updated README for legibility
