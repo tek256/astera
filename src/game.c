@@ -21,6 +21,9 @@ u32 *frames;
 
 static int tex_ids, models, flip_x, flip_y;
 
+r_particles particles;
+r_shader particle_shader;
+
 int g_init(void) {
   r_init_anim_map(32);
   r_init_shader_map(2);
@@ -38,10 +41,21 @@ int g_init(void) {
   asset_free(default_vert);
   asset_free(default_frag);
 
+  // Initialize the particle shader
+  asset_t *particle_vert = asset_get("sys", "res/shd/particle.vert");
+  asset_t *particle_frag = asset_get("sys", "res/shd/particle.frag");
+  particle_shader = r_shader_create(particle_vert, particle_frag);
+  asset_free(particle_vert);
+  asset_free(particle_frag);
+
   // Initialize default texture sheet
   asset_t *default_sheet_file = asset_get("sys", "res/tex/test_sheet.png");
   r_sheet default_sheet = r_sheet_create(default_sheet_file, 16, 16);
   asset_free(default_sheet_file);
+
+  asset_t *particle_sheet_file = asset_get("sys", "res/tex/particle_sheet.png");
+  r_sheet particle_sheet = r_sheet_create(particle_sheet_file, 16, 16);
+  asset_free(particle_sheet_file);
 
   // r_anim r_anim_create(r_sheet sheet, u32 *frames, int frame_count,
   //                  int frame_rate);
@@ -57,18 +71,17 @@ int g_init(void) {
 
   // frames = (u32 *){0, 1, 2, 3, 4};
 
-  // I think I'm gonna call stream here tho, it's been a solid 8 hours.
-  // I'm gonna send you guys over to my friend Tsoding, I'll be live again here
-  // soon. Join the discord if you wanna chat with me off stream!
-  //
-  // Thanks for hanging out, I'll see yall later!
   r_anim anim = r_anim_create(default_sheet, frames, 4, 21);
   anim.loop = 1;
   r_anim_cache(anim, "default");
 
+  // It just so happens that we made 4 frames for the particle animation too, so
+  // we can just reuse the frame array, otherwise it's ill advised
+  // We'll get texture rendering working first, then move to animations
+  r_anim particle_anim = r_anim_create(particle_sheet, frames, 4, 21);
+  particle_anim.loop = 1;
+
   // Initialize Uniform Arrays
-  // void r_shader_setup_array(r_shader shader, r_sheet sheet, const char *name,
-  //                          int capacity, int type, int uid);
   flip_x = r_shader_setup_array(default_shader, "flip_x", 512, r_int);
   flip_y = r_shader_setup_array(default_shader, "flip_y", 512, r_int);
   models = r_shader_setup_array(default_shader, "models", 512, r_mat);
@@ -80,14 +93,54 @@ int g_init(void) {
 
   position2[0] = 100.f;
 
-  // Maybe you are in a game.
   r_subtex sub_tex = (r_subtex){default_sheet, 1};
   r_subtex sub_tex2 = (r_subtex){default_sheet, 6};
+
+  r_subtex particle_tex = (r_subtex){particle_sheet, 0};
 
   sprite = r_sprite_create(default_shader, position, size);
   sprite2 = r_sprite_create(default_shader, position2, size);
   r_sprite_set_tex(&sprite, sub_tex);
   r_sprite_set_anim(&sprite2, anim);
+
+  r_particles_init(&particles, 128);
+  particles.max_emission = 0;
+  particles.position[0] = 0.f;
+  particles.position[1] = 0.f;
+
+  particles.size[0] = 1280.0f;
+  particles.size[1] = 720.0f;
+
+  particles.velocity[0] = 0.f;
+  particles.velocity[1] = 9.f;
+  particles.render.anim = particle_anim;
+
+  particles.particle_size[0] = 10.f;
+  particles.particle_size[1] = 10.f;
+
+  particles.particle_life = 4.0f;
+
+  particles.spawn_type = CIRCLE;
+  particles.spawn_rate = 20;
+  particles.colored = 0;
+  particles.animated = 1;
+  particles.texture = 0;
+
+  particles.color[0] = 1.f;
+  particles.color[1] = 1.f;
+  particles.color[2] = 1.f;
+  particles.color[3] = 1.f;
+
+  particles.size_frames = r_keyframes_create(3);
+  r_keyframes_set(&particles.size_frames, 0, 0.2f, 10.f, LINEAR);
+  r_keyframes_set(&particles.size_frames, 1, 1.f, 25.f, LINEAR);
+  r_keyframes_set(&particles.size_frames, 2, 2.f, 10.f, LINEAR);
+
+  particles.fade_frames = r_keyframes_create(4);
+  r_keyframes_set(&particles.fade_frames, 0, 0.0f, 0.0f, LINEAR);
+  r_keyframes_set(&particles.fade_frames, 1, 0.2f, 1.0f, LINEAR);
+  r_keyframes_set(&particles.fade_frames, 2, 1.5f, 1.0f, LINEAR);
+  r_keyframes_set(&particles.fade_frames, 3, 1.7f, 0.0f, LINEAR);
 
   return 1;
 }
@@ -110,8 +163,6 @@ void g_input(long delta) {
   else if (i_key_down('S'))
     dir_y = -1;
 
-  // I mean, it does something I guess.
-  // Let's make it loop
   if (i_key_clicked('P'))
     r_sprite_play(&sprite2);
   else if (i_key_clicked('O'))
@@ -120,9 +171,10 @@ void g_input(long delta) {
   r_cam_move(dir_x * 1.f * delta, dir_y * 1.f * delta);
 }
 
-void g_update(long delta) { //
+void g_update(long delta) {
   r_sprite_update(&sprite, delta);
   r_sprite_update(&sprite2, delta);
+  r_particles_update(&particles, delta);
 }
 
 void g_render(long delta) {
@@ -141,4 +193,6 @@ void g_render(long delta) {
   r_shader_sprite_uniform(sprite2, models, &sprite2.model);
   r_shader_sprite_uniform(sprite2, flip_x, &sprite2.flip_x);
   r_shader_sprite_uniform(sprite2, flip_y, &sprite2.flip_y);
+
+  r_particles_draw(&particles, particle_shader);
 }

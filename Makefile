@@ -8,7 +8,7 @@ else
 endif
 
 # Lets go back to C99, C11 is overrated.
-TARGET_COMPILER_FLAGS := -g -w -std=c99 -ferror-limit=500#-Werror -pedantic -Wall -Wextra
+TARGET_COMPILER_FLAGS := -g -w -std=c99 -O2 -ferror-limit=500#-Werror -pedantic -Wall -Wextra
 
 EXEC_NAME := astera
 

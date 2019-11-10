@@ -122,6 +122,7 @@ typedef struct {
 
   u32 uid;
 
+  // Hey thanks for the sub man, I appreciate it!
   union {
     mat4x4 *mat_ptr;
     float *float_ptr;
@@ -175,7 +176,8 @@ typedef struct {
 typedef enum { LINEAR = 0, EASE_IN, EASE_EASE, EASE_OUT } r_keyframe_curve;
 
 typedef struct {
-  float point;
+  float
+      point; //????????????????? why did I do float.. maybe delta. OH YEAH DELTA
   float value;
   r_keyframe_curve curve;
 } r_keyframe;
@@ -191,23 +193,22 @@ typedef struct {
   union {
     r_anim anim;
     r_subtex tex;
-    vec4 color;
   } render;
+
+  vec4 color;
 
   float life;
   vec2 position, size;
 
   mat4x4 model;
 
-  int animated : 1;
-  int texture : 1;
-  int colored : 1;
   int alive : 1;
+  int reused : 1;
 } r_particle;
 
 typedef struct {
   r_particle *list;
-  unsigned int capacity, high;
+  unsigned int capacity, count;
   unsigned int max_emission;
   unsigned int emission_count;
 
@@ -227,12 +228,17 @@ typedef struct {
   union {
     r_subtex tex;
     r_anim anim;
-    vec4 color;
   } render;
+
+  vec4 color;
+
+  r_uniform_array *arrays;
+  int array_count;
 
   int animated : 1;
   int texture : 1;
   int colored : 1;
+  int valid_uniforms : 1;
 } r_particles;
 
 static r_window g_window;
@@ -270,9 +276,14 @@ r_sheet r_sheet_create(asset_t *asset, u32 subwidth, u32 subheight);
 // -------------- PARTICLES FUNCTIONS ---------------
 
 float r_keyframe_get_value(r_keyframes frames, float point);
+r_keyframes r_keyframes_create(int keyframe_count);
+void r_keyframes_set(r_keyframes *frames, int frame, float point, float value,
+                     r_keyframe_curve curve);
 
 void r_particles_init(r_particles *system, unsigned int particle_capacity);
 void r_particles_update(r_particles *system, double delta);
+void r_particles_destroy(r_particles *particles);
+void r_particles_draw(r_particles *particles, r_shader shader);
 
 // ----------------- BATCH FUNCTIONS -----------------
 

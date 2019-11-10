@@ -29,7 +29,13 @@
 </div>
 <div id="changelog">
 <h3>Change Log</h3>
-<pre><code>Nov 9, 2019
+<pre><code>Nov 10, 2019
+- Particle Systems are done!
+- Particle animations added
+- Batched animations added
+- Texture Particles added
+- Color Particles added
+Nov 9, 2019
 - Changed rendering to use less cache
 - Made r_sprite live on the stack vs heap
 - Lots of other changes, see git diff

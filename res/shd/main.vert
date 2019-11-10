@@ -1,4 +1,5 @@
 #version 330
+
 #define MAX_BATCH_SIZE 512
 
 layout(location = 0) in vec4 in_pos;

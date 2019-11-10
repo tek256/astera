@@ -131,7 +131,7 @@ asset_t *asset_get(const char *map_name, const char *file) {
     rewind(f);
 
     unsigned char *data =
-        (unsigned char *)malloc(sizeof(unsigned char) * file_size);
+        (unsigned char *)malloc(sizeof(unsigned char) * (file_size + 1));
 
     if (!data) {
       _e("Unable to allocate %i bytes for file %s\n", file_size, file);
@@ -144,6 +144,8 @@ asset_t *asset_get(const char *map_name, const char *file) {
     if (data_read != file_size) {
       _l("Incomplete read: %i expeceted, %i read.\n", file_size, data_read);
     }
+
+    data[data_read] = 0;
 
     fclose(f);
     asset->name = file;

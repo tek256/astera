@@ -272,10 +272,10 @@ r_sheet r_sheet_create(asset_t *asset, u32 subwidth, u32 subheight) {
 }
 
 float r_keyframe_get_value(r_keyframes frames, float point) {
-  int start_index = 0;
+  int start_index = -1;
   for (int i = 0; i < frames.count; ++i) {
-    if (frames.list[i].point > point) {
-      start_index = -1;
+    if (frames.list[i].point >= point) {
+      start_index = i - 1;
       break;
     }
   }
@@ -297,6 +297,7 @@ float r_keyframe_get_value(r_keyframes frames, float point) {
     float avg = (point - frames.list[start_index].point) / point_dist;
     return frames.list[start_index].value + (value_dist * avg);
   }
+    /// TODO Easing
   case EASE_IN:
     return frames.list[start_index].value;
   case EASE_EASE:
@@ -306,6 +307,31 @@ float r_keyframe_get_value(r_keyframes frames, float point) {
   default:
     return frames.list[start_index].value;
   }
+}
+
+r_keyframes r_keyframes_create(int keyframe_count) {
+  r_keyframes frames;
+  frames.count = keyframe_count;
+  frames.list = malloc(sizeof(r_keyframe) * keyframe_count);
+  memset(frames.list, 0, sizeof(r_keyframe) * keyframe_count);
+  return frames;
+}
+
+void r_keyframes_destroy(r_keyframes *frames) {
+  if (frames->list) {
+    free(frames->list);
+    frames->list = 0;
+  }
+  frames->count = 0;
+}
+
+void r_keyframes_set(r_keyframes *frames, int frame, float point, float value,
+                     r_keyframe_curve curve) {
+  if (frame < 0 || frames->count < frame)
+    _l("Invalid keyframe: %i in list.\n", frame);
+  frames->list[frame].point = point;
+  frames->list[frame].value = value;
+  frames->list[frame].curve = curve;
 }
 
 void r_particles_init(r_particles *system, unsigned int particle_capacity) {
@@ -328,119 +354,388 @@ void r_particles_init(r_particles *system, unsigned int particle_capacity) {
     return;
   }
 
+  for (int i = 0; i < particle_capacity; ++i) {
+    particles[i].alive = 0;
+    particles[i].reused = 0;
+  }
+
   system->list = particles;
   system->capacity = particle_capacity;
   system->time = 0;
 }
 
 void r_particles_update(r_particles *system, double delta) {
-  int last = 0;
+  system->time += delta;
+  double rate = (MS_PER_SEC / system->spawn_rate);
+  int to_spawn = system->time / rate;
+  system->time -= rate * to_spawn;
 
-  vec2 adj_vel;
-  for (int i = 0; i < system->capacity; ++i) {
-    if (system->list[i].alive) {
-      r_particle *particle = &system->list[i];
-      particle->life += delta;
-
-      if (particle->life > system->particle_life) {
-        particle->alive = 0;
-      } else {
-        last = i;
-        adj_vel[0] = system->velocity[0] * delta;
-        adj_vel[1] = system->velocity[1] * delta;
-        vec2_add(particle->position, particle->position, adj_vel);
-      }
+  if (system->max_emission > 0) {
+    if (to_spawn + system->emission_count > system->max_emission) {
+      to_spawn = system->max_emission - system->emission_count;
     }
   }
 
-  system->high = last;
-
-  int to_spawn = system->spawn_time / (system->spawn_rate / MS_PER_SEC);
-  if (to_spawn > (system->max_emission - system->emission_count) &&
-      system->max_emission > 0) {
-    to_spawn = system->max_emission - system->emission_count;
+  float anim_frame_length = 0.f;
+  if (system->animated) {
+    anim_frame_length = MS_PER_SEC / system->render.anim.frame_rate;
   }
 
-  for (int i = 0; i < system->high; ++i) {
-    if (!system->list[i].alive) {
-      r_particle *particle;
+  for (int i = 0; i < system->capacity; ++i) {
+    r_particle *particle = &system->list[i];
+    if (!particle->alive && to_spawn) {
+      vec2 position;
+      vec2_dup(position, system->position);
       switch (system->spawn_type) {
       case POINT:
-        vec2_dup(particle->position, system->position);
+        // Just do nothing
         break;
       case CIRCLE:
-        particle->position[0] = fmodf(rand(), system->size[0]);
-        particle->position[1] = fmodf(rand(), system->size[0]);
+        position[0] += fmodf(rand(), system->size[0]);
+        position[1] += fmodf(rand(), system->size[0]);
         break;
       case BOX:
-        particle->position[0] = fmodf(rand(), system->size[0]);
-        particle->position[1] = fmodf(rand(), system->size[1]);
+        position[0] += fmodf(rand(), system->size[0]);
+        position[1] += fmodf(rand(), system->size[1]);
         break;
       }
 
+      vec2_dup(particle->position, position);
       vec2_dup(particle->size, system->particle_size);
-
-      if (system->animated) {
-        particle->render.anim = system->render.anim;
-        particle->render.anim.time = 0;
-        particle->render.anim.frame = 0;
-      } else if (system->texture) {
-        particle->render.tex = system->render.tex;
-      } else if (system->colored) {
-        vec4_dup(particle->render.color, system->render.color);
-      }
-
       particle->life = 0;
 
-      particle->animated = system->animated;
-      particle->texture = system->texture;
-      particle->colored = system->colored;
+      mat4x4_identity(particle->model);
+      mat4x4_translate(particle->model, particle->position[0],
+                       particle->position[1], 0.f);
+      mat4x4_scale_aniso(particle->model, particle->model, particle->size[0],
+                         particle->size[1], 1.f);
 
+      if (!particle->reused) {
+        if (system->animated) {
+          particle->render.anim = system->render.anim;
+          particle->render.anim.time = 0;
+          particle->render.anim.frame = 0;
+          particle->render.anim.state = R_ANIM_PLAY;
+        } else if (system->texture) {
+          particle->render.tex = system->render.tex;
+        }
+
+        vec4_dup(particle->color, system->color);
+        particle->reused = 1;
+      } else {
+        if (system->animated) {
+          particle->render.anim.time = 0;
+          particle->render.anim.frame = 0;
+          particle->render.anim.state = R_ANIM_PLAY;
+        }
+      }
+
+      system->count++;
+      particle->alive = 1;
       --to_spawn;
-      ++system->emission_count;
+    }
+
+    if (particle->alive) {
+      particle->life += delta;
+      if (particle->life > (system->particle_life * MS_PER_SEC)) {
+        particle->alive = 0;
+        system->count--;
+      } else {
+        int force_change = 0;
+        if (system->fade_frames.count > 0) {
+          particle->color[3] = r_keyframe_get_value(
+              system->fade_frames, particle->life / MS_PER_SEC);
+        }
+
+        if (system->size_frames.count > 0) {
+          float size = r_keyframe_get_value(system->size_frames,
+                                            particle->life / MS_PER_SEC);
+          // TODO factor out
+          if (particle->size[0] != size || particle->size[1] != size)
+            force_change = 1;
+          particle->size[0] = size;
+          particle->size[1] = size;
+        }
+
+        // Particle animations
+        if (system->animated) {
+          r_anim *anim = &particle->render.anim;
+          if (anim->state == R_ANIM_PLAY) {
+            if (anim->time + delta > anim_frame_length) {
+              if (anim->frame == anim->frame_count - 1) {
+                if (!anim->loop) {
+                  anim->state = R_ANIM_STOP;
+                  anim->pstate = R_ANIM_PLAY;
+                } else {
+                  anim->frame = 0;
+                }
+              } else {
+                ++anim->frame;
+              }
+
+              anim->time -= anim_frame_length;
+            } else {
+              anim->time += delta;
+            }
+          }
+        }
+
+        if (system->velocity[0] || system->velocity[1] || force_change) {
+          particle->position[0] += system->velocity[0] * (delta / MS_PER_SEC);
+          particle->position[1] += system->velocity[1] * (delta / MS_PER_SEC);
+          mat4x4_identity(particle->model);
+          mat4x4_translate(particle->model, particle->position[0],
+                           particle->position[1], 0.f);
+          mat4x4_scale_aniso(particle->model, particle->model,
+                             particle->size[0], particle->size[1], 1.f);
+        }
+      }
+    }
+  }
+}
+
+void r_particles_destroy(r_particles *particles) {
+  free(particles->list);
+
+  if (particles->array_count) {
+    for (int i = 0; i < particles->array_count; ++i) {
+      switch (particles->arrays[i].type) {
+      case r_int:
+        free(particles->arrays[i].data.int_ptr);
+        break;
+      case r_float:
+        free(particles->arrays[i].data.float_ptr);
+        break;
+      case r_mat:
+        free(particles->arrays[i].data.mat_ptr);
+        break;
+      case r_vec2:
+        free(particles->arrays[i].data.vec2_ptr);
+        break;
+      case r_vec3:
+        free(particles->arrays[i].data.vec3_ptr);
+        break;
+      case r_vec4:
+        free(particles->arrays[i].data.vec4_ptr);
+        break;
+      }
+    }
+    free(particles->arrays);
+  }
+  particles->capacity = 0;
+}
+
+static r_uniform_array *r_append_uniform_array(r_uniform_array *arrays,
+                                               int array_count,
+                                               r_uniform_array array) {
+  r_uniform_array *new_array;
+  if (array_count == 0) {
+    new_array = malloc(sizeof(r_uniform_array));
+    new_array[0] = array;
+  } else {
+    new_array = malloc(sizeof(r_uniform_array) * (array_count + 1));
+    memcpy(new_array, arrays, sizeof(r_uniform_array) * array_count);
+    free(arrays);
+    new_array[array_count] = array;
+  }
+  return new_array;
+}
+
+static r_uniform_array r_create_uniform_array(const char *name, int type,
+                                              int capacity) {
+  r_uniform_array array;
+
+  array.capacity = capacity;
+  array.type = type;
+  array.name = name;
+  array.count = 0;
+
+  switch (type) {
+  case r_float:
+    array.data.float_ptr = malloc(sizeof(float) * capacity);
+    break;
+  case r_int:
+    array.data.int_ptr = malloc(sizeof(int) * capacity);
+    break;
+  case r_vec2:
+    array.data.vec2_ptr = malloc(sizeof(vec2) * capacity);
+    break;
+  case r_vec3:
+    array.data.vec3_ptr = malloc(sizeof(vec3) * capacity);
+    break;
+  case r_vec4:
+    array.data.vec4_ptr = malloc(sizeof(vec4) * capacity);
+    break;
+  case r_mat:
+    array.data.mat_ptr = malloc(sizeof(mat4x4) * capacity);
+    break;
+  default:
+    _e("Unsupported data type: %i\n", type);
+    break;
+  }
+
+  return array;
+}
+
+void r_particles_draw(r_particles *particles, r_shader shader) {
+  r_uniform_array *tex_id_array, *color_array, *model_array;
+
+  if (!particles->valid_uniforms) {
+    if (particles->array_count != 0) {
+      for (int i = 0; i < particles->array_count; ++i) {
+        switch (particles->arrays[i].type) {
+        case r_int:
+          free(particles->arrays[i].data.int_ptr);
+          break;
+        case r_float:
+          free(particles->arrays[i].data.float_ptr);
+          break;
+        case r_mat:
+          free(particles->arrays[i].data.mat_ptr);
+          break;
+        case r_vec2:
+          free(particles->arrays[i].data.vec2_ptr);
+          break;
+        case r_vec3:
+          free(particles->arrays[i].data.vec3_ptr);
+          break;
+        case r_vec4:
+          free(particles->arrays[i].data.vec4_ptr);
+          break;
+        }
+      }
+      free(particles->arrays);
+      particles->array_count = 0;
+    }
+
+    r_uniform_array tmp_model_array =
+        r_create_uniform_array("models", r_mat, particles->capacity);
+    tmp_model_array.uid = particles->array_count;
+
+    particles->arrays = r_append_uniform_array(
+        particles->arrays, particles->array_count, tmp_model_array);
+    ++particles->array_count;
+
+    r_uniform_array tmp_tex_id_array =
+        r_create_uniform_array("tex_ids", r_int, particles->capacity);
+    tmp_tex_id_array.uid = particles->array_count;
+    particles->arrays = r_append_uniform_array(
+        particles->arrays, particles->array_count, tmp_tex_id_array);
+    ++particles->array_count;
+
+    r_uniform_array tmp_color_array =
+        r_create_uniform_array("colors", r_vec4, particles->capacity);
+    tmp_color_array.uid = particles->array_count;
+    particles->arrays = r_append_uniform_array(
+        particles->arrays, particles->array_count, tmp_color_array);
+
+    ++particles->array_count;
+
+    particles->valid_uniforms = 1;
+  }
+
+  for (int i = 0; i < particles->array_count; ++i) {
+    if (!strcmp(particles->arrays[i].name, "colors")) {
+      color_array = &particles->arrays[i];
+    }
+    if (!strcmp(particles->arrays[i].name, "models")) {
+      model_array = &particles->arrays[i];
+    }
+
+    if (!strcmp(particles->arrays[i].name, "tex_ids")) {
+      tex_id_array = &particles->arrays[i];
     }
   }
 
-  if (to_spawn > system->capacity - system->high) {
-    to_spawn = system->capacity - system->high;
+  int alive_count = 0;
+  // Prepare the uniform arrays
+  for (int i = 0; i < particles->capacity; ++i) {
+    if (particles->list[i].alive) {
+      ++alive_count;
+      r_particle *particle = &particles->list[i];
+
+      mat4x4_dup(model_array->data.mat_ptr[model_array->count],
+                 particle->model);
+      ++model_array->count;
+
+      vec4_dup(color_array->data.vec4_ptr[color_array->count], particle->color);
+      ++color_array->count;
+
+      if (particles->animated) {
+        tex_id_array->data.int_ptr[tex_id_array->count] =
+            particle->render.anim.frames[particle->render.anim.frame];
+        ++tex_id_array->count;
+      } else if (particles->texture) {
+        tex_id_array->data.int_ptr[tex_id_array->count] =
+            particles->render.tex.sub_id;
+        ++tex_id_array->count;
+      }
+    }
   }
 
-  for (int i = 0; i < to_spawn; ++i) {
-    r_particle *particle = &system->list[system->high + i];
-    switch (system->spawn_type) {
-    case POINT:
-      vec2_dup(particle->position, system->position);
-      break;
-    case CIRCLE:
-      particle->position[0] = fmodf(rand(), system->size[0]);
-      particle->position[1] = fmodf(rand(), system->size[0]);
-      break;
-    case BOX:
-      particle->position[0] = fmodf(rand(), system->size[0]);
-      particle->position[1] = fmodf(rand(), system->size[1]);
-      break;
+  if (!alive_count) {
+    return;
+  }
+
+  r_shader_bind(shader);
+  r_set_m4(shader, "proj", g_camera.proj);
+  r_set_m4(shader, "view", g_camera.view);
+  r_set_m4x(shader, model_array->count, model_array->name,
+            model_array->data.mat_ptr);
+
+  r_set_v4x(shader, color_array->count, color_array->name,
+            color_array->data.vec4_ptr);
+
+  if (particles->animated || particles->texture) {
+    r_set_ix(shader, tex_id_array->count, tex_id_array->name,
+             tex_id_array->data.int_ptr);
+    r_set_uniformi(shader, "render_mode", 1);
+
+    // Sub Texture uniforms
+    vec2 tex_size, sub_size;
+
+    r_sheet sheet;
+    if (particles->animated) {
+      sheet = particles->render.anim.sheet;
+    } else if (particles->texture) {
+      sheet = particles->render.tex.sheet;
     }
 
-    vec2_dup(particle->size, system->particle_size);
+    tex_size[0] = sheet.width;
+    tex_size[1] = sheet.height;
 
-    if (system->animated) {
-      particle->render.anim = system->render.anim;
-      particle->render.anim.time = 0;
-      particle->render.anim.frame = 0;
-    } else if (system->texture) {
-      particle->render.tex = system->render.tex;
-    } else if (system->colored) {
-      vec4_dup(particle->render.color, system->render.color);
-    }
+    sub_size[0] = sheet.subwidth;
+    sub_size[1] = sheet.subheight;
 
-    particle->life = 0;
+    r_set_v2(shader, "sub_size", sub_size);
+    r_set_v2(shader, "tex_size", tex_size);
 
-    particle->animated = system->animated;
-    particle->texture = system->texture;
-    particle->colored = system->colored;
+    r_tex_bind(sheet.id);
+  } else if (particles->colored) {
+    r_set_uniformi(shader, "render_mode", 0);
+  }
 
-    --to_spawn;
-    ++system->emission_count;
+  glBindVertexArray(default_quad_vao);
+  glBindBuffer(GL_ARRAY_BUFFER, default_quad_vbo);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, default_quad_vboi);
+  glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
+
+  glEnableVertexAttribArray(0);
+
+  // Actually draw the stuff
+  glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0,
+                          model_array->count);
+
+  // Clear out the uniform arrays
+  memset(model_array->data.mat_ptr, 0, sizeof(mat4x4) * model_array->capacity);
+  model_array->count = 0;
+  memset(color_array->data.vec4_ptr, 0, sizeof(vec4) * color_array->count);
+  color_array->count = 0;
+
+  if (particles->animated || particles->texture) {
+    memset(tex_id_array->data.int_ptr, 0, sizeof(int) * tex_id_array->count);
+    tex_id_array->count = 0;
+  } else if (particles->colored) {
   }
 }
 
@@ -487,7 +782,6 @@ void r_sprite_draw(r_sprite draw) {
   ++batch->sprite_count;
 }
 
-// TODO remove excess OpenGL function calls
 void r_batch_draw(r_shader_batch *batch) {
   if (!batch || !batch->sprite_count)
     return;
@@ -515,14 +809,8 @@ void r_batch_draw(r_shader_batch *batch) {
 
   r_tex_bind(sheet.id);
 
-  // The trick of this is that we're only using 1 quad to draw everything.
-  // Less data having to be hosted on the GPU in the short term
-  // Generating the vertex data _would_ be faster if we're working with larger
-  // objects tho For now we just take advantage of the performance boost of
-  // instancing
   glBindVertexArray(default_quad_vao);
-  // We theoretically wouldn't have to do this, given we have a VAO. We'll test
-  // it out later if we have to
+
   glBindBuffer(GL_ARRAY_BUFFER, default_quad_vbo);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, default_quad_vboi);
   glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
@@ -614,8 +902,8 @@ static GLuint r_shader_create_sub(asset_t *asset, int type) {
     char *log = malloc(maxlen);
 
     glGetShaderInfoLog(id, maxlen, &len, log);
-
-    _l("%s\n", log);
+    const char *type = (type == GL_FRAGMENT_SHADER) ? "FRAGMENT" : "VERTEX";
+    _l("%s: %s\n", type, log);
     free(log);
   }
 
