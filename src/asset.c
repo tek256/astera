@@ -5,6 +5,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#define alloca(x) __builtin_alloca(x)
+
 #ifdef PLAT_MSFT
 #include <misc/zip.c>
 #endif
@@ -119,7 +121,7 @@ asset_t *asset_get(const char *map_name, const char *file) {
   }
 
   if (strcmp(map->name, "sys") == 0) {
-    FILE *f = fopen(file, "r+");
+    FILE *f = fopen(file, "r+b");
 
     if (!f) {
       _e("Unable to open system file: %s\n", file);

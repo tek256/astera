@@ -1,75 +1,17 @@
 #include "conf.h"
 
+#include "platform.h"
+
 #include "debug.h"
 #include "input.h"
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
-#include <misc/ini.c>
-#include <misc/ini.h>
-
 static c_args _flags;
-
-#define match(s, n) strcmp(section, s) == 0 && strcmp(name, n) == 0
-
-// TODO key value checking in INI file
-
-static int parse_handler(void *user, const char *section, const char *name,
-                         const char *value) {
-  c_conf *c = (c_conf *)user;
-
-  if (strcmp(section, "render") == 0) {
-    if (strcmp(name, "width") == 0) {
-      c->width = atoi(value);
-    } else if (strcmp(name, "height") == 0) {
-      c->height = atoi(value);
-    } else if (strcmp(name, "fullscreen") == 0) {
-      c->fullscreen = atoi(value);
-    } else if (strcmp(name, "borderless") == 0) {
-      c->borderless = atoi(value);
-    } else if (strcmp(name, "refreshRate") == 0) {
-      c->refreshRate = atoi(value);
-    } else if (strcmp(name, "vsync") == 0) {
-      c->vsync = atoi(value);
-    }
-  } else if (strcmp(section, "audio") == 0) {
-    if (strcmp(name, "master") == 0) {
-      c->master = atoi(value);
-    } else if (strcmp(name, "music") == 0) {
-      c->music = atoi(value);
-    } else if (strcmp(name, "sfx") == 0) {
-      c->sfx = atoi(value);
-    }
-  } else if (strcmp(section, "input") == 0) {
-    int binding = atoi(value);
-    int type = (binding / 100) + 1;
-
-    binding = binding % 100;
-    i_add_binding(name, binding, type);
-  } else {
-    return 0;
-  }
-
-  return 1;
-}
-
-c_conf c_parse_file(char *fp, int prefs) {
-  c_conf conf = (c_conf){1280, 720, 0, 60, 1, 0, 100, 75, 50, NULL};
-
-  if (ini_parse(fp, parse_handler, &conf) < 0) {
-    _e("Unable to open: %s\n", fp);
-    return conf;
-  }
-
-  if (prefs) {
-    conf.path = fp;
-  }
-
-  return conf;
-}
 
 c_conf c_defaults() {
   return (c_conf){1280, 720, 0, 60, 1, 0, 100, 75, 50, NULL};
@@ -105,62 +47,182 @@ void c_parse_args(int argc, char **argv) {
     case 'd':
       _flags.debug = 1;
       break;
-    case 'c':
-      // TODO include optional config override
-      //_flags.prefs = strdup(optarg);
-      break;
+    case 'c': {
+      int opt_len = strlen(optarg);
+      _flags.prefs = malloc(sizeof(char) * opt_len);
+      strcpy(_flags.prefs, optarg);
+    } break;
     }
   }
 }
 
-void c_write_pref(const char *fp, const char *section, const char *key,
-                  const char *value) {
-  ini_write_kv(fp, section, key, value);
-}
+// Quality of life thing, can factor out later
+#define STR_MATCH(s, a) strcmp(s, a) == 0
 
-void c_write_table(const char *fp, const char *section, const char **keys,
-                   const char **values, int count) {
-  ini_write_table(fp, section, keys, values, count);
-}
+c_conf c_parse_table(c_table table) {
+  c_conf default_conf = c_defaults();
+  c_conf out_conf = default_conf;
 
-/*void c_write_table(const char* table, char** keys, char** values, int count){
-  for(int i=0;i<count;++i){
-
-  }
-  }*/
-
-unsigned char *c_get_file_contents(const char *fp, int *size) {
-  FILE *file;
-  unsigned char *data = NULL;
-  int count = 0;
-
-  file = fopen(fp, "rt");
-  if (!file) {
-    _e("Unable to open shader file: %s\n", fp);
-    return NULL;
-  }
-
-  fseek(file, 0, SEEK_END);
-  count = ftell(file);
-  rewind(file);
-
-  if (count > 0) {
-    data = malloc(sizeof(unsigned char) * (count));
-
-    if (!data) {
-      _e("Unable to malloc size for shader: %d\n",
-         (sizeof(unsigned char) * (count + 1)));
-      fclose(file);
-      return NULL;
+  for (int i = 0; i < table.count; ++i) {
+    if (out_conf.width == default_conf.width) {
+      if (STR_MATCH(table.keys[i], "width")) {
+        out_conf.width = atoi(table.values[i]);
+      }
     }
-    count = fread(data, sizeof(unsigned char), count, file);
+
+    if (out_conf.height == default_conf.height) {
+      if (STR_MATCH(table.keys[i], "height")) {
+        out_conf.height = atoi(table.values[i]);
+      }
+    }
+
+    if (out_conf.fullscreen == default_conf.fullscreen) {
+      if (STR_MATCH(table.keys[i], "fullscreen")) {
+        out_conf.fullscreen = atoi(table.values[i]);
+      }
+    }
+
+    if (out_conf.refreshRate == default_conf.refreshRate) {
+      if (STR_MATCH(table.keys[i], "refreshRate")) {
+        out_conf.refreshRate = atoi(table.values[i]);
+      }
+    }
+
+    if (out_conf.vsync == default_conf.vsync) {
+      if (STR_MATCH(table.keys[i], "vsync")) {
+        out_conf.vsync = atoi(table.values[i]);
+      }
+    }
+
+    if (out_conf.borderless == default_conf.borderless) {
+      if (STR_MATCH(table.keys[i], "borderless")) {
+        out_conf.borderless = atoi(table.values[i]);
+      }
+    }
+
+    if (out_conf.master == default_conf.master) {
+      if (STR_MATCH(table.keys[i], "master")) {
+        out_conf.master = atoi(table.values[i]);
+      }
+    }
+
+    if (out_conf.music == default_conf.music) {
+      if (STR_MATCH(table.keys[i], "music")) {
+        out_conf.music = atoi(table.values[i]);
+      }
+    }
+
+    if (out_conf.sfx == default_conf.sfx) {
+      if (STR_MATCH(table.keys[i], "sfx")) {
+        out_conf.sfx = atoi(table.values[i]);
+      }
+    }
+    if (out_conf.icon == default_conf.icon) {
+      if (STR_MATCH(table.keys[i], "icon")) {
+        out_conf.icon = strdup(table.values[i]);
+      }
+    }
   }
 
-  if (size)
-    *size = count;
+  return out_conf;
+}
 
-  fclose(file);
-  return file;
+void c_write_pref(const char *fp, const char *key, const char *value) {}
+
+void c_table_free(c_table table) {
+  if (table.keys)
+    free(table.keys);
+  if (table.values)
+    free(table.values);
+}
+
+static char *c_cleaned_str(char *str) {
+  char *end;
+  while (isspace((unsigned char)*str))
+    str++;
+
+  if (*str == 0)
+    return str;
+
+  end = str + strlen(str) - 1;
+  while (end > str && isspace((unsigned char *)*end))
+    end--;
+  end[1] = '\0';
+
+  return str;
+}
+
+c_table c_get_table(asset_t *asset) {
+  assert(asset->filled);
+  assert(asset->data);
+  char *raw_ptr = asset->data;
+  char *tok;
+  tok = strtok_r(raw_ptr, "\n", &raw_ptr);
+
+  char *raw_data = malloc(sizeof(char) * 512);
+  int raw_capacity = 512;
+  int raw_count = 0;
+
+  char **keys = malloc(sizeof(char *) * 16);
+  char **values = malloc(sizeof(char *) * 16);
+  int line_capacity = 16;
+  int line_count = 0;
+
+  while (tok) {
+    char *line = tok;
+    strtok(line, "=");
+
+    char *key, *value;
+
+    int parts = 0;
+    int key_length = 0;
+    int value_length = 0;
+    while (line) {
+      line = c_cleaned_str(line);
+      if (!parts) {
+        key_length = strlen(line) + 1;
+        key = line;
+        ++parts;
+      } else if (parts) {
+        value_length = strlen(line) + 1;
+        value = line;
+
+        if (line_count == line_capacity) {
+          keys = realloc(keys, sizeof(char *) * (line_capacity + 8));
+          values = realloc(values, sizeof(char *) * (line_capacity + 8));
+          line_capacity += 8;
+        }
+
+        if (raw_count + (key_length + value_length) > raw_capacity) {
+          int difference =
+              (64 + raw_count + key_length + value_length) - raw_capacity;
+          raw_data =
+              realloc(raw_data, sizeof(char) * (raw_capacity + difference));
+          raw_capacity += difference;
+        }
+
+        keys[line_count] = strcpy(&raw_data[raw_count], key);
+        raw_count += key_length;
+
+        values[line_count] = strcpy(&raw_data[raw_count], value);
+        raw_count += value_length;
+
+        ++line_count;
+      }
+
+      line = strtok(NULL, "=");
+    }
+
+    tok = strtok_r(NULL, "\n", &raw_ptr);
+  }
+
+  /*for (int i = 0; i < line_count; ++i) {
+    printf("%s:%s\n", keys[i], values[i]);
+  }
+
+  printf("%i lines\n", line_count);*/
+
+  return (c_table){keys, values, line_count};
 }
 
 int c_has_prefs() { return _flags.prefs != 0; }

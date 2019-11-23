@@ -1,6 +1,6 @@
 <div id="header">
     <p align="center">
-      <img width="64px" height="64px" style="border-radius: 6px;" src="res/tex/icon.png"><br>
+      <img width="64px" height="64px" style="border-radius: 6px;" src="examples/res/tex/icon.png"><br>
       <b>astera</b><br>
 	  <span font-size="16px">a cross platform game library</span><br>
       <span font-size="12px">Made by <a href="http://tek256.com">Devon</a> with love.</span><br><br>
@@ -14,22 +14,47 @@
 </div>
 <div id="building">
 <h3>Building</h3>
-<p>Please note that at this stage, the library is not complete. You can try automated building by either running unix_build or win_setup.ps1 in your operating system's terminal emulator. If you have GLFW & OpenAL-Soft installed locally, you can simply run the Makefile, i.e <code>make</code> or <code>mingw32-make</code> for Windows systems.
-</div>
-<div id="contributing">
-	<h3>Contributing</h3>
-	<pre><code>Here are some things you can do to help contribute!
-- Bug Review & Search
-- Wiki / Code Documentation
-- Example Creation</code></pre> 
+<p>Please note that at this stage, the library is not at a stable release candidate. You can try automated building by either running <code>unix_build</code> or <code>win_setup.ps1</code> in your operating system's terminal emulator. If you have GLFW & OpenAL-Soft installed locally, you can simply run the Makefile, i.e <code>make</code> or <code>mingw32-make</code> for Windows systems.
+
+  For more information see the relevant <a href="https://github.com/tek256/astera/wiki/Building">wiki page</a>.
 </div>
 <div id="dependencies">
 <h3>Dependencies</h3>
-<p><a href="https://github.com/glfw/glfw">GLFW</a>, <a href="https://github.com/kcat/openal-soft">OpenAL-Soft</a>, <a href="https://github.com/nothings/stb/">STB</a> Image, Truetype, Vorbis, <a href="https://github.com/kuba--/zip">ZIP</a>, <a href="https://github.com/Dav1dde/glad">GLAD</a>, and <a href="https://github.com/benhoyt/inih">inih</a></p>
+<p><a href="https://github.com/glfw/glfw">GLFW</a>, <a href="https://github.com/kcat/openal-soft">OpenAL-Soft</a>, <a href="https://github.com/nothings/stb/">STB</a> Image, Truetype, Vorbis, <a href="https://github.com/kuba--/zip">ZIP</a>, and <a href="https://github.com/Dav1dde/glad">GLAD</a></p>
+</div>
+<div id="targets">
+<h3>Target Platforms</h3>
+<p>Here are the target platforms for this library:
+<pre><code>-Linux (distro-agnostic)
+-Windows XP, 7, 10+
+-Mac OSX (versions that support OpenGL 3.3)
+-BSD (Free, Net, Open)
+</code></pre>
+<p>These are some potential future targets:
+<ul id="future_platforms">
+<pre><code>-Android
+-Nintendo Switch
+-iOS
+-Raspberry Pi (0,3B+) - Linux/BSD
+</code></pre>
 </div>
 <div id="changelog">
 <h3>Change Log</h3>
-<pre><code>Nov 10, 2019
+<pre><code>Nov 22, 2019
+- Refactoring for release candidate 0.01
+- Refactoring towards Library Style build
+- Creation of basic examples
+- Creation of Makefile examples for libraries
+- Creation of generic Makefile for all examples
+- Creation of docs/ & initial documentation
+- Updated Wiki with formatted versions of docs/
+- Finished Framebuffer usage in Rendering
+- Added particle directions for particle systems
+- Moved back to C99 for compatability's sake
+- Patched initializing with window icon for .ini setups
+- Removed dependnecy inih
+- Added command line configuration file overrides
+Nov 10, 2019
 - Particle Systems are done!
 - Particle animations added
 - Batched animations added
@@ -43,36 +68,7 @@ Nov 2, 2019
 - Removed TODO to Projects page on GitHub
 - Added CI Implemation for GitHub Actions
 - Updated README for legibility
-Oct 25, 2019
-- Cleaning up dependencies
-- Updated Makefile to reflect dependency changes
-- Updated README to be a bit more useful
-- Removed phys.c/h to be re-added when completed
-Oct 24, 2019
-- Removing level.c/h until functional
-- Updating to comply with pedantic compilation
-- Buttoning up some semantics
-- Refactoring to have consistent API naming
-- Really wanting chicken strips
-- Moving to C11 for anonymous union support
-- Working on CI Support in other repository
-Oct 21, 2019
-- Working on render cache
-- UI implementation work
-Oct 10, 2019
-- Update ZIP Dependency
-- Refactoring into more legible code
-- Prepping some files for proper library release
-- Finishing UI Implementation
-- Audio cleanup fix
-- Writing include options / toggles
-- Documenting parts of the engine in the wiki
-- Transitioning to clang/LLVM workflow
-Sept 24, 2019
-- Added ZIP Functionality
-- Moved CONTRIBUTING.md & LICENSE into README.md
-- Initial Update of Audio Push System
-- Migrating UI System into ui.c/h
+For older changes see docs/changelog-archive.txt
 </code></pre>
 </div>
 <div id="license">

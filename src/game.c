@@ -11,18 +11,16 @@
 
 #include "asset.h"
 
-typedef struct {
-} g_entity;
-
-g_entity ent;
-
 r_sprite sprite, sprite2;
 u32 *frames;
+
+r_framebuffer fbo;
 
 static int tex_ids, models, flip_x, flip_y;
 
 r_particles particles;
 r_shader particle_shader;
+r_shader screen_shader;
 
 int g_init(void) {
   r_init_anim_map(32);
@@ -30,7 +28,7 @@ int g_init(void) {
   r_init_batches(4);
 
   asset_t *window_icon = asset_get("sys", "res/tex/icon.png");
-  r_window_set_icon(window_icon);
+  // r_window_set_icon(window_icon);
   asset_free(window_icon);
   window_icon = 0;
 
@@ -47,6 +45,19 @@ int g_init(void) {
   particle_shader = r_shader_create(particle_vert, particle_frag);
   asset_free(particle_vert);
   asset_free(particle_frag);
+
+  // Create the screen's framebuffer shader
+  asset_t *screen_vert = asset_get("sys", "res/shd/screen.vert");
+  asset_t *screen_frag = asset_get("sys", "res/shd/screen.frag");
+  screen_shader = r_shader_create(screen_vert, screen_frag);
+  asset_free(screen_vert);
+  asset_free(screen_frag);
+
+  // Create the screen's framebuffer proper
+  int screen_width, screen_height;
+  r_window_get_size(&screen_width, &screen_height);
+
+  fbo = r_framebuffer_create(screen_width, screen_height, screen_shader);
 
   // Initialize default texture sheet
   asset_t *default_sheet_file = asset_get("sys", "res/tex/test_sheet.png");
@@ -100,19 +111,19 @@ int g_init(void) {
 
   sprite = r_sprite_create(default_shader, position, size);
   sprite2 = r_sprite_create(default_shader, position2, size);
+  sprite2.layer = 5;
+  sprite2.change = 1;
+
   r_sprite_set_tex(&sprite, sub_tex);
   r_sprite_set_anim(&sprite2, anim);
 
   r_particles_init(&particles, 128);
-  particles.max_emission = 0;
-  particles.position[0] = 0.f;
-  particles.position[1] = 0.f;
 
   particles.size[0] = 1280.0f;
   particles.size[1] = 720.0f;
 
-  particles.velocity[0] = 0.f;
   particles.velocity[1] = 9.f;
+
   particles.render.anim = particle_anim;
 
   particles.particle_size[0] = 10.f;
@@ -120,27 +131,25 @@ int g_init(void) {
 
   particles.particle_life = 4.0f;
 
-  particles.spawn_type = CIRCLE;
-  particles.spawn_rate = 20;
-  particles.colored = 0;
-  particles.animated = 1;
-  particles.texture = 0;
+  particles.spawn_type = SPAWN_CIRCLE;
 
-  particles.color[0] = 1.f;
-  particles.color[1] = 1.f;
-  particles.color[2] = 1.f;
-  particles.color[3] = 1.f;
+  particles.spawn_rate = 20;
+
+  particles.animated = 1;
+
+  vec4 particle_color = (vec4){1.f, 1.f, 1.f, 1.f};
+  vec4_dup(particles.color, particle_color);
 
   particles.size_frames = r_keyframes_create(3);
-  r_keyframes_set(&particles.size_frames, 0, 0.2f, 10.f, LINEAR);
-  r_keyframes_set(&particles.size_frames, 1, 1.f, 25.f, LINEAR);
-  r_keyframes_set(&particles.size_frames, 2, 2.f, 10.f, LINEAR);
+  r_keyframes_set(&particles.size_frames, 0, 0.2f, 10.f, CURVE_LINEAR);
+  r_keyframes_set(&particles.size_frames, 1, 1.f, 25.f, CURVE_LINEAR);
+  r_keyframes_set(&particles.size_frames, 2, 2.f, 10.f, CURVE_LINEAR);
 
   particles.fade_frames = r_keyframes_create(4);
-  r_keyframes_set(&particles.fade_frames, 0, 0.0f, 0.0f, LINEAR);
-  r_keyframes_set(&particles.fade_frames, 1, 0.2f, 1.0f, LINEAR);
-  r_keyframes_set(&particles.fade_frames, 2, 1.5f, 1.0f, LINEAR);
-  r_keyframes_set(&particles.fade_frames, 3, 1.7f, 0.0f, LINEAR);
+  r_keyframes_set(&particles.fade_frames, 0, 0.0f, 0.0f, CURVE_LINEAR);
+  r_keyframes_set(&particles.fade_frames, 1, 0.2f, 1.0f, CURVE_LINEAR);
+  r_keyframes_set(&particles.fade_frames, 2, 1.5f, 1.0f, CURVE_LINEAR);
+  r_keyframes_set(&particles.fade_frames, 3, 1.7f, 0.0f, CURVE_LINEAR);
 
   return 1;
 }
@@ -169,6 +178,24 @@ void g_input(long delta) {
     r_sprite_pause(&sprite2);
 
   r_cam_move(dir_x * 1.f * delta, dir_y * 1.f * delta);
+
+  // test sprite movement
+  dir_x = 0, dir_y = 0;
+  if (i_key_down(GLFW_KEY_LEFT))
+    dir_x = -1;
+  else if (i_key_down(GLFW_KEY_RIGHT))
+    dir_x = 1;
+
+  if (i_key_down(GLFW_KEY_UP))
+    dir_y = 1;
+  else if (i_key_down(GLFW_KEY_DOWN))
+    dir_y = -1;
+
+  if (dir_x != 0 || dir_y != 0) {
+    sprite2.position[0] += dir_x * 0.25f * delta;
+    sprite2.position[1] -= dir_y * delta;
+    sprite2.change = 1;
+  }
 }
 
 void g_update(long delta) {
@@ -195,4 +222,12 @@ void g_render(long delta) {
   r_shader_sprite_uniform(sprite2, flip_y, &sprite2.flip_y);
 
   r_particles_draw(&particles, particle_shader);
+}
+
+void g_frame_start() {
+  // r_framebuffer_bind(fbo);
+  r_window_clear();
+}
+
+void g_frame_end() { // r_framebuffer_draw(fbo);
 }

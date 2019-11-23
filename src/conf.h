@@ -1,6 +1,7 @@
 #ifndef CONF_H
 #define CONF_H
 
+#include "asset.h"
 #include "config.h"
 
 typedef struct {
@@ -12,22 +13,28 @@ typedef struct {
 } c_args;
 
 typedef struct {
+  const char **keys;
+  const char **values;
+  int count;
+} c_table;
+
+typedef struct {
   unsigned int width, height;
   unsigned int fullscreen, refreshRate;
   unsigned int vsync, borderless;
   unsigned int master;
   unsigned int music, sfx;
+  char *icon;
   char *path;
 } c_conf;
 
 void c_parse_args(int argc, char **argv);
-c_conf c_parse_file(char *f, int prefs);
-
 c_conf c_defaults();
+c_conf c_parse_table(c_table table);
+c_table c_get_table(asset_t *asset);
+void c_table_free(c_table table);
 
-// void c_write_table(const char* table, char* keys, char* values, int count);
-
-unsigned char *c_get_file_contents(const char *fp, int *size);
+void c_write_pref(const char *fp, const char *key, const char *value);
 
 int c_has_prefs();
 char *c_get_pref_p();

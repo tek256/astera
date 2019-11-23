@@ -1,3 +1,16 @@
+#define _POSIX_C_SOURCE 199309L
+
+// Define POSIX features for C99
+#if !defined(_XOPEN_SOURCE) && !defined(_POSIX_C_SOURCE)
+#if defined(__cplusplus)
+#define _XOPEN_SOURCE 700 /* SUS v4, POSIX 1003.1 2008/13 (POSIX 2008/13) */
+#elif __STDC_VERSION__ >= 199901L
+#define _XOPEN_SOURCE 700 /* SUS v4, POSIX 1003.1 2008/13 (POSIX 2008/13) */
+#else
+#define _XOPEN_SOURCE 500 /* SUS v2, POSIX 1003.1 1997 */
+#endif                    /* __STDC_VERSION__ */
+#endif                    /* !_XOPEN_SOURCE && !_POSIX_C_SOURCE */
+
 #include "config.h"
 #include "platform.h"
 
@@ -32,11 +45,26 @@ int init_sys() {
   c_conf conf;
   r_window_info info;
 
+  char *target_conf_path;
+
 #if defined(CONF_PATH)
-  conf = c_parse_file(CONF_PATH, 1);
-#else
-  conf = c_defaults();
+  target_conf_path = CONF_PATH;
 #endif
+
+  c_table conf_table;
+
+  if (c_has_prefs()) {
+    target_conf_path = c_get_pref_p();
+  }
+
+  if (target_conf_path) {
+    asset_t *conf_file = asset_get(0, target_conf_path);
+    conf_table = c_get_table(conf_file);
+    conf = c_parse_table(conf_table);
+    asset_free(conf_file);
+  } else {
+    conf = c_defaults();
+  }
 
   info.width = conf.width;
   info.height = conf.height;
@@ -44,14 +72,13 @@ int init_sys() {
   info.vsync = conf.vsync;
   info.borderless = conf.borderless;
   info.refreshRate = conf.refreshRate;
+  info.icon = conf.icon;
+
 #if defined(WINDOW_TITLE)
   info.title = WINDOW_TITLE;
 #else
-  info.title = "demo";
+  info.title = "untitled";
 #endif
-
-  // TODO add icon baking support
-  info.icon = NULL;
 
   if (!r_init(info)) {
     _fatal("Unable to initialize rendering system.\n");
@@ -67,6 +94,8 @@ int init_sys() {
     _fatal("Unable to initialize game runtime.\n");
     return EXIT_FAILURE;
   }
+
+  c_table_free(conf_table);
 
   return 1;
 }
@@ -108,10 +137,13 @@ int main(int argc, char **argv) {
     }
 
     if (r_allow_render()) {
-      r_window_clear();
+      g_frame_start(delta);
+
       r_update(delta);
       g_render(delta);
       r_end();
+
+      g_frame_end(delta);
       r_window_swap_buffers();
     }
 

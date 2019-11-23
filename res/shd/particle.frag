@@ -19,9 +19,9 @@ void main(){
         vec4 sample_c = texture(tex, pass_texcoord);
 
         if(sample_c.a == 0)
-            discard;
+          discard;
 
-        out_color = sample_c;
-        out_color.a = pass_color.a;
+        vec3 base_color = sample_c.xyz * pass_color.xyz;
+        out_color = vec4(base_color, pass_color.a);
     }
 }

@@ -10,6 +10,14 @@
 #include <string.h>
 #include <time.h>
 
+#define STBI_NO_BMP
+#define STBI_NO_TGA
+#define STBI_NO_JPEG
+#define STBI_NO_PSD
+#define STBI_NO_PIC
+#define STBI_NO_PNM
+#define STBI_NO_HDR
+
 #define STB_IMAGE_IMPLEMENTATION
 #include <misc/stb_image.h>
 
@@ -27,6 +35,9 @@ static GLFWmonitor *r_default_monitor;
 static const GLFWvidmode *r_vidmodes;
 static vec2 r_res;
 static u32 default_quad_vao, default_quad_vbo, default_quad_vboi;
+
+static r_anim_map g_anim_map;
+static r_shader_map g_shader_map;
 
 #ifndef CUSTOM_GLFW_CALLBACKS
 static void glfw_err_cb(int error, const char *msg) {
@@ -82,7 +93,6 @@ static void glfw_mouse_pos_cb(GLFWwindow *window, double x, double y) {
 
 static void glfw_mouse_button_cb(GLFWwindow *window, int button, int action,
                                  int mods) {
-  // UI callback
   if (action == GLFW_PRESS || action == GLFW_REPEAT) {
     i_mouse_button_callback(button);
     if (i_key_binding_track()) {
@@ -103,6 +113,7 @@ static void glfw_joy_cb(int joystick, int action) {
     i_destroy_joy(joystick);
   }
 }
+
 #endif
 void r_init_anim_map(int size) {
   r_anim_map anim_map;
@@ -110,6 +121,7 @@ void r_init_anim_map(int size) {
   anim_map.anims = (r_anim *)malloc(sizeof(r_anim) * size);
   anim_map.names = (char *)malloc(sizeof(char *) * size);
   anim_map.capacity = size;
+  anim_map.count = 0;
 
   if (!anim_map.anims || !anim_map.names) {
     _e("Unable to initialize the anim map with a size of %i.\n", size);
@@ -163,8 +175,7 @@ int r_init(r_window_info info) {
 
   r_cam_create(&g_camera, (vec2){r_res[0], r_res[1]}, (vec2){0.f, 0.f});
 
-  f32 verts[16] = {// pos       //tex
-                   -0.5f, -0.5f, 0.f, 0.f, -0.5f, 0.5f,  0.f, 1.f,
+  f32 verts[16] = {-0.5f, -0.5f, 0.f, 0.f, -0.5f, 0.5f,  0.f, 1.f,
                    0.5f,  0.5f,  1.f, 1.f, 0.5f,  -0.5f, 1.f, 0.f};
 
   u16 inds[6] = {0, 1, 2, 2, 3, 0};
@@ -243,6 +254,99 @@ void r_cam_update(void) {
   mat4x4_translate(g_camera.view, x, y, 0.f);
 }
 
+r_framebuffer r_framebuffer_create(u32 width, u32 height, r_shader shader) {
+  r_framebuffer fbo;
+  fbo.width = width;
+  fbo.height = height;
+  fbo.shader = shader;
+
+  mat4x4_identity(fbo.model);
+  mat4x4_scale_aniso(fbo.model, fbo.model, width, height, 1.f);
+
+  glGenFramebuffers(1, &fbo.fbo);
+  glBindFramebuffer(GL_FRAMEBUFFER, fbo.fbo);
+
+  glGenTextures(1, &fbo.tex);
+  glBindFramebuffer(GL_FRAMEBUFFER, fbo.tex);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB,
+               GL_UNSIGNED_BYTE, NULL);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
+                         fbo.tex, 0);
+
+  glGenRenderbuffers(1, &fbo.rbo);
+  glBindRenderbuffer(GL_RENDERBUFFER, fbo.rbo);
+  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
+  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
+                            GL_RENDERBUFFER, fbo.rbo);
+
+  if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+    _e("Incomplete FBO: %i\n", fbo.fbo);
+
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+  f32 verts[16] = {-1.f, 1.f,  0.f, 1.f, -1.f, 1.f, 0.f, 0.f,
+                   1.f,  -1.f, 1.f, 0.f, 1.f,  1.f, 1.f, 1.f};
+
+  u16 inds[6] = {0, 1, 2, 2, 3, 0};
+
+  glGenVertexArrays(1, &fbo.vao);
+  glGenBuffers(1, &fbo.vbo);
+  glGenBuffers(1, &fbo.vboi);
+
+  glBindVertexArray(fbo.vao);
+
+  glBindBuffer(GL_ARRAY_BUFFER, fbo.vbo);
+  glBufferData(GL_ARRAY_BUFFER, 16 * sizeof(f32), &verts[0], GL_STATIC_DRAW);
+  glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
+
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, fbo.vboi);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, 6 * sizeof(u16), &inds[0],
+               GL_STATIC_DRAW);
+
+  glBindVertexArray(0);
+
+  return fbo;
+}
+
+void r_framebuffer_destroy(r_framebuffer fbo) {
+  glDeleteFramebuffers(1, &fbo.fbo);
+  glDeleteTextures(1, &fbo.tex);
+  glDeleteBuffers(1, &fbo.vbo);
+  glDeleteBuffers(1, &fbo.vboi);
+  glDeleteVertexArrays(1, &fbo.vao);
+}
+
+void r_framebuffer_bind(r_framebuffer fbo) {
+  glBindFramebuffer(GL_FRAMEBUFFER, fbo.fbo);
+}
+
+void r_framebuffer_draw(r_framebuffer fbo) {
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+  // TODO test these states
+  glDisable(GL_DEPTH_TEST);
+  glDisable(GL_CULL_FACE);
+  glDisable(GL_SCISSOR_TEST);
+
+  glViewport(0, 0, fbo.width, fbo.height);
+
+  glClear(GL_COLOR_BUFFER_BIT);
+
+  glUseProgram(fbo.shader);
+  glBindVertexArray(fbo.vao);
+  glBindTexture(GL_TEXTURE_2D, fbo.tex);
+  glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
+  glEnableVertexAttribArray(0);
+
+  glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
+
+  glBindVertexArray(0);
+
+  glViewport(0, 0, g_window.width, g_window.height);
+}
+
 void r_tex_bind(u32 tex) { glBindTexture(GL_TEXTURE_2D, tex); }
 
 r_tex r_tex_create(asset_t *asset) {
@@ -289,7 +393,7 @@ float r_keyframe_get_value(r_keyframes frames, float point) {
   }
 
   switch (frames.list[start_index].curve) {
-  case LINEAR: {
+  case CURVE_LINEAR: {
     float point_dist =
         frames.list[start_index + 1].point - frames.list[start_index].point;
     float value_dist =
@@ -298,11 +402,11 @@ float r_keyframe_get_value(r_keyframes frames, float point) {
     return frames.list[start_index].value + (value_dist * avg);
   }
     /// TODO Easing
-  case EASE_IN:
+  case CURVE_EASE_IN:
     return frames.list[start_index].value;
-  case EASE_EASE:
+  case CURVE_EASE_EASE:
     return frames.list[start_index].value;
-  case EASE_OUT:
+  case CURVE_EASE_OUT:
     return frames.list[start_index].value;
   default:
     return frames.list[start_index].value;
@@ -359,6 +463,29 @@ void r_particles_init(r_particles *system, unsigned int particle_capacity) {
     particles[i].reused = 0;
   }
 
+  system->layer = 0;
+  system->array_count = 0;
+  system->count = 0;
+  system->max_emission = 0;
+  system->emission_count = 0;
+  system->dir_type = DIR_NONE;
+
+  system->animated = 0;
+  system->texture = 0;
+  system->colored = 0;
+
+  system->valid_uniforms = 0;
+  system->system_life = 0;
+
+  system->position[0] = 0.f;
+  system->position[1] = 0.f;
+
+  system->velocity[0] = 0.f;
+  system->velocity[1] = 0.f;
+
+  system->particle_size[0] = 0.f;
+  system->particle_size[1] = 0.f;
+
   system->list = particles;
   system->capacity = particle_capacity;
   system->time = 0;
@@ -387,14 +514,14 @@ void r_particles_update(r_particles *system, double delta) {
       vec2 position;
       vec2_dup(position, system->position);
       switch (system->spawn_type) {
-      case POINT:
+      case SPAWN_POINT:
         // Just do nothing
         break;
-      case CIRCLE:
+      case SPAWN_CIRCLE:
         position[0] += fmodf(rand(), system->size[0]);
         position[1] += fmodf(rand(), system->size[0]);
         break;
-      case BOX:
+      case SPAWN_BOX:
         position[0] += fmodf(rand(), system->size[0]);
         position[1] += fmodf(rand(), system->size[1]);
         break;
@@ -404,9 +531,12 @@ void r_particles_update(r_particles *system, double delta) {
       vec2_dup(particle->size, system->particle_size);
       particle->life = 0;
 
+      // allows for layer readjustment if we do it here and not just once
+      particle->layer = system->layer;
+
       mat4x4_identity(particle->model);
       mat4x4_translate(particle->model, particle->position[0],
-                       particle->position[1], 0.f);
+                       particle->position[1], particle->layer * 0.1f);
       mat4x4_scale_aniso(particle->model, particle->model, particle->size[0],
                          particle->size[1], 1.f);
 
@@ -716,15 +846,16 @@ void r_particles_draw(r_particles *particles, r_shader shader) {
   }
 
   glBindVertexArray(default_quad_vao);
+  glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
+  glEnableVertexAttribArray(0);
   glBindBuffer(GL_ARRAY_BUFFER, default_quad_vbo);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, default_quad_vboi);
-  glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
-
-  glEnableVertexAttribArray(0);
 
   // Actually draw the stuff
   glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0,
                           model_array->count);
+
+  glBindVertexArray(0);
 
   // Clear out the uniform arrays
   memset(model_array->data.mat_ptr, 0, sizeof(mat4x4) * model_array->capacity);
@@ -763,8 +894,6 @@ void r_sprite_draw(r_sprite draw) {
       r_shader_get_batch(draw.shader, r_sprite_get_sheet(draw));
 
   if (!batch) {
-    _l("No batch found for shader %i texsheet %i. Creating one.\n", draw.shader,
-       r_sprite_get_sheet_id(draw));
     batch = r_batch_create(draw.shader, r_sprite_get_sheet(draw));
   }
 
@@ -810,16 +939,16 @@ void r_batch_draw(r_shader_batch *batch) {
   r_tex_bind(sheet.id);
 
   glBindVertexArray(default_quad_vao);
-
+  glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
+  glEnableVertexAttribArray(0);
   glBindBuffer(GL_ARRAY_BUFFER, default_quad_vbo);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, default_quad_vboi);
-  glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
-
-  glEnableVertexAttribArray(0);
 
   // Actually draw the stuff
   glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0,
                           batch->sprite_count);
+
+  glBindVertexArray(0);
 
   r_batch_clear(batch);
 }
@@ -902,8 +1031,8 @@ static GLuint r_shader_create_sub(asset_t *asset, int type) {
     char *log = malloc(maxlen);
 
     glGetShaderInfoLog(id, maxlen, &len, log);
-    const char *type = (type == GL_FRAGMENT_SHADER) ? "FRAGMENT" : "VERTEX";
-    _l("%s: %s\n", type, log);
+    const char *type_str = (type == GL_FRAGMENT_SHADER) ? "FRAGMENT" : "VERTEX";
+    _l("%s: %s\n", type_str, log);
     free(log);
   }
 
@@ -941,9 +1070,6 @@ r_shader r_shader_create(asset_t *vert, asset_t *frag) {
     _l("%s\n", log);
     free(log);
   }
-#ifdef DEBUG_OUTPUT
-  _l("r_shader program loaded: %i\n", id);
-#endif
 
   return (r_shader){id};
 }
@@ -1179,7 +1305,6 @@ r_shader_batch *r_batch_create(r_shader shader, r_sheet sheet) {
 
   batch->sprite_count = 0;
   batch->sprite_capacity = max_capacity;
-  _l("Created batch with capacity: %i\n", max_capacity);
 
   return batch;
 }
@@ -1323,7 +1448,7 @@ void r_anim_pause(r_anim *anim) {
 int r_anim_get_index(const char *name) {
   if (g_anim_map.count == 0) {
     _l("No animations in cache to check for.\n");
-    return NULL;
+    return 0;
   }
 
   for (int i = 0; i < g_anim_map.count; ++i) {
@@ -1393,6 +1518,8 @@ r_sprite r_sprite_create(r_shader shader, vec2 pos, vec2 size) {
   mat4x4_translate(sprite.model, pos[0], pos[1], 0.f);
   mat4x4_scale_aniso(sprite.model, sprite.model, size[0], size[1], 1.f);
 
+  sprite.layer = 0;
+
   vec2_dup(sprite.size, size);
   vec2_dup(sprite.position, pos);
 
@@ -1407,10 +1534,11 @@ r_sprite r_sprite_create(r_shader shader, vec2 pos, vec2 size) {
 
 void r_sprite_update(r_sprite *drawable, long delta) {
   if (drawable->change) {
+    // integer snapping, we'll see how effective this actually is in a bit.
     f32 x, y;
     x = floorf(drawable->position[0]);
     y = floorf(drawable->position[1]);
-    mat4x4_translate(drawable->model, x, y, 0.f);
+    mat4x4_translate(drawable->model, x, y, drawable->layer * 0.1f);
     mat4x4_scale_aniso(drawable->model, drawable->model, drawable->size[0],
                        drawable->size[0], drawable->size[1]);
 
@@ -2039,12 +2167,13 @@ int r_window_create(r_window_info info) {
     return 0;
   }
 
-  if (info.icon) {
-    asset_t *icon = asset_get("sys", info.icon);
-    r_window_set_icon(icon);
-  }
-
   g_window.glfw = window;
+
+  if (info.icon) {
+    asset_t *icon = asset_get(0, info.icon);
+    r_window_set_icon(icon);
+    asset_free(icon);
+  }
 
   glfwMakeContextCurrent(window);
 
@@ -2064,18 +2193,13 @@ int r_window_create(r_window_info info) {
   glDepthFunc(GL_LESS);
   glEnable(GL_CULL_FACE);
 
-  glEnable(GL_SCISSOR_TEST);
+  // glEnable(GL_SCISSOR_TEST);
 
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
   glViewport(0, 0, g_window.width, g_window.height);
-
   glfwGetWindowPos(g_window.glfw, &g_window.x, &g_window.y);
-
-  vec3 color;
-  r_get_color(color, "222");
-  glClearColor(color[0], color[1], color[2], 1.f);
 
 #if !defined(CUSTOM_GLFW_CALLBACKS)
 #if defined(INIT_DEBUG)
@@ -2148,6 +2272,7 @@ int r_window_set_icon(asset_t *asset) {
         stbi_load_from_memory(asset->data, asset->data_length, &w, &h, &ch, 0);
 
     GLFWimage glfw_img = (GLFWimage){w, h, img};
+    // It's probably g_window.glfw now that I think about it
     glfwSetWindowIcon(g_window.glfw, 1, &glfw_img);
 
     free(img);
@@ -2182,4 +2307,10 @@ void r_window_swap_buffers(void) { glfwSwapBuffers(g_window.glfw); }
 
 void r_window_clear(void) {
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+}
+
+void r_window_clear_color(const char *str) {
+  vec3 color;
+  r_get_color(color, str);
+  glClearColor(color[0], color[1], color[2], 1.0f);
 }

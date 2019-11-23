@@ -284,6 +284,10 @@ void a_update(long delta) {
 
               alSourceUnqueueBuffers(mus->source, 1, &buffer);
 
+              if (state != AL_PLAYING && !req->stop && k == 0) {
+                alSourcePlay(mus->source);
+              }
+
               memset(mus->pcm, 0, mus->pcm_length * sizeof(short));
               s32 pcm_total_length = 0;
               s32 pcm_index = 0, frame_size = 0;

@@ -2,11 +2,7 @@
 #define r_H
 
 #include <GLFW/glfw3.h>
-
 #include <misc/linmath.h>
-
-#include <stdio.h>
-#include <stdlib.h>
 
 #include "asset.h"
 #include "config.h"
@@ -37,6 +33,17 @@ typedef struct {
   GLFWwindow *glfw;
 } r_window;
 
+typedef u32 r_shader;
+
+typedef struct {
+  u32 fbo, tex, rbo;
+  u32 width, height;
+  // fuck it, we'll have the quad in here too for now
+  u32 vao, vbo, vboi;
+  r_shader shader;
+  mat4x4 model;
+} r_framebuffer;
+
 typedef struct {
   vec3 pos;
   vec3 rot;
@@ -47,8 +54,6 @@ typedef struct {
   f32 near;
   f32 far;
 } r_camera;
-
-typedef u32 r_shader;
 
 typedef struct {
   u32 id;
@@ -115,6 +120,12 @@ typedef struct {
   mat4x4 model;
 } r_sprite;
 
+#define R_ANIM_STOP 0x00
+#define R_ANIM_PLAY 0x01
+#define R_ANIM_PAUSE 0x10
+
+typedef enum { r_vec2 = 0, r_vec3, r_vec4, r_float, r_int, r_mat } uniform_type;
+
 typedef struct {
   const char *name;
   int type;
@@ -122,7 +133,7 @@ typedef struct {
 
   u32 uid;
 
-  // Hey thanks for the sub man, I appreciate it!
+  // Let me look up the framebuffer API real quick so I don't botch this
   union {
     mat4x4 *mat_ptr;
     float *float_ptr;
@@ -171,13 +182,15 @@ typedef struct {
   u32 batch_capacity;
 } r_shader_map;
 
-// ------ KEYFRAMES ------
-
-typedef enum { LINEAR = 0, EASE_IN, EASE_EASE, EASE_OUT } r_keyframe_curve;
+typedef enum {
+  CURVE_LINEAR = 0,
+  CURVE_EASE_IN,
+  CURVE_EASE_OUT,
+  CURVE_EASE_EASE
+} r_keyframe_curve;
 
 typedef struct {
-  float
-      point; //????????????????? why did I do float.. maybe delta. OH YEAH DELTA
+  float point;
   float value;
   r_keyframe_curve curve;
 } r_keyframe;
@@ -187,7 +200,13 @@ typedef struct {
   unsigned int count;
 } r_keyframes;
 
-typedef enum { POINT = 0, CIRCLE, BOX } r_particle_spawn;
+typedef enum { SPAWN_POINT = 0, SPAWN_CIRCLE, SPAWN_BOX } r_particle_spawn;
+typedef enum {
+  DIR_NONE = 0,
+  DIR_CIRCLE,
+  DIR_CIRCLE_UNIFORM,
+  DIR_PREDEF
+} r_particle_dir;
 
 typedef struct {
   union {
@@ -200,6 +219,7 @@ typedef struct {
   float life;
   vec2 position, size;
 
+  u8 layer;
   mat4x4 model;
 
   int alive : 1;
@@ -217,10 +237,13 @@ typedef struct {
 
   float time, spawn_time;
 
+  u8 layer;
+
   vec2 position, size, velocity;
   vec2 particle_size;
 
   r_particle_spawn spawn_type;
+  r_particle_dir dir_type;
 
   r_keyframes fade_frames;
   r_keyframes size_frames;
@@ -232,6 +255,9 @@ typedef struct {
 
   vec4 color;
 
+  // One of the downsides is that we can't _really_ initialize this right away,
+  // the nature of it means that the lifetime of these arrays start at first
+  // draw call
   r_uniform_array *arrays;
   int array_count;
 
@@ -244,36 +270,26 @@ typedef struct {
 static r_window g_window;
 static r_camera g_camera;
 
-static r_anim_map g_anim_map;
-static r_shader_map g_shader_map;
-
-// I'll even out these dashes one day..
-// ----------- CACHES --------------------
-
 void r_init_anim_map(int size);
 void r_init_shader_map(int size);
 void r_init_batches(int size);
 
-// ------------- UTILITY --------------------
-
 void r_get_color(vec3 val, char *v);
-
-// ------------- RENDER STATE -----------------
 
 int r_init(r_window_info info);
 void r_exit();
 void r_update(long delta);
-void r_end(); // End of frame to force any batches with sprites left in them
-              // to draw
+void r_end();
 
-// ------------- TEXTURE FUNCTIONS --------------
+r_framebuffer r_framebuffer_create(u32 width, u32 height, r_shader shader);
+void r_framebuffer_destroy(r_framebuffer fbo);
+void r_framebuffer_bind(r_framebuffer fbo);
+void r_framebuffer_draw(r_framebuffer fbo);
 
 r_tex r_tex_create(asset_t *asset);
 void r_tex_bind(u32 tex);
 
 r_sheet r_sheet_create(asset_t *asset, u32 subwidth, u32 subheight);
-
-// -------------- PARTICLES FUNCTIONS ---------------
 
 float r_keyframe_get_value(r_keyframes frames, float point);
 r_keyframes r_keyframes_create(int keyframe_count);
@@ -284,8 +300,6 @@ void r_particles_init(r_particles *system, unsigned int particle_capacity);
 void r_particles_update(r_particles *system, double delta);
 void r_particles_destroy(r_particles *particles);
 void r_particles_draw(r_particles *particles, r_shader shader);
-
-// ----------------- BATCH FUNCTIONS -----------------
 
 void r_sprite_draw(r_sprite draw);
 void r_batch_draw(r_shader_batch *batch);
@@ -303,8 +317,6 @@ void r_batch_set_arrays(r_shader_batch *batch);
 void r_batch_destroy_all(r_shader shader);
 void r_batch_destroy(r_shader shader, r_sheet sheet);
 
-// ---------- ANIMATION FUNCTIONS ------------
-
 r_anim r_anim_create(r_sheet sheet, u32 *frames, int frame_count,
                      int frame_rate);
 void r_anim_destroy(int uid);
@@ -316,14 +328,11 @@ void r_anim_play(r_anim *anim);
 void r_anim_stop(r_anim *anim);
 void r_anim_pause(r_anim *anim);
 
-// ---------- SPRITE FUNCTIONS -------------
-
 r_sprite r_sprite_create(r_shader shader, vec2 pos, vec2 size);
 
 r_sheet r_sprite_get_sheet(r_sprite sprite);
 int r_sprite_get_sheet_id(r_sprite sprite);
 
-// Aliases for animation functions
 void r_sprite_play(r_sprite *sprite);
 void r_sprite_pause(r_sprite *sprite);
 void r_sprite_stop(r_sprite *sprite);
@@ -334,13 +343,10 @@ void r_sprite_set_tex(r_sprite *drawable, r_subtex tex);
 void r_sprite_update(r_sprite *drawable, long delta);
 void r_sprite_req_draw(r_sprite *drawable);
 
-// ----------- CAMERA FUNCTIONS ------------
-
 void r_cam_create(r_camera *camera, vec2 size, vec2 position);
 void r_cam_update(void);
 void r_cam_move(f32 x, f32 y);
 
-// ---------- SHADER FUNCTIONS -------------
 r_shader r_shader_create(asset_t *vert, asset_t *frag);
 r_shader r_shader_get(const char *name);
 
@@ -349,7 +355,6 @@ void r_shader_destroy(r_shader shader);
 
 void r_shader_cache(r_shader shader, const char *name);
 
-// --- SHADER UNIFORMS ---
 void r_shader_uniform(r_shader shader, r_sheet sheet, const char *name,
                       void *data, int count);
 void r_shader_uniformi(r_shader shader, r_sheet sheet, int uid, void *data,
@@ -357,7 +362,6 @@ void r_shader_uniformi(r_shader shader, r_sheet sheet, int uid, void *data,
 void r_shader_sprite_uniform(r_sprite sprite, int uid, void *data);
 void r_shader_clear_arrays(r_shader shader);
 
-// This is the entry point for r_uniform_map
 int r_shader_setup_array(r_shader shader, const char *name, int capacity,
                          int type);
 
@@ -380,11 +384,8 @@ void r_set_v2x(r_shader shader, u32 count, const char *name, vec2 *values);
 void r_set_v3x(r_shader shader, u32 count, const char *name, vec3 *values);
 void r_set_v4x(r_shader shader, u32 count, const char *name, vec4 *values);
 
-// ---------- WINDOW FUNCTIONS -------------
-
 void r_window_get_size(int *w, int *h);
 
-// return length of the string
 int r_get_videomode_str(char *dst, int index);
 void r_set_videomode(int index);
 void r_select_mode(int index, int fullscreen, int vsync, int borderless);
@@ -407,4 +408,5 @@ int r_window_should_close(void);
 
 void r_window_swap_buffers(void);
 void r_window_clear(void);
+void r_window_clear_color(const char *str);
 #endif

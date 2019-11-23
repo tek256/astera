@@ -4,6 +4,14 @@
 #include "config.h"
 #include "platform.h"
 
+// Asset Configurations
+#define MAX_ASSET_CACHE 256
+#define MIN_ASSET_CACHE 16
+#define ASSET_CACHE_GROWTH 16
+
+// Max amount of map_t's
+#define ASSET_MAX_MAPS 4
+
 typedef struct {
   unsigned int uid;
   unsigned char *data;

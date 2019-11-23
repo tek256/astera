@@ -1,0 +1,31 @@
+Oct 25, 2019
+- Cleaning up dependencies
+- Updated Makefile to reflect dependency changes
+- Updated README to be a bit more useful
+- Removed phys.c/h to be re-added when completed
+Oct 24, 2019
+- Removing level.c/h until functional
+- Updating to comply with pedantic compilation
+- Buttoning up some semantics
+- Refactoring to have consistent API naming
+- Really wanting chicken strips
+- Moving to C11 for anonymous union support
+- Working on CI Support in other repository
+Oct 21, 2019
+- Working on render cache
+- UI implementation work
+Oct 10, 2019
+- Update ZIP Dependency
+- Refactoring into more legible code
+- Prepping some files for proper library release
+- Finishing UI Implementation
+- Audio cleanup fix
+- Writing include options / toggles
+- Documenting parts of the engine in the wiki
+- Transitioning to clang/LLVM workflow
+Sept 24, 2019
+- Added ZIP Functionality
+- Moved CONTRIBUTING.md & LICENSE into README.md
+- Initial Update of Audio Push System
+- Migrating UI System into ui.c/h
+
