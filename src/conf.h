@@ -24,6 +24,7 @@ typedef struct {
   unsigned int vsync, borderless;
   unsigned int master;
   unsigned int music, sfx;
+  float gamma;
   char *icon;
   char *path;
 } c_conf;

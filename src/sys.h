@@ -12,10 +12,13 @@
 #define MS_PER_MIN MS_PER_SEC * 60
 #define MS_PER_HR MS_PER_MIN * 60
 
+#define MCS_PER_MS 1e3
 #define MS_PER_SEC 1e3
 #define NS_PER_MS 1e6
 #define NS_PER_SEC 1e9
+#define NS_PER_MCS 1e3
 
+#define MCS_PER_NS 1e-3
 #define SEC_PER_MS 1e-3
 #define MS_PER_NS 1e-6
 #define SEC_PER_NS 1e-9
@@ -53,5 +56,7 @@ void t_mark_ttimert(timer_s *t, time_s timestamp);
 time_s t_get_timert_since(timer_s *t);
 time_s t_get_timert_until(timer_s *t);
 time_s t_get_timert_diff(timer_s *t);
+
+time_s s_sleep(long ns);
 
 #endif

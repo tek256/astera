@@ -1,5 +1,7 @@
 #define _POSIX_C_SOURCE 199309L
 
+#define FRAME_SAMPLE_COUNT 15
+
 // Define POSIX features for C99
 #if !defined(_XOPEN_SOURCE) && !defined(_POSIX_C_SOURCE)
 #if defined(__cplusplus)
@@ -16,7 +18,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
 #include <unistd.h>
 
 #include "audio.h"
@@ -30,6 +31,39 @@
 
 int target_fps = 120;
 int max_fps = 120;
+
+static double frame_samples[FRAME_SAMPLE_COUNT];
+static int frame_sample_index = 0;
+static int adjust_fps = 0;
+static int frames_since_adjust = 0;
+
+static double avg_frame_sample() {
+  double value = 0;
+  for (int i = 0; i < frame_sample_index; ++i) {
+    value += frame_samples[i];
+  }
+  value /= frame_sample_index;
+  return value;
+}
+
+static void frame_sample_push(double time) {
+  if (frame_sample_index < FRAME_SAMPLE_COUNT - 1) {
+    frame_samples[frame_sample_index] = time;
+    ++frame_sample_index;
+  } else {
+    for (int i = FRAME_SAMPLE_COUNT - 1; i > 0; --i) {
+      frame_samples[i] = frame_samples[i - 1];
+    }
+    frame_samples[0] = time;
+  }
+
+  ++frames_since_adjust;
+
+  if (frames_since_adjust == FRAME_SAMPLE_COUNT - 1) {
+    adjust_fps = 1;
+    frames_since_adjust = 0;
+  }
+}
 
 int init_sys() {
   if (!asset_init()) {
@@ -73,6 +107,7 @@ int init_sys() {
   info.borderless = conf.borderless;
   info.refreshRate = conf.refreshRate;
   info.icon = conf.icon;
+  info.gamma = conf.gamma;
 
 #if defined(WINDOW_TITLE)
   info.title = WINDOW_TITLE;
@@ -120,7 +155,6 @@ int main(int argc, char **argv) {
 
   double delta;
   double accum = timeframe;
-  int vsync = 1;
 
   while (!r_window_should_close() && !d_fatal) {
     last = curr;
@@ -156,33 +190,26 @@ int main(int argc, char **argv) {
     int t_fps;
     int l_fps = target_fps;
 
-    if (!vsync) {
+    if (!r_is_vsync()) {
       if (accum > 0) {
         n_time_frame -= accum;
+
+        s_sleep(MCS_PER_MS * accum);
+      } else {
+        n_time_frame += accum;
+      }
+
+      frame_sample_push(n_time_frame);
+
+      // TODO fix averaging
+      if (adjust_fps) {
+        double target_time = avg_frame_sample();
+        //_l("%d vs %d\n", target_time, n_time_frame);
         t_fps = (int)((double)MS_PER_SEC / n_time_frame);
 
         if (t_fps > max_fps) {
           t_fps = max_fps;
         } else if (t_fps > 0) {
-          target_fps = t_fps;
-        }
-
-        timeframe = (double)(MS_PER_SEC / (double)(target_fps));
-
-        struct timespec sleep_req, sleep_rem;
-        sleep_req.tv_sec = 0;
-        sleep_req.tv_nsec = accum * NS_PER_MS;
-
-        nanosleep(&sleep_req, &sleep_rem);
-      } else {
-        n_time_frame += accum;
-        t_fps = (int)((double)MS_PER_SEC / n_time_frame);
-
-        if (t_fps < max_fps) {
-          target_fps = max_fps;
-        } else if (t_fps < 0) {
-          target_fps = 1;
-        } else {
           target_fps = t_fps;
         }
 

@@ -11,6 +11,8 @@
 
 #include "asset.h"
 
+#define test_sprite_count 2048
+
 r_sprite sprite, sprite2;
 u32 *frames;
 
@@ -22,10 +24,14 @@ r_particles particles;
 r_shader particle_shader;
 r_shader screen_shader;
 
+r_sprite test_sprites[test_sprite_count];
+
 int g_init(void) {
   r_init_anim_map(32);
   r_init_shader_map(2);
   r_init_batches(4);
+
+  r_cam_set_size(320, 240);
 
   asset_t *window_icon = asset_get("sys", "res/tex/icon.png");
   // r_window_set_icon(window_icon);
@@ -56,6 +62,11 @@ int g_init(void) {
   // Create the screen's framebuffer proper
   int screen_width, screen_height;
   r_window_get_size(&screen_width, &screen_height);
+
+  float camera_width, camera_height;
+  r_cam_get_size(&camera_width, &camera_height);
+
+  _l("%f %f\n", camera_width, camera_height);
 
   fbo = r_framebuffer_create(screen_width, screen_height, screen_shader);
 
@@ -102,7 +113,11 @@ int g_init(void) {
   size[0] = 100.f;
   size[1] = 100.f;
 
+  position[0] = 0.0f;
+  position[1] = 0.0f;
+
   position2[0] = 100.f;
+  position2[1] = 0.f;
 
   r_subtex sub_tex = (r_subtex){default_sheet, 1};
   r_subtex sub_tex2 = (r_subtex){default_sheet, 6};
@@ -117,7 +132,25 @@ int g_init(void) {
   r_sprite_set_tex(&sprite, sub_tex);
   r_sprite_set_anim(&sprite2, anim);
 
-  r_particles_init(&particles, 128);
+  r_subtex test_subtex = (r_subtex){default_sheet, 0};
+
+  vec2 test_pos;
+  vec2 test_size = {16.f, 16.f};
+  for (int i = 0; i < test_sprite_count; ++i) {
+    int row = i / 16;
+    int col = i % 16;
+    test_pos[0] = col * test_size[0];
+    test_pos[1] = row * test_size[1];
+
+    test_sprites[i] = r_sprite_create(default_shader, test_pos, test_size);
+    test_sprites[i].layer = 1;
+
+    test_subtex.sub_id = rand() % 6;
+
+    r_sprite_set_tex(&test_sprites[i], test_subtex);
+  }
+
+  r_particles_init(&particles, 2000);
 
   particles.size[0] = 1280.0f;
   particles.size[1] = 720.0f;
@@ -133,7 +166,7 @@ int g_init(void) {
 
   particles.spawn_type = SPAWN_CIRCLE;
 
-  particles.spawn_rate = 20;
+  particles.spawn_rate = 200;
 
   particles.animated = 1;
 
@@ -205,6 +238,7 @@ void g_update(long delta) {
 }
 
 void g_render(long delta) {
+  glDepthMask(GL_FALSE);
   r_sprite_draw(sprite);
   int tex_id = r_sprite_get_tex_id(sprite);
 
@@ -221,13 +255,24 @@ void g_render(long delta) {
   r_shader_sprite_uniform(sprite2, flip_x, &sprite2.flip_x);
   r_shader_sprite_uniform(sprite2, flip_y, &sprite2.flip_y);
 
+  for (int i = 0; i < test_sprite_count; ++i) {
+    int tex_id = r_sprite_get_tex_id(test_sprites[i]);
+
+    r_sprite_draw(test_sprites[i]);
+    r_shader_sprite_uniform(test_sprites[i], tex_ids, &tex_id);
+    r_shader_sprite_uniform(test_sprites[i], models, &test_sprites[i].model);
+    r_shader_sprite_uniform(test_sprites[i], flip_x, &test_sprites[i].flip_x);
+    r_shader_sprite_uniform(test_sprites[i], flip_y, &test_sprites[i].flip_y);
+  }
+
   r_particles_draw(&particles, particle_shader);
 }
 
-void g_frame_start() {
-  // r_framebuffer_bind(fbo);
-  r_window_clear();
+void g_frame_start() { //
+  r_framebuffer_bind(fbo);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
-void g_frame_end() { // r_framebuffer_draw(fbo);
+void g_frame_end() { //
+  r_framebuffer_draw(fbo);
 }

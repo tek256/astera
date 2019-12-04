@@ -5,16 +5,18 @@
 #include "debug.h"
 #include "input.h"
 
+#include <getopt.h>
+#include <unistd.h>
+
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 
 static c_args _flags;
 
 c_conf c_defaults() {
-  return (c_conf){1280, 720, 0, 60, 1, 0, 100, 75, 50, NULL};
+  return (c_conf){1280, 720, 0, 60, 1, 0, 100, 75, 50, 2.2f, NULL, NULL};
 }
 
 void c_parse_args(int argc, char **argv) {
@@ -48,9 +50,11 @@ void c_parse_args(int argc, char **argv) {
       _flags.debug = 1;
       break;
     case 'c': {
-      int opt_len = strlen(optarg);
+      char max_conf[64];
+      snprintf(max_conf, 63, "%s", optarg);
+      int opt_len = strlen(max_conf);
       _flags.prefs = malloc(sizeof(char) * opt_len);
-      strcpy(_flags.prefs, optarg);
+      strcpy(_flags.prefs, max_conf);
     } break;
     }
   }
@@ -120,6 +124,12 @@ c_conf c_parse_table(c_table table) {
     if (out_conf.icon == default_conf.icon) {
       if (STR_MATCH(table.keys[i], "icon")) {
         out_conf.icon = strdup(table.values[i]);
+      }
+    }
+
+    if (out_conf.gamma == default_conf.gamma) {
+      if (STR_MATCH(table.keys[i], "gamma")) {
+        out_conf.gamma = atof(table.values[i]);
       }
     }
   }

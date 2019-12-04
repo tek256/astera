@@ -1,6 +1,6 @@
 <div id="header">
     <p align="center">
-      <img width="64px" height="64px" style="border-radius: 6px;" src="res/tex/icon.png"><br>
+      <img width="64px" height="64px" style="border-radius: 6px;" src="examples/res/tex/icon.png"><br>
       <b>astera</b><br>
 	  <span font-size="16px">a cross platform game library</span><br>
       <span font-size="12px">Made by <a href="http://tek256.com">Devon</a> with love.</span><br><br>
@@ -9,7 +9,7 @@
 </div>
 <div id="about">
 	<h3>About</h3>
-	<p>Astera is an in-development game library. The goal is to show how to make games and game engines work with lower level languages. Currently most of the major systems are up and running, but others are in development. Astera will eventually aim to be as dependency-free as possible. Using as low level of dependencies at official release as possible.  
+	<p>Astera is an in-development game library. The goal is to show how to make games and game engines work with lower level languages. Currently most of the major systems are up and running, but others are in development. Astera aims to rely on as few dependencies as possible. Using as low level of dependencies at official release as possible.  
 	</p>
 </div>
 <div id="building">
@@ -21,16 +21,17 @@
 <div id="dependencies">
 <h3>Dependencies</h3>
 <p><a href="https://github.com/glfw/glfw">GLFW</a>, <a href="https://github.com/kcat/openal-soft">OpenAL-Soft</a>, <a href="https://github.com/nothings/stb/">STB</a> Image, Truetype, Vorbis, <a href="https://github.com/kuba--/zip">ZIP</a>, and <a href="https://github.com/Dav1dde/glad">GLAD</a></p>
+<p></p>
 </div>
 <div id="targets">
 <h3>Target Platforms</h3>
-<p>Here are the target platforms for this library:
+<p>Here are the target platforms for this library:</p>
 <pre><code>-Linux (distro-agnostic)
 -Windows XP, 7, 10+
 -Mac OSX (versions that support OpenGL 3.3)
 -BSD (Free, Net, Open)
 </code></pre>
-<p>These are some potential future targets:
+<p>These are some potential future targets:</p>
 <ul id="future_platforms">
 <pre><code>-Android
 -Nintendo Switch
@@ -40,7 +41,13 @@
 </div>
 <div id="changelog">
 <h3>Change Log</h3>
-<pre><code>Nov 22, 2019
+<pre><code>Dec 4, 2019
+- Starting new layout of files for library style release
+- Framebuffers completed
+- Remove INIH completely
+- Rewrote core loop timing example in main.c
+- Added render "stress" test, just 2048 quads.
+Nov 22, 2019
 - Refactoring for release candidate 0.01
 - Refactoring towards Library Style build
 - Creation of basic examples

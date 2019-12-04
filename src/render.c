@@ -222,8 +222,12 @@ void r_exit(void) {
 }
 
 void r_cam_create(r_camera *cam, vec2 size, vec2 position) {
-  vec3_dup(cam->pos, (vec3){position[0], position[1], 0.f});
-  vec2_dup(cam->size, size);
+  cam->pos[0] = position[0];
+  cam->pos[1] = position[1];
+  cam->pos[2] = position[2];
+
+  cam->size[0] = size[0];
+  cam->size[1] = size[1];
 
   cam->near = -10.f;
   cam->far = 10.f;
@@ -246,6 +250,20 @@ void r_cam_move(f32 x, f32 y) {
   g_camera.pos[1] += y;
 }
 
+void r_cam_get_size(float *width, float *height) {
+  if (width)
+    *width = g_camera.size[0];
+  if (height)
+    *height = g_camera.size[1];
+}
+
+void r_cam_set_size(float width, float height) {
+  g_camera.size[0] = width;
+  g_camera.size[1] = height;
+  mat4x4_ortho(g_camera.proj, 0, g_camera.size[0], g_camera.size[1], 0,
+               g_camera.near, g_camera.far);
+}
+
 void r_cam_update(void) {
   f32 x, y;
   x = floorf(g_camera.pos[0]);
@@ -260,18 +278,20 @@ r_framebuffer r_framebuffer_create(u32 width, u32 height, r_shader shader) {
   fbo.height = height;
   fbo.shader = shader;
 
-  mat4x4_identity(fbo.model);
-  mat4x4_scale_aniso(fbo.model, fbo.model, width, height, 1.f);
-
   glGenFramebuffers(1, &fbo.fbo);
   glBindFramebuffer(GL_FRAMEBUFFER, fbo.fbo);
 
   glGenTextures(1, &fbo.tex);
-  glBindFramebuffer(GL_FRAMEBUFFER, fbo.tex);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB,
-               GL_UNSIGNED_BYTE, NULL);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glBindTexture(GL_TEXTURE_2D, fbo.tex);
+
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, width, height, 0, GL_RGBA,
+               GL_FLOAT, NULL);
+
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
                          fbo.tex, 0);
 
@@ -286,24 +306,21 @@ r_framebuffer r_framebuffer_create(u32 width, u32 height, r_shader shader) {
 
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-  f32 verts[16] = {-1.f, 1.f,  0.f, 1.f, -1.f, 1.f, 0.f, 0.f,
-                   1.f,  -1.f, 1.f, 0.f, 1.f,  1.f, 1.f, 1.f};
+  f32 verts[] = {-1.0f, 1.0f,  0.0f,  1.0f,  1.0f,  1.0f,
+                 1.0f,  1.0f,  1.0f,  -1.0f, 1.0f,  0.0f,
 
-  u16 inds[6] = {0, 1, 2, 2, 3, 0};
+                 1.0f,  -1.0f, 1.0f,  0.0f,  -1.0f, -1.0f,
+                 0.0f,  0.0f,  -1.0f, 1.0f,  0.0f,  1.0f};
 
   glGenVertexArrays(1, &fbo.vao);
   glGenBuffers(1, &fbo.vbo);
-  glGenBuffers(1, &fbo.vboi);
 
   glBindVertexArray(fbo.vao);
 
   glBindBuffer(GL_ARRAY_BUFFER, fbo.vbo);
-  glBufferData(GL_ARRAY_BUFFER, 16 * sizeof(f32), &verts[0], GL_STATIC_DRAW);
+  glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW);
+  glEnableVertexAttribArray(0);
   glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
-
-  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, fbo.vboi);
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER, 6 * sizeof(u16), &inds[0],
-               GL_STATIC_DRAW);
 
   glBindVertexArray(0);
 
@@ -314,7 +331,7 @@ void r_framebuffer_destroy(r_framebuffer fbo) {
   glDeleteFramebuffers(1, &fbo.fbo);
   glDeleteTextures(1, &fbo.tex);
   glDeleteBuffers(1, &fbo.vbo);
-  glDeleteBuffers(1, &fbo.vboi);
+  glDeleteBuffers(1, &fbo.vto);
   glDeleteVertexArrays(1, &fbo.vao);
 }
 
@@ -327,24 +344,23 @@ void r_framebuffer_draw(r_framebuffer fbo) {
 
   // TODO test these states
   glDisable(GL_DEPTH_TEST);
-  glDisable(GL_CULL_FACE);
-  glDisable(GL_SCISSOR_TEST);
 
-  glViewport(0, 0, fbo.width, fbo.height);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-  glClear(GL_COLOR_BUFFER_BIT);
-
-  glUseProgram(fbo.shader);
   glBindVertexArray(fbo.vao);
-  glBindTexture(GL_TEXTURE_2D, fbo.tex);
-  glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
-  glEnableVertexAttribArray(0);
+  glUseProgram(fbo.shader);
 
-  glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
+  r_set_uniformf(fbo.shader, "gamma", g_window.gamma);
+
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, fbo.tex);
+
+  glDrawArrays(GL_TRIANGLES, 0, 6);
 
   glBindVertexArray(0);
+  glUseProgram(0);
 
-  glViewport(0, 0, g_window.width, g_window.height);
+  glEnable(GL_DEPTH_TEST);
 }
 
 void r_tex_bind(u32 tex) { glBindTexture(GL_TEXTURE_2D, tex); }
@@ -904,7 +920,6 @@ void r_sprite_draw(r_sprite draw) {
   }
 
   if (batch->sprite_count == batch->sprite_capacity) {
-    _l("Forcing batch draw.\n");
     r_batch_draw(batch);
   }
 
@@ -2150,6 +2165,12 @@ int r_window_create(r_window_info info) {
       g_window.refreshRate = info.refreshRate;
     }
 
+    if (info.gamma < 0.1f) {
+      g_window.gamma = 2.2f;
+    } else {
+      g_window.gamma = info.gamma;
+    }
+
     g_window.width = info.width;
     g_window.height = info.height;
 
@@ -2191,14 +2212,14 @@ int r_window_create(r_window_info info) {
 
   glEnable(GL_DEPTH_TEST);
   glDepthFunc(GL_LESS);
-  glEnable(GL_CULL_FACE);
+  // glEnable(GL_CULL_FACE);
+  glDisable(GL_CULL_FACE);
 
   // glEnable(GL_SCISSOR_TEST);
 
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-  glViewport(0, 0, g_window.width, g_window.height);
   glfwGetWindowPos(g_window.glfw, &g_window.x, &g_window.y);
 
 #if !defined(CUSTOM_GLFW_CALLBACKS)

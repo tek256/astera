@@ -3,6 +3,12 @@
 
 #include <GLFW/glfw3.h>
 
+#ifdef WIN32
+#include <windows.h>
+#else
+#include <time.h>
+#endif
+
 time_s t_get_time() { return glfwGetTime() * MS_PER_SEC; }
 
 time_s t_get_time_since(time_s t) { return t_get_time() - t; }
@@ -130,4 +136,12 @@ time_s t_get_timert_diff(timer_s *t) {
     return ts - c;
   }
   return c - ts;
+}
+
+time_s s_sleep(long mcs) {
+#ifdef WIN32
+  Sleep(mcs * 1000);
+#else
+  usleep(mcs);
+#endif
 }

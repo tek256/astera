@@ -20,6 +20,7 @@ typedef struct {
   int width, height;
   int fullscreen, vsync, borderless;
   int refreshRate;
+  float gamma;
   char *title;
   char *icon;
 } r_window_info;
@@ -30,6 +31,7 @@ typedef struct {
   int fullscreen, vsync, borderless;
   int close_requested;
   int refreshRate;
+  float gamma;
   GLFWwindow *glfw;
 } r_window;
 
@@ -39,9 +41,9 @@ typedef struct {
   u32 fbo, tex, rbo;
   u32 width, height;
   // fuck it, we'll have the quad in here too for now
-  u32 vao, vbo, vboi;
+  u32 vao, vbo, vto;
   r_shader shader;
-  mat4x4 model;
+  mat4x4 model, view;
 } r_framebuffer;
 
 typedef struct {
@@ -346,6 +348,8 @@ void r_sprite_req_draw(r_sprite *drawable);
 void r_cam_create(r_camera *camera, vec2 size, vec2 position);
 void r_cam_update(void);
 void r_cam_move(f32 x, f32 y);
+void r_cam_get_size(float *width, float *height);
+void r_cam_set_size(float width, float height);
 
 r_shader r_shader_create(asset_t *vert, asset_t *frag);
 r_shader r_shader_get(const char *name);
