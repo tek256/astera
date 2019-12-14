@@ -35,5 +35,5 @@ void main(){
   pass_color = colors[gl_InstanceID];
   pass_render_mode = render_mode;
 
-	gl_Position = proj * view * models[gl_InstanceID] * vec4(in_pos.xy, 0.0f, 1.0f); 
+	gl_Position = proj * view * models[gl_InstanceID] * vec4(in_pos.xy, 1.0f, 1.0f); 
 }

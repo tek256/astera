@@ -6,7 +6,7 @@ These examples can be built by using the `make examples` command in the root dir
 For Windows/MinGW Users the command would be `mingw32-make examples`.
 
 Directory
-| Example Name | Functions | Description |
+| Example Name | Functions | Description |  
 | ------------ | --------- | ----------- |
 | Render Stress | Rendering, Shaders | How to use the rendering pipeline efficiently & effectively |
 | Music | Audio | Use the music playback features | 

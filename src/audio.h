@@ -8,16 +8,15 @@
 
 #include <misc/linmath.h>
 
-#include <stdio.h>
+#include <stdint.h>
 
 #define STB_VORBIS_HEADER_ONLY
 #include <misc/stb_vorbis.c>
 
-#include "debug.h"
-#include "platform.h"
+#include "sys.h"
 
 #define AUDIO_FRAME_SIZE 4096
-#define AUDIO_DEFAULT_FRAMES_PER_BUFFER 8
+#define AUDIO_DEFAULT_FRAMES_PER_BUFFER 64
 #define AUDIO_BUFFERS_PER_MUSIC 2
 
 #define AUDIO_DEFAULT_LAYERS
@@ -27,6 +26,10 @@
 #define AUDIO_MUSIC_LAYER 1
 #define AUDIO_MISC_LAYER 2
 #define AUDIO_UI_LAYER 3
+#define MAX_AUDIO_LAYERS 4
+#endif
+
+#if !defined(MAX_AUDIO_LAYERS)
 #define MAX_AUDIO_LAYERS 4
 #endif
 
@@ -90,32 +93,32 @@ typedef struct {
 } a_ctx;
 
 typedef struct {
-  f32 gain;
+  float gain;
   vec3 pos;
 } a_listener;
 
 typedef struct {
-  u32 id;
-  u16 channels;
-  u16 length;
-  u32 sample_rate;
+  uint32_t id;
+  uint16_t channels;
+  uint16_t length;
+  uint32_t sample_rate;
 } a_buf;
 
 typedef struct {
   // non-realtime
-  u16 layer;
+  uint16_t layer;
 
   // realtime
   vec3 pos;
   vec3 vel;
-  f32 gain, range, max_range;
-  u16 max_loop;
+  float gain, range, max_range;
+  uint16_t max_loop;
   int loop : 1;
   int stop : 1;
 
   // callback
-  u16 loop_count;
-  f32 time;
+  uint16_t loop_count;
+  float time;
 } a_req;
 
 typedef struct {
@@ -125,32 +128,38 @@ typedef struct {
 } a_keyframes;
 
 typedef struct {
-  int format;
-  u32 source;
-  u32 buffers[AUDIO_BUFFERS_PER_MUSIC];
-  f32 gain;
+  char *file_path;
+  char *name;
+  char **names;
+  int *offsets;
+  int offset_count;
+} a_meta;
 
-  u32 current_sample;
-  u32 samples_left;
-  u32 total_samples;
+typedef struct {
+  int format;
+  uint32_t source;
+  uint32_t buffers[AUDIO_BUFFERS_PER_MUSIC];
+  float gain;
+
+  uint32_t current_sample;
+  uint32_t samples_left;
+  uint32_t total_samples;
   stb_vorbis *vorbis;
 
-  u32 *keyframes;
-  u32 *keyframe_offsets;
-  u32 keyframe_count;
+  a_meta *meta;
 
-  s32 sample_rate, sample_count;
+  int32_t sample_rate, sample_count;
 
-  s16 packets_per_buffer;
+  int16_t packets_per_buffer;
 
-  u8 *data;
-  s32 data_length, data_offset;
-  s32 header_end;
+  uint8_t *data;
+  int32_t data_length, data_offset;
+  int32_t header_end;
 
-  u16 *pcm;
-  u16 pcm_length;
+  uint16_t *pcm;
+  uint16_t pcm_length;
 
-  f32 delta;
+  float delta;
 
   a_req *req;
   int has_req;
@@ -159,41 +168,41 @@ typedef struct {
 } a_music;
 
 typedef struct {
-  u32 id;
+  uint32_t id;
   vec3 position;
-  f32 range, gain;
+  float range, gain;
   int loop;
   a_req *req;
   int has_req;
 } a_sfx;
 
 typedef struct {
-  u32 id;
-  f32 gain;
+  uint32_t id;
+  float gain;
 
-  u32 sfx_count;
-  u32 song_count;
+  uint32_t sfx_count;
+  uint32_t song_count;
 
   a_sfx *sources[MAX_LAYER_SFX];
   a_music *musics[MAX_LAYER_SONGS];
 
-  u32 gain_change : 1;
+  uint32_t gain_change : 1;
 } a_layer;
 
 typedef struct {
-  u16 song_count;
-  u16 song_capacity;
+  uint16_t song_count;
+  uint16_t song_capacity;
   a_music songs[MAX_SONGS];
 
-  u16 sfx_count;
-  u16 sfx_capacity;
+  uint16_t sfx_count;
+  uint16_t sfx_capacity;
   a_sfx sfx[MAX_SFX];
 
   a_layer layers[MAX_AUDIO_LAYERS];
-  u16 layer_count;
+  uint16_t layer_count;
 
-  u16 buf_count;
-  u16 buf_capacity;
+  uint16_t buf_count;
+  uint16_t buf_capacity;
   a_buf bufs[MAX_BUFFERS];
   const char *buf_names[MAX_BUFFERS];
 } a_resource_map;
@@ -202,28 +211,28 @@ static a_resource_map _map;
 static a_ctx _ctx;
 static a_listener _listener;
 
-int a_init(u32 master, u32 sfx, u32 music);
+int a_init(uint32_t master, uint32_t sfx, uint32_t music);
 void a_exit();
 
 int a_allow_play(void);
 
 void a_set_pos(vec3 p);
 
-void a_set_vol(u32 master, u32 sfx, u32 music);
-void a_set_vol_master(u32 master);
-void a_set_vol_sfx(u32 sfx);
-void a_set_vol_music(u32 sfx);
+void a_set_vol(uint32_t master, uint32_t sfx, uint32_t music);
+void a_set_vol_master(uint32_t master);
+void a_set_vol_sfx(uint32_t sfx);
+void a_set_vol_music(uint32_t sfx);
 
-f32 a_get_vol_master(void);
-f32 a_get_vol_sfx(void);
-f32 a_get_vol_music(void);
+float a_get_vol_master(void);
+float a_get_vol_sfx(void);
+float a_get_vol_music(void);
 
-void a_update(long delta);
+void a_update(time_s delta);
 void a_update_sfx(void);
 
-u32 a_get_device_name(char *dst, int capacity);
+uint32_t a_get_device_name(char *dst, int capacity);
 
-a_buf a_get_buf(unsigned char *data, u32 length);
+a_buf a_get_buf(unsigned char *data, uint32_t length);
 a_buf *a_get_bufn(const char *name);
 void a_destroy_buf(a_buf buffer);
 
@@ -241,14 +250,12 @@ static void a_interleave_output(int buffer_c, short *buffer, int data_c,
                                 float **data, int data_offset, int length);
 
 a_keyframes a_get_keyframes(const char *name);
-a_music *a_create_music(unsigned char *data, u32 length, s32 sample_count,
-                        s32 *keyframes, s32 *keyframe_offsets,
-                        s32 keyframe_size, a_req *req);
-int a_update_music(a_music *music);
+a_music *a_music_create(unsigned char *data, uint32_t length, a_meta *meta,
+                        a_req *req);
 void a_destroy_music(a_music *music);
 
-f32 a_get_music_len_time(a_music *music);
-f32 a_get_music_time(a_music *music);
+float a_get_music_len_time(a_music *music);
+float a_get_music_time(a_music *music);
 
 void a_play_music(a_music *music);
 void a_stop_music(a_music *music);

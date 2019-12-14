@@ -1,18 +1,3 @@
-#define _POSIX_C_SOURCE 199309L
-
-#define FRAME_SAMPLE_COUNT 15
-
-// Define POSIX features for C99
-#if !defined(_XOPEN_SOURCE) && !defined(_POSIX_C_SOURCE)
-#if defined(__cplusplus)
-#define _XOPEN_SOURCE 700 /* SUS v4, POSIX 1003.1 2008/13 (POSIX 2008/13) */
-#elif __STDC_VERSION__ >= 199901L
-#define _XOPEN_SOURCE 700 /* SUS v4, POSIX 1003.1 2008/13 (POSIX 2008/13) */
-#else
-#define _XOPEN_SOURCE 500 /* SUS v2, POSIX 1003.1 1997 */
-#endif                    /* __STDC_VERSION__ */
-#endif                    /* !_XOPEN_SOURCE && !_POSIX_C_SOURCE */
-
 #include "config.h"
 #include "platform.h"
 
@@ -31,39 +16,6 @@
 
 int target_fps = 120;
 int max_fps = 120;
-
-static double frame_samples[FRAME_SAMPLE_COUNT];
-static int frame_sample_index = 0;
-static int adjust_fps = 0;
-static int frames_since_adjust = 0;
-
-static double avg_frame_sample() {
-  double value = 0;
-  for (int i = 0; i < frame_sample_index; ++i) {
-    value += frame_samples[i];
-  }
-  value /= frame_sample_index;
-  return value;
-}
-
-static void frame_sample_push(double time) {
-  if (frame_sample_index < FRAME_SAMPLE_COUNT - 1) {
-    frame_samples[frame_sample_index] = time;
-    ++frame_sample_index;
-  } else {
-    for (int i = FRAME_SAMPLE_COUNT - 1; i > 0; --i) {
-      frame_samples[i] = frame_samples[i - 1];
-    }
-    frame_samples[0] = time;
-  }
-
-  ++frames_since_adjust;
-
-  if (frames_since_adjust == FRAME_SAMPLE_COUNT - 1) {
-    adjust_fps = 1;
-    frames_since_adjust = 0;
-  }
-}
 
 int init_sys() {
   if (!asset_init()) {
@@ -120,6 +72,9 @@ int init_sys() {
     return EXIT_FAILURE;
   }
 
+  max_fps = r_get_refresh_rate();
+
+  _l("%i %i %i\n", conf.master, conf.sfx, conf.music);
   if (!a_init(conf.master, conf.sfx, conf.music)) {
     _fatal("Unable to initialize audio system.\n");
     return EXIT_FAILURE;
@@ -142,78 +97,69 @@ int main(int argc, char **argv) {
   FreeConsole();
 #endif
 #endif
-
   dbg_enable_log(0, "log.txt");
   c_parse_args(argc, argv);
 
   init_sys();
 
-  double timeframe = MS_PER_SEC / (double)target_fps;
-  double curr = t_get_time();
-  double last = curr;
-  double check;
+  s_timer frame_delta;
+  s_timer input_delta;
+  s_timer audio_delta;
+  s_timer render_delta;
+  s_timer game_delta;
+  s_timer overall_delta;
 
-  double delta;
-  double accum = timeframe;
+  s_timer_create(&frame_delta);
+  s_timer_create(&input_delta);
+  s_timer_create(&audio_delta);
+  s_timer_create(&render_delta);
+  s_timer_create(&game_delta);
+  s_timer_create(&overall_delta);
 
   while (!r_window_should_close() && !d_fatal) {
-    last = curr;
-    curr = t_get_time();
-    delta = curr - last;
-    accum = timeframe;
+    s_timer_update(&overall_delta);
+    s_timer_update(&input_delta);
 
     i_update();
     glfwPollEvents();
-    g_input(delta);
+    g_input(input_delta.delta);
 
     if (a_allow_play()) {
-      a_update(delta);
+      s_timer_update(&audio_delta);
+      a_update(audio_delta.delta);
     }
 
     if (r_allow_render()) {
-      g_frame_start(delta);
+      s_timer_update(&render_delta);
+      g_frame_start(render_delta.delta);
 
-      r_update(delta);
-      g_render(delta);
+      r_update();
+      g_render(render_delta.delta);
       r_end();
 
-      g_frame_end(delta);
+      g_frame_end(render_delta.delta);
       r_window_swap_buffers();
     }
 
-    g_update(delta);
+    s_timer_update(&game_delta);
+    g_update(game_delta.delta);
 
-    check = t_get_time();
-    accum = (long)(check - curr);
-
-    double n_time_frame = timeframe;
-    int t_fps;
-    int l_fps = target_fps;
+    s_timer_update(&overall_delta);
+    // t_update(&frame_delta);
 
     if (!r_is_vsync()) {
-      if (accum > 0) {
-        n_time_frame -= accum;
+      //      frame_sample_push(n_time_frame);
+      int proj_fps = MS_TO_SEC / overall_delta.delta;
+      if (proj_fps >= max_fps) {
+        time_s max_timeframe = MS_TO_SEC / max_fps;
+        max_timeframe -= overall_delta.delta;
 
-        s_sleep(MCS_PER_MS * accum);
+        // Sleep the remainder of the timeframe
+        s_sleep(max_timeframe);
+      } else if (proj_fps < target_fps && proj_fps > 0) {
+        target_fps = proj_fps;
       } else {
-        n_time_frame += accum;
-      }
-
-      frame_sample_push(n_time_frame);
-
-      // TODO fix averaging
-      if (adjust_fps) {
-        double target_time = avg_frame_sample();
-        //_l("%d vs %d\n", target_time, n_time_frame);
-        t_fps = (int)((double)MS_PER_SEC / n_time_frame);
-
-        if (t_fps > max_fps) {
-          t_fps = max_fps;
-        } else if (t_fps > 0) {
-          target_fps = t_fps;
-        }
-
-        timeframe = (double)(MS_PER_SEC / (double)(target_fps));
+        target_fps = 1;
       }
     }
   }

@@ -1,8 +1,7 @@
 #version 330
 
-//I should document these as well.
-
-in vec2 o_texc;
+in vec2 pass_texcoord;
+flat in int pass_texid;
 
 uniform int c_mode = -1;
 uniform sampler2D tex;
@@ -12,9 +11,12 @@ out vec4 out_c;
 
 void main(){
     if(c_mode == 1){
-        out_c = c;
+      if(c.a == 0)
+        discard;
+
+      out_c = c;
     }else{
-        vec4 sample_c = texture(tex, o_texc);
+        vec4 sample_c = texture(tex, pass_texcoord);
 
         if(sample_c.a == 0)
             discard;

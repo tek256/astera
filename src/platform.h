@@ -1,23 +1,6 @@
 #ifndef PLAT_H
 #define PLAT_H
 
-#include "config.h"
-#include <stdint.h>
-
-// --- SYSTEM STANDARDS ---
-#define _POSIX_C_SOURCE 199309L
-
-// Define POSIX features for C99
-#if !defined(_XOPEN_SOURCE) && !defined(_POSIX_C_SOURCE)
-#if defined(__cplusplus)
-#define _XOPEN_SOURCE 700 /* SUS v4, POSIX 1003.1 2008/13 (POSIX 2008/13) */
-#elif __STDC_VERSION__ >= 199901L
-#define _XOPEN_SOURCE 700 /* SUS v4, POSIX 1003.1 2008/13 (POSIX 2008/13) */
-#else
-#define _XOPEN_SOURCE 500 /* SUS v2, POSIX 1003.1 1997 */
-#endif                    /* __STDC_VERSION__ */
-#endif                    /* !_XOPEN_SOURCE && !_POSIX_C_SOURCE */
-
 // PLATFORM DETECTION
 #if defined(_WIN32)
 #define PLAT_MSFT
@@ -62,31 +45,4 @@
 #define ARCH_UNK
 #endif
 
-#ifndef DEBUG_OUTPUT
-#if defined(PLAT_MSFT) || defined(PLAT_MSFT_64)
-#undef _WIN32_WINNT
-#define _WIN32_WINNT 0x0500
-#endif
-#endif
-
-// NOTE: Temporary, will be refactoring back out to system types
-// I should definitely factor these out lol
-#define INCLUDE_TYPES
-#if !defined(TYPES_INCLUDED)
-#define TYPES_INCLUDED
-
-typedef uint8_t u8;
-typedef uint16_t u16;
-typedef uint32_t u32;
-typedef uint64_t u64;
-
-typedef int8_t s8;
-typedef int16_t s16;
-typedef int32_t s32;
-typedef int64_t s64;
-
-typedef float f32;
-typedef double f64;
-
-#endif
 #endif

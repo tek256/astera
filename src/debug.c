@@ -6,6 +6,13 @@
 #include <time.h>
 #include <unistd.h>
 
+#ifndef DEBUG_OUTPUT
+#if defined(PLAT_MSFT) || defined(PLAT_MSFT_64)
+#undef _WIN32_WINNT
+#define _WIN32_WINNT 0x0500
+#endif
+#endif
+
 #define STR_BUFF_SIZE 128
 
 static int logging = -1;

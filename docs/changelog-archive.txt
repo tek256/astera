@@ -1,3 +1,30 @@
+Nov 22, 2019
+- Refactoring for release candidate 0.01
+- Refactoring towards Library Style build
+- Creation of basic examples
+- Creation of Makefile examples for libraries
+- Creation of generic Makefile for all examples
+- Creation of docs/ & initial documentation
+- Updated Wiki with formatted versions of docs/
+- Finished Framebuffer usage in Rendering
+- Added particle directions for particle systems
+- Moved back to C99 for compatability's sake
+- Patched initializing with window icon for .ini setups
+- Removed dependnecy inih
+- Added command line configuration file overridesov 10, 2019
+- Particle Systems are done!
+- Particle animations added
+- Batched animations added
+- Texture Particles added
+- Color Particles added
+Nov 9, 2019
+- Changed rendering to use less cache
+- Made r_sprite live on the stack vs heap
+- Lots of other changes, see git diff
+Nov 2, 2019
+- Removed TODO to Projects page on GitHub
+- Added CI Implemation for GitHub Actions
+- Updated README for legibility
 Oct 25, 2019
 - Cleaning up dependencies
 - Updated Makefile to reflect dependency changes

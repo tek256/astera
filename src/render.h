@@ -35,13 +35,13 @@ typedef struct {
   GLFWwindow *glfw;
 } r_window;
 
-typedef u32 r_shader;
+typedef uint32_t r_shader;
 
 typedef struct {
-  u32 fbo, tex, rbo;
-  u32 width, height;
+  uint32_t fbo, tex, rbo;
+  uint32_t width, height;
   // fuck it, we'll have the quad in here too for now
-  u32 vao, vbo, vto;
+  uint32_t vao, vbo, vto;
   r_shader shader;
   mat4x4 model, view;
 } r_framebuffer;
@@ -52,37 +52,37 @@ typedef struct {
   mat4x4 view;
   mat4x4 proj;
   vec2 size;
-  f32 fov;
-  f32 near;
-  f32 far;
+  float fov;
+  float near;
+  float far;
 } r_camera;
 
 typedef struct {
-  u32 id;
-  u32 width, height;
+  uint32_t id;
+  uint32_t width, height;
 } r_tex;
 
 typedef struct {
-  u32 id;
-  u32 width, height;
-  u32 subwidth, subheight;
+  uint32_t id;
+  uint32_t width, height;
+  uint32_t subwidth, subheight;
 } r_sheet;
 
 typedef struct {
   r_sheet sheet;
-  u32 sub_id;
+  uint32_t sub_id;
 } r_subtex;
 
 typedef struct {
-  u32 *frames;
-  u32 frame;
-  u32 frame_count;
-  u32 frame_rate;
-  u32 uid;
+  uint32_t *frames;
+  uint32_t frame;
+  uint32_t frame_count;
+  uint32_t frame_rate;
+  uint32_t uid;
   r_sheet sheet;
 
-  u8 pstate;
-  u8 state;
+  uint8_t pstate;
+  uint8_t state;
 
   float time;
 
@@ -93,9 +93,9 @@ typedef struct {
 typedef struct {
   r_anim *anims;
   const char **names;
-  u16 high;
-  u16 count;
-  u16 capacity;
+  uint16_t high;
+  uint16_t count;
+  uint16_t capacity;
 } r_anim_map;
 
 typedef struct {
@@ -108,7 +108,7 @@ typedef struct {
     r_subtex tex;
   } render;
 
-  u8 layer;
+  uint8_t layer;
   int flip_x;
   int flip_y;
   int change : 1;
@@ -133,7 +133,7 @@ typedef struct {
   int type;
   r_shader shader;
 
-  u32 uid;
+  uint32_t uid;
 
   // Let me look up the framebuffer API real quick so I don't botch this
   union {
@@ -154,7 +154,7 @@ typedef struct {
   int count;
 
   const char **names;
-  u32 *uids;
+  uint32_t *uids;
   int *types;
   unsigned int *locations;
   unsigned int *capacities;
@@ -167,7 +167,7 @@ typedef struct {
   r_sheet sheet;
 
   r_uniform_array *uniform_arrays;
-  u32 uniform_array_count;
+  uint32_t uniform_array_count;
 
   int sprite_count, sprite_capacity;
   int used : 1;
@@ -177,11 +177,11 @@ typedef struct {
   r_shader *shaders;
   const char **names;
   r_uniform_map *uniform_maps;
-  u32 count;
-  u32 capacity;
+  uint32_t count;
+  uint32_t capacity;
 
   r_shader_batch *batches;
-  u32 batch_capacity;
+  uint32_t batch_capacity;
 } r_shader_map;
 
 typedef enum {
@@ -221,7 +221,7 @@ typedef struct {
   float life;
   vec2 position, size;
 
-  u8 layer;
+  uint8_t layer;
   mat4x4 model;
 
   int alive : 1;
@@ -239,7 +239,7 @@ typedef struct {
 
   float time, spawn_time;
 
-  u8 layer;
+  uint8_t layer;
 
   vec2 position, size, velocity;
   vec2 particle_size;
@@ -279,19 +279,21 @@ void r_init_batches(int size);
 void r_get_color(vec3 val, char *v);
 
 int r_init(r_window_info info);
-void r_exit();
-void r_update(long delta);
-void r_end();
+void r_exit(void);
+void r_update(void);
+void r_end(void);
 
-r_framebuffer r_framebuffer_create(u32 width, u32 height, r_shader shader);
+r_framebuffer r_framebuffer_create(uint32_t width, uint32_t height,
+                                   r_shader shader);
 void r_framebuffer_destroy(r_framebuffer fbo);
 void r_framebuffer_bind(r_framebuffer fbo);
 void r_framebuffer_draw(r_framebuffer fbo);
 
 r_tex r_tex_create(asset_t *asset);
-void r_tex_bind(u32 tex);
+void r_tex_bind(uint32_t tex);
 
-r_sheet r_sheet_create(asset_t *asset, u32 subwidth, u32 subheight);
+r_sheet r_sheet_create(asset_t *asset, uint32_t subwidth, uint32_t subheight);
+void r_sheet_bind(uint32_t sheet);
 
 float r_keyframe_get_value(r_keyframes frames, float point);
 r_keyframes r_keyframes_create(int keyframe_count);
@@ -319,7 +321,7 @@ void r_batch_set_arrays(r_shader_batch *batch);
 void r_batch_destroy_all(r_shader shader);
 void r_batch_destroy(r_shader shader, r_sheet sheet);
 
-r_anim r_anim_create(r_sheet sheet, u32 *frames, int frame_count,
+r_anim r_anim_create(r_sheet sheet, uint32_t *frames, int frame_count,
                      int frame_rate);
 void r_anim_destroy(int uid);
 int r_anim_get_index(const char *name);
@@ -347,7 +349,7 @@ void r_sprite_req_draw(r_sprite *drawable);
 
 void r_cam_create(r_camera *camera, vec2 size, vec2 position);
 void r_cam_update(void);
-void r_cam_move(f32 x, f32 y);
+void r_cam_move(float x, float y);
 void r_cam_get_size(float *width, float *height);
 void r_cam_set_size(float width, float height);
 
@@ -374,19 +376,20 @@ r_uniform_map *r_shader_get_uniform_map(r_shader shader);
 int r_shader_get_array_index(r_shader shader, const char *name);
 r_uniform_array *r_shader_get_arrayi(r_shader shader, r_sheet sheet, int uid);
 
-void r_set_uniformf(r_shader shader, const char *name, f32 value);
+void r_set_uniformf(r_shader shader, const char *name, float value);
 void r_set_uniformi(r_shader shader, const char *name, int value);
 void r_set_v4(r_shader shader, const char *name, vec4 value);
 void r_set_v3(r_shader shader, const char *name, vec3 value);
 void r_set_v2(r_shader shader, const char *name, vec2 value);
 void r_set_m4(r_shader shader, const char *name, mat4x4 value);
 
-void r_set_m4x(r_shader shader, u32 count, const char *name, mat4x4 *values);
-void r_set_ix(r_shader shader, u32 count, const char *name, int *values);
-void r_set_fx(r_shader shader, u32 count, const char *name, f32 *values);
-void r_set_v2x(r_shader shader, u32 count, const char *name, vec2 *values);
-void r_set_v3x(r_shader shader, u32 count, const char *name, vec3 *values);
-void r_set_v4x(r_shader shader, u32 count, const char *name, vec4 *values);
+void r_set_m4x(r_shader shader, uint32_t count, const char *name,
+               mat4x4 *values);
+void r_set_ix(r_shader shader, uint32_t count, const char *name, int *values);
+void r_set_fx(r_shader shader, uint32_t count, const char *name, float *values);
+void r_set_v2x(r_shader shader, uint32_t count, const char *name, vec2 *values);
+void r_set_v3x(r_shader shader, uint32_t count, const char *name, vec3 *values);
+void r_set_v4x(r_shader shader, uint32_t count, const char *name, vec4 *values);
 
 void r_window_get_size(int *w, int *h);
 
@@ -413,4 +416,6 @@ int r_window_should_close(void);
 void r_window_swap_buffers(void);
 void r_window_clear(void);
 void r_window_clear_color(const char *str);
+
+int r_get_refresh_rate(void);
 #endif

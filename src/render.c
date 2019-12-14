@@ -34,7 +34,7 @@ static r_flags flags;
 static GLFWmonitor *r_default_monitor;
 static const GLFWvidmode *r_vidmodes;
 static vec2 r_res;
-static u32 default_quad_vao, default_quad_vbo, default_quad_vboi;
+static uint32_t default_quad_vao, default_quad_vbo, default_quad_vboi;
 
 static r_anim_map g_anim_map;
 static r_shader_map g_shader_map;
@@ -81,7 +81,7 @@ static void glfw_key_cb(GLFWwindow *window, int key, int scancode, int action,
   }
 }
 
-static void glfw_char_cb(GLFWwindow *window, u32 c) {
+static void glfw_char_cb(GLFWwindow *window, uint32_t c) {
   if (window == g_window.glfw)
     i_char_callback(c);
 }
@@ -175,10 +175,10 @@ int r_init(r_window_info info) {
 
   r_cam_create(&g_camera, (vec2){r_res[0], r_res[1]}, (vec2){0.f, 0.f});
 
-  f32 verts[16] = {-0.5f, -0.5f, 0.f, 0.f, -0.5f, 0.5f,  0.f, 1.f,
-                   0.5f,  0.5f,  1.f, 1.f, 0.5f,  -0.5f, 1.f, 0.f};
+  float verts[16] = {-0.5f, -0.5f, 0.f, 0.f, -0.5f, 0.5f,  0.f, 1.f,
+                     0.5f,  0.5f,  1.f, 1.f, 0.5f,  -0.5f, 1.f, 0.f};
 
-  u16 inds[6] = {0, 1, 2, 2, 3, 0};
+  uint16_t inds[6] = {0, 1, 2, 2, 3, 0};
 
   glGenVertexArrays(1, &default_quad_vao);
   glGenBuffers(1, &default_quad_vbo);
@@ -187,11 +187,11 @@ int r_init(r_window_info info) {
   glBindVertexArray(default_quad_vao);
 
   glBindBuffer(GL_ARRAY_BUFFER, default_quad_vbo);
-  glBufferData(GL_ARRAY_BUFFER, 16 * sizeof(f32), &verts[0], GL_STATIC_DRAW);
+  glBufferData(GL_ARRAY_BUFFER, 16 * sizeof(float), &verts[0], GL_STATIC_DRAW);
   glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
 
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, default_quad_vboi);
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER, 6 * sizeof(u16), &inds[0],
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, 6 * sizeof(uint16_t), &inds[0],
                GL_STATIC_DRAW);
 
   glBindVertexArray(0);
@@ -199,9 +199,9 @@ int r_init(r_window_info info) {
   return 1;
 }
 
-void r_update(long delta) { r_cam_update(); }
+void r_update(void) { r_cam_update(); }
 
-void r_end() {
+void r_end(void) {
   for (int i = 0; i < g_shader_map.batch_capacity; ++i) {
     if (g_shader_map.batches[i].used) {
       r_batch_draw(&g_shader_map.batches[i]);
@@ -232,7 +232,7 @@ void r_cam_create(r_camera *cam, vec2 size, vec2 position) {
   cam->near = -10.f;
   cam->far = 10.f;
 
-  f32 x, y;
+  float x, y;
   x = floorf(cam->pos[0]);
   y = floorf(cam->pos[1]);
 
@@ -245,7 +245,7 @@ void r_cam_create(r_camera *cam, vec2 size, vec2 position) {
   mat4x4_rotate_z(cam->view, cam->view, 0.0);
 }
 
-void r_cam_move(f32 x, f32 y) {
+void r_cam_move(float x, float y) {
   g_camera.pos[0] -= x;
   g_camera.pos[1] += y;
 }
@@ -265,14 +265,15 @@ void r_cam_set_size(float width, float height) {
 }
 
 void r_cam_update(void) {
-  f32 x, y;
+  float x, y;
   x = floorf(g_camera.pos[0]);
   y = floorf(g_camera.pos[1]);
   mat4x4_identity(g_camera.view);
   mat4x4_translate(g_camera.view, x, y, 0.f);
 }
 
-r_framebuffer r_framebuffer_create(u32 width, u32 height, r_shader shader) {
+r_framebuffer r_framebuffer_create(uint32_t width, uint32_t height,
+                                   r_shader shader) {
   r_framebuffer fbo;
   fbo.width = width;
   fbo.height = height;
@@ -306,11 +307,11 @@ r_framebuffer r_framebuffer_create(u32 width, u32 height, r_shader shader) {
 
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-  f32 verts[] = {-1.0f, 1.0f,  0.0f,  1.0f,  1.0f,  1.0f,
-                 1.0f,  1.0f,  1.0f,  -1.0f, 1.0f,  0.0f,
+  float verts[] = {-1.0f, 1.0f,  0.0f,  1.0f,  1.0f,  1.0f,
+                   1.0f,  1.0f,  1.0f,  -1.0f, 1.0f,  0.0f,
 
-                 1.0f,  -1.0f, 1.0f,  0.0f,  -1.0f, -1.0f,
-                 0.0f,  0.0f,  -1.0f, 1.0f,  0.0f,  1.0f};
+                   1.0f,  -1.0f, 1.0f,  0.0f,  -1.0f, -1.0f,
+                   0.0f,  0.0f,  -1.0f, 1.0f,  0.0f,  1.0f};
 
   glGenVertexArrays(1, &fbo.vao);
   glGenBuffers(1, &fbo.vbo);
@@ -363,13 +364,16 @@ void r_framebuffer_draw(r_framebuffer fbo) {
   glEnable(GL_DEPTH_TEST);
 }
 
-void r_tex_bind(u32 tex) { glBindTexture(GL_TEXTURE_2D, tex); }
+void r_tex_bind(uint32_t tex) {
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, tex);
+}
 
 r_tex r_tex_create(asset_t *asset) {
   int w, h, ch;
   unsigned char *img =
       stbi_load_from_memory(asset->data, asset->data_length, &w, &h, &ch, 0);
-  u32 id;
+  uint32_t id;
   glGenTextures(1, &id);
   glBindTexture(GL_TEXTURE_2D, id);
 
@@ -383,12 +387,58 @@ r_tex r_tex_create(asset_t *asset) {
 
   stbi_image_free(img);
   asset->req_free = 1;
-  return (r_tex){id, (u32)w, (u32)h};
+  return (r_tex){id, (uint32_t)w, (uint32_t)h};
 }
 
-r_sheet r_sheet_create(asset_t *asset, u32 subwidth, u32 subheight) {
-  r_tex tex = r_tex_create(asset);
-  return (r_sheet){tex.id, tex.width, tex.height, subwidth, subheight};
+r_sheet r_sheet_create(asset_t *asset, uint32_t sub_width,
+                       uint32_t sub_height) {
+  int w, h, ch;
+  unsigned char *img =
+      stbi_load_from_memory(asset->data, asset->data_length, &w, &h, &ch, 0);
+  uint32_t id;
+
+  int format = (ch == 4) ? GL_RGBA : (ch == 3) ? GL_RGB : GL_RGB;
+
+  glGenTextures(1, &id);
+  glBindTexture(GL_TEXTURE_2D, id);
+
+  int count = (w / sub_width) * (h / sub_height);
+
+  // glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA8, sub_width, sub_height,
+  // count,
+  //             0, GL_RGBA, GL_UNSIGNED_BYTE, img);
+
+  /*glTexStorage3D(GL_TEXTURE_2D_ARRAY, 1, GL_RGBA8, sub_width, sub_height,
+                 count);
+
+  int per_width = w / sub_width;
+  for (int i = 0; i < count; ++i) {
+    int row = i / per_width;
+    int col = i % per_width;
+
+    glTexSubImage3D(GL_TEXTURE_2D_ARRAY, i * col * sub_width,
+                    i * row * sub_width, 0, 0, sub_width, sub_height, i, format,
+                    GL_UNSIGNED_BYTE, img);
+  }*/
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE,
+               img);
+
+  glBindTexture(GL_TEXTURE_2D, 0);
+
+  stbi_image_free(img);
+  asset->req_free = 1;
+
+  return (r_sheet){id, w, h, sub_width, sub_height};
+}
+
+void r_sheet_bind(uint32_t sheet) {
+  glActiveTexture(GL_TEXTURE0);
+  glBindTexture(GL_TEXTURE_2D, sheet);
 }
 
 float r_keyframe_get_value(r_keyframes frames, float point) {
@@ -509,7 +559,7 @@ void r_particles_init(r_particles *system, unsigned int particle_capacity) {
 
 void r_particles_update(r_particles *system, double delta) {
   system->time += delta;
-  double rate = (MS_PER_SEC / system->spawn_rate);
+  double rate = (MS_TO_SEC / system->spawn_rate);
   int to_spawn = system->time / rate;
   system->time -= rate * to_spawn;
 
@@ -521,7 +571,7 @@ void r_particles_update(r_particles *system, double delta) {
 
   float anim_frame_length = 0.f;
   if (system->animated) {
-    anim_frame_length = MS_PER_SEC / system->render.anim.frame_rate;
+    anim_frame_length = MS_TO_SEC / system->render.anim.frame_rate;
   }
 
   for (int i = 0; i < system->capacity; ++i) {
@@ -583,19 +633,19 @@ void r_particles_update(r_particles *system, double delta) {
 
     if (particle->alive) {
       particle->life += delta;
-      if (particle->life > (system->particle_life * MS_PER_SEC)) {
+      if (particle->life > (system->particle_life * MS_TO_SEC)) {
         particle->alive = 0;
         system->count--;
       } else {
         int force_change = 0;
         if (system->fade_frames.count > 0) {
-          particle->color[3] = r_keyframe_get_value(
-              system->fade_frames, particle->life / MS_PER_SEC);
+          particle->color[3] = r_keyframe_get_value(system->fade_frames,
+                                                    particle->life / MS_TO_SEC);
         }
 
         if (system->size_frames.count > 0) {
           float size = r_keyframe_get_value(system->size_frames,
-                                            particle->life / MS_PER_SEC);
+                                            particle->life / MS_TO_SEC);
           // TODO factor out
           if (particle->size[0] != size || particle->size[1] != size)
             force_change = 1;
@@ -627,8 +677,8 @@ void r_particles_update(r_particles *system, double delta) {
         }
 
         if (system->velocity[0] || system->velocity[1] || force_change) {
-          particle->position[0] += system->velocity[0] * (delta / MS_PER_SEC);
-          particle->position[1] += system->velocity[1] * (delta / MS_PER_SEC);
+          particle->position[0] += system->velocity[0] * (delta / MS_TO_SEC);
+          particle->position[1] += system->velocity[1] * (delta / MS_TO_SEC);
           mat4x4_identity(particle->model);
           mat4x4_translate(particle->model, particle->position[0],
                            particle->position[1], 0.f);
@@ -856,7 +906,7 @@ void r_particles_draw(r_particles *particles, r_shader shader) {
     r_set_v2(shader, "sub_size", sub_size);
     r_set_v2(shader, "tex_size", tex_size);
 
-    r_tex_bind(sheet.id);
+    r_sheet_bind(sheet.id);
   } else if (particles->colored) {
     r_set_uniformi(shader, "render_mode", 0);
   }
@@ -951,7 +1001,9 @@ void r_batch_draw(r_shader_batch *batch) {
   r_set_m4(shader, "proj", g_camera.proj);
   r_set_m4(shader, "view", g_camera.view);
 
-  r_tex_bind(sheet.id);
+  r_set_uniformi(shader, "tex", GL_TEXTURE0);
+
+  r_sheet_bind(sheet.id);
 
   glBindVertexArray(default_quad_vao);
   glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
@@ -964,6 +1016,8 @@ void r_batch_draw(r_shader_batch *batch) {
                           batch->sprite_count);
 
   glBindVertexArray(0);
+
+  r_sheet_bind(0);
 
   r_batch_clear(batch);
 }
@@ -1109,7 +1163,7 @@ void r_shader_cache(r_shader shader, const char *name) {
     }
   }
 
-  u32 count = g_shader_map.count;
+  uint32_t count = g_shader_map.count;
 
   g_shader_map.names[count] = name;
   g_shader_map.batches[count].shader = shader;
@@ -1392,22 +1446,22 @@ void r_get_color(vec3 val, char *v) {
 }
 // It'd probably help if I actually updated the creation method
 // This one is ~3 months old
-/*   u32 **frames;
-  u32 frame;
-  u32 frame_count;
-  u32 frame_rate;
-  u32 uid;
+/*   uint32_t **frames;
+  uint32_t frame;
+  uint32_t frame_count;
+  uint32_t frame_rate;
+  uint32_t uid;
   r_sheet sheet;
 
-  u8 pstate;
-  u8 state;
+  uint8_t pstate;
+  uint8_t state;
 
   float time;
 
   int loop : 1;
   int use : 1;*/
 
-r_anim r_anim_create(r_sheet sheet, u32 *frames, int frame_count,
+r_anim r_anim_create(r_sheet sheet, uint32_t *frames, int frame_count,
                      int frame_rate) {
   return (r_anim){frames, 0, frame_count, frame_rate, 0, sheet, 0, 0, 0, 0, 1};
 }
@@ -1488,7 +1542,7 @@ r_anim *r_anim_get(int uid) {
 int r_sprite_get_tex_id(r_sprite sprite) {
   if (sprite.animated) {
     int current_frame = sprite.render.anim.frame;
-    u32 *frames = sprite.render.anim.frames;
+    uint32_t *frames = sprite.render.anim.frames;
     return frames[current_frame];
   } else {
     return sprite.render.tex.sub_id;
@@ -1550,7 +1604,7 @@ r_sprite r_sprite_create(r_shader shader, vec2 pos, vec2 size) {
 void r_sprite_update(r_sprite *drawable, long delta) {
   if (drawable->change) {
     // integer snapping, we'll see how effective this actually is in a bit.
-    f32 x, y;
+    float x, y;
     x = floorf(drawable->position[0]);
     y = floorf(drawable->position[1]);
     mat4x4_translate(drawable->model, x, y, drawable->layer * 0.1f);
@@ -1563,7 +1617,7 @@ void r_sprite_update(r_sprite *drawable, long delta) {
   if (drawable->animated) {
     r_anim *anim = &drawable->render.anim;
     if (anim->state == R_ANIM_PLAY) {
-      f32 frame_time = MS_PER_SEC / anim->frame_rate;
+      float frame_time = MS_TO_SEC / anim->frame_rate;
       if (anim->time + delta >= frame_time) {
         if (anim->frame >= anim->frame_count - 1) {
           if (!anim->loop) {
@@ -1637,7 +1691,7 @@ int r_shader_setup_array(r_shader shader, const char *name, int capacity,
         map->used = 1;
 
         map->names = malloc(sizeof(const char *));
-        map->uids = malloc(sizeof(u32));
+        map->uids = malloc(sizeof(uint32_t));
         map->types = malloc(sizeof(int));
         map->locations = malloc(sizeof(int));
         map->capacities = malloc(sizeof(int));
@@ -1655,19 +1709,19 @@ int r_shader_setup_array(r_shader shader, const char *name, int capacity,
   if (map->count > 0) {
     int count = map->count + 1;
     char *names = malloc(sizeof(char *) * count);
-    u32 *uids = malloc(sizeof(u32) * count);
+    uint32_t *uids = malloc(sizeof(uint32_t) * count);
     int *types = malloc(sizeof(int) * count);
     int *locations = malloc(sizeof(int) * count);
     int *capacities = malloc(sizeof(int) * count);
 
     memset(names, 0, sizeof(char *) * count);
-    memset(uids, 0, sizeof(u32) * count);
+    memset(uids, 0, sizeof(uint32_t) * count);
     memset(types, 0, sizeof(int) * count);
     memset(locations, 0, sizeof(int) * count);
     memset(capacities, 0, sizeof(int) * count);
 
     memcpy(names, map->names, map->count * sizeof(char *));
-    memcpy(uids, map->uids, map->count * sizeof(u32));
+    memcpy(uids, map->uids, map->count * sizeof(uint32_t));
     memcpy(types, map->types, map->count * sizeof(int));
     memcpy(locations, map->locations, map->count * sizeof(int));
     memcpy(capacities, map->capacities, map->count * sizeof(int));
@@ -1871,11 +1925,11 @@ void r_shader_sprite_uniform(r_sprite sprite, int uid, void *data) {
   ++array->count;
 }
 
-inline void r_set_uniformf(r_shader shader, const char *name, f32 value) {
+inline void r_set_uniformf(r_shader shader, const char *name, float value) {
   glUniform1f(glGetUniformLocation(shader, name), value);
 }
 
-inline void r_set_uniformfi(int loc, f32 value) { glUniform1f(loc, value); }
+inline void r_set_uniformfi(int loc, float value) { glUniform1f(loc, value); }
 
 inline void r_set_uniformi(r_shader shader, const char *name, int value) {
   glUniform1i(glGetUniformLocation(shader, name), value);
@@ -1915,28 +1969,31 @@ inline void r_set_m4i(int loc, mat4x4 val) {
   glUniformMatrix4fv(loc, 1, GL_FALSE, (GLfloat *)val);
 }
 
-void r_set_m4x(r_shader shader, u32 count, const char *name, mat4x4 *values) {
+void r_set_m4x(r_shader shader, uint32_t count, const char *name,
+               mat4x4 *values) {
   if (!count)
     return;
   glUniformMatrix4fv(glGetUniformLocation(shader, name), count, GL_FALSE,
                      (const GLfloat *)values);
 }
 
-void r_set_ix(r_shader shader, u32 count, const char *name, int *values) {
+void r_set_ix(r_shader shader, uint32_t count, const char *name, int *values) {
   if (!count)
     return;
   glUniform1iv(glGetUniformLocation(shader, name), count,
                (const GLint *)values);
 }
 
-void r_set_fx(r_shader shader, u32 count, const char *name, f32 *values) {
+void r_set_fx(r_shader shader, uint32_t count, const char *name,
+              float *values) {
   if (!count)
     return;
   glUniform1fv(glGetUniformLocation(shader, name), count,
                (const GLfloat *)values);
 }
 
-void r_set_v2x(r_shader shader, u32 count, const char *name, vec2 *values) {
+void r_set_v2x(r_shader shader, uint32_t count, const char *name,
+               vec2 *values) {
   if (!count)
     return;
 
@@ -1944,7 +2001,8 @@ void r_set_v2x(r_shader shader, u32 count, const char *name, vec2 *values) {
                (const GLfloat *)values);
 }
 
-void r_set_v3x(r_shader shader, u32 count, const char *name, vec3 *values) {
+void r_set_v3x(r_shader shader, uint32_t count, const char *name,
+               vec3 *values) {
   if (!count)
     return;
 
@@ -1952,7 +2010,8 @@ void r_set_v3x(r_shader shader, u32 count, const char *name, vec3 *values) {
                (const GLfloat *)values);
 }
 
-void r_set_v4x(r_shader shader, u32 count, const char *name, vec4 *values) {
+void r_set_v4x(r_shader shader, uint32_t count, const char *name,
+               vec4 *values) {
   if (!count)
     return;
 
@@ -2163,6 +2222,8 @@ int r_window_create(r_window_info info) {
     if (info.refreshRate > 0) {
       glfwWindowHint(GLFW_REFRESH_RATE, info.refreshRate);
       g_window.refreshRate = info.refreshRate;
+    } else {
+      g_window.refreshRate = glfwGetVideoMode(glfwGetPrimaryMonitor());
     }
 
     if (info.gamma < 0.1f) {
@@ -2335,3 +2396,5 @@ void r_window_clear_color(const char *str) {
   r_get_color(color, str);
   glClearColor(color[0], color[1], color[2], 1.0f);
 }
+
+int r_get_refresh_rate(void) { return g_window.refreshRate; }

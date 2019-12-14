@@ -12,11 +12,12 @@
 #endif
 
 int asset_init() {
+  memset(asset_maps, 0, sizeof(asset_map_t) * ASSET_MAX_MAPS);
   for (int i = 0; i < ASSET_MAX_MAPS; ++i) {
     asset_maps[i].free = 1;
   }
 
-  asset_create_map("res.zip", "default", MIN_ASSET_CACHE);
+  // asset_create_map("res.zip", "default", MIN_ASSET_CACHE);
   asset_create_map(NULL, "sys", MIN_ASSET_CACHE);
   return 1;
 }

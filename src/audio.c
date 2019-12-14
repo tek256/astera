@@ -19,7 +19,7 @@
 
 int a_allow_play(void) { return _ctx.allow; }
 
-int a_init(u32 master, u32 sfx, u32 music) {
+int a_init(uint32_t master, uint32_t sfx, uint32_t music) {
   if (!a_create_context(0)) {
     _e("Unable to create audio context.\n");
     return -1;
@@ -29,7 +29,7 @@ int a_init(u32 master, u32 sfx, u32 music) {
 
   // Initialize cached audio subsystem
   for (int i = 0; i < MAX_SFX; ++i) {
-    u32 id;
+    uint32_t id;
     alGenSources(1, &id);
     memset(&_map.sfx[i], 0, sizeof(a_sfx));
     _map.sfx[i].id = id;
@@ -58,6 +58,7 @@ int a_init(u32 master, u32 sfx, u32 music) {
       _map.songs[i].buffers[j] = buffers[(i * AUDIO_BUFFERS_PER_MUSIC) + j];
     }
 
+    _map.songs[i].packets_per_buffer = AUDIO_DEFAULT_FRAMES_PER_BUFFER;
     _map.songs[i].gain = 1.f;
     _map.songs[i].has_req = 0;
   }
@@ -106,23 +107,24 @@ int a_init(u32 master, u32 sfx, u32 music) {
        AUDIO_UI_LAYER);
   }
 #endif
+  _ctx.allow = 1;
   return 1;
 }
 
 void a_set_pos(vec3 p) { alListener3f(AL_POSITION, p[0], p[1], p[2]); }
 
-void a_set_vol(u32 master, u32 sfx, u32 music) {
+void a_set_vol(uint32_t master, uint32_t sfx, uint32_t music) {
   a_set_vol_master(master);
   a_set_vol_sfx(sfx);
   a_set_vol_music(music);
 }
 
-void a_set_vol_master(u32 master) {
+void a_set_vol_master(uint32_t master) {
   _listener.gain = master / 100.f;
   alListenerf(AL_GAIN, _listener.gain);
 }
 
-void a_set_vol_sfx(u32 sfx) {
+void a_set_vol_sfx(uint32_t sfx) {
 #ifdef AUDIO_SFX_LAYER
   if (_map.layer_count > AUDIO_SFX_LAYER) {
     float value = sfx / 100.f;
@@ -136,7 +138,7 @@ void a_set_vol_sfx(u32 sfx) {
 #endif
 }
 
-void a_set_vol_music(u32 music) {
+void a_set_vol_music(uint32_t music) {
 #ifdef AUDIO_MUSIC_LAYER
   if (_map.layer_count > AUDIO_MUSIC_LAYER) {
     float value = (music / 100.f);
@@ -151,9 +153,9 @@ void a_set_vol_music(u32 music) {
 #endif
 }
 
-f32 a_get_vol_master(void) { return _listener.gain; }
+float a_get_vol_master(void) { return _listener.gain; }
 
-f32 a_get_vol_sfx(void) {
+float a_get_vol_sfx(void) {
 #ifdef AUDIO_SFX_LAYER
   if (AUDIO_SFX_LAYER < _map.layer_count) {
     return _map.layers[AUDIO_SFX_LAYER].gain;
@@ -167,7 +169,7 @@ f32 a_get_vol_sfx(void) {
 #endif
 }
 
-f32 a_get_vol_music(void) {
+float a_get_vol_music(void) {
 #ifdef AUDIO_MUSIC_LAYER
   if (AUDIO_MUSIC_LAYER < _map.layer_count) {
     return _map.layers[AUDIO_MUSIC_LAYER].gain;
@@ -200,7 +202,7 @@ void a_exit(void) {
   alcCloseDevice(_ctx.device);
 }
 
-void a_update(long delta) {
+void a_update(time_s delta) {
   for (int i = 0; i < MAX_AUDIO_LAYERS; ++i) {
     a_layer *layer = &_map.layers[i];
     for (int j = 0; j < layer->sfx_count; ++j) {
@@ -235,7 +237,7 @@ void a_update(long delta) {
       }
     }
 
-    for (int j = 0; j < layer->song_count; ++j) {
+    for (int j = 0; j < MAX_LAYER_SONGS; ++j) {
       a_music *mus = &layer->musics[j];
       if (mus->has_req) {
         a_req *req = mus->req;
@@ -279,8 +281,8 @@ void a_update(long delta) {
                 max_samples = mus->samples_left;
               }
 
-              u32 buffer;
-              s32 al_err;
+              uint32_t buffer;
+              int32_t al_err;
 
               alSourceUnqueueBuffers(mus->source, 1, &buffer);
 
@@ -289,9 +291,9 @@ void a_update(long delta) {
               }
 
               memset(mus->pcm, 0, mus->pcm_length * sizeof(short));
-              s32 pcm_total_length = 0;
-              s32 pcm_index = 0, frame_size = 0;
-              s32 bytes_used = 0, num_samples = 0, num_channels = 0;
+              int32_t pcm_total_length = 0;
+              int32_t pcm_index = 0, frame_size = 0;
+              int32_t bytes_used = 0, num_samples = 0, num_channels = 0;
               float **out;
 
               for (int p = 0; p < mus->packets_per_buffer; ++p) {
@@ -326,6 +328,7 @@ void a_update(long delta) {
                 }
               }
 
+              _l("Before update.\n");
               alBufferData(buffer, mus->format, mus->pcm, pcm_total_length,
                            mus->vorbis->sample_rate);
 
@@ -347,7 +350,7 @@ void a_update(long delta) {
   }
 }
 
-u32 a_get_device_name(char *dst, int capacity) {
+uint32_t a_get_device_name(char *dst, int capacity) {
   ALchar *name;
   if (_ctx.device) {
     name = alcGetString(_ctx.device, ALC_DEVICE_SPECIFIER);
@@ -386,7 +389,7 @@ int a_create_context(const char *device_name) {
   return 1;
 }
 
-a_buf a_get_buf(unsigned char *data, u32 length) {
+a_buf a_get_buf(unsigned char *data, uint32_t length) {
   if (!data || !length) {
     _e("No data passed to create.\n");
     return (a_buf){0};
@@ -443,9 +446,8 @@ a_buf a_get_buf(unsigned char *data, u32 length) {
     }
   }
 
-  u32 total_samples;
-
-  total_samples = (u32)stb_vorbis_stream_length_in_samples(vorbis);
+  uint32_t total_samples =
+      (uint32_t)stb_vorbis_stream_length_in_samples(vorbis);
   int sample_count =
       (MAX_MUSIC_RUNTIME > total_samples) ? total_samples : MAX_MUSIC_RUNTIME;
 
@@ -539,7 +541,7 @@ a_sfx *a_play_sfxn(const char *name, a_req *req) {
     alSourcefv(src->id, AL_VELOCITY, req->vel);
 
     // Adjust to the layer's gain
-    f32 layer_gain = _map.layers[req->layer].gain;
+    float layer_gain = _map.layers[req->layer].gain;
     alSourcef(src->id, AL_GAIN, req->gain * layer_gain);
     // TODO implement range
     alSourcei(src->id, AL_LOOPING, (req->loop) ? AL_TRUE : AL_FALSE);
@@ -584,7 +586,7 @@ a_sfx *a_play_sfx(a_buf *buff, a_req *req) {
     alSourcefv(src->id, AL_VELOCITY, req->vel);
 
     // Adjust to the layer's gain
-    f32 layer_gain = _map.layers[req->layer].gain;
+    float layer_gain = _map.layers[req->layer].gain;
     alSourcef(src->id, AL_GAIN, req->gain * layer_gain);
     // TODO implement range
     alSourcei(src->id, AL_LOOPING, (req->loop) ? AL_TRUE : AL_FALSE);
@@ -604,14 +606,14 @@ a_sfx *a_play_sfx(a_buf *buff, a_req *req) {
 
 a_keyframes a_get_keyframes(const char *name) { a_keyframes keyframes; }
 
-a_music *a_create_music(unsigned char *data, u32 length, s32 sample_count,
-                        s32 *keyframes, s32 *keyframe_offsets,
-                        s32 keyframe_count, a_req *req) {
+a_music *a_music_create(unsigned char *data, uint32_t length, a_meta *meta,
+                        a_req *req) {
   if (!data || !length) {
     _e("No data passed to create music.\n");
     return NULL;
   }
 
+  // Get the first free open song slot
   int index = -1;
   for (int i = 0; i < MAX_SONGS; ++i) {
     if (_map.songs[i].has_req == 0) {
@@ -627,16 +629,12 @@ a_music *a_create_music(unsigned char *data, u32 length, s32 sample_count,
 
   a_music *music = &_map.songs[index];
 
-  if (!music) {
-    _e("Unable to get music buffer to initialize song.\n");
+  if (music->source == 0) {
+    _e("Unable to get source for music initialization.\n");
     return NULL;
   }
 
-  if (music->source == 0) {
-    _e("Unable to get source for music initialization.\n");
-  }
-
-  s32 error, used;
+  int32_t error, used;
 
   music->data_length = length;
   music->data = data;
@@ -651,19 +649,23 @@ a_music *a_create_music(unsigned char *data, u32 length, s32 sample_count,
     return NULL;
   }
 
+  // End of the OGG Vorbis Header
   music->header_end = used;
 
+  // Update the position in the byte array
   music->data_offset += used;
 
+  // Create the VORBIS Info from the Vorbis Header that's been loaded
   stb_vorbis_info info = stb_vorbis_get_info(music->vorbis);
-
   music->sample_rate = info.sample_rate;
 
+  // Make sure that the channels are either 1 or 2
   if (info.channels < 0 || info.channels > 3) {
     _e("Invalid channel size for audio system: %i\n", info.channels);
     return 0;
   }
 
+  // Determine the correct OpenAL Format
   if (info.channels == 1) {
     music->format = AL_FORMAT_MONO16;
   } else if (info.channels == 2) {
@@ -686,25 +688,29 @@ a_music *a_create_music(unsigned char *data, u32 length, s32 sample_count,
   }
 
   alSourcef(music->source, AL_PITCH, 1.f);
-  music->total_samples = sample_count;
 
-  music->keyframes = keyframes;
-  music->keyframe_offsets = keyframe_offsets;
-  music->keyframe_count = keyframe_count;
+  if (meta) {
+    music->meta = meta;
+  }
 
   for (int i = 0; i < AUDIO_BUFFERS_PER_MUSIC; ++i) {
     unsigned int buffer = music->buffers[i];
-    int pcm_index = 0, pcm_total_length = 0;
+
+    int pcm_index = 0;
     int bytes_used, num_channels, num_samples;
     int frame_size = 0;
     float **out;
 
-    memset(music->pcm, 0, music->pcm_length);
+    int pcm_total_length = 0;
+
+    memset(music->pcm, 0, sizeof(short) * music->pcm_length);
 
     for (int j = 0; j < music->packets_per_buffer; ++j) {
       frame_size = music->data_length - music->data_offset;
-      if (frame_size > AUDIO_FRAME_SIZE)
+      if (frame_size > AUDIO_FRAME_SIZE) {
         frame_size = AUDIO_FRAME_SIZE;
+      }
+
       bytes_used = stb_vorbis_decode_frame_pushdata(
           music->vorbis, music->data + music->data_offset, frame_size,
           &num_channels, &out, &num_samples);
@@ -716,7 +722,7 @@ a_music *a_create_music(unsigned char *data, u32 length, s32 sample_count,
 
       music->data_offset += bytes_used;
 
-      if (num_samples) {
+      if (num_samples > 0) {
         int sample_count = num_channels * num_samples;
         int pcm_size = sample_count * sizeof(short);
         pcm_total_length += pcm_size;
@@ -730,18 +736,17 @@ a_music *a_create_music(unsigned char *data, u32 length, s32 sample_count,
       }
     }
 
+    _l("%i\n", pcm_total_length);
     alBufferData(buffer, music->format, music->pcm, pcm_total_length,
                  music->vorbis->sample_rate);
-    alSourceQueueBuffers(music->source, 1, buffer);
+    alSourceQueueBuffers(music->source, 1, &buffer);
   }
-
-  // music->total_samples =
-  // (u32)stb_vorbis_stream_length_in_samples(music->vorbis);
-  // music->samples_left = music->total_samples;
 
   if (req) {
     alSourcef(music->source, AL_GAIN, req->gain);
     music->loop = req->loop;
+    music->req = req;
+    music->has_req = 1;
 
     // NOTE: AL_LOOPING will repeat a buffer, not a multi buffered object like a
     // song alSourcei(music->source, AL_LOOPING, AL_TRUE);
@@ -752,13 +757,13 @@ a_music *a_create_music(unsigned char *data, u32 length, s32 sample_count,
 
 void a_destroy_music(a_music *music) { stb_vorbis_close(music->vorbis); }
 
-f32 a_get_music_time(a_music *music) {
-  u32 samples = music->total_samples - music->samples_left;
-  return (f32)samples / music->sample_rate;
+float a_get_music_time(a_music *music) {
+  uint32_t samples = music->total_samples - music->samples_left;
+  return (float)samples / music->sample_rate;
 }
 
-f32 a_get_music_len_time(a_music *music) {
-  return (f32)(music->total_samples / music->sample_rate);
+float a_get_music_len_time(a_music *music) {
+  return (float)(music->total_samples / music->sample_rate);
 }
 
 void a_play_music(a_music *music) { alSourcePlay(music->source); }

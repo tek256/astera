@@ -1,4 +1,17 @@
+CC=clang
+
+ifeq ($(OS),Windows_NT)
+	zipper_exec := zipper.exe
+  unzipper_exec := unzipper.exe
+  sampler_exec := sampler.exe
+else
+	zipper_exec := zipper
+  unzipper_exec := unzipper
+  sampler_exec := sampler
+
+endif
+
 all : $(OBJS)
-	clang src/zip.c -lzip -o zipper
-	clang src/unzip.c -lzip -o unzipper
-	clang src/audio_sampler.c -I../dep/stb -lm  -o audio_sampler
+	$(CC) src/zip.c -lzip -o $(zipper_exec)
+	$(CC) src/unzip.c -lzip -o $(unzipper_exec)
+	$(CC) src/audio_sampler.c -I../dep/misc -lm  -o $(sampler_exec)

@@ -7,7 +7,7 @@ else
 	CC = clang
 endif
 
-TARGET_COMPILER_FLAGS := -w -std=gnu99
+TARGET_COMPILER_FLAGS := -std=c99 -w -g #-Wall -pedantic -Wextra -Werror -ferror-limit=500
 EXEC_NAME := astera
 	
 UNAME_S := $(shell uname -s)

@@ -1,10 +1,10 @@
 <div id="header">
     <p align="center">
-      <img width="64px" height="64px" style="border-radius: 6px;" src="examples/res/tex/icon.png"><br>
+      <img width="64px" height="64px" style="border-radius: 6px;" src="res/tex/icon.png"><br>
       <b>astera</b><br>
 	  <span font-size="16px">a cross platform game library</span><br>
       <span font-size="12px">Made by <a href="http://tek256.com">Devon</a> with love.</span><br><br>
-      <span><a href="https://github.com/tek256/astera/wiki/Getting-Started/">Getting Started</a> | <a href="https://github.com/tek256/astera/tree/master/tool">Tools</a> | <a href="https://discordapp.com/invite/63GvpMh">Discord</a> | <a href="https://github.com/sponsors/tek256">Support</a></span>
+      <span><a href="https://github.com/tek256/astera/wiki/Building/">Building</a> | <a href="https://github.com/tek256/astera/tree/master/tool">Tools</a> | <a href="https://discordapp.com/invite/63GvpMh">Discord</a> | <a href="https://github.com/sponsors/tek256">Support</a></span>
     </p>
 </div>
 <div id="about">
@@ -21,7 +21,6 @@
 <div id="dependencies">
 <h3>Dependencies</h3>
 <p><a href="https://github.com/glfw/glfw">GLFW</a>, <a href="https://github.com/kcat/openal-soft">OpenAL-Soft</a>, <a href="https://github.com/nothings/stb/">STB</a> Image, Truetype, Vorbis, <a href="https://github.com/kuba--/zip">ZIP</a>, and <a href="https://github.com/Dav1dde/glad">GLAD</a></p>
-<p></p>
 </div>
 <div id="targets">
 <h3>Target Platforms</h3>
@@ -32,7 +31,6 @@
 -BSD (Free, Net, Open)
 </code></pre>
 <p>These are some potential future targets:</p>
-<ul id="future_platforms">
 <pre><code>-Android
 -Nintendo Switch
 -iOS
@@ -41,40 +39,19 @@
 </div>
 <div id="changelog">
 <h3>Change Log</h3>
-<pre><code>Dec 4, 2019
+<pre><code>Dec 14, 2019
+- Subsprite bugfix
+- Working on audio update
+- Rework to most pedantic standards
+- Updated a few `tool` programs
+- Removing unused timer implementation, potentially replaced in the future
+- Updated all time implementations to be decimal milliseconds
+Dec 4, 2019
 - Starting new layout of files for library style release
 - Framebuffers completed
 - Remove INIH completely
 - Rewrote core loop timing example in main.c
 - Added render "stress" test, just 2048 quads.
-Nov 22, 2019
-- Refactoring for release candidate 0.01
-- Refactoring towards Library Style build
-- Creation of basic examples
-- Creation of Makefile examples for libraries
-- Creation of generic Makefile for all examples
-- Creation of docs/ & initial documentation
-- Updated Wiki with formatted versions of docs/
-- Finished Framebuffer usage in Rendering
-- Added particle directions for particle systems
-- Moved back to C99 for compatability's sake
-- Patched initializing with window icon for .ini setups
-- Removed dependnecy inih
-- Added command line configuration file overrides
-Nov 10, 2019
-- Particle Systems are done!
-- Particle animations added
-- Batched animations added
-- Texture Particles added
-- Color Particles added
-Nov 9, 2019
-- Changed rendering to use less cache
-- Made r_sprite live on the stack vs heap
-- Lots of other changes, see git diff
-Nov 2, 2019
-- Removed TODO to Projects page on GitHub
-- Added CI Implemation for GitHub Actions
-- Updated README for legibility
 For older changes see docs/changelog-archive.txt
 </code></pre>
 </div>
