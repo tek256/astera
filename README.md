@@ -39,7 +39,10 @@
 </div>
 <div id="changelog">
 <h3>Change Log</h3>
-<pre><code>Dec 14, 2019
+<pre><code>Dec 14, 2019 - 2
+- Audio music working
+- Updated vorbis to 1.17
+Dec 14, 2019
 - Subsprite bugfix
 - Working on audio update
 - Rework to most pedantic standards

@@ -12,28 +12,41 @@ EXEC_NAME := astera
 	
 UNAME_S := $(shell uname -s)
 
+# Windows Native
 ifeq ($(OS),Windows_NT)
 	RM_CMD := -del
 	TARGET_LINKER_FLAGS := -I$(MAKE_DIR)\dep\ -I$(MAKE_DIR)\dep\glfw\include -I$(MAKE_DIR)\dep\openal-soft\include\ -L$(MAKE_DIR)\dep\glfw\src -L$(MAKE_DIR)\dep\openal-soft\ -lopengl32 -lglfw3 -lgdi32 -lm -lopenal32
 	TARGET_EXEC_NAME := $(EXEC_NAME)
 	TARGET_COMPILER_FLAGS += -D WIN32
+# Unix / BSD
 else
 	RM_CMD := -rm
 	TARGET_EXEC_NAME := $(EXEC_NAME)
-	TARGET_LINKER_FLAGS := -I$(MAKE_DIR)/dep/ -lglfw -lGL -lGLU -lX11 -lXi -lXrandr -lXxf86vm -lXinerama -lpthread -ldl -lXcursor -lm -lopenal -lzip
+	
+	LINKAGE := -I$(MAKE_DIR)/dep/ -L$(MAKE_DIR)/dep/openal-soft/
+	LIBRARIES := -lglfw -lGL -lGLU -lX11 -lXi -lXrandr -lXxf86vm -lXinerama -lpthread -ldl -lXcursor -lm -lopenal -lzip
+
+	TARGET_LINKER_FLAGS := $(LINKAGE) $(LIBRARIES) 
+
+	# Cross compile to windows
 	ifeq ($(TARGET_PLATFORM),Windows)
 		TARGET_LINKER_FLAGS := -I$(MAKE_DIR)\dep\ -lGL -lglfw -lgdi32 -lm -lopenal
 		TARGET_EXEC_NAME := $(EXEC_NAME).exe
 		CC = x86_64-w64-mingw32-gcc
+  # Linux
   else ifeq ($(UNAME_S),Linux)
 		TARGET_COMPILER_FLAGS += -D LINUX
+  # Mac OSX
 	else ifeq ($(UNAME_S),Darwin)
 		TARGET_LINKER_FLAGS := -I$(MAKE_DIR)/dep/ -I/usr/local/include/ -L/usr/local/lib -lglfw -framework Cocoa -framework OpenGL -framework IOKit -framework CoreFoundation -framework CoreVideo -lopenal -lm -lzip -stdlib=libc++
 		TARGET_COMPILER_FLAGS += -D OSX
+	# FreeBSD
 	else ifeq ($(UNAME_S),FreeBSD)
 		TARGET_COMPILER_FLAGS += -D FreeBSD
+	# NetBSD
 	else ifeq ($(UNAME_S),NetBSD)
 		TARGET_COMPILER_FLAGS += NetBSD
+	# OpenBSD
 	else ifeq ($(UNAME_S),OpenBSD)
 		TARGET_COMPILER_FLAGS += OpenBSD
 	endif

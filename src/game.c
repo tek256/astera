@@ -188,6 +188,8 @@ int g_init(void) {
   asset_t *music_asset = asset_get("sys", "res/snd/test_song.ogg");
   test_music = a_music_create(music_asset->data, music_asset->data_length, NULL,
                               &music_req);
+  a_layer_add_music(1, test_music);
+
   return 1;
 }
 
@@ -198,9 +200,9 @@ void g_input(time_s delta) {
     r_window_request_close();
 
   if (i_key_clicked('P')) {
-    _l("Playing music. %i\n", test_music->source);
     a_play_music(test_music);
   }
+
   int dir_x = 0;
   int dir_y = 0;
   if (i_key_down('A'))

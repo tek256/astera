@@ -74,7 +74,6 @@ int init_sys() {
 
   max_fps = r_get_refresh_rate();
 
-  _l("%i %i %i\n", conf.master, conf.sfx, conf.music);
   if (!a_init(conf.master, conf.sfx, conf.music)) {
     _fatal("Unable to initialize audio system.\n");
     return EXIT_FAILURE;

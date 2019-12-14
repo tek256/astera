@@ -19,6 +19,8 @@
 #define AUDIO_DEFAULT_FRAMES_PER_BUFFER 64
 #define AUDIO_BUFFERS_PER_MUSIC 2
 
+#define AUDIO_MUSIC_MAX_FAILS 3
+
 #define AUDIO_DEFAULT_LAYERS
 
 #if defined(AUDIO_DEFAULT_LAYERS)
@@ -133,6 +135,7 @@ typedef struct {
   char **names;
   int *offsets;
   int offset_count;
+  int total_samples;
 } a_meta;
 
 typedef struct {
@@ -157,7 +160,7 @@ typedef struct {
   int32_t header_end;
 
   uint16_t *pcm;
-  uint16_t pcm_length;
+  uint32_t pcm_length;
 
   float delta;
 
@@ -181,7 +184,7 @@ typedef struct {
   float gain;
 
   uint32_t sfx_count;
-  uint32_t song_count;
+  uint32_t music_count;
 
   a_sfx *sources[MAX_LAYER_SFX];
   a_music *musics[MAX_LAYER_SONGS];
@@ -232,6 +235,9 @@ void a_update_sfx(void);
 
 uint32_t a_get_device_name(char *dst, int capacity);
 
+int8_t a_layer_add_music(uint32_t id, a_music *music);
+int8_t a_layer_add_sfx(uint32_t id, a_sfx *sfx);
+
 a_buf a_get_buf(unsigned char *data, uint32_t length);
 a_buf *a_get_bufn(const char *name);
 void a_destroy_buf(a_buf buffer);
@@ -252,6 +258,7 @@ static void a_interleave_output(int buffer_c, short *buffer, int data_c,
 a_keyframes a_get_keyframes(const char *name);
 a_music *a_music_create(unsigned char *data, uint32_t length, a_meta *meta,
                         a_req *req);
+void a_music_reset(a_music *music);
 void a_destroy_music(a_music *music);
 
 float a_get_music_len_time(a_music *music);
