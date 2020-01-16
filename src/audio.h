@@ -1,8 +1,6 @@
 #ifndef AUDIO_H
 #define AUDIO_H
 
-#include "config.h"
-
 #include <AL/al.h>
 #include <AL/alc.h>
 
@@ -13,23 +11,38 @@
 #define STB_VORBIS_HEADER_ONLY
 #include <misc/stb_vorbis.c>
 
+#include "asset.h"
+
 #include "sys.h"
 
+#if !defined(AUDIO_FRAME_SIZE)
 #define AUDIO_FRAME_SIZE 4096
+#endif #define AUDIO_SFX_LAYER 0
+#define AUDIO_MUSIC_LAYER 1
+#define AUDIO_MISC_LAYER 2
+#define AUDIO_UI_LAYER 3
+#define MAX_AUDIO_LAYERS 4
+
+#if !defined(AUDIO_DEFAULT_FRAMES_PER_BUFFER)
 #define AUDIO_DEFAULT_FRAMES_PER_BUFFER 64
+#endif
+
+#if !defined(AUDIO_BUFFERS_PER_MUSIC)
 #define AUDIO_BUFFERS_PER_MUSIC 2
+#endif
 
+#if !defined(AUDIO_MUSIC_MAX_FAILS)
 #define AUDIO_MUSIC_MAX_FAILS 3
+#endif
 
+#if !defined(AUDIO_CUSTOM_LAYERS)
 #define AUDIO_DEFAULT_LAYERS
 
-#if defined(AUDIO_DEFAULT_LAYERS)
 #define AUDIO_SFX_LAYER 0
 #define AUDIO_MUSIC_LAYER 1
 #define AUDIO_MISC_LAYER 2
 #define AUDIO_UI_LAYER 3
 #define MAX_AUDIO_LAYERS 4
-#endif
 
 #if !defined(MAX_AUDIO_LAYERS)
 #define MAX_AUDIO_LAYERS 4
@@ -44,6 +57,10 @@
 
 #if !defined(MAX_AUDIO_LAYERS)
 #define MAX_AUDIO_LAYERS 2
+#endif
+#endif
+
+#if defined(AUDIO_DEFAULT_LAYERS)
 #endif
 
 #if defined(AUDIO_SFX_LAYER) && !defined(AUDIO_SFX_GAIN)
@@ -78,7 +95,7 @@
 #endif
 
 #if !defined(MAX_SFX)
-#define MAX_SFX MAX_LAYER_SFX *MAX_AUDIO_LAYERS
+#define MAX_SFX MAX_LAYER_SFX *MAX_AUDIO_LAYERS / 2
 #endif
 #if !defined(MAX_SONGS)
 #define MAX_SONGS MAX_LAYER_SONGS *MAX_AUDIO_LAYERS
@@ -102,7 +119,7 @@ typedef struct {
 typedef struct {
   uint32_t id;
   uint16_t channels;
-  uint16_t length;
+  float length;
   uint32_t sample_rate;
 } a_buf;
 
@@ -122,12 +139,6 @@ typedef struct {
   uint16_t loop_count;
   float time;
 } a_req;
-
-typedef struct {
-  char **names;
-  int *offsets;
-  int count;
-} a_keyframes;
 
 typedef struct {
   char *file_path;
@@ -210,14 +221,14 @@ typedef struct {
   const char *buf_names[MAX_BUFFERS];
 } a_resource_map;
 
-static a_resource_map _map;
-static a_ctx _ctx;
-static a_listener _listener;
+static a_resource_map g_a_map;
+static a_ctx g_a_ctx;
+static a_listener g_listener;
 
-int a_init(uint32_t master, uint32_t sfx, uint32_t music);
+int a_init(const char *device, uint32_t master, uint32_t sfx, uint32_t music);
 void a_exit();
 
-int a_allow_play(void);
+int a_can_play(void);
 
 void a_set_pos(vec3 p);
 
@@ -238,35 +249,26 @@ uint32_t a_get_device_name(char *dst, int capacity);
 int8_t a_layer_add_music(uint32_t id, a_music *music);
 int8_t a_layer_add_sfx(uint32_t id, a_sfx *sfx);
 
-a_buf a_get_buf(unsigned char *data, uint32_t length);
-a_buf *a_get_bufn(const char *name);
-void a_destroy_buf(a_buf buffer);
+a_buf a_buf_create(asset_t *asset);
+a_buf *a_buf_get(const char *name);
+void a_buf_destroy(a_buf buffer);
 
 a_sfx *a_play_sfxn(const char *name, a_req *req);
 a_sfx *a_play_sfx(a_buf *buff, a_req *req);
 
-static int a_get_open_sfx(void);
-
-int a_create_context(const char *device_name);
+int a_ctx_create(const char *device_name);
 void a_destroy_context(void);
 
-static void a_compute_stereo(short *output, int num_c, float **data,
-                             int d_offset, int len);
-static void a_interleave_output(int buffer_c, short *buffer, int data_c,
-                                float **data, int data_offset, int length);
-
-a_keyframes a_get_keyframes(const char *name);
-a_music *a_music_create(unsigned char *data, uint32_t length, a_meta *meta,
-                        a_req *req);
+a_music *a_music_create(asset_t *asset, a_meta *meta, a_req *req);
 void a_music_reset(a_music *music);
-void a_destroy_music(a_music *music);
+void a_music_destroy(a_music *music);
 
-float a_get_music_len_time(a_music *music);
-float a_get_music_time(a_music *music);
+time_s a_music_len(a_music *music);
+time_s a_music_time(a_music *music);
 
-void a_play_music(a_music *music);
-void a_stop_music(a_music *music);
-void a_resume_music(a_music *music);
-void a_pause_music(a_music *music);
+void a_music_play(a_music *music);
+void a_music_stop(a_music *music);
+void a_music_resume(a_music *music);
+void a_music_pause(a_music *music);
 
 #endif

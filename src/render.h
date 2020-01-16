@@ -1,14 +1,13 @@
-#ifndef r_H
-#define r_H
+#ifndef ASTERA_RENDER_HEADER
+#define ASTERA_RENDER_HEADER
 
 #include <GLFW/glfw3.h>
 #include <misc/linmath.h>
 
 #include "asset.h"
-#include "config.h"
 #include "platform.h"
 
-#include <misc/stb_truetype.h>
+#include <stdint.h>
 
 typedef struct {
   int allowed;
@@ -276,7 +275,7 @@ void r_init_anim_map(int size);
 void r_init_shader_map(int size);
 void r_init_batches(int size);
 
-void r_get_color(vec3 val, char *v);
+void r_get_color(vec3 val, const char *v);
 
 int r_init(r_window_info info);
 void r_exit(void);

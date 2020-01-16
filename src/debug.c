@@ -6,6 +6,8 @@
 #include <time.h>
 #include <unistd.h>
 
+#include "conf.h"
+
 #ifndef DEBUG_OUTPUT
 #if defined(PLAT_MSFT) || defined(PLAT_MSFT_64)
 #undef _WIN32_WINNT
@@ -17,10 +19,7 @@
 
 static int logging = -1;
 static int timestamp = 1;
-static char *log_fp;
-
-static int refresh_rate = 5;
-static int changes_made = 0;
+static const char *log_fp;
 
 static char time_buff[64];
 static char strbuff[STR_BUFF_SIZE];

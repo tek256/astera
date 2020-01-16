@@ -9,6 +9,7 @@
 #include <unistd.h>
 
 #include <assert.h>
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -148,14 +149,14 @@ void c_table_free(c_table table) {
 
 static char *c_cleaned_str(char *str) {
   char *end;
-  while (isspace((unsigned char)*str))
+  while (isspace(*str))
     str++;
 
   if (*str == 0)
     return str;
 
   end = str + strlen(str) - 1;
-  while (end > str && isspace((unsigned char *)*end))
+  while (end > str && isspace(*end))
     end--;
   end[1] = '\0';
 
@@ -165,7 +166,7 @@ static char *c_cleaned_str(char *str) {
 c_table c_get_table(asset_t *asset) {
   assert(asset->filled);
   assert(asset->data);
-  char *raw_ptr = asset->data;
+  char *raw_ptr = (char *)asset->data;
   char *tok;
   tok = strtok_r(raw_ptr, "\n", &raw_ptr);
 
@@ -173,8 +174,8 @@ c_table c_get_table(asset_t *asset) {
   int raw_capacity = 512;
   int raw_count = 0;
 
-  char **keys = malloc(sizeof(char *) * 16);
-  char **values = malloc(sizeof(char *) * 16);
+  const char **keys = malloc(sizeof(char *) * 16);
+  const char **values = malloc(sizeof(char *) * 16);
   int line_capacity = 16;
   int line_count = 0;
 

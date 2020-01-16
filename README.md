@@ -1,5 +1,5 @@
 <div id="header">
-    <p align="center">
+    <p text-align="center">
       <img width="64px" height="64px" style="border-radius: 6px;" src="res/tex/icon.png"><br>
       <b>astera</b><br>
 	  <span font-size="16px">a cross platform game library</span><br>
@@ -7,39 +7,43 @@
       <span><a href="https://github.com/tek256/astera/wiki/Building/">Building</a> | <a href="https://github.com/tek256/astera/tree/master/tool">Tools</a> | <a href="https://discordapp.com/invite/63GvpMh">Discord</a> | <a href="https://github.com/sponsors/tek256">Support</a></span>
     </p>
 </div>
-<div id="about">
-	<h3>About</h3>
-	<p>Astera is an in-development game library. The goal is to show how to make games and game engines work with lower level languages. Currently most of the major systems are up and running, but others are in development. Astera aims to rely on as few dependencies as possible. Using as low level of dependencies at official release as possible.  
-	</p>
-</div>
-<div id="building">
-<h3>Building</h3>
-<p>Please note that at this stage, the library is not at a stable release candidate. You can try automated building by either running <code>unix_build</code> or <code>win_setup.ps1</code> in your operating system's terminal emulator. If you have GLFW & OpenAL-Soft installed locally, you can simply run the Makefile, i.e <code>make</code> or <code>mingw32-make</code> for Windows systems.
 
-  For more information see the relevant <a href="https://github.com/tek256/astera/wiki/Building">wiki page</a>.
-</div>
-<div id="dependencies">
-<h3>Dependencies</h3>
-<p><a href="https://github.com/glfw/glfw">GLFW</a>, <a href="https://github.com/kcat/openal-soft">OpenAL-Soft</a>, <a href="https://github.com/nothings/stb/">STB</a> Image, Truetype, Vorbis, <a href="https://github.com/kuba--/zip">ZIP</a>, and <a href="https://github.com/Dav1dde/glad">GLAD</a></p>
-</div>
-<div id="targets">
-<h3>Target Platforms</h3>
-<p>Here are the target platforms for this library:</p>
-<pre><code>-Linux (distro-agnostic)
--Windows XP, 7, 10+
--Mac OSX (versions that support OpenGL 3.3)
--BSD (Free, Net, Open)
-</code></pre>
-<p>These are some potential future targets:</p>
-<pre><code>-Android
+### About
+Astera is a game library focused on performance, portability, and maintainability. The goal is to show how to make games and game engines work with lower level languages. Astera aims to rely on as few dependencies as possible.  
+
+### Building
+Please note that at this stage, the library is not at a stable release candidate. You can try automated building by either running `unix_setup.sh` or `win_setup.ps1` in your terminal. If you have GLFW & OpenAL-Soft installed locally, you can simply run the Makefile, i.e `make` or `mingw32-make` for MinGW systems.
+
+For more information see the relevant [wiki page](https://github.com/tek256/astera/wiki/Building).
+
+### Libraries Used
+Note: All dependencies are bundled with Astera. You should be able to run thru the build process relatively easily.
+[GLFW](https://github.com/glfw/glfw), [OpenAL-Soft](https://github.com/kcat/openal-soft), [STB](https://github.com/nothings/stb/) Image, Truetype, Vorbis, [ZIP](https://github.com/kuba--/zip), [nanovg](https://github.com/memononen/nanovg), and [GLAD](https://github.com/Dav1dde/glad)  
+
+### Target Platforms
+Here are the target platforms for this library:  
+```
+- Linux (distro agnostic)
+- Windows XP+
+- Mac OSX (version supporting OpenGL 3.3+)
+- BSD (Free, Net, Open)
+- Raspberry Pi (0+)
+```  
+These are some potential future targets:  
+```
+-Android
 -Nintendo Switch
 -iOS
--Raspberry Pi (0,3B+) - Linux/BSD
-</code></pre>
-</div>
-<div id="changelog">
-<h3>Change Log</h3>
-<pre><code>Dec 14, 2019 - 2
+```
+
+### Changelog
+```
+Jan 16, 2020
+- Prepping for 0.01 Release
+- Rendering changes
+- Audio refactor
+- UI System in progress
+Dec 14, 2019 - 2
 - Audio music working
 - Updated vorbis to 1.17
 Dec 14, 2019
@@ -49,19 +53,13 @@ Dec 14, 2019
 - Updated a few `tool` programs
 - Removing unused timer implementation, potentially replaced in the future
 - Updated all time implementations to be decimal milliseconds
-Dec 4, 2019
-- Starting new layout of files for library style release
-- Framebuffers completed
-- Remove INIH completely
-- Rewrote core loop timing example in main.c
-- Added render "stress" test, just 2048 quads.
 For older changes see docs/changelog-archive.txt
-</code></pre>
-</div>
-<div id="license">
-	<h3>License</h3>
-	<p>The Unlicense</p>
-<pre><code>This is free and unencumbered software released into the public domain.
+```
+
+### License  
+The Unlicense 
+```
+This is free and unencumbered software released into the public domain.
 
 Anyone is free to copy, modify, publish, use, compile, sell, or
 distribute this software, either in source code form or as a compiled
@@ -84,4 +82,5 @@ OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
 ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 OTHER DEALINGS IN THE SOFTWARE.
 
-For more information, please refer to <http://unlicense.org></code></pre></div>
+For more information, please refer to <http://unlicense.org>
+```

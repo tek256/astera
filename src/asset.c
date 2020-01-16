@@ -3,28 +3,31 @@
 
 #include <misc/zip.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
+#ifndef alloca
 #define alloca(x) __builtin_alloca(x)
-
-#ifdef PLAT_MSFT
-#include <misc/zip.c>
 #endif
 
+#include <misc/zip.c>
+
 int asset_init() {
+#if ASSET_MAX_MAPS > 0
   memset(asset_maps, 0, sizeof(asset_map_t) * ASSET_MAX_MAPS);
   for (int i = 0; i < ASSET_MAX_MAPS; ++i) {
     asset_maps[i].free = 1;
   }
 
-  // asset_create_map("res.zip", "default", MIN_ASSET_CACHE);
-  asset_create_map(NULL, "sys", MIN_ASSET_CACHE);
+  asset_create_map(NULL, "sys", MIN_ASSET_CACHE, 0);
+#endif
+
   return 1;
 }
 
 void asset_exit() {
   for (int i = 0; i < ASSET_MAX_MAPS; ++i) {
-    asset_map_free(&asset_maps[i]);
+    asset_map_free_t(&asset_maps[i]);
   }
 }
 
@@ -68,8 +71,35 @@ void asset_map_free(const char *map_name) {
   map->filename = 0;
 }
 
+void asset_map_free_t(asset_map_t *map) {
+  if (!map) {
+    _e("No map passed to free.\n");
+    return;
+  }
+
+  for (unsigned int i = 0; i < map->capacity; ++i) {
+    asset_t *asset = &map->assets[i];
+    if (asset->data) {
+      free(asset->data);
+      asset->data = 0;
+    }
+  }
+
+  free(map->assets);
+  map->assets = 0;
+  map->count = 0;
+  map->capacity = 0;
+  map->name = 0;
+  map->filename = 0;
+}
+
 asset_t *asset_get(const char *map_name, const char *file) {
   asset_map_t *map = NULL;
+
+  if (!file) {
+    return 0;
+  }
+
   if (!map_name) {
     map_name = "sys";
   }
@@ -160,7 +190,7 @@ asset_t *asset_get(const char *map_name, const char *file) {
   } else {
     struct zip_t *zip;
 
-    zip = zip_open(map->filename, COMPRESSION_LEVEL, 'r');
+    zip = zip_open(map->filename, map->compression_level, 'r');
     if (!zip) {
       _e("Unable to open zip entry: %s.\n", map->filename);
       return NULL;
@@ -252,7 +282,8 @@ asset_t *asset_req(const char *map_name, const char *file) {
 }
 
 asset_map_t *asset_create_map(const char *filename, const char *name,
-                              unsigned int capacity) {
+                              unsigned int capacity,
+                              uint8_t compression_level) {
   int free_maps = 0;
   for (int i = 0; i < ASSET_MAX_MAPS; ++i) {
     if (asset_maps[i].free) {
@@ -278,6 +309,7 @@ asset_map_t *asset_create_map(const char *filename, const char *name,
   for (int i = 0; i < ASSET_MAX_MAPS; ++i) {
     if (asset_maps[i].free) {
       asset_maps[i].assets = (asset_t *)malloc(sizeof(asset_t) * capacity);
+      asset_maps[i].compression_level = compression_level;
       asset_maps[i].capacity = capacity;
       asset_maps[i].filename = filename;
       asset_maps[i].name = name;
@@ -301,7 +333,7 @@ void asset_update_map(asset_map_t *map) {
 
     if (map->assets[i].req) {
       if (!zip)
-        zip = zip_open(map->filename, COMPRESSION_LEVEL, 'r');
+        zip = zip_open(map->filename, map->compression_level, 'r');
       if (!zip) {
         _e("Unable to open: %s\n", map->filename);
         break;

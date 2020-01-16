@@ -1,4 +1,3 @@
-#include "config.h"
 #include "platform.h"
 
 #include <stdio.h>
@@ -35,6 +34,8 @@ int init_sys() {
 
 #if defined(CONF_PATH)
   target_conf_path = CONF_PATH;
+#else
+  target_conf_path = "res/conf.ini";
 #endif
 
   c_table conf_table;
@@ -74,7 +75,7 @@ int init_sys() {
 
   max_fps = r_get_refresh_rate();
 
-  if (!a_init(conf.master, conf.sfx, conf.music)) {
+  if (!a_init(NULL, conf.master, conf.sfx, conf.music)) {
     _fatal("Unable to initialize audio system.\n");
     return EXIT_FAILURE;
   }
@@ -123,7 +124,7 @@ int main(int argc, char **argv) {
     glfwPollEvents();
     g_input(input_delta.delta);
 
-    if (a_allow_play()) {
+    if (a_can_play()) {
       s_timer_update(&audio_delta);
       a_update(audio_delta.delta);
     }

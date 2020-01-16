@@ -2,7 +2,6 @@
 #define CONF_H
 
 #include "asset.h"
-#include "config.h"
 
 typedef struct {
   int render;

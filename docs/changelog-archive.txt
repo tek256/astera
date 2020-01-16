@@ -1,3 +1,9 @@
+Dec 4, 2019
+- Starting new layout of files for library style release
+- Framebuffers completed
+- Remove INIH completely
+- Rewrote core loop timing example in main.c
+- Added render "stress" test, just 2048 quads.
 Nov 22, 2019
 - Refactoring for release candidate 0.01
 - Refactoring towards Library Style build

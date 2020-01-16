@@ -1,7 +1,6 @@
 #ifndef GAME_H
 #define GAME_H
 
-#include "config.h"
 #include "sys.h"
 
 int g_init(void);

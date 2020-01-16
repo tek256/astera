@@ -26,7 +26,7 @@
 #define PS4_PAD 3
 #define GENERIC_PAD 4
 
-#if defined(PLAT_MSFT) || defined(PLAT_LINUX) || defined(PLAT_BSD)
+#if !defined(__APPLE__)
 
 #define XBOX_A 0
 #define XBOX_B 1
@@ -39,7 +39,7 @@
 #define XBOX_LEFT_STICK 8
 #define XBOX_RIGHT_STICK 9
 
-#elif defined(PLAT_APPLE)
+#else
 
 #define XBOX_A 16
 #define XBOX_B 17
@@ -54,7 +54,7 @@
 
 #endif
 
-#if defined(PLAT_MSFT)
+#if defined(_WIN32) || defined(_WIN64)
 
 #define XBOX_L_X 0
 #define XBOX_L_Y 1
@@ -63,7 +63,7 @@
 #define XBOX_D_X 6
 #define XBOX_D_Y 7
 
-#elif defined(PLAT_LINUX) || defined(PLAT_BSD)
+#elif defined(__linux__) || defined(__unix__) || defined(__FreeBSD__)
 
 #define XBOX_L_X 0
 #define XBOX_L_Y 1
@@ -75,7 +75,7 @@
 #define XBOX_R_T 6
 #define XBOX_L_T 3
 
-#elif defined(PLAT_APPLE)
+#elif defined(__APPLE__)
 
 #define XBOX_L_X 0
 #define XBOX_L_Y 1

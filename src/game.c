@@ -12,6 +12,8 @@
 
 #include "asset.h"
 
+#include "ui.h"
+
 #define test_sprite_count 2048
 
 r_sprite sprite, sprite2;
@@ -21,13 +23,19 @@ r_framebuffer fbo;
 
 static int tex_ids, models, flip_x, flip_y;
 
+vec2 window_size;
+
 r_particles particles;
 r_shader particle_shader;
 r_shader screen_shader;
 
 r_sprite test_sprites[test_sprite_count];
 a_music *test_music;
-a_req music_req;
+a_buf test_buf;
+a_req music_req, sfx_req;
+
+ui_text text;
+ui_font test_font;
 
 int g_init(void) {
   r_init_anim_map(32);
@@ -36,6 +44,7 @@ int g_init(void) {
 
   r_cam_set_size(320, 240);
 
+  _l("Load shaders\n");
   // Initialize default shader
   asset_t *default_vert = asset_get("sys", "res/shd/main.vert");
   asset_t *default_frag = asset_get("sys", "res/shd/main.frag");
@@ -43,6 +52,7 @@ int g_init(void) {
   asset_free(default_vert);
   asset_free(default_frag);
 
+  _l("Shaders loaded.\n");
   // Initialize the particle shader
   asset_t *particle_vert = asset_get("sys", "res/shd/particle.vert");
   asset_t *particle_frag = asset_get("sys", "res/shd/particle.frag");
@@ -60,6 +70,9 @@ int g_init(void) {
   // Create the screen's framebuffer proper
   int screen_width, screen_height;
   r_window_get_size(&screen_width, &screen_height);
+
+  window_size[0] = screen_width;
+  window_size[1] = screen_height;
 
   float camera_width, camera_height;
   r_cam_get_size(&camera_width, &camera_height);
@@ -182,13 +195,30 @@ int g_init(void) {
   music_req.loop = 0;
 
   // music_req.layer = 0;
-  music_req.gain = 1.0f;
+  music_req.gain = 0.2f;
   music_req.range = 10.f;
   music_req.max_range = 100.f;
   asset_t *music_asset = asset_get("sys", "res/snd/test_song.ogg");
-  test_music = a_music_create(music_asset->data, music_asset->data_length, NULL,
-                              &music_req);
+  test_music = a_music_create(music_asset, NULL, &music_req);
   a_layer_add_music(1, test_music);
+
+  sfx_req = (a_req){0};
+  sfx_req.stop = 0;
+  sfx_req.loop = 0;
+  sfx_req.gain = 1.f;
+
+  asset_t *sfx_asset = asset_get("sys", "res/snd/powerup.wav");
+  test_buf = a_buf_create(sfx_asset);
+  asset_free(sfx_asset);
+
+  ui_init(window_size, 1.f, 1);
+
+  vec2 text_pos = (vec2){0.0f, 0.0f};
+  asset_t *font_asset = asset_get("sys", "res/fnt/monogram.ttf");
+  test_font = ui_font_create(font_asset, "monogram");
+
+  text = ui_text_create(text_pos, "Well, this is weird.", 32.f, test_font,
+                        UI_ALIGN_LEFT | UI_ALIGN_MIDDLE);
 
   return 1;
 }
@@ -200,7 +230,13 @@ void g_input(time_s delta) {
     r_window_request_close();
 
   if (i_key_clicked('P')) {
-    a_play_music(test_music);
+    a_music_play(test_music);
+  } else if (i_key_clicked('O')) {
+    a_music_pause(test_music);
+  }
+
+  if (i_key_clicked('G')) {
+    a_play_sfx(&test_buf, &sfx_req);
   }
 
   int dir_x = 0;
@@ -256,9 +292,12 @@ void g_render(time_s delta) {
   // r_particles_draw(&particles, particle_shader);
   // glDepthMask(GL_TRUE);
 
+  // r_check_error_loc("Sprite Drawcall");
   r_sprite_draw(sprite);
+
   int tex_id = r_sprite_get_tex_id(sprite);
 
+  // r_check_error_loc("Sprite1 Uniforms");
   r_shader_sprite_uniform(sprite, tex_ids, &tex_id);
   r_shader_sprite_uniform(sprite, models, &sprite.model);
   r_shader_sprite_uniform(sprite, flip_x, &sprite.flip_x);
@@ -266,12 +305,15 @@ void g_render(time_s delta) {
 
   tex_id = r_sprite_get_tex_id(sprite2);
 
+  // r_check_error_loc("Sprite2 DrawCall");
   r_sprite_draw(sprite2);
+  // r_check_error_loc("Sprite2 Uniforms");
   r_shader_sprite_uniform(sprite2, tex_ids, &tex_id);
   r_shader_sprite_uniform(sprite2, models, &sprite2.model);
   r_shader_sprite_uniform(sprite2, flip_x, &sprite2.flip_x);
   r_shader_sprite_uniform(sprite2, flip_y, &sprite2.flip_y);
 
+  // r_check_error_loc("Array Sprite Draw\n");
   for (int i = 0; i < test_sprite_count; ++i) {
     int tex_id = r_sprite_get_tex_id(test_sprites[i]);
 
@@ -282,6 +324,12 @@ void g_render(time_s delta) {
     r_shader_sprite_uniform(test_sprites[i], flip_x, &test_sprites[i].flip_x);
     r_shader_sprite_uniform(test_sprites[i], flip_y, &test_sprites[i].flip_y);
   }
+
+  ui_frame_start();
+
+  ui_text_draw(&text);
+  ui_test_text(test_font);
+  ui_frame_end();
 }
 
 void g_frame_start() { //

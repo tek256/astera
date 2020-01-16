@@ -2,13 +2,8 @@
 
 #include "render.h"
 
-#include <assert.h>
-#include <limits.h>
 #include <math.h>
-#include <stdarg.h>
-#include <stdint.h>
 #include <string.h>
-#include <time.h>
 
 #define STBI_NO_BMP
 #define STBI_NO_TGA
@@ -21,12 +16,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <misc/stb_image.h>
 
-#define STB_TRUETYPE_IMPLEMENTATION
-#include <misc/stb_truetype.h>
-
 #include "debug.h"
-#include "game.h"
-#include "input.h"
 #include "sys.h"
 
 static r_flags flags;
@@ -40,6 +30,8 @@ static r_anim_map g_anim_map;
 static r_shader_map g_shader_map;
 
 #ifndef CUSTOM_GLFW_CALLBACKS
+
+#include "input.h"
 static void glfw_err_cb(int error, const char *msg) {
   _e("ERROR: %i %s\n", error, msg);
 }
@@ -119,7 +111,7 @@ void r_init_anim_map(int size) {
   r_anim_map anim_map;
 
   anim_map.anims = (r_anim *)malloc(sizeof(r_anim) * size);
-  anim_map.names = (char *)malloc(sizeof(char *) * size);
+  anim_map.names = (const char **)malloc(sizeof(char *) * size);
   anim_map.capacity = size;
   anim_map.count = 0;
 
@@ -134,7 +126,7 @@ void r_init_shader_map(int size) {
   r_shader_map shader_map;
 
   shader_map.shaders = (r_shader *)malloc(sizeof(r_shader) * size);
-  shader_map.names = (char *)malloc(sizeof(char *) * size);
+  shader_map.names = (const char **)malloc(sizeof(char *) * size);
   shader_map.uniform_maps =
       (r_uniform_map *)malloc(sizeof(r_uniform_map) * size);
   shader_map.capacity = size;
@@ -1001,8 +993,6 @@ void r_batch_draw(r_shader_batch *batch) {
   r_set_m4(shader, "proj", g_camera.proj);
   r_set_m4(shader, "view", g_camera.view);
 
-  r_set_uniformi(shader, "tex", GL_TEXTURE0);
-
   r_sheet_bind(sheet.id);
 
   glBindVertexArray(default_quad_vao);
@@ -1086,7 +1076,7 @@ static GLuint r_shader_create_sub(asset_t *asset, int type) {
   GLint success = 0;
   GLuint id = glCreateShader(type);
 
-  const char *ptr = asset->data;
+  const char *ptr = (const char *)asset->data;
 
   glShaderSource(id, 1, &ptr, NULL);
   glCompileShader(id);
@@ -1385,7 +1375,7 @@ void r_shader_destroy(r_shader shader) {
 
 void r_shader_bind(r_shader shader) { glUseProgram(shader); }
 
-static int r_hex_number(char v) {
+static int r_hex_number(const char v) {
   if (v >= '0' && v <= '9') {
     return v - 0x30;
   } else {
@@ -1414,7 +1404,7 @@ static int r_hex_number(char v) {
   }
 }
 
-static int r_hex_multi(char *v, int len) {
+static int r_hex_multi(const char *v, int len) {
   if (len == 2) {
     return r_hex_number(v[0]) * 16 + r_hex_number(v[1]);
   } else if (len == 1) {
@@ -1423,7 +1413,7 @@ static int r_hex_multi(char *v, int len) {
   return -1;
 }
 
-void r_get_color(vec3 val, char *v) {
+void r_get_color(vec3 val, const char *v) {
   int len = strlen(v);
   int offset = 0;
   if (len == 4) {
@@ -1732,11 +1722,11 @@ int r_shader_setup_array(r_shader shader, const char *name, int capacity,
     free(map->locations);
     free(map->capacities);
 
-    map->names = names;
+    map->names = (const char **)names;
     map->uids = uids;
     map->types = types;
-    map->locations = locations;
-    map->capacities = capacities;
+    map->locations = (unsigned int *)locations;
+    map->capacities = (unsigned int *)capacities;
   }
 
   int uid = map->count;
@@ -2223,7 +2213,8 @@ int r_window_create(r_window_info info) {
       glfwWindowHint(GLFW_REFRESH_RATE, info.refreshRate);
       g_window.refreshRate = info.refreshRate;
     } else {
-      g_window.refreshRate = glfwGetVideoMode(glfwGetPrimaryMonitor());
+      g_window.refreshRate =
+          glfwGetVideoMode(glfwGetPrimaryMonitor())->refreshRate;
     }
 
     if (info.gamma < 0.1f) {

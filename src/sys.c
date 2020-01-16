@@ -2,6 +2,7 @@
 
 #include <GLFW/glfw3.h>
 
+#include <math.h>
 #include <unistd.h>
 
 #include "platform.h"

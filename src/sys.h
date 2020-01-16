@@ -41,4 +41,10 @@ s_timer s_timer_create();
 
 time_s s_sleep(time_s duration);
 
+#ifndef ASTERA_SYS_TIME_ONLY
+
+// TODO other system things
+
+#endif
+
 #endif
