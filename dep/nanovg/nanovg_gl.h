@@ -1129,8 +1129,9 @@ static void glnvg__stroke(GLNVGcontext *gl, GLNVGcall *call) {
 
     glDisable(GL_STENCIL_TEST);
 
-    //		glnvg__convertPaint(gl, nvg__fragUniformPtr(gl, call->uniformOffset +
-    //gl->fragSize), paint, scissor, strokeWidth, fringe, 1.0f - 0.5f/255.0f);
+    //		glnvg__convertPaint(gl, nvg__fragUniformPtr(gl,
+    //call->uniformOffset
+    //+ gl->fragSize), paint, scissor, strokeWidth, fringe, 1.0f - 0.5f/255.0f);
 
   } else {
     glnvg__setUniforms(gl, call->uniformOffset, call->image);

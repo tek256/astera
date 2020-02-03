@@ -1,9 +1,13 @@
-Dec 4, 2019
-- Starting new layout of files for library style release
-- Framebuffers completed
-- Remove INIH completely
-- Rewrote core loop timing example in main.c
-- Added render "stress" test, just 2048 quads.
+Dec 14, 2019 - 2
+- Audio music working
+- Updated vorbis to 1.17
+Dec 14, 2019
+- Subsprite bugfix
+- Working on audio update
+- Rework to most pedantic standards
+- Updated a few `tool` programs
+- Removing unused timer implementation, potentially replaced in the future
+- Updated all time implementations to be decimal milliseconds
 Nov 22, 2019
 - Refactoring for release candidate 0.01
 - Refactoring towards Library Style build

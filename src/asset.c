@@ -12,10 +12,10 @@
 
 #include <misc/zip.c>
 
-int asset_init() {
+int8_t asset_init() {
 #if ASSET_MAX_MAPS > 0
   memset(asset_maps, 0, sizeof(asset_map_t) * ASSET_MAX_MAPS);
-  for (int i = 0; i < ASSET_MAX_MAPS; ++i) {
+  for (uint32_t i = 0; i < ASSET_MAX_MAPS; ++i) {
     asset_maps[i].free = 1;
   }
 
@@ -26,7 +26,7 @@ int asset_init() {
 }
 
 void asset_exit() {
-  for (int i = 0; i < ASSET_MAX_MAPS; ++i) {
+  for (uint32_t i = 0; i < ASSET_MAX_MAPS; ++i) {
     asset_map_free_t(&asset_maps[i]);
   }
 }
@@ -40,7 +40,7 @@ void asset_free(asset_t *asset) {
 
 void asset_map_free(const char *map_name) {
   asset_map_t *map;
-  for (unsigned int i = 0; i < asset_map_count; ++i) {
+  for (uint32_t i = 0; i < asset_map_count; ++i) {
     if (strcmp(asset_maps[i].name, map_name) == 0) {
       map = &asset_maps[i];
       break;
@@ -55,7 +55,7 @@ void asset_map_free(const char *map_name) {
     return;
   }
 
-  for (unsigned int i = 0; i < map->capacity; ++i) {
+  for (uint32_t i = 0; i < map->capacity; ++i) {
     asset_t *asset = &map->assets[i];
     if (asset->data) {
       free(asset->data);
@@ -77,7 +77,7 @@ void asset_map_free_t(asset_map_t *map) {
     return;
   }
 
-  for (unsigned int i = 0; i < map->capacity; ++i) {
+  for (uint32_t i = 0; i < map->capacity; ++i) {
     asset_t *asset = &map->assets[i];
     if (asset->data) {
       free(asset->data);
@@ -97,23 +97,31 @@ asset_t *asset_get(const char *map_name, const char *file) {
   asset_map_t *map = NULL;
 
   if (!file) {
+    _e("No file requested.\n");
     return 0;
   }
 
-  if (!map_name) {
-    map_name = "sys";
-  }
-
-  for (int i = 0; i < ASSET_MAX_MAPS; ++i) {
-    if (map_name && asset_maps[i].name) {
-      if (strcmp(asset_maps[i].name, map_name) == 0) {
-        map = &asset_maps[i];
-        break;
+  for (uint32_t i = 0; i < ASSET_MAX_MAPS; ++i) {
+    if (map_name) {
+      if (asset_maps[i].name) {
+        if (!strcmp(asset_maps[i].name, map_name)) {
+          map = &asset_maps[i];
+          break;
+        }
       }
-    } else if (asset_maps[i].filename && map_name) {
-      if (strcmp(asset_maps[i].filename, map_name) == 0) {
-        map = &asset_maps[i];
-        break;
+
+      if (asset_maps[i].filename) {
+        if (!strcmp(asset_maps[i].filename, map_name)) {
+          map = &asset_maps[i];
+          break;
+        }
+      }
+    } else {
+      if (asset_maps[i].name) {
+        if (!strcmp(asset_maps[i].name, "sys")) {
+          map = &asset_maps[i];
+          break;
+        }
       }
     }
   }
@@ -124,27 +132,32 @@ asset_t *asset_get(const char *map_name, const char *file) {
   }
 
   asset_t *asset = NULL;
-  int free = 0;
-  for (unsigned int i = 0; i < map->capacity; ++i) {
-    if (!map->assets[i].filled && !map->assets[i].req) {
-      ++free;
-      continue;
-    } else if (map->assets[i].filled) {
-      continue;
+  for (uint32_t i = 0; i < map->capacity; ++i) {
+    if (!asset) {
+      if ((!map->assets[i].filled && !map->assets[i].req) ||
+          map->assets[i].req_free) {
+        asset = &map->assets[i];
+      }
     }
 
-    if (strcmp(map->assets[i].name, file) == 0) {
-      if (!map->assets[i].req)
-        map->assets[i].req = 1;
-      return &map->assets[i];
+    if (map->assets[i].name) {
+      if (strcmp(map->assets[i].name, file) == 0) {
+        asset = &map->assets[i];
+
+        // Don't double read
+        if (map->assets[i].filled)
+          return &map->assets[i];
+      }
     }
   }
 
   // At capacity for asset map
-  if (!free)
+  if (!asset) {
+    _e("No free asset slots in map %s\n", map->name);
     return 0;
+  }
 
-  for (unsigned int i = 0; i < map->capacity; ++i) {
+  for (uint32_t i = 0; i < map->capacity; ++i) {
     if (!map->assets[i].filled && !map->assets[i].req) {
       asset = &map->assets[i];
       break;
@@ -160,7 +173,7 @@ asset_t *asset_get(const char *map_name, const char *file) {
     }
 
     fseek(f, 0, SEEK_END);
-    unsigned int file_size = ftell(f);
+    uint32_t file_size = ftell(f);
     rewind(f);
 
     unsigned char *data =
@@ -172,7 +185,7 @@ asset_t *asset_get(const char *map_name, const char *file) {
       return NULL;
     }
 
-    unsigned int data_read = fread(data, sizeof(unsigned char), file_size, f);
+    uint32_t data_read = fread(data, sizeof(unsigned char), file_size, f);
 
     if (data_read != file_size) {
       _l("Incomplete read: %i expeceted, %i read.\n", file_size, data_read);
@@ -181,12 +194,8 @@ asset_t *asset_get(const char *map_name, const char *file) {
     data[data_read] = 0;
 
     fclose(f);
-    asset->name = file;
     asset->data = data;
     asset->data_length = data_read;
-    asset->filled = 1;
-    asset->req = 0;
-    asset->req_free = 0;
   } else {
     struct zip_t *zip;
 
@@ -202,7 +211,7 @@ asset_t *asset_get(const char *map_name, const char *file) {
       return NULL;
     }
 
-    unsigned int entry_size = zip_entry_size(zip);
+    uint32_t entry_size = zip_entry_size(zip);
     unsigned char *data =
         (unsigned char *)malloc(sizeof(unsigned char) * entry_size);
     if (!data) {
@@ -211,32 +220,129 @@ asset_t *asset_get(const char *map_name, const char *file) {
       return NULL;
     }
 
+    // TODO more error handling
     zip_entry_noallocread(zip, (void *)data, entry_size);
 
     zip_close(zip);
 
-    asset->name = file;
     asset->data = data;
     asset->data_length = entry_size;
-    asset->filled = 1;
-    asset->req = 0;
-    asset->req_free = 0;
   }
 
-  asset->uid = ++asset_uid_count;
+  asset->name = file;
+  asset->filled = 1;
+  asset->req = 0;
+  asset->req_free = 0;
+  asset->chunk = 0;
+
+  ++asset_uid_count;
+  asset->uid = asset_uid_count;
 
   return asset;
 }
 
 asset_t *asset_req(const char *map_name, const char *file) {
   asset_map_t *map = 0;
-  for (int i = 0; i < asset_map_count; ++i) {
-    if (strcmp(asset_maps[i].name, map_name) == 0) {
-      map = &asset_maps[i];
-      break;
-    } else if (strcmp(asset_maps[i].filename, map_name) == 0) {
-      map = &asset_maps[i];
-      break;
+  for (uint32_t i = 0; i < asset_map_count; ++i) {
+    if (map_name) {
+      if (asset_maps[i].name) {
+        if (strcmp(asset_maps[i].name, map_name) == 0) {
+          map = &asset_maps[i];
+          break;
+        }
+      }
+
+      if (asset_maps[i].filename) {
+        if (strcmp(asset_maps[i].filename, map_name) == 0) {
+          map = &asset_maps[i];
+          break;
+        }
+      }
+    } else {
+      if (!strcmp(asset_maps[i].name, "sys")) {
+        map = &asset_maps[i];
+        break;
+      }
+    }
+  }
+
+  if (map_name) {
+    if (!map) {
+      _l("No map with name or filepath of: %s\n", map_name);
+      return 0;
+    }
+  } else {
+    _l("No sys map exists.\n");
+    return 0;
+  }
+
+  asset_t *asset = 0;
+  for (uint32_t i = 0; i < map->capacity; ++i) {
+    if (!map->assets[i].filled && !map->assets[i].req) {
+      asset = &map->assets[i];
+    }
+
+    if (strcmp(map->assets[i].name, file) == 0) {
+      if (!map->assets[i].req) {
+        map->assets[i].req = 1;
+        map->assets[i].chunk = 0;
+      }
+
+      return &map->assets[i];
+    }
+  }
+
+  if (!asset)
+    return 0;
+
+  asset->req = 1;
+  asset->chunk = 0;
+  asset->filled = 0;
+  asset->name = file;
+  asset->uid = ++asset_uid_count;
+
+  return asset;
+}
+
+asset_t *asset_get_chunk(const char *map_name, const char *file,
+                         uint32_t chunk_start, uint32_t chunk_length) {
+  if (!file) {
+    _e("No file requested\n");
+    return 0;
+  }
+
+  asset_map_t *map = NULL;
+
+  if (!file) {
+    return 0;
+  }
+
+  if (!map_name) {
+    map_name = "sys";
+  }
+
+  for (uint32_t i = 0; i < ASSET_MAX_MAPS; ++i) {
+    if (map_name) {
+      if (asset_maps[i].name) {
+        if (strcmp(asset_maps[i].name, map_name) == 0) {
+          map = &asset_maps[i];
+          break;
+        }
+      }
+
+      if (asset_maps[i].filename) {
+        if (strcmp(asset_maps[i].filename, map_name) == 0) {
+          map = &asset_maps[i];
+          break;
+        }
+      }
+    } else {
+      if (asset_maps[i].name) {
+        if (!strcmp("sys", asset_maps[i].name)) {
+          map = &asset_maps[i];
+          break;
+        }
+      }
     }
   }
 
@@ -245,35 +351,218 @@ asset_t *asset_req(const char *map_name, const char *file) {
     return 0;
   }
 
-  asset_t *asset;
-  int free = 0;
-  for (unsigned int i = 0; i < map->capacity; ++i) {
-    if (!map->assets[i].filled && !map->assets[i].req) {
-      ++free;
-      continue;
-    } else if (map->assets[i].filled) {
-      continue;
+  asset_t *asset = NULL;
+
+  for (uint32_t i = 0; i < map->capacity; ++i) {
+    if (!asset) {
+      if (!map->assets[i].filled && !map->assets[i].req) {
+        asset = &map->assets[i];
+        continue;
+      }
+    }
+
+    if (map->assets[i].name) {
+      if (strcmp(map->assets[i].name, file) == 0) {
+        asset = &map->assets[i];
+        break;
+      }
+    }
+  }
+
+  if (!asset) {
+    _e("No space in map %s for file %s\n", map_name, file);
+    return 0;
+  }
+
+  if (strcmp(map->name, "sys") == 0) {
+    FILE *f = fopen(file, "r+b");
+
+    if (!f) {
+      _e("Unable to open system file: %s\n", file);
+      return NULL;
+    }
+
+    fseek(f, 0, SEEK_END);
+    uint32_t file_size = ftell(f);
+    rewind(f);
+
+    if (chunk_start > file_size) {
+      _e("Chunk requested starts out of bounds [%i] of the file [%i].\n",
+         chunk_start, file_size);
+      asset->req = 0;
+      asset->chunk = 0;
+      return 0;
+    }
+
+    // Allow for size clamping, in case we just want the data and not to have to
+    // analyze it prior
+    uint32_t max_length = (chunk_start + chunk_length > file_size)
+                              ? file_size - chunk_start
+                              : chunk_length;
+
+    unsigned char *data =
+        (unsigned char *)malloc(sizeof(unsigned char) * (max_length + 1));
+
+    if (!data) {
+      _e("Unable to allocate [%i] bytes for file chunk %s\n", max_length, file);
+      fclose(f);
+      return NULL;
+    }
+
+    uint32_t data_read = fread(data, sizeof(unsigned char), max_length, f);
+
+    if (data_read != max_length) {
+      _l("Incomplete read: %i expeceted, %i read.\n", max_length, data_read);
+    }
+
+    data[data_read] = 0;
+
+    fclose(f);
+
+    asset->data_length = data_read;
+    asset->data = data;
+  } else {
+    // Well, this isn't gonna be pretty
+    struct zip_t *zip;
+
+    zip = zip_open(map->filename, map->compression_level, 'r');
+    if (!zip) {
+      _e("Unable to open zip entry: %s.\n", map->filename);
+      return NULL;
+    }
+
+    if (zip_entry_open(zip, file) < 0) {
+      _e("Unable to open file: %s in zip archive: %s\n", file, map->filename);
+      zip_close(zip);
+      asset->req = 0;
+      asset->chunk = 0;
+      return NULL;
+    }
+
+    uint32_t entry_size = zip_entry_size(zip);
+
+    if (chunk_start > entry_size) {
+      zip_close(zip);
+      asset->req = 0;
+      asset->chunk = 0;
+      return 0;
+    }
+
+    unsigned char *data =
+        (unsigned char *)malloc(sizeof(unsigned char) * entry_size);
+    if (!data) {
+      _e("Unable to allocate %i bytes for file %s.\n", entry_size, file);
+      zip_close(zip);
+      return 0;
+    }
+
+    uint32_t max_length = (chunk_start + chunk_length > entry_size)
+                              ? entry_size - chunk_start
+                              : chunk_length;
+
+    unsigned char *chunk =
+        (unsigned char *)malloc(sizeof(unsigned char) * (max_length + 1));
+
+    if (!chunk) {
+      _e("Unable to allocate [%i] bytes for chunk of file [%s]\n", max_length,
+         file);
+      free(data);
+      zip_close(zip);
+      return 0;
+    }
+
+    memcpy(chunk, &data[chunk_start], max_length);
+    chunk[max_length] = '\0';
+
+    free(data);
+
+    zip_entry_noallocread(zip, (void *)data, entry_size);
+
+    zip_close(zip);
+
+    asset->data = chunk;
+    asset->data_length = max_length;
+    asset->chunk_length = max_length;
+  }
+
+  asset->name = file;
+  asset->filled = 1;
+  asset->chunk = 1;
+  asset->chunk_start = chunk_start;
+  asset->req = 0;
+  asset->req_free = 0;
+
+  asset->uid = ++asset_uid_count;
+
+  return asset;
+}
+
+asset_t *asset_req_chunk(const char *map_name, const char *file,
+                         uint32_t chunk_start, uint32_t chunk_length) {
+  if (!file) {
+    _e("No file requested.\n");
+    return 0;
+  }
+
+  asset_map_t *map = 0;
+  for (uint32_t i = 0; i < asset_map_count; ++i) {
+    if (map_name) {
+      if (strcmp(asset_maps[i].name, map_name) == 0) {
+        map = &asset_maps[i];
+        break;
+      } else if (strcmp(asset_maps[i].filename, map_name) == 0) {
+        map = &asset_maps[i];
+        break;
+      }
+    } else {
+      if (strcmp(asset_maps[i].name, "sys") == 0) {
+        map = &asset_maps[i];
+        break;
+      }
+    }
+  }
+
+  if (!map) {
+    _l("No map with name or filepath of [%s]\n", map_name);
+    return 0;
+  }
+
+  asset_t *asset = 0;
+  for (uint32_t i = 0; i < map->capacity; ++i) {
+    if (!asset) {
+      if (!map->assets[i].filled && !map->assets[i].req) {
+        asset = &map->assets[i];
+      }
     }
 
     if (strcmp(map->assets[i].name, file) == 0) {
-      if (!map->assets[i].req)
+      if (!map->assets[i].req && !map->assets[i].filled) {
         map->assets[i].req = 1;
-      return &map->assets[i];
+        map->assets[i].chunk = 1;
+        map->assets[i].chunk_start = chunk_start;
+        map->assets[i].chunk_length = chunk_length;
+
+        return &map->assets[i];
+      } else if (map->assets[i].filled) {
+        if (map->assets[i].chunk && map->assets[i].chunk_start == chunk_start &&
+            map->assets[i].chunk_length == chunk_length) {
+          return &map->assets[i];
+        }
+      }
     }
   }
 
-  // At capacity for asset map
-  if (!free)
+  if (!asset) {
+    _e("No free slots in asset map: %s.\n", map_name);
     return 0;
-
-  for (unsigned int i = 0; i < map->capacity; ++i) {
-    if (!map->assets[i].filled && !map->assets[i].req) {
-      asset = &map->assets[i];
-      break;
-    }
   }
 
   asset->req = 1;
+
+  asset->chunk = 1;
+  asset->chunk_start = chunk_start;
+  asset->chunk_length = chunk_length;
+
   asset->filled = 0;
   asset->name = file;
   asset->uid = ++asset_uid_count;
@@ -282,10 +571,9 @@ asset_t *asset_req(const char *map_name, const char *file) {
 }
 
 asset_map_t *asset_create_map(const char *filename, const char *name,
-                              unsigned int capacity,
-                              uint8_t compression_level) {
-  int free_maps = 0;
-  for (int i = 0; i < ASSET_MAX_MAPS; ++i) {
+                              uint32_t capacity, uint8_t compression_level) {
+  uint32_t free_maps = 0;
+  for (uint32_t i = 0; i < ASSET_MAX_MAPS; ++i) {
     if (asset_maps[i].free) {
       ++free_maps;
       continue;
@@ -306,7 +594,7 @@ asset_map_t *asset_create_map(const char *filename, const char *name,
     return 0;
   }
 
-  for (int i = 0; i < ASSET_MAX_MAPS; ++i) {
+  for (uint32_t i = 0; i < ASSET_MAX_MAPS; ++i) {
     if (asset_maps[i].free) {
       asset_maps[i].assets = (asset_t *)malloc(sizeof(asset_t) * capacity);
       asset_maps[i].compression_level = compression_level;
@@ -324,7 +612,7 @@ asset_map_t *asset_create_map(const char *filename, const char *name,
 void asset_update_map(asset_map_t *map) {
   struct zip_t *zip;
 
-  for (unsigned int i = 0; i < map->capacity; ++i) {
+  for (uint32_t i = 0; i < map->capacity; ++i) {
     if (map->assets[i].req_free) {
       free(map->assets[i].data);
       memset(&map->assets[i], 0, sizeof(asset_t));
@@ -346,7 +634,7 @@ void asset_update_map(asset_map_t *map) {
         continue;
       }
 
-      int file_size = zip_entry_size(zip);
+      uint32_t file_size = zip_entry_size(zip);
       if (!file_size) {
         _e("Unable to open file with size of 0, %s.\n", map->assets[i].name);
         continue;

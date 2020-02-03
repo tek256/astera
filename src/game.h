@@ -1,3 +1,7 @@
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #ifndef GAME_H
 #define GAME_H
 
@@ -11,4 +15,7 @@ void g_render(time_s delta);
 void g_frame_start();
 void g_frame_end();
 
+#endif
+#ifdef __cplusplus
+}
 #endif

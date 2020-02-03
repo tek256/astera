@@ -1,6 +1,10 @@
 #ifndef ASTERA_RENDER_HEADER
 #define ASTERA_RENDER_HEADER
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <GLFW/glfw3.h>
 #include <misc/linmath.h>
 
@@ -417,4 +421,10 @@ void r_window_clear(void);
 void r_window_clear_color(const char *str);
 
 int r_get_refresh_rate(void);
+
+#ifdef __cplusplus
+}
 #endif
+
+#endif
+

@@ -2,7 +2,6 @@
 
 #include <GLFW/glfw3.h>
 
-#include <math.h>
 #include <unistd.h>
 
 #include "platform.h"
@@ -38,4 +37,58 @@ time_s s_sleep(time_s duration) {
   usleep(sleep_conv);
 #endif
   return duration;
+}
+
+static char *s_reverse(char *string, int length) {
+  int start = 0;
+  int end = length - 1;
+
+  char tmp_a, tmp_b;
+
+  while (start < end) {
+    tmp_a = string[start];
+    tmp_b = string[end];
+
+    string[end] = tmp_a;
+    string[start] = tmp_b;
+
+    ++start;
+    --end;
+  }
+
+  return string;
+}
+
+char *s_itoa(int value, char *string, int base) {
+  int i = 0;
+  int negative = 0;
+
+  if (value == 0) {
+    string[i] = '0';
+    ++i;
+    string[i] = '\0';
+    return string;
+  }
+
+  if (value < 0 && base == 10) {
+    negative = 1;
+    value = -value;
+  }
+
+  while (value != 0) {
+    int remainder = value % base;
+    string[i] = (remainder > 9) ? (remainder - 10) + 'a' : remainder + '0';
+    ++i;
+    value = value / base;
+  }
+
+  if (negative) {
+    string[i] = '-';
+    ++i;
+  }
+
+  string[i] = '\0';
+  s_reverse(string, i);
+
+  return string;
 }

@@ -1,5 +1,9 @@
-#ifndef INPUT_H
-#define INPUT_H
+#ifndef ASTERA_INPUT_HEADER
+#define ASTERA_INPUT_HEADER
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include "platform.h"
 
@@ -26,7 +30,31 @@
 #define PS4_PAD 3
 #define GENERIC_PAD 4
 
-#if !defined(__APPLE__)
+// Useful keybindings
+#if !defined(ASTERA_NO_GLFW_KEYBINDINGS)
+#define KEY_SPACE GLFW_KEY_SPACE
+#define KEY_BACKSPACE GLFW_KEY_BACKSPACE
+#define KEY_DELETE GLFW_KEY_DELETE
+#define KEY_UP GLFW_KEY_UP
+#define KEY_DOWN GLFW_KEY_DOWN
+#define KEY_RIGHT GLFW_KEY_RIGHT
+#define KEY_LEFT GLFW_KEY_LEFT
+#define KEY_HOME GLFW_KEY_HOME
+#define KEY_TAB GLFW_KEY_TAB
+#define KEY_ESC GLFW_KEY_ESCAPE
+#define KEY_ESCAPE GLFW_KEY_ESCAPE
+#define KEY_LEFT_SHIFT GLFW_KEY_LEFT_SHIFT
+#define KEY_RIGHT_SHIFT GLFW_KEY_RIGHT_SHIFT
+#define KEY_ENTER GLFW_KEY_ENTER
+#define KEY_LEFT_CTRL GLFW_KEY_LEFT_CONTROL
+#define KEY_RIGHT_CTRL GLFW_KEY_RIGHT_CONTROL
+#define KEY_LEFT_ALT GLFW_KEY_LEFT_ALT
+#define KEY_RIGHT_ALT GLFW_KEY_RIGHT_ALT
+#define KEY_LEFT_SUPER GLFW_KEY_LEFT_SUPER
+#define KEY_RIGHT_SUPER GLFW_KEY_RIGHT_SUPER
+#endif
+
+#if defined(PLAT_MSFT) || defined(PLAT_LINUX) || defined(PLAT_BSD)
 
 #define XBOX_A 0
 #define XBOX_B 1
@@ -39,7 +67,7 @@
 #define XBOX_LEFT_STICK 8
 #define XBOX_RIGHT_STICK 9
 
-#else
+#elif defined(PLAT_APPLE)
 
 #define XBOX_A 16
 #define XBOX_B 17
@@ -54,7 +82,7 @@
 
 #endif
 
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(PLAT_MSFT)
 
 #define XBOX_L_X 0
 #define XBOX_L_Y 1
@@ -63,7 +91,7 @@
 #define XBOX_D_X 6
 #define XBOX_D_Y 7
 
-#elif defined(__linux__) || defined(__unix__) || defined(__FreeBSD__)
+#elif defined(PLAT_LINUX) || defined(PLAT_BSD)
 
 #define XBOX_L_X 0
 #define XBOX_L_Y 1
@@ -75,7 +103,7 @@
 #define XBOX_R_T 6
 #define XBOX_L_T 3
 
-#elif defined(__APPLE__)
+#elif defined(PLAT_APPLE)
 
 #define XBOX_L_X 0
 #define XBOX_L_Y 1
@@ -208,4 +236,8 @@ void i_default_bindings(void);
 
 void i_update(void);
 
+#ifdef __cplusplus
+}
 #endif
+#endif
+

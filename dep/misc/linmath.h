@@ -72,6 +72,14 @@
     for (int i = 0; i < n; ++i) {                                              \
       dst[i] = 0.f;                                                            \
     }                                                                          \
+  }                                                                            \
+  LINMATH_H_FUNC int vec##n##_nonzero(vec##n const a) {                        \
+    for (int i = 0; i < n; ++i) {                                              \
+      if (a[i] != 0) {                                                         \
+        return 0;                                                              \
+      }                                                                        \
+    }                                                                          \
+    return 1;                                                                  \
   }
 
 LINMATH_H_DEFINE_VEC(2)
@@ -121,6 +129,98 @@ LINMATH_H_FUNC void vec4_reflect(vec4 r, vec4 v, vec4 n) {
   int i;
   for (i = 0; i < 4; ++i)
     r[i] = v[i] - p * n[i];
+}
+
+LINMATH_H_FUNC void vec4_bounds(vec4 dst, const vec2 position,
+                                const vec2 size) {
+  dst[0] = position[0];
+  dst[1] = position[1];
+  dst[2] = dst[0] + size[0];
+  dst[3] = dst[1] + size[1];
+}
+
+// Check if a point is within the bounds (vec4){min_x, min_y, max_x, max_y}, but
+// also set the offset from min_x, min_y to point
+LINMATH_H_FUNC int vec2_inside_bounds(vec2 dst, const vec4 bounds,
+                                      const vec2 point) {
+  int valid = (point[0] > bounds[0] && point[1] < bounds[2] &&
+               point[1] > bounds[1] && point[1] < bounds[3]);
+
+  if (valid) {
+    dst[0] = point[0] - bounds[0];
+    dst[1] = point[1] - bounds[1];
+  }
+
+  return valid;
+}
+
+LINMATH_H_FUNC int vec3_inside_bounds(vec2 dst, const vec4 bounds,
+                                      const vec3 point) {
+  int valid = (point[0] > bounds[0] && point[1] < bounds[2] &&
+               point[1] > bounds[1] && point[1] < bounds[3]);
+
+  if (valid) {
+    dst[0] = point[0] - bounds[0];
+    dst[1] = point[1] - bounds[1];
+  }
+
+  return valid;
+}
+
+LINMATH_H_FUNC int vec4_inside_bounds(vec2 dst, const vec4 bounds,
+                                      const vec4 point) {
+  int valid = (point[0] > bounds[0] && point[1] < bounds[2] &&
+               point[1] > bounds[1] && point[1] < bounds[3]);
+
+  if (valid) {
+    dst[0] = point[0] - bounds[0];
+    dst[1] = point[1] - bounds[1];
+  }
+
+  return valid;
+}
+
+// These functions are to check whether or not something is within the bounds
+
+LINMATH_H_FUNC int vec2_within_bounds(const vec4 bounds, const vec2 point) {
+  return (point[0] > bounds[0] && point[1] < bounds[2] &&
+          point[1] > bounds[1] && point[1] < bounds[3]);
+}
+
+LINMATH_H_FUNC int vec3_within_bounds(const vec4 bounds, const vec3 point) {
+  return (point[0] > bounds[0] && point[1] < bounds[2] &&
+          point[1] > bounds[1] && point[1] < bounds[3]);
+}
+
+LINMATH_H_FUNC int vec4_within_bounds(const vec4 bounds, const vec4 point) {
+  return (point[0] > bounds[0] && point[1] < bounds[2] &&
+          point[1] > bounds[1] && point[1] < bounds[3]);
+}
+
+// Return the overlap of b over a
+LINMATH_H_FUNC int vec4_bound_overlap(vec2 overlap, const vec4 a,
+                                      const vec4 b) {
+  if (a[0] > b[0] && a[0] < b[2]) {
+    // left -> inside
+    overlap[0] = a[2] - b[0];
+  } else if (a[2] > b[0] && a[2] < b[2]) {
+    // right -> inside
+    overlap[0] = -(b[2] - a[0]);
+  }
+
+  if (a[1] > b[1] && a[1] < b[1]) {
+    // top -> inside
+    overlap[1] = b[3] - a[1];
+  } else if (a[3] > b[1] && a[3] < b[3]) {
+    // bottom -> inside
+    overlap[1] = -(a[3] - b[1]);
+  }
+
+  if (vec2_nonzero(overlap)) {
+    return 1;
+  }
+
+  return 0;
 }
 
 typedef vec4 mat4x4[4];

@@ -11,6 +11,8 @@
 ### About
 Astera is a game library focused on performance, portability, and maintainability. The goal is to show how to make games and game engines work with lower level languages. Astera aims to rely on as few dependencies as possible.  
 
+#### Latest Release: 0.01-PRE 
+
 ### Building
 Please note that at this stage, the library is not at a stable release candidate. You can try automated building by either running `unix_setup.sh` or `win_setup.ps1` in your terminal. If you have GLFW & OpenAL-Soft installed locally, you can simply run the Makefile, i.e `make` or `mingw32-make` for MinGW systems.
 
@@ -18,7 +20,7 @@ For more information see the relevant [wiki page](https://github.com/tek256/aste
 
 ### Libraries Used
 Note: All dependencies are bundled with Astera. You should be able to run thru the build process relatively easily.
-[GLFW](https://github.com/glfw/glfw), [OpenAL-Soft](https://github.com/kcat/openal-soft), [STB](https://github.com/nothings/stb/) Image, Truetype, Vorbis, [ZIP](https://github.com/kuba--/zip), [nanovg](https://github.com/memononen/nanovg), and [GLAD](https://github.com/Dav1dde/glad)  
+[GLFW](https://github.com/glfw/glfw), [OpenAL-Soft](https://github.com/kcat/openal-soft), [GLAD](https://github.com/Dav1dde/glad), [STB](https://github.com/nothings/stb/) Image & Vorbis, [nanovg](https://github.com/memononen/nanovg), and [ZIP](https://github.com/kuba--/zip)
 
 ### Target Platforms
 Here are the target platforms for this library:  
@@ -34,25 +36,23 @@ These are some potential future targets:
 -Android
 -Nintendo Switch
 -iOS
+-OpenGL ES 2.0
 ```
 
 ### Changelog
 ```
+Feb 3, 2020
+- 0.01 PRE-Release
+- Asset Streaming changes
+- Wave file playing
+- Pedantic cleaning
+- UI Finished
+x Working on level management & collision detection
 Jan 16, 2020
 - Prepping for 0.01 Release
 - Rendering changes
 - Audio refactor
 - UI System in progress
-Dec 14, 2019 - 2
-- Audio music working
-- Updated vorbis to 1.17
-Dec 14, 2019
-- Subsprite bugfix
-- Working on audio update
-- Rework to most pedantic standards
-- Updated a few `tool` programs
-- Removing unused timer implementation, potentially replaced in the future
-- Updated all time implementations to be decimal milliseconds
 For older changes see docs/changelog-archive.txt
 ```
 
@@ -84,3 +84,4 @@ OTHER DEALINGS IN THE SOFTWARE.
 
 For more information, please refer to <http://unlicense.org>
 ```
+

@@ -1,13 +1,13 @@
 ifeq ($(OS),Windows_NT)
 	SHELL := cmd.exe
 	MAKE_DIR := $(shell cd)
-	CC = gcc
+	CC = clang
 else
 	MAKE_DIR := $(shell pwd)
-	CC = clang
+	CC = clang 
 endif
 
-TARGET_COMPILER_FLAGS := -std=c99 -w -g #-Wall -pedantic -Wextra -Werror -ferror-limit=500
+TARGET_COMPILER_FLAGS := -std=c99 -g -w #-Wall -pedantic -Wextra #-ferror-limit=500
 EXEC_NAME := astera
 	
 UNAME_S := $(shell uname -s)

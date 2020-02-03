@@ -1,5 +1,9 @@
-#ifndef UI_H
-#define UI_H
+#ifndef ASTERA_UI_HEADER
+#define ASTERA_UI_HEADER
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include <misc/linmath.h>
 #include <stdint.h>
@@ -10,6 +14,9 @@
 #include <nanovg/nanovg.h>
 
 #include "asset.h"
+
+#define UI_IS_ALIGN(value, offset) ((value) & (1 << (offset)))
+#define UI_IS_TYPE(value, type) (((value & (type)) == type)
 
 typedef enum {
   UI_ALIGN_LEFT = 1 << 0,
@@ -28,9 +35,9 @@ typedef struct {
   uint32_t id;
   ui_font font;
 
-  char *text;
-  int text_length, reveal_length;
-  int alignment;
+  char *text, *reveal;
+  int text_length;
+  int align;
 
   vec2 position, bounds;
   vec4 color, shadow;
@@ -46,7 +53,7 @@ typedef struct {
 typedef struct {
   uint32_t id;
   char *text;
-  uint32_t text_alignment;
+  int32_t align;
   ui_font font;
   float font_size;
 
@@ -74,8 +81,12 @@ typedef struct {
 typedef struct {
   uint32_t id;
   const char **options;
-  int option_count, option_display;
-  int selected, cursor;
+  uint16_t option_count, option_display, option_capacity;
+  uint16_t selected, cursor;
+
+  ui_font font;
+  float font_size;
+  int align;
 
   vec2 position, size;
   vec4 bg, hover_bg;
@@ -83,12 +94,13 @@ typedef struct {
   vec4 border_color, hover_border_color;
 
   vec4 select_bg, select_color;
-  vec4 hover_select_bg, hover_Select_color;
+  vec4 hover_select_bg, hover_select_color;
 
   float border_size, border_radius;
 
   int use_border : 1;
   int showing : 1;
+  int has_change : 1;
 } ui_dropdown;
 
 typedef struct {
@@ -100,12 +112,23 @@ typedef struct {
 
 typedef struct {
   uint32_t id;
+
   int32_t img_handle;
+  vec2 img_size, img_offset;
+
+  char *text;
+  ui_font font;
+  float font_size;
+  int align;
+
   vec2 position, size;
   vec4 bg_color, hover_bg_color;
   vec4 color, hover_color;
+
   uint8_t state;
-  int circle : 1;
+  int bg : 1;
+  int use_text : 1;
+  int use_img : 1;
 } ui_option;
 
 typedef enum {
@@ -131,20 +154,24 @@ typedef enum {
   UI_TEXT_LINE_HEIGHT,
   UI_TEXT_SPACING,
 
+  UI_BUTTON_FONT,
   UI_BUTTON_COLOR,
   UI_BUTTON_BG,
   UI_BUTTON_COLOR_HOVER,
   UI_BUTTON_BG_HOVER,
+
   UI_BUTTON_BORDER_RADIUS,
   UI_BUTTON_BORDER_COLOR,
+  UI_BUTTON_BORDER_COLOR_HOVER,
   UI_BUTTON_BORDER_SIZE,
-  UI_BUTTON_FONT_SIZE,
 
-  UI_CIRCLE_COLOR,
-  UI_CIRCLE_BORDER_SIZE,
-  UI_CIRCLE_BORDER_COLOR,
+  UI_DROPDOWN_BORDER_RADIUS,
+  UI_DROPDOWN_BORDER_SIZE,
+  UI_DROPDOWN_BORDER_COLOR,
+  UI_DROPDOWN_BORDER_COLOR_HOVER,
 
   UI_DROPDOWN_FONT_SIZE,
+  UI_DROPDOWN_FONT,
   UI_DROPDOWN_COLOR,
   UI_DROPDOWN_COLOR_HOVER,
   UI_DROPDOWN_BG,
@@ -157,6 +184,7 @@ typedef enum {
 
   UI_OPTION_IMAGE,
   UI_OPTION_IMAGE_SIZE,
+  UI_OPTION_FONT,
 } ui_attrib;
 
 typedef enum {
@@ -197,13 +225,15 @@ typedef struct {
 struct ui_leaf;
 typedef struct ui_leaf {
   uint32_t uid;
+  int8_t selectable;
   ui_element element;
   struct ui_leaf *next, *prev;
+  int32_t event;
 } ui_leaf;
 
 typedef struct {
   ui_leaf *start, *end;
-  ui_leaf *cursor, *raw;
+  ui_leaf *cursor, *mouse_hover, *raw;
   uint16_t capacity, count;
   int loop : 1;
 } ui_tree;
@@ -224,9 +254,25 @@ uint8_t ui_init(vec2 size, float pixel_scale, int use_mouse);
 void ui_update(vec2 mouse_pos);
 void ui_destroy();
 
+// Convert Pixels to Screen Size (Context defined)
+void ui_px_to_scale(vec2 dst, vec2 px);
+// Convert Screen Scale to Pixels
+void ui_scale_to_px(vec2 dst, vec2 scale);
+
+// Function to calculate new scale from pixel size within 'screen' size
+void ui_px_from_scale(vec2 dst, vec2 px, vec2 screen);
+
+// Check if value (int) contains 1 or 0 at offset of alignment (binary)
+int8_t ui_is_align(int value, ui_align alignment);
+// Check if value contains bitflag of type
+int8_t ui_is_type(int value, int type);
+
+// Start the NanoVG Frame
 void ui_frame_start();
+// End the NanoVG Frame
 void ui_frame_end();
 
+// Set Attributes
 void ui_attrib_set(ui_attrib attrib, void *value, ui_attrib_type type);
 void ui_attrib_set3f(ui_attrib attrib, float x, float y, float z);
 void ui_attrib_set3fv(ui_attrib attrib, vec3 value);
@@ -240,34 +286,47 @@ void ui_attrib_seti(ui_attrib attrib, int32_t value);
 ui_attrib_storage ui_attrib_get(ui_attrib attrib);
 int ui_attrib_geti(ui_attrib attrib);
 float ui_attrib_getf(ui_attrib attrib);
-void ui_attrib_get2f(vec2 dst, ui_attrib attrib);
-void ui_attrib_get3f(vec3 dst, ui_attrib attrib);
-void ui_attrib_get4f(vec4 dst, ui_attrib attrib);
+void ui_attrib_get2f(ui_attrib attrib, vec2 dst);
+void ui_attrib_get3f(ui_attrib attrib, vec3 dst);
+void ui_attrib_get4f(ui_attrib attrib, vec4 dst);
 
 int8_t ui_attrib_exists(ui_attrib attrib);
 
+// Get the font ID by name
 ui_font ui_font_get(const char *font_name);
+// Create a font to use
 ui_font ui_font_create(asset_t *asset, const char *name);
 
+// Create a UI Text field
 ui_text ui_text_create(vec2 pos, char *string, float font_size, ui_font font_id,
                        int alignment);
-ui_button ui_button_create(vec2 pos, vec2 size, char *text, ui_font font_id);
-ui_line ui_line_create(vec2 start, vec2 end, float thickness);
+// Create a UI Button
+ui_button ui_button_create(vec2 pos, vec2 size, char *text,
+                           int32_t text_alignment, float font_size);
+ui_line ui_line_create(vec2 start, vec2 end, vec4 color, float thickness);
 ui_dropdown ui_dropdown_create(vec2 pos, vec2 size, char **options,
                                int option_count);
-ui_option ui_option_create(vec2 pos, vec2 size, int state);
-ui_box ui_box_create(vec2 pos, vec2 size);
+ui_option ui_option_create(const char *text, float font_size,
+                           int32_t text_alignment, vec2 pos, vec2 size);
+ui_box ui_box_create(vec2 pos, vec2 size, vec4 color, vec4 hover_color);
 ui_img ui_image_create(asset_t *image_data, ui_img_flags flags, vec2 pos,
                        vec2 size);
 
+void ui_text_next(ui_text *text);
+void ui_text_prev(ui_text *text);
+
+void ui_dropdown_add_option(ui_dropdown *dropdown, const char *option);
+int8_t ui_dropdown_contains(ui_dropdown *dropdown, vec2 pos);
+void ui_dropdown_set_to_cursor(ui_dropdown *dropdown);
+void ui_dropdown_set(ui_dropdown *dropdown, uint16_t select);
+void ui_dropdown_next(ui_dropdown *dropdown);
+void ui_dropdown_prev(ui_dropdown *dropdown);
+int8_t ui_dropdown_has_change(ui_dropdown *dropdown);
+
 void ui_image_destroy(ui_img *img);
-void ui_button_destroy(ui_button *button);
-void ui_text_destroy(ui_text *text);
-void ui_dropdown_destroy(ui_dropdown *dropdown);
 
 void ui_text_bounds(ui_text *text, vec4 bounds);
 
-void ui_test_text(ui_font font);
 void ui_text_draw(ui_text *text);
 void ui_box_draw(ui_box *box, int8_t focused);
 void ui_button_draw(ui_button *button, int8_t focused);
@@ -276,14 +335,32 @@ void ui_line_draw(ui_line *line);
 void ui_option_draw(ui_option *option, int8_t focused);
 void ui_image_draw(ui_img *img);
 
-ui_tree ui_tree_create(ui_element *root, uint16_t capacity);
-void ui_tree_destroy(ui_tree *tree);
-uint32_t ui_tree_add(ui_tree *tree, void *data, ui_element_type type);
-uint32_t ui_tree_get_cursor_id(ui_tree *tree);
+void ui_im_text_draw(vec2 pos, float font_size, ui_font font, char *text);
 
+float ui_text_max_size(ui_text text, vec2 bounds, int allow_reveal);
+float ui_dropdown_max_font_size(ui_dropdown dropdown);
+
+int16_t ui_element_contains(ui_element element, vec2 point);
+int32_t ui_element_event(ui_tree *tree, uint32_t uid);
+
+ui_tree ui_tree_create(uint16_t capacity);
+uint32_t ui_tree_check(ui_tree *tree);
+void ui_tree_destroy(ui_tree *tree);
+uint32_t ui_tree_add(ui_tree *tree, void *data, ui_element_type type,
+                     int8_t selectable);
+
+void ui_tree_print(ui_tree *tree);
+
+uint32_t ui_tree_get_cursor_id(ui_tree *tree);
+int8_t ui_tree_is_active(ui_tree *tree, uint32_t id);
+uint32_t ui_tree_select(ui_tree *tree, int32_t event_type);
 uint32_t ui_tree_next(ui_tree *tree);
 uint32_t ui_tree_prev(ui_tree *tree);
 
 void ui_tree_draw(ui_tree tree);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

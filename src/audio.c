@@ -11,6 +11,8 @@
 
 #include "audio.h"
 
+#include "debug.h"
+
 #undef STB_VORBIS_HEADER_ONLY
 #include <misc/stb_vorbis.c>
 

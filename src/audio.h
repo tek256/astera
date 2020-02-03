@@ -1,5 +1,9 @@
-#ifndef AUDIO_H
-#define AUDIO_H
+#ifndef ASTERA_AUDIO_HEADER
+#define ASTERA_AUDIO_HEADER
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include <AL/al.h>
 #include <AL/alc.h>
@@ -12,16 +16,11 @@
 #include <misc/stb_vorbis.c>
 
 #include "asset.h"
-
 #include "sys.h"
 
 #if !defined(AUDIO_FRAME_SIZE)
 #define AUDIO_FRAME_SIZE 4096
-#endif #define AUDIO_SFX_LAYER 0
-#define AUDIO_MUSIC_LAYER 1
-#define AUDIO_MISC_LAYER 2
-#define AUDIO_UI_LAYER 3
-#define MAX_AUDIO_LAYERS 4
+#endif
 
 #if !defined(AUDIO_DEFAULT_FRAMES_PER_BUFFER)
 #define AUDIO_DEFAULT_FRAMES_PER_BUFFER 64
@@ -271,4 +270,7 @@ void a_music_stop(a_music *music);
 void a_music_resume(a_music *music);
 void a_music_pause(a_music *music);
 
+#ifdef __cplusplus
+}
+#endif
 #endif

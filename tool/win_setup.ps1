@@ -16,16 +16,17 @@
 # This sets up the path for the following sections. Change the following
 # directories if you didn't install the prerequisites in the expected
 # directories (see Getting Started in the Wiki)
+$mingw = "C:\MinGW"
+$cmake = "C:\Program Files\CMake"
+
+$env:Path += ";${mingw}\bin;${cmake}\bin"
 
 # The following section will build the dependencies required to compile the
 # engine.
-#
-# Script written by Mark W. Github @ markwhi
-
 echo "#######################"
 echo "########script#########"
 echo "###written by mark w###"
-echo ""
+echo "#######################"
 echo "#######################"
 echo "Building openal-soft..."
 echo "#######################"
@@ -34,12 +35,34 @@ cmake -G "MinGW Makefiles"
 mingw32-make
 
 echo "#######################"
+echo "#######################"
+echo "#######################"
+echo "#######################"
+echo "#######################"
 echo "Building GLFW..."
 echo "#######################"
 cd ..\glfw
 cmake -G "MinGW Makefiles"
 mingw32-make
+cd ..\..\
+
+# The following section will set your user path to include the directories 
+# containing the openal and glfw DLLs so that you can run the engine once it's
+# built, and will ensure that mingw and cmake are also permanently on your
+# path.
+
+echo "#######################"
+echo "Setting Path to include DLL locations..."
+echo "#######################"
+$depbase = (Get-Item -Path ".\").FullName + "\dep"
+$openal_path = "${depbase}\openal-soft"
+$glfw_path = "${depbase}\glfw\src"
+$env:Path += ";${openal_path};${glfw_path}"
+
+[Environment]::SetEnvironmentVariable(
+	"Path", $env:Path, [System.EnvironmentVariableTarget]::User)
 
 echo "Done."
-echo "You should now be able to run mingw32-make to build astera."
+echo "You should now be able to run mingw32-make to build the engine."
+
 

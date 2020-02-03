@@ -124,7 +124,10 @@ c_conf c_parse_table(c_table table) {
     }
     if (out_conf.icon == default_conf.icon) {
       if (STR_MATCH(table.keys[i], "icon")) {
-        out_conf.icon = strdup(table.values[i]);
+        int length = strlen(table.values[i]);
+        out_conf.icon = (char *)malloc(sizeof(char) * (length + 1));
+        strncpy(out_conf.icon, table.values[i], length);
+        out_conf.icon[length] = '\0';
       }
     }
 
@@ -147,91 +150,111 @@ void c_table_free(c_table table) {
     free(table.values);
 }
 
-static char *c_cleaned_str(char *str) {
+static char *c_cleaned_str(const char *str, int *size, char *str_end) {
+  if (!str) {
+    _e("Unable to clean null string.\n");
+    return 0;
+  }
+
   char *end;
-  while (isspace(*str))
-    str++;
+  int32_t str_size = 0;
 
-  if (*str == 0)
-    return str;
+  if (str_end) {
+    while (isspace(*str) && str < str_end)
+      str++;
+  } else {
+    while (isspace(*str))
+      str++;
+  }
 
-  end = str + strlen(str) - 1;
-  while (end > str && isspace(*end))
-    end--;
-  end[1] = '\0';
+  if (str == 0)
+    return 0;
 
-  return str;
+  char *start = str;
+  if (str_end) {
+    while (!isspace(*str) && str < str_end) {
+      ++str_size;
+      str++;
+    }
+  } else {
+    while (*str != NULL) {
+      if (!isspace(*str)) {
+        ++str_size;
+        str++;
+      } else {
+        break;
+      }
+    }
+  }
+
+  char *new_str = (char *)malloc(sizeof(char) * (str_size + 1));
+  strncpy(new_str, start, str_size);
+  new_str[str_size] = '\0';
+
+  if (size)
+    *size = str_size;
+
+  return new_str;
+}
+
+static void c_kv_get(char *src, char **key, char **value, int *key_length,
+                     int *value_length) {
+  char *split = strstr(src, "=");
+
+  int _key_len, _value_len;
+  *key = c_cleaned_str(src, &_key_len, split);
+  *value = c_cleaned_str(split + 1, &_value_len, 0);
+
+  if (key_length) {
+    *key_length = _key_len;
+  }
+
+  if (value_length) {
+    *value_length = _value_len;
+  }
 }
 
 c_table c_get_table(asset_t *asset) {
-  assert(asset->filled);
+  assert(asset);
   assert(asset->data);
-  char *raw_ptr = (char *)asset->data;
-  char *tok;
-  tok = strtok_r(raw_ptr, "\n", &raw_ptr);
 
-  char *raw_data = malloc(sizeof(char) * 512);
+  char *data_ptr = (char *)asset->data;
+  char *line = strtok(data_ptr, "\n");
+
+  char *raw_data = (char *)malloc(sizeof(char) * 512);
   int raw_capacity = 512;
   int raw_count = 0;
 
-  const char **keys = malloc(sizeof(char *) * 16);
-  const char **values = malloc(sizeof(char *) * 16);
+  const char **keys = (char **)malloc(sizeof(char *) * 16);
+  const char **values = (char **)malloc(sizeof(char *) * 16);
   int line_capacity = 16;
   int line_count = 0;
 
-  while (tok) {
-    char *line = tok;
-    strtok(line, "=");
-
+  while (line != NULL) {
     char *key, *value;
 
     int parts = 0;
     int key_length = 0;
     int value_length = 0;
-    while (line) {
-      line = c_cleaned_str(line);
-      if (!parts) {
-        key_length = strlen(line) + 1;
-        key = line;
-        ++parts;
-      } else if (parts) {
-        value_length = strlen(line) + 1;
-        value = line;
 
-        if (line_count == line_capacity) {
-          keys = realloc(keys, sizeof(char *) * (line_capacity + 8));
-          values = realloc(values, sizeof(char *) * (line_capacity + 8));
-          line_capacity += 8;
-        }
-
-        if (raw_count + (key_length + value_length) > raw_capacity) {
-          int difference =
-              (64 + raw_count + key_length + value_length) - raw_capacity;
-          raw_data =
-              realloc(raw_data, sizeof(char) * (raw_capacity + difference));
-          raw_capacity += difference;
-        }
-
-        keys[line_count] = strcpy(&raw_data[raw_count], key);
-        raw_count += key_length;
-
-        values[line_count] = strcpy(&raw_data[raw_count], value);
-        raw_count += value_length;
-
-        ++line_count;
-      }
-
-      line = strtok(NULL, "=");
+    if (line_count == line_capacity) {
+      keys = realloc(keys, sizeof(char *) * (line_capacity + 8));
+      values = realloc(values, sizeof(char *) * (line_capacity + 8));
+      line_capacity += 8;
     }
 
-    tok = strtok_r(NULL, "\n", &raw_ptr);
+    c_kv_get(line, &key, &value, &key_length, &value_length);
+
+    keys[line_count] = key;
+    values[line_count] = value;
+
+    ++line_count;
+    line = strtok(NULL, "\n");
   }
 
   /*for (int i = 0; i < line_count; ++i) {
-    printf("%s:%s\n", keys[i], values[i]);
-  }
-
-  printf("%i lines\n", line_count);*/
+    _l("%s : %s\n", keys[i], values[i]);
+  }*/
 
   return (c_table){keys, values, line_count};
 }

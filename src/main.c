@@ -1,5 +1,6 @@
 #include "platform.h"
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -45,7 +46,8 @@ int init_sys() {
   }
 
   if (target_conf_path) {
-    asset_t *conf_file = asset_get(0, target_conf_path);
+    asset_t *conf_file = asset_get("sys", target_conf_path);
+    assert(conf_file->data);
     conf_table = c_get_table(conf_file);
     conf = c_parse_table(conf_table);
     asset_free(conf_file);
@@ -60,6 +62,7 @@ int init_sys() {
   info.borderless = conf.borderless;
   info.refreshRate = conf.refreshRate;
   info.icon = conf.icon;
+  // info.icon = 0;
   info.gamma = conf.gamma;
 
 #if defined(WINDOW_TITLE)

@@ -1,5 +1,9 @@
-#ifndef DEBUG_H
-#define DEBUG_H
+#ifndef ASTERA_DEBUG_HEADER
+#define ASTERA_DEBUG_HEADER
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 int d_fatal;
 
@@ -16,4 +20,8 @@ void _fatal(const char *format, ...);
 void _l(const char *format, ...);
 void _e(const char *format, ...);
 
+#ifdef __cplusplus
+}
 #endif
+#endif
+

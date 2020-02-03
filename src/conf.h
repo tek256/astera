@@ -1,5 +1,9 @@
-#ifndef CONF_H
-#define CONF_H
+#ifndef ASTERA_CONF_HEADER
+#define ASTERA_CONF_HEADER
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include "asset.h"
 
@@ -44,4 +48,7 @@ int c_allow_audio();
 int c_is_silent();
 int c_is_verbose();
 
+#ifdef __cplusplus
+}
+#endif
 #endif

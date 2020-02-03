@@ -1,5 +1,5 @@
-#ifndef PLAT_H
-#define PLAT_H
+#ifndef ASTERA_PLATFORM_HEADER
+#define ASTERA_PLATFORM_HEADER
 
 // PLATFORM DETECTION
 #if defined(_WIN32)

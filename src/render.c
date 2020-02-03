@@ -257,11 +257,11 @@ void r_cam_set_size(float width, float height) {
 }
 
 void r_cam_update(void) {
-  float x, y;
+  /*float x, y;
   x = floorf(g_camera.pos[0]);
-  y = floorf(g_camera.pos[1]);
+  y = floorf(g_camera.pos[1]);*/
   mat4x4_identity(g_camera.view);
-  mat4x4_translate(g_camera.view, x, y, 0.f);
+  mat4x4_translate(g_camera.view, g_camera.pos[0], g_camera.pos[1], 0.f);
 }
 
 r_framebuffer r_framebuffer_create(uint32_t width, uint32_t height,
@@ -992,6 +992,8 @@ void r_batch_draw(r_shader_batch *batch) {
   r_set_v2(shader, "tex_size", tex_size);
   r_set_m4(shader, "proj", g_camera.proj);
   r_set_m4(shader, "view", g_camera.view);
+
+  // r_set_uniformi(shader, "tex", GL_TEXTURE0);
 
   r_sheet_bind(sheet.id);
 
@@ -2170,10 +2172,22 @@ int r_window_create(r_window_info info) {
     return 0;
   }
 
+  glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+#if defined(__APPLE__)
   glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
+#else
+  glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_FALSE);
+#endif
+
+  /* OpenGL ES 2.0 stuff
+   * glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_ES_API);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);*/
+  // glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+  // glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
 
   GLFWwindow *window = NULL;
   g_window = (r_window){0};
