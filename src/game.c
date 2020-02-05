@@ -180,6 +180,11 @@ int g_init(void) {
   text_rate = 150.f;
   text_count = 0;
   text.use_reveal = 1;
+  text.use_shadow = 1;
+  text.shadow_size = 25.f;
+
+  vec4 text_shadow_color = {0.f, 0.f, 0.f, 0.7f};
+  vec4_dup(text.shadow, text_shadow_color);
 
   text.use_box = 1;
   vec2_clear(text.bounds);
@@ -228,8 +233,14 @@ int g_init(void) {
   vec4 dropdown_color = {0.8f, 0.8f, 0.8f, 0.8f};
   vec4 dropdown_hover_color = {1.f, 1.f, 1.f, 1.f};
   vec4 dropdown_select_color = {1.f, 1.f, 1.f, 1.f};
+  vec4 dropdown_border_color = {0.6f, 0.1f, 0.4f, 1.f};
 
   dropdown = ui_dropdown_create(dropdown_position, dropdown_size, 0, 0);
+
+  dropdown.border_radius = 5.f;
+  dropdown.border_size = 3.f;
+  dropdown.use_border = 1;
+
   ui_dropdown_add_option(&dropdown, "Test");
   ui_dropdown_add_option(&dropdown, "Test2");
   ui_dropdown_add_option(&dropdown, "Test3");
@@ -242,6 +253,9 @@ int g_init(void) {
   dropdown.align = UI_ALIGN_MIDDLE | UI_ALIGN_CENTER;
   dropdown.showing = 1;
   dropdown.option_display = 5;
+
+  vec4_dup(dropdown.border_color, dropdown_border_color);
+  vec4_dup(dropdown.hover_border_color, dropdown_border_color);
 
   vec4_dup(dropdown.bg, dropdown_bg);
   vec4_dup(dropdown.hover_bg, dropdown_hover_bg);
@@ -308,12 +322,12 @@ void g_input(time_s delta) {
   }
 
   event_type = ui_element_event(&tree, dropdown_uid);
-  if (event_type != 0) {
+  if (event_type == 1) {
     if (dropdown.showing) {
-      if (event_type == 1) {
-        ui_dropdown_set_to_cursor(&dropdown);
-        dropdown.showing = 0;
-      }
+      ui_dropdown_set_to_cursor(&dropdown);
+      dropdown.showing = 0;
+    } else if (!dropdown.showing) {
+      dropdown.showing = 1;
     }
   }
 
@@ -432,6 +446,7 @@ void g_render(time_s delta) {
   ui_frame_start();
 
   ui_tree_draw(tree);
+
   ui_frame_end();
 }
 

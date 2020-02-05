@@ -1,10 +1,10 @@
 <div id="header">
-    <p text-align="center">
+    <p align="center">
       <img width="64px" height="64px" style="border-radius: 6px;" src="res/tex/icon.png"><br>
       <b>astera</b><br>
 	  <span font-size="16px">a cross platform game library</span><br>
       <span font-size="12px">Made by <a href="http://tek256.com">Devon</a> with love.</span><br><br>
-      <span><a href="https://github.com/tek256/astera/wiki/Building/">Building</a> | <a href="https://github.com/tek256/astera/tree/master/tool">Tools</a> | <a href="https://discordapp.com/invite/63GvpMh">Discord</a> | <a href="https://github.com/sponsors/tek256">Support</a></span>
+      <span><a href="https://github.com/tek256/astera/wiki/Setup">Setup</a> | <a href="https://github.com/tek256/astera/tree/master/docs/examples/">Examples</a> | <a href="https://discordapp.com/invite/63GvpMh">Discord</a> | <a href="https://github.com/sponsors/tek256">Support</a></span>
     </p>
 </div>
 
@@ -19,7 +19,7 @@ Please note that at this stage, the library is not at a stable release candidate
 For more information see the relevant [wiki page](https://github.com/tek256/astera/wiki/Building).
 
 ### Libraries Used
-Note: All dependencies are bundled with Astera. You should be able to run thru the build process relatively easily.
+_Note: All dependencies are bundled with Astera._  
 [GLFW](https://github.com/glfw/glfw), [OpenAL-Soft](https://github.com/kcat/openal-soft), [GLAD](https://github.com/Dav1dde/glad), [STB](https://github.com/nothings/stb/) Image & Vorbis, [nanovg](https://github.com/memononen/nanovg), and [ZIP](https://github.com/kuba--/zip)
 
 ### Target Platforms
@@ -33,21 +33,27 @@ Here are the target platforms for this library:
 ```  
 These are some potential future targets:  
 ```
--Android
--Nintendo Switch
--iOS
--OpenGL ES 2.0
+- Android
+- Nintendo Switch
+- iOS
+- OpenGL ES 2.0
 ```
 
 ### Changelog
 ```
+Feb 5, 2020
+- Largely Documentation
+- Converted Documentation to Markdown & Legible formatting
+- Moved `examples/` into `docs/`
+- Updated scripts in `tool` for usability & legibility
+x Working on level management & collision detection
+x Working on library style makefile
 Feb 3, 2020
 - 0.01 PRE-Release
 - Asset Streaming changes
 - Wave file playing
 - Pedantic cleaning
 - UI Finished
-x Working on level management & collision detection
 Jan 16, 2020
 - Prepping for 0.01 Release
 - Rendering changes

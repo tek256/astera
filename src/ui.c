@@ -619,12 +619,14 @@ uint32_t ui_tree_check(ui_tree *tree) {
 
   while (cursor) {
     if (cursor->selectable) {
-      int16_t hovered = ui_element_contains(cursor->element, mouse_pos) - 1;
+      int16_t hovered = ui_element_contains(cursor->element, mouse_pos);
 
       if (cursor->element.type == UI_DROPDOWN && hovered > -1) {
         ui_dropdown *dropdown = (ui_dropdown *)cursor->element.data;
         if (dropdown->showing) {
-          dropdown->cursor = hovered;
+          dropdown->cursor = hovered - 1;
+        } else {
+          hovered += 1;
         }
       }
 
@@ -902,27 +904,25 @@ void ui_dropdown_draw(ui_dropdown *dropdown, int8_t focused) {
 
       nvgStroke(g_ui_ctx.nvg);
     }
-  } else {
-    if (focused) {
-      nvgFillColor(g_ui_ctx.nvg, ui_vec4_color(dropdown->hover_bg));
-    } else {
-      nvgFillColor(g_ui_ctx.nvg, ui_vec4_color(dropdown->bg));
-    }
-
-    if (dropdown->border_radius != 0.f) {
-      nvgRoundedRect(g_ui_ctx.nvg, dropdown_position[0], dropdown_position[1],
-                     dropdown_size[0], dropdown_size[1],
-                     dropdown->border_radius);
-    } else {
-      nvgRect(g_ui_ctx.nvg, dropdown_position[0], dropdown_position[1],
-              dropdown_size[0], dropdown_size[1]);
-    }
-
-    nvgFill(g_ui_ctx.nvg);
   }
 
+  if (focused) {
+    nvgFillColor(g_ui_ctx.nvg, ui_vec4_color(dropdown->hover_bg));
+  } else {
+    nvgFillColor(g_ui_ctx.nvg, ui_vec4_color(dropdown->bg));
+  }
+
+  if (dropdown->border_radius != 0.f) {
+    nvgRoundedRect(g_ui_ctx.nvg, dropdown_position[0], dropdown_position[1],
+                   dropdown_size[0], dropdown_size[1], dropdown->border_radius);
+  } else {
+    nvgRect(g_ui_ctx.nvg, dropdown_position[0], dropdown_position[1],
+            dropdown_size[0], dropdown_size[1]);
+  }
+
+  nvgFill(g_ui_ctx.nvg);
+
   // Showing options
-  // nvgTextLineHeight(g_ui_ctx.nvg, option_size[1]);
   nvgFontSize(g_ui_ctx.nvg, dropdown->font_size);
   nvgFontFaceId(g_ui_ctx.nvg, dropdown->font);
   nvgTextAlign(g_ui_ctx.nvg, dropdown->align);
@@ -1864,6 +1864,9 @@ void ui_dropdown_prev(ui_dropdown *dropdown) {
 }
 
 void ui_dropdown_set_to_cursor(ui_dropdown *dropdown) {
+  if (dropdown->selected != dropdown->cursor) {
+    dropdown->has_change = 1;
+  }
   dropdown->selected = dropdown->cursor;
 }
 
@@ -1939,6 +1942,8 @@ uint32_t ui_tree_select(ui_tree *tree, int32_t event_type) {
         ui_dropdown *dropdown = (ui_dropdown *)tree->mouse_hover->element.data;
         if (selection > 0 && dropdown->showing) {
           ui_dropdown_set(dropdown, selection);
+        } else if (selection > 0 && !dropdown->showing) {
+          dropdown->showing = 1;
         }
       }
 

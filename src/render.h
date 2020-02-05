@@ -14,9 +14,9 @@ extern "C" {
 #include <stdint.h>
 
 typedef struct {
-  int allowed;
-  int scaled;
-  int video_mode_count;
+  int allowed : 1;
+  int scaled : 1;
+  uint16_t video_mode_count;
 } r_flags;
 
 typedef struct {

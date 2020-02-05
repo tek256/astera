@@ -200,23 +200,27 @@ LINMATH_H_FUNC int vec4_within_bounds(const vec4 bounds, const vec4 point) {
 // Return the overlap of b over a
 LINMATH_H_FUNC int vec4_bound_overlap(vec2 overlap, const vec4 a,
                                       const vec4 b) {
+  vec2 tmp;
   if (a[0] > b[0] && a[0] < b[2]) {
     // left -> inside
-    overlap[0] = a[2] - b[0];
+    tmp[0] = a[2] - b[0];
   } else if (a[2] > b[0] && a[2] < b[2]) {
     // right -> inside
-    overlap[0] = -(b[2] - a[0]);
+    tmp[0] = -(b[2] - a[0]);
   }
 
   if (a[1] > b[1] && a[1] < b[1]) {
     // top -> inside
-    overlap[1] = b[3] - a[1];
+    tmp[1] = b[3] - a[1];
   } else if (a[3] > b[1] && a[3] < b[3]) {
     // bottom -> inside
-    overlap[1] = -(a[3] - b[1]);
+    tmp[1] = -(a[3] - b[1]);
   }
 
-  if (vec2_nonzero(overlap)) {
+  if (vec2_nonzero(tmp)) {
+    if (overlap) {
+      vec2_dup(overlap, tmp);
+    }
     return 1;
   }
 

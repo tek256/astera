@@ -1016,7 +1016,7 @@ void r_batch_draw(r_shader_batch *batch) {
 
 int r_batch_count(void) {
   int count = 0;
-  for (int i = 0; i < g_shader_map.batch_capacity; ++i) {
+  for (uint32_t i = 0; i < g_shader_map.batch_capacity; ++i) {
     if (g_shader_map.batches[i].used) {
       ++count;
     }
@@ -1025,14 +1025,14 @@ int r_batch_count(void) {
 }
 
 void r_batch_info(void) {
-  for (int i = 0; i < g_shader_map.batch_capacity; ++i) {
+  for (uint32_t i = 0; i < g_shader_map.batch_capacity; ++i) {
     _l("Shader: %i\n", g_shader_map.batches[i].shader);
   }
 }
 
 int r_sprite_draw_count(void) {
   int count = 0;
-  for (int i = 0; i < g_shader_map.batch_capacity; ++i) {
+  for (uint32_t i = 0; i < g_shader_map.batch_capacity; ++i) {
     if (g_shader_map.batches[i].used) {
       count += g_shader_map.batches[i].sprite_count;
     }
@@ -1041,7 +1041,7 @@ int r_sprite_draw_count(void) {
 }
 
 void r_batch_clear(r_shader_batch *batch) {
-  for (int i = 0; i < batch->uniform_array_count; ++i) {
+  for (uint32_t i = 0; i < batch->uniform_array_count; ++i) {
     r_shader_clear_array(&batch->uniform_arrays[i]);
   }
 
@@ -1163,7 +1163,7 @@ void r_shader_cache(r_shader shader, const char *name) {
 }
 
 void r_shader_clear_arrays(r_shader shader) {
-  for (int i = 0; i < g_shader_map.capacity * 2; ++i) {
+  for (uint32_t i = 0; i < g_shader_map.capacity * 2; ++i) {
     if (g_shader_map.batches[i].shader == shader) {
       for (int j = 0; j < g_shader_map.batches[i].uniform_array_count; ++j) {
         r_shader_clear_array(&g_shader_map.batches[i].uniform_arrays[j]);
@@ -1252,10 +1252,10 @@ void r_batch_destroy(r_shader shader, r_sheet sheet) {
 }
 
 void r_batch_destroy_all(r_shader shader) {
-  for (int i = 0; i < g_shader_map.batch_capacity; ++i) {
+  for (uint32_t i = 0; i < g_shader_map.batch_capacity; ++i) {
     r_shader_batch *batch = &g_shader_map.batches[i];
     if (batch->shader == shader) {
-      for (unsigned int i = 0; i < batch->uniform_array_count; ++i) {
+      for (uint32_t i = 0; i < batch->uniform_array_count; ++i) {
         switch (batch->uniform_arrays[i].type) {
         case r_int:
           free(batch->uniform_arrays[i].data.int_ptr);
@@ -1287,7 +1287,7 @@ void r_batch_destroy_all(r_shader shader) {
 
 r_shader_batch *r_batch_create(r_shader shader, r_sheet sheet) {
   r_shader_batch *batch = 0;
-  for (int i = 0; i < g_shader_map.batch_capacity; ++i) {
+  for (uint32_t i = 0; i < g_shader_map.batch_capacity; ++i) {
     if (!g_shader_map.batches[i].used) {
       batch = &g_shader_map.batches[i];
       break;
