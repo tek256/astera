@@ -1,6 +1,6 @@
 name: Build Source & Examples - Linux
 
-on [push, pull_request]
+on: [push, pull_request]
 
 jobs:
   build:
