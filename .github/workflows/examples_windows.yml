@@ -1,4 +1,4 @@
-name: Build Source & Examples - Windows
+name: Build All [Windows]
 
 on: [push, pull_request]
 

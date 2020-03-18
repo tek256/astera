@@ -1,4 +1,4 @@
-name: Build Source & Examples - Linux
+name: Build All [Linux]
 
 on: [push, pull_request]
 

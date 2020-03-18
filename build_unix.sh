@@ -78,6 +78,22 @@ build_cleanup() {
       fi
       rm -rf include/astera
     fi
+    
+    # If the GLFW headers exist, then remove them
+    if [ -d "include/GLFW" ]; then
+       if [ -z "$QUIET" ]; then
+         echo "CLEANUP: Removing GLFW headers"
+      fi
+      rm -rf include/GLFW
+    fi
+
+    # If the OpenAL-Soft headers exist, then remove them
+    if [ -d "include/AL" ]; then
+       if [ -z "$QUIET" ]; then
+         echo "CLEANUP: Removing OpenAL-Soft headers"
+      fi
+      rm -rf include/AL
+    fi
 
     # Check if the include folder is empty, if so, remove it.
     if [ -z "$(ls -A include)" ]; then

@@ -1,4 +1,4 @@
-name: Build Source & Examples - Mac OSX
+name: Build All [OSX]
 
 on: [push, pull_request]
 

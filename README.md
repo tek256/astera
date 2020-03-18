@@ -18,15 +18,15 @@ Please note that at this stage the library is not at a stable release candidate.
 
 Both of the build scripts have the same arguments.
 ```
-Usage build_unix.sh && build_win.sh [-hardics]
--h Show this info"
--a  Build all (deps, headers, examples)"
--r  Build release (DEFAULT, optimizations, -O2)"
--d  Build debug (-g, no optimmizations)"
--i  Build include headers"
--e  Build examples"
--c  Build clean (remove previous binarys / builds)"
--s  Build static library"
+Usage build_unix.sh && build_win.sh [-hardiecsnxqq]
+-h  Show this info
+-a  Build all (deps, headers, examples)
+-r  Build release (DEFAULT, optimizations, -O2)
+-d  Build debug (-g, no optimmizations)
+-i  Build include headers
+-e  Build examples
+-c  Build clean (remove previous binarys / builds)
+-s  Build static library
 -n  Don't rebuild dependencies
 -x  Don't build astera
 -q  Quiet output
