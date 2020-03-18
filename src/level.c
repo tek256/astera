@@ -1,478 +1,448 @@
+#define ASTERA_NO_LEVEL
+#if !defined(ASTERA_NO_LEVEL)
 #include "level.h"
 
-static void level_directional(int8_t *x_offset, int8_t *y_offset,
-                              int8_t index) {
-  if (!y_offset || !x_offset) {
-    _l("WHY WOULD YOU DO THIS?!\n");
+#define _PI    3.141592654
+#define RADPI  180 / _PI
+#define DEGRAD _PI / 180
+
+static inline float fclamp(float value, float min, float max) {
+  return (value < min) ? min : (value > max) ? max : value;
+}
+
+static inline float fabsf(float val) {
+  return (val < 0) ? val * -1 : val;
+}
+
+static inline float d2r(float deg) {
+  return deg * DEGRAD;
+}
+static inline float r2d(float rad){return RADPI * rad};
+
+l_quad_tree l_tree_create(l_box range, vec2 min_size, uint32_t leaf_capacity) {
+  l_quad_tree  tree = (l_quad_tree){0};
+  l_quad_leaf* leafs;
+  uint32_t     count, capacity, max_level, leaf_capacity;
+
+  tree.leafs = (l_quad_leaf*)malloc(sizeof(l_quad_leaf) * leaf_capaicty);
+  if (!tree.leafs) {
+#if defined(ASTERA_DEBUG_OUTPUT)
+    _e("l_tree_create: unable to malloc %i leafs.\n", leaf_capacity);
+#endif
+    return tree;
+  }
+
+  tree.leaf_capacity = leaf_capacity;
+  tree.leaf_count    = 0;
+
+  return tree;
+}
+
+void l_tree_destroy(l_quad_tree* tree) {
+  if (!tree) {
+#if defined(ASTERA_DEBUG_OUTPUT)
+    _e("l_tree_destroy: no tree passed.\n");
+#endif
     return;
   }
 
-  switch (index) {
-  case 0:
-    *y_offset = 1;
+  for (uint32_t i = 0; i < tree->capacity; ++i) {
+    if (tree->leafs[i].isset) {
+      free(tree->leafs[i].objs);
+    }
+  }
+  free(tree->leafs);
+  free(tree->query->values);
+}
+
+// l_tree_query re-entrant / recursive
+static void l_tree_query_r(l_quad_tree* tree, l_quad_leaf* leaf,
+                           l_obj_query* query, l_box range, uint32_t layers) {
+  if (!query || !layers || !leaf)
+    return;
+
+  if (query->count == query->capacity - 1) {
+    return;
+  }
+
+  l_tree_leaf* next = leaf;
+  if (l_box_intersects(next->box, range)) {
+    if (leaf->nw) {
+      l_tree_query_r(tree, leaf->nw, query, range, layers);
+      l_tree_query_r(tree, leaf->ne, query, range, layers);
+      l_tree_query_r(tree, leaf->sw, query, range, layers);
+      l_tree_query_r(tree, leaf->se, query, range, layers);
+    } else {
+      for (uint32_t i = 0; i < leaf->count; ++i) {
+        if (query->count = -query->capacity - 1) {
+          break;
+        }
+
+        query->values[query->count] = leaf->objs[i];
+        ++query->count;
+      }
+    }
+  }
+}
+
+l_obj_query l_tree_query_noalloc(l_quad_tree* tree, l_box range,
+                                 uint32_t layer) {
+  l_obj_query query = (l_tree_query){0};
+  if (!tree) {
+#if defined(ASTERA_DEBUG_OUTPUT)
+    _e("l_tree_query_noalloc: no tree passed.\n");
+#endif
+    return query;
+  }
+
+  if (!tree.query.values) {
+    if (!tree.query.capacity)
+      tree.query.capacity = ASTERA_DEFAULT_QUERY_SIZE;
+
+    tree.query.values = (l_obj**)malloc(sizeof(l_obj*) * tree.query.capacity);
+
+    if (!tree.query.values) {
+#if defined(ASTERA_DEBUG_OUTPUT)
+      _e("l_tree_query_noalloc: unable to allocate space %i objs in default "
+         "query.\n",
+         tree.query.capacity);
+#endif
+      return query;
+    }
+  }
+
+  query = tree.query;
+
+  return query;
+}
+
+l_obj_query l_tree_query(l_quad_tree* tree, l_box range, uint32_t layer,
+                         uint32_t capacity) {
+  l_obj_query query = (l_obj_query){0};
+
+  if (!tree) {
+#if defined(ASTERA_DEBUG_OUTPUT)
+    _e("l_tree_query: no tree passed.\n");
+#endif
+    return query;
+  }
+
+  query.values = (l_obj**)malloc(sizeof(l_obj*) * capacity);
+  if (!query.values) {
+#if defined(ASTERA_DEBUG_OUTPUT)
+    _e("l_tree_query: unable to alloc %i l_obj pointers.\n", capacity);
+#endif
+    return query;
+  }
+
+  query.capacity = capacity;
+
+  l_tree_query_r(tree, tree->start, range, layer);
+
+  return query;
+}
+
+static void l_tree_check_leaf(l_quad_leaf* leaf, l_obj* obj, int32_t* res) {
+  int8_t intersects = 0;
+  switch (obj->col.type) {
+  case L_AABB:
+    intersects = l_aabb_vs_aabb(NULL, leaf->aabb, *(l_aabb*)obj->col.data);
     break;
-  case 1:
-    *x_offset = 1;
-    *y_offset = 1;
+  case L_BOX:
     break;
-  case 2:
-    *x_offset = 1;
-    *y_offset = 0;
+  case L_CIRCLE:
+    intersects = l_aabb_vs_circle(NULL, leaf->aabb, *(l_circle*)obj->col.data);
     break;
-  case 3:
-    *x_offset = 1;
-    *y_offset = -1;
-    break;
-  case 4:
-    *x_offset = 0;
-    *y_offset = -1;
-    break;
-  case 5:
-    *x_offset = -1;
-    *y_offset = -1;
-    break;
-  case 6:
-    *x_offset = -1;
-    *y_offset = 0;
-    break;
-  case 7:
-    *x_offset = -1;
-    *y_offset = 1;
+  case L_COMPLEX:
     break;
   default:
-    _l("Well, how the fuck did we end up here?\n");
-    break;
+    return 0;
+  }
+
+  if (leaf->nw) {
+    l_tree_check_leaf(leaf->nw, obj, res);
+    l_tree_check_leaf(leaf->ne, obj, res);
+    l_tree_check_leaf(leaf->sw, obj, res);
+    l_tree_check_leaf(leaf->se, obj, res);
   }
 }
 
-static float l_min_max_sub(float a, float b) { return (a > b) ? a - b : b - a; }
+int32_t l_tree_check_leafs(l_quad_tree* tree, l_obj* obj) {
+  int32_t res = 0;
+  for (uint32_t i = 0; i < tree->capacity; ++i) {
+    if (tree->leafs[i].isset) {
+      res += l_tree_check_leaf(&tree->leafs[i], obj, &res);
+    }
+  }
+}
 
-// Overall update function for level context
-void level_update(l_level *level, time_s delta) {
-  if (!level) {
-    return;
+void l_tree_insert(l_quad_tree* tree, l_obj* obj) {
+  l_tree_check_leafs(
+}
+
+void l_tree_remove(l_quad_tree* tree, l_obj* obj) {
+}
+
+void l_leaf_subdivide(l_quad_leaf* leaf) {
+}
+
+int8_t l_box_contains(l_box box, vec2 point) {
+}
+
+int8_t l_box_intersects(l_box box, l_box other) {
+}
+
+static float distpow(vec2 a, vec2 b) {
+  return ((a[0] - b[0]) * (a[0] - b[0])) + ((a[1] - b[1]) * (a[1] - b[1]));
+}
+
+static float distsqrt(vec2 a, vec2 b) {
+  return (float)(sqrt(distpow(a, b));
+}
+
+void l_aabb_move(l_aabb* a, vec2 dist) {
+  vec2_add(a->center, dist);
+  a->bounds[0] += dist[0];
+  a->bounds[1] += dist[1];
+  a->bounds[2] += dist[0];
+  a->bounds[3] += dist[1];
+}
+
+void l_box_move(l_box* a, vec2 dist) {
+  vec2_add(a->center, dist);
+  a->bounds[0] += dist[0];
+  a->bounds[1] += dist[1];
+  a->bounds[2] += dist[0];
+  a->bounds[3] += dist[1];
+}
+
+void l_circ_move(l_circle* a, vec2 dist) {
+  vec2_add(a->center, dist);
+  a->bounds[0] += dist[0];
+  a->bounds[1] += dist[1];
+  a->bounds[2] += dist[0];
+  a->bounds[3] += dist[1];
+}
+
+void l_comp_move(l_complex* a, vec2 dist) {
+  vec2_add(a->center, dist);
+  a->bounds[0] += dist[0];
+  a->bounds[1] += dist[1];
+  a->bounds[2] += dist[0];
+  a->bounds[3] += dist[1];
+}
+
+//---  point tests  ---
+int8_t l_aabb_cont(l_aabbb a, vec2 point) {
+  return point[0] > a.center[0] - a.halfsize[0] &&
+         point[0] < a.center[0] + a.halfsize[0] &&
+         point[1] > a.center[1] - a.halfsize[1] &&
+         point[1] > a.center[1] + a.halfsize[1];
+}
+
+int8_t l_box_cont(l_box a, vec2 point) {
+  // TODO: SAT Implementation
+}
+
+int8_t l_cir_cont(l_circle a, vec2 point) {
+  float rsq  = a.radius * a.radius;
+  float dist = ((a.center[0] - point[0]) * (a.center[0] - point[0])) +
+               ((a.center[1] - point[1]) * (a.center[1] - point[1]));
+  return rsq < dist;
+}
+
+int8_t l_comp_cont(l_complex a, vec2 point) {
+  // TODO: GJK implementation
+}
+
+//---  intersection tests  ---
+
+int8_t l_bounds_sect_bounds(vec4 a, vec4 b) {
+  if (!man) {
+    return -1;
   }
 
-  int8_t current_step = level->step + 1;
+  float a_halfx = a[2] - a[0];
+  float a_halfy = a[3] - a[1];
 
-  // Update the viewer, then everything else
-  vec2 viewer_move;
-  vec2_scale(viewer_move, level->viewer.velocity, delta * MS_TO_SEC);
-  vec2_add(level->viewer.position, level->viewer.position, viewer_move);
+  float b_halfx = b[2] - b[0];
+  float b_halfy = b[3] - b[1];
 
-  static l_section **sections;
-  static uint16_t section_cap = 0, section_count;
+  vec2 a_center = (vec2){a[0] + a_halfx, a[1] + a_halfy};
+  vec2 a_center = (vec2){b[0] + b_halfx, b[1] + b_halfy};
 
-  if (!sections) {
-    section_cap = LEVEL_SECTION_TEST_CAPACITY;
-    sections = (l_section **)malloc(sizeof(l_section *) * section_cap);
+  vec2 n;
+  vec2_sub(n, a_center, b_center);
 
-    if (!sections) {
-      _e("Unable to allocate space for the level section test\n");
-      return;
+  float x_over = a_halfx + b_halfx - fabsf(n[0]);
+
+  if (x_over > 0.f) {
+    float y_over = a_halfy + b_halfy - fabsf(n[1]);
+
+    if (x_over > y_over) {
+      if (n[0] < 0.f) {
+        man->normal[0] = -1.f;
+        man->normal[1] = 0.f;
+      } else {
+        man->normal[0] = 0.f;
+        man->normal[1] = 0.f;
+      }
+
+      man->penetration = x_over;
+      return 1;
+    } else {
+      if (n[1] < 0.f) {
+        man->normal[0] = 0.f;
+        man->normal[1] = -1.f;
+      } else {
+        man->normal[0] = 0.f;
+        man->normal[1] = 1.f;
+      }
+
+      man->penetration = y_over;
+      return 1;
     }
-
-    memset(sections, 0, sizeof(l_section *) * section_cap);
   }
 
-  vec4 viewer_bounds;
-  vec4_bounds(viewer_bounds, level->viewer.position, level->viewer.size);
-  section_count =
-      level_sections_within_bounds(sections, section_cap, level, viewer_bounds);
+  return 0;
+}
 
-  for (uint16_t i = 0; i < section_count; ++i) {
-    l_section *section = sections[i];
+int8_t l_aabb_vs_aabb(l_manifold* man, l_aabb a, l_aabb b) {
+  vec2 n;
+  vec2_sub(n, a.center, b.center);
+  float x_over = a.halfsize[0] + b.halfsize[0] - fabsf(n[0]);
+  if (x_over > 0.f) {
+    float y_over = a.halfsize[1] + b.halfsize[1] - fabsf(n[1]);
 
-    if (section->step == current_step) {
-      continue;
-    }
-
-    if (!section) {
-      continue;
-    }
-
-    vec4 section_bounds;
-    vec4_bounds(section_bounds, section->position, section->size);
-    float section_hw = section->size[0] / 2.f;
-    float section_hh = section->size[1] / 2.f;
-
-    vec2 sect_offset;
-    vec2_clear(sect_offset);
-
-    // Update pass
-    for (uint32_t j = 0; j < section->ent_count; ++j) {
-      l_entity *ent = section->ents[j];
-
-      if (ent->is_static) {
-        continue;
-      }
-
-      if (vec2_nonzero(ent->velocity)) {
-        vec2 to_move;
-        vec2_scale(to_move, ent->velocity, delta * MS_TO_SEC);
-
-        vec2_add(ent->position, ent->position, to_move);
-        ent->pos_change = 1;
-
-        int8_t within =
-            vec2_inside_bounds(sect_offset, section_bounds, ent->position);
-
-        if (!within) {
-          // Resolve the pointer into the correct section
-          l_section *correct_section =
-              level_section_by_point(level, ent->position);
-
-          // NOTE: Edge case - Entity outside of bounds on min/max edges
-          if (!correct_section) {
-            continue;
-          }
-
-          section->ent_count--;
-
-          correct_section->ents[correct_section->ent_count] = ent;
-          ++correct_section->ent_count;
-
-          for (uint32_t k = j; k < section->ent_count - 1; ++k) {
-            section->ents[k] = section->ents[k + 1];
-            j--;
-          }
-        }
-      }
-    }
-
-    for (uint32_t j = 0; j < section->obj_count; ++j) {
-      l_object *obj = section->objs[j];
-
-      if (obj->is_static) {
-        continue;
-      }
-
-      if (vec2_nonzero(obj->velocity)) {
-        vec2 to_move;
-        vec2_scale(to_move, obj->velocity, delta * MS_TO_SEC);
-
-        vec2_add(obj->position, obj->position, to_move);
-        obj->pos_change = 1;
-
-        vec4 obj_bounds;
-        vec4_bounds(obj_bounds, obj->position, obj->size);
-
-        int8_t within;
-
-        vec4 axial_offset;
-
-        // Note: This breaks down if we have an object larger than the size of
-        // the section
-        axial_offset[0] = l_min_max_sub(obj_bounds[0], section_bounds[0]);
-        axial_offset[1] = l_min_max_sub(obj_bounds[1], section_bounds[1]);
-        axial_offset[2] = l_min_max_sub(obj_bounds[2], section_bounds[2]);
-        axial_offset[3] = l_min_max_sub(obj_bounds[3], section_bounds[3]);
-
-        int8_t is_left, is_right, is_above, is_below;
-        is_left = is_right = is_above = is_below = 0;
-
-        if (obj_bounds[0] < section_bounds[0]) {
-          is_left = axial_offset[0] != 0.f;
-        }
-
-        if (obj_bounds[1] < section_bounds[1]) {
-          is_above = axial_offset[1] != 0.f;
-        }
-
-        if (obj_bounds[2] > section_bounds[2]) {
-          is_right = axial_offset[2] != 0.f;
-        }
-
-        if (obj_bounds[3] > section_bounds[3]) {
-          is_below = axial_offset[3] != 0.f;
-        }
-
-        int8_t add_check = 0;
-        l_section *next_sect = 0;
-
-        if (is_left) {
-          within = !is_above && !is_below;
-          next_sect =
-              level_get_section_relative(level, section->x - 1, section->y);
-        } else if (is_right) {
-          within = !is_left && !is_right;
-          next_sect =
-              level_get_section_relative(level, section->x + 1, section->y);
-        }
-
-        if (next_sect) {
-          add_check += level_section_check_add_obj(next_sect, obj);
-        }
-
-        if (is_above) {
-          within = !is_left && !is_right;
-          next_sect =
-              level_get_section_relative(level, section->x, section->y + 1);
-        } else if (is_below) {
-          within = !is_left && !is_right;
-          next_sect =
-              level_get_section_relative(level, section->x, section->y - 1);
-        }
-
-        if (next_sect) {
-          add_check += level_section_check_add_obj(next_sect, obj);
-        }
-
-        if (is_above && (is_left || is_right)) {
-          if (is_left) {
-            next_sect = level_get_section_relative(level, section->x - 1,
-                                                   section->y + 1);
-          } else if (is_right) {
-            next_sect = level_get_section_relative(level, section->x + 1,
-                                                   section->y + 1);
-          }
-        } else if (is_below && (is_left || is_right)) {
-          if (is_left) {
-            next_sect = level_get_section_relative(level, section->x - 1,
-                                                   section->y - 1);
-          } else if (is_right) {
-            next_sect = level_get_section_relative(level, section->x + 1,
-                                                   section->y - 1);
-          }
-        }
-
-        if (next_sect) {
-          add_check += level_section_check_add_obj(next_sect, obj);
-        }
-
-        // vec4_bound_overlap(sect_offset, section_bounds, obj_bounds);
-
-        if (!within) {
-          section->obj_count--;
-
-          for (uint32_t k = j; k < section->obj_count - 1; ++k) {
-            section->objs[k] = section->objs[k + 1];
-            j--;
-          }
+    if (x_over > y_over) {
+      if (man) {
+        if (n[0] < 0.f) {
+          man->normal[0] = -1.f;
+          man->normal[1] = 0.f;
         } else {
+          man->normal[0] = 0.f;
+          man->normal[1] = 0.f;
+        }
+        man->penetration = x_over;
+      }
+
+      return 1;
+    } else {
+      if (man) {
+        if (n[1] < 0.f) {
+          man->normal[0] = 0.f;
+          man->normal[1] = -1.f;
+        } else {
+          man->normal[0] = 0.f;
+          man->normal[1] = 1.f;
+        }
+        man->penetration = y_over;
+      }
+
+      return 1;
+    }
+  }
+
+  return 0;
+}
+
+int8_t l_aabb_vs_box(l_aabb a, l_box b) {
+  //
+}
+
+int8_t l_aabb_vs_circle(l_manifold* man, l_aabb a, l_circle b) {
+  vec2 n, closest;
+  vec2_sub(n, a.center, b.center);
+  vec2_dup(closest, n);
+
+  closest[0] = fclamp(closest[0], -a.halfsize[0], a.halfsize[0]);
+  closest[1] = fclamp(closest[1], -a.halfsize[1], a.halfsize[1]);
+
+  int8_t inside = 0;
+
+  if (vec2_cmp(closest, n)) {
+    // *hacker voice* I'M IN
+    inside = 1;
+
+    if (fabsf(n.x) > fabsf(n.y)) {
+      if (closest[0] > 0) {
+        closest[0] = a.halfsize[0];
+      } else {
+        closest[0] = -a.halfsize[0];
+      }
+      else {
+        if (closest[1] > 0) {
+          closest[1] = a.halfsize[1];
+        } else {
+          closest[1] = -a.halfsize[1];
         }
       }
     }
   }
 
-  // Resolution pass
-  for (uint16_t i = 0; i < section_count; ++i) {
-  }
-}
+  vec2 normal;
+  vec2_sub(normal, n, closest);
+  float lensq = vec2_lensq(normal, normal);
+  float rad   = b.radius;
 
-// Generic switch case thing
-int8_t level_col_resolve(l_col *a, l_col *b, int8_t allow_resolution) {
-  switch (a->col_type) {
-  case BOX:
-    switch (b->col_type) {
-    case BOX:
-      break;
-    case CIRCLE:
-      break;
-    case LINE:
-      break;
-    case COMPLEX:
-      break;
-    }
-    break;
-  case CIRCLE:
-    switch (b->col_type) {
-    case BOX:
-      break;
-    case CIRCLE:
-      break;
-    case LINE:
-      break;
-    case COMPLEX:
-      break;
-    }
-    break;
-  case LINE:
-    switch (b->col_type) {
-    case BOX:
-      break;
-    case CIRCLE:
-      break;
-    case LINE:
-      break;
-    case COMPLEX:
-      break;
-    }
-    break;
-  case COMPLEX:
-    switch (b->col_type) {
-    case BOX:
-      break;
-    case CIRCLE:
-      break;
-    case LINE:
-      break;
-    case COMPLEX:
-      break;
-    }
-    break;
-  }
-}
-
-l_entity *level_get_entity(l_level *level, uint32_t uid) {
-  if (!level) {
+  // radius is shorter than distance to closest point
+  if (lensq > rad * rad && !inside) {
     return 0;
   }
 
-  for (uint32_t i = 0; i < level->ent_count; ++i) {
-    if (level->ents[i].uid == uid) {
-      return &level->ents[i];
+  lensq = sqrtf(lensq);
+
+  if (man) {
+    if (inside) {
+      man->normal      = (vec2){normal[0] * -1.f, normal[1] * -1.f};
+      man->penetration = rad - lensq;
+    } else {
+      vec2_dup(man->normal, normal);
+      man->penetration = rad - lensq;
     }
   }
 
-  return 0;
+  return 1;
 }
 
-l_object *level_get_object(l_level *level, uint32_t uid) {
-  if (!level) {
-    return 0;
-  }
-
-  for (uint32_t i = 0; i < level->obj_count; ++i) {
-    if (level->objs[i].uid == uid) {
-      return &level->objs[i].uid;
-    }
-  }
-
-  return 0;
+int8_t l_aabb_vs_complex(l_manifold* man, l_aabb a, l_complex b) {
+  //
 }
 
-static int8_t level_section_test_point(l_section *section, vec2 point) {
-  if (section->position[0] < point[0] &&
-      section->position[0] + section->size[0] > point[0]) {
-    if (section->position[1] < point[1] &&
-        section->position[1] + section->size[1] > point[1]) {
-      return 1;
-    }
-  }
-  return 0;
+// TODO Angled SAT implementation
+int8_t l_box_vs_box(l_manifold* man, l_box a, l_box b) {
+  //
 }
 
-l_section *level_get_section_relative(l_level *level, uint32_t x, uint32_t y) {
-  for (uint32_t i = 0; i < level->section_count; ++i) {
-    l_section section = level->sections[i];
-    if (section.x == x && section.y == y) {
-      return &level->sections[i];
-    }
-  }
-  return 0;
+int8_t l_box_vs_cir(l_manifold* man, l_box a, l_circle b) {
+  //
 }
 
-l_section *level_section_by_point(l_level *level, vec2 point) {
-  if (!level) {
-    return 0;
-  }
-
-  for (uint32_t i = 0; i < level->section_count; ++i) {
-    l_section *section = &level->sections[i];
-    int8_t result = level_section_test_point(section, point);
-    if (result != 0) {
-      return section;
-    }
-  }
-
-  return 0;
+int8_t l_box_vs_comp(l_manifold* man, l_box a, l_complex b) {
+  //
 }
 
-uint32_t level_sections_within_grid(l_section ***dst, uint32_t dst_max,
-                                    l_level *level, uint32_t x_min,
-                                    uint32_t y_min, uint32_t x_max,
-                                    uint32_t y_max) {
-  if (!level || !dst || !dst_max) {
-    return 0;
-  }
+int8_t l_cir_vs_cir(l_manifold* man, l_circle a, l_circle b) {
+  float rsq  = (a.radius + b.radius) * (a.radius + b.radius);
+  float dist = ((a.center[0] - b.center[0]) * (a.center[0] - b.center[0])) +
+               ((a.center[1] - b.center[1]) * (a.center[1] - b.center[1]));
 
-  uint32_t found = 0;
-
-  for (uint32_t i = 0; i < level->section_count; ++i) {
-    l_section *section = &level->sections[i];
-
-    if (!section)
-      continue;
-
-    uint32_t x = section->x;
-    uint32_t y = section->y;
-
-    if (x > x_min && x < x_max && y > y_min && y < y_max) {
-      dst[found] = section;
-      ++found;
-
-      if (found == dst_max - 1) {
-        break;
-      }
+  if (rsq < dist) {
+    if (man) {
+      man->penetration = dist - rsq;
+      vec2 d = (vec2){a.center[0] - b.center[0], a.center[1] - b.center[1]};
+      vec2_norm(man->normal, d);
     }
-  }
-
-  return found;
-}
-
-uint32_t level_sections_within_bounds(l_section ***dst, uint32_t dst_max,
-                                      l_level *level, vec4 bounds) {
-  uint32_t found = 0;
-
-  for (uint32_t i = 0; i < level->section_count; ++i) {
-    l_section *section = &level->sections[i];
-
-    if (!section)
-      continue;
-
-    if (vec4_bound_overlap(0, section, bounds)) {
-      dst[found] = section;
-      ++found;
-    }
-
-    if (found == dst_max - 1) {
-      break;
-    }
-  }
-
-  return found;
-}
-
-// 0 = didn't contain, added 1 = contained, didn't add
-int8_t level_section_check_add_obj(l_section *section, l_object *obj) {
-  if (!section) {
-    return -1;
-  }
-
-  if (section->obj_count == section->obj_capacity) {
     return 1;
   }
-
-  for (uint32_t i = 0; i < section->obj_count; ++i) {
-    if (section->objs[i]->uid == obj->uid) {
-      return 1;
-    }
-  }
-
-  section->objs[section->obj_count] = obj;
-  ++section->obj_count;
-
   return 0;
 }
 
-int8_t level_section_check_add_ent(l_section *section, l_object *ent) {
-  if (!section) {
-    return -1;
-  }
-
-  if (section->ent_count == section->ent_capacity) {
-    return 1;
-  }
-
-  for (uint32_t i = 0; i < section->ent_count; ++i) {
-    if (section->ents[i]->uid == ent->uid) {
-      return 1;
-    }
-  }
-
-  section->ents[section->ent_count] = ent;
-  ++section->ent_count;
-
-  return 0;
+int8_t l_cir_vs_comp(l_manifold* man, l_circle a, l_complex b) {
+  // TODO: GJK Implementation
 }
+
+int8_t l_comp_vs_comp(l_manifold* man, l_complex a, l_complex b) {
+  //
+}
+#endif

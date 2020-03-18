@@ -8,13 +8,13 @@ file_list=("${file_list[@]}")
 # For each argument check if it's a file or a folder
 for file in "$@"
 do
-	if [ -f $file ]; then
+	if [ -f "$file" ]; then
 		file_list+=("${file}")
 	fi
-	if [ -d $file ]; then
-		for subfile in $(find $file -type f)
+	if [ -d "$file" ]; then
+		for subfile in $(find "$file" -type f)
 		do
-			if [ -f $subfile ]; then
+			if [ -f "$subfile" ]; then
 				file_list+=("${subfile}")
 			fi	
 		done
@@ -22,15 +22,15 @@ do
 done
 
 # Prompt for the compression level
-read -p "Compression Level [0-9] (default 0): " compression_level
+read -rp "Compression Level [0-9] (default 0): " compression_level
 
 # Make sure the compression level is valid
-if [[ $compression_level < 0 ]] || [[ $compression_level > 9 ]]; then
+if [[ "$compression_level" -lt 0 ]] || [[ "$compression_level" -gt 9 ]]; then
   compression_level=0
 fi
 
 # Prompt for the output file
-read -p "Output File (default output.zip): " output_file
+read -rp "Output File (default output.zip): " output_file
 
 # Make sure the output file variable has something, otherwise go to default
 if [ -z "$output_file" ]; then
@@ -38,4 +38,4 @@ if [ -z "$output_file" ]; then
 fi
 
 # Zip is all together!
-zip $output_file -$compression_level ${file_list[@]} 
+zip "$output_file -$compression_level ${file_list[*]}"

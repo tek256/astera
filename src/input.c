@@ -10,12 +10,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-static char chars[MAX_CHARS];
+static char     chars[MAX_CHARS];
 static uint16_t char_count = 0;
-static char char_track = 0;
+static char     char_track = 0;
 
 static unsigned char joystick_id = 0;
-static unsigned char joy_exists = 0;
+static unsigned char joy_exists  = 0;
 
 i_states joy_b;
 i_states mouse_b;
@@ -23,8 +23,8 @@ i_states keyboard;
 
 uint32_t screen_width, screen_height;
 
-uint16_t *current_keys;
-uint16_t current_key_count;
+uint16_t* current_keys;
+uint16_t  current_key_count;
 
 i_statesf joy_a;
 
@@ -34,9 +34,9 @@ i_positions mouse_l;
 // scroll
 i_positions mouse_s;
 
-key_binding *key_bindings;
-key_binding *tracked_key_binding;
-int key_binding_count;
+key_binding* key_bindings;
+key_binding* tracked_key_binding;
+int          key_binding_count;
 
 uint16_t i_init(void) {
   mouse_b = i_create_s(MAX_MOUSE_BUTTONS);
@@ -64,9 +64,9 @@ uint16_t i_init(void) {
   mouse_p = i_create_p();
   mouse_s = i_create_p();
 
-  key_binding_count = 0;
+  key_binding_count   = 0;
   tracked_key_binding = 0;
-  key_bindings = malloc(sizeof(key_binding) * MAX_KEY_BINDINGS);
+  key_bindings        = malloc(sizeof(key_binding) * MAX_KEY_BINDINGS);
   memset(key_bindings, 0, sizeof(key_binding) * MAX_KEY_BINDINGS);
   if (!key_bindings) {
     _e("Unable to malloc space for key bindings.\n");
@@ -76,7 +76,9 @@ uint16_t i_init(void) {
   return 1;
 }
 
-i_positions i_create_p(void) { return (i_positions){0, 0, 0, 0}; }
+i_positions i_create_p(void) {
+  return (i_positions){0, 0, 0, 0};
+}
 
 i_states i_create_s(uint16_t size) {
   void *a, *b;
@@ -124,7 +126,7 @@ void i_exit(void) {
   }
 }
 
-uint16_t i_contains(uint16_t val, uint16_t *arr, int count) {
+uint16_t i_contains(uint16_t val, uint16_t* arr, int count) {
   for (int i = 0; i < count; ++i) {
     if (arr[i] == val) {
       return 1;
@@ -154,28 +156,30 @@ float i_joy_axis_delta(uint16_t axis) {
   return joy_a.curr[axis] - joy_a.prev[axis];
 }
 
-void i_get_joy_buttons(uint16_t *dst, int count) {
+void i_get_joy_buttons(uint16_t* dst, int count) {
   if (!joy_exists)
     return;
   int cpy_count = (count > MAX_JOY_BUTTONS) ? MAX_JOY_BUTTONS : count;
   memcpy(dst, joy_b.curr, cpy_count * sizeof(uint16_t));
 }
 
-void i_get_joy_axes(float *dst, int count) {
+void i_get_joy_axes(float* dst, int count) {
   if (!joy_exists)
     return;
   int cpy_count = (count > MAX_JOY_AXES) ? MAX_JOY_AXES : count;
   memcpy(dst, joy_a.curr, cpy_count * sizeof(float));
 }
 
-const char *i_get_joy_name(uint16_t joy) { return glfwGetJoystickName(joy); }
+const char* i_get_joy_name(uint16_t joy) {
+  return glfwGetJoystickName(joy);
+}
 
 uint16_t i_get_joy_type(uint16_t joy) {
   if (!glfwJoystickPresent(joy)) {
     return -1;
   }
 
-  const char *name = i_get_joy_name(joy);
+  const char* name = i_get_joy_name(joy);
   if (strstr(name, "Microsoft")) {
     if (strstr(name, "360")) {
       return XBOX_360_PAD;
@@ -281,11 +285,13 @@ void i_key_callback(int key, int scancode, int toggle) {
 }
 
 void i_set_screensize(uint32_t width, uint32_t height) {
-  screen_width = width;
+  screen_width  = width;
   screen_height = height;
 }
 
-void i_set_char_tracking(int tracking) { char_track = tracking; }
+void i_set_char_tracking(int tracking) {
+  char_track = tracking;
+}
 
 void i_char_callback(uint32_t c) {
   if (!char_track) {
@@ -296,7 +302,7 @@ void i_char_callback(uint32_t c) {
   char_count++;
 }
 
-void i_get_chars(char *dst, uint16_t count) {
+void i_get_chars(char* dst, uint16_t count) {
   if (!char_count || !count) {
     return;
   }
@@ -345,12 +351,14 @@ void i_mouse_scroll_callback(double sx, double sy) {
   mouse_s.dy = sy;
 }
 
-void i_get_scroll(double *x, double *y) {
+void i_get_scroll(double* x, double* y) {
   *x = mouse_s.dx;
   *y = mouse_s.dy;
 }
 
-uint16_t i_key_binding_track(void) { return key_binding_track; }
+uint16_t i_key_binding_track(void) {
+  return key_binding_track;
+}
 
 uint16_t i_mouse_down(uint16_t button) {
   return i_contains(button, mouse_b.curr, mouse_b.curr_count);
@@ -370,9 +378,13 @@ uint16_t i_mouse_released(uint16_t button) {
          !i_contains(button, mouse_b.prev, mouse_b.prev_count);
 }
 
-double i_get_scroll_x(void) { return mouse_s.x; }
+double i_get_scroll_x(void) {
+  return mouse_s.x;
+}
 
-double i_get_scroll_y(void) { return mouse_s.y; }
+double i_get_scroll_y(void) {
+  return mouse_s.y;
+}
 
 uint16_t i_mouse_within_normalized(vec2 min, vec2 max) {
   double n_x = mouse_p.x / screen_width;
@@ -395,23 +407,31 @@ uint16_t i_mouse_within(vec2 min, vec2 max) {
   return 0;
 }
 
-void i_get_mouse_pos(double *x, double *y) {
+void i_get_mouse_pos(double* x, double* y) {
   *x = mouse_p.x;
   *y = mouse_p.y;
 }
 
-double i_get_mouse_x(void) { return mouse_p.x; }
+double i_get_mouse_x(void) {
+  return mouse_p.x;
+}
 
-double i_get_mouse_y(void) { return mouse_p.y; }
+double i_get_mouse_y(void) {
+  return mouse_p.y;
+}
 
-void i_get_mouse_delta(double *x, double *y) {
+void i_get_mouse_delta(double* x, double* y) {
   *x = mouse_p.dx;
   *y = mouse_p.dy;
 }
 
-double i_get_delta_x(void) { return mouse_p.dx; }
+double i_get_delta_x(void) {
+  return mouse_p.dx;
+}
 
-double i_get_delta_y(void) { return mouse_p.dy; }
+double i_get_delta_y(void) {
+  return mouse_p.dy;
+}
 
 uint16_t i_key_down(uint16_t key) {
   return i_contains(key, current_keys, current_key_count);
@@ -430,14 +450,14 @@ uint16_t i_key_released(uint16_t key) {
   return i_key_up(key) && i_contains(key, keyboard.prev, keyboard.prev_count);
 }
 
-void i_add_binding(const char *name, int value, int type) {
+void i_add_binding(const char* name, int value, int type) {
   if (key_binding_count > 0) {
     for (int i = 0; i < key_binding_count; ++i) {
       int len = strlen(key_bindings[i].name);
-      len = (len > 8) ? 8 : len;
+      len     = (len > 8) ? 8 : len;
       if (strncmp(key_bindings[i].name, name, len) == 0) {
         key_bindings[i].value = value;
-        key_bindings[i].type = type;
+        key_bindings[i].type  = type;
         return;
       }
     }
@@ -449,30 +469,30 @@ void i_add_binding(const char *name, int value, int type) {
   }
 
   int len = strlen(name);
-  len = (len > 8) ? 8 : len;
+  len     = (len > 8) ? 8 : len;
 
   strncpy(key_bindings[key_binding_count].name, name, len);
   key_bindings[key_binding_count].value = value;
-  key_bindings[key_binding_count].type = type;
+  key_bindings[key_binding_count].type  = type;
   ++key_binding_count;
 }
 
-void i_add_binding_alt(const char *name, int value, int type) {
+void i_add_binding_alt(const char* name, int value, int type) {
   for (int i = 0; i < key_binding_count; ++i) {
     int len = strlen(key_bindings[i].name);
-    len = (len > 8) ? 8 : len;
+    len     = (len > 8) ? 8 : len;
     if (strncmp(name, key_bindings[i].name, len) == 0) {
-      key_bindings[i].alt = value;
+      key_bindings[i].alt      = value;
       key_bindings[i].alt_type = type;
       return;
     }
   }
 }
 
-void i_enable_binding_track(const char *key_binding) {
+void i_enable_binding_track(const char* key_binding) {
   for (int i = 0; i < key_binding_count; i++) {
     int len = strlen(key_bindings[i].name);
-    len = (len > 8) ? 8 : len;
+    len     = (len > 8) ? 8 : len;
     if (!strncmp(key_bindings[i].name, key_binding, 8)) {
       tracked_key_binding = &key_bindings[i];
       break;
@@ -484,21 +504,23 @@ void i_enable_binding_track(const char *key_binding) {
   }
 }
 
-uint16_t i_binding_track(void) { return key_binding_track; }
+uint16_t i_binding_track(void) {
+  return key_binding_track;
+}
 
 void i_binding_track_callback(int value, int type) {
   if (tracked_key_binding != NULL) {
     tracked_key_binding->value = value;
-    tracked_key_binding->type = type;
+    tracked_key_binding->type  = type;
   }
 
   key_binding_track = 0;
 }
 
-uint16_t i_get_binding_type(const char *key_binding) {
+uint16_t i_get_binding_type(const char* key_binding) {
   for (int i = 0; i < key_binding_count; i++) {
     int len = strlen(key_bindings[i].name);
-    len = (len > 8) ? 8 : len;
+    len     = (len > 8) ? 8 : len;
     if (!strncmp(key_bindings[i].name, key_binding, 8)) {
       return key_bindings[i].type;
     }
@@ -506,10 +528,10 @@ uint16_t i_get_binding_type(const char *key_binding) {
   return 0;
 }
 
-uint16_t i_get_binding_alt_type(const char *key_binding) {
+uint16_t i_get_binding_alt_type(const char* key_binding) {
   for (int i = 0; i < key_binding_count; ++i) {
     int len = strlen(key_bindings[i].name);
-    len = (len > 8) ? 8 : len;
+    len     = (len > 8) ? 8 : len;
     if (!strncmp(key_bindings[i].name, key_binding, 8)) {
       return key_bindings[i].alt_type;
     }
@@ -517,10 +539,10 @@ uint16_t i_get_binding_alt_type(const char *key_binding) {
   return 0;
 }
 
-uint16_t i_binding_clicked(const char *key_binding) {
+uint16_t i_binding_clicked(const char* key_binding) {
   for (int i = 0; i < key_binding_count; i++) {
     int len = strlen(key_bindings[i].name);
-    len = (len > 8) ? 8 : len;
+    len     = (len > 8) ? 8 : len;
     if (!strncmp(key_bindings[i].name, key_binding, len)) {
       int val;
       switch (key_bindings[i].type) {
@@ -558,10 +580,10 @@ uint16_t i_binding_clicked(const char *key_binding) {
   return 0;
 }
 
-uint16_t i_binding_released(const char *key_binding) {
+uint16_t i_binding_released(const char* key_binding) {
   for (int i = 0; i < key_binding_count; i++) {
     int len = strlen(key_bindings[i].name);
-    len = (len > 8) ? 8 : len;
+    len     = (len > 8) ? 8 : len;
     if (!strncmp(key_bindings[i].name, key_binding, len)) {
       if (key_bindings[i].type == BINDING_JOYA) {
         return 0;
@@ -603,10 +625,10 @@ uint16_t i_binding_released(const char *key_binding) {
   return 0;
 }
 
-uint16_t i_binding_down(const char *key_binding) {
+uint16_t i_binding_down(const char* key_binding) {
   for (int i = 0; i < key_binding_count; i++) {
     int len = strlen(key_bindings[i].name);
-    len = (len > 8) ? 8 : len;
+    len     = (len > 8) ? 8 : len;
     if (!strncmp(key_bindings[i].name, key_binding, len)) {
       if (key_bindings[i].type == BINDING_JOYA) {
         return 0;
@@ -653,10 +675,10 @@ uint16_t i_binding_down(const char *key_binding) {
   return 0;
 }
 
-uint16_t i_binding_up(const char *key_binding) {
+uint16_t i_binding_up(const char* key_binding) {
   for (int i = 0; i < key_binding_count; i++) {
     int len = strlen(key_bindings[i].name);
-    len = (len > 8) ? 8 : len;
+    len     = (len > 8) ? 8 : len;
     if (!strncmp(key_bindings[i].name, key_binding, len)) {
       int val;
 
@@ -700,10 +722,10 @@ uint16_t i_binding_up(const char *key_binding) {
   return 0;
 }
 
-float i_binding_val(const char *key_binding) {
+float i_binding_val(const char* key_binding) {
   for (int i = 0; i < key_binding_count; i++) {
     int len = strlen(key_bindings[i].name);
-    len = (len > 8) ? 8 : len;
+    len     = (len > 8) ? 8 : len;
     if (!strncmp(key_bindings[i].name, key_binding, len)) {
       float val;
       switch (key_bindings[i].type) {
@@ -747,7 +769,7 @@ float i_binding_val(const char *key_binding) {
   return 0.0f;
 }
 
-uint16_t i_binding_defined(const char *key_binding) {
+uint16_t i_binding_defined(const char* key_binding) {
   if (!key_binding) {
     return 0;
   }
@@ -767,9 +789,9 @@ uint16_t i_binding_defined(const char *key_binding) {
 }
 
 // TODO test code for removal
-float i_opposing(const char *prim, const char *sec) {
+float i_opposing(const char* prim, const char* sec) {
   float prim_f = i_binding_down(prim) ? 2.f : 0.f;
-  float sec_f = i_binding_down(sec) ? -1.f : 0.f;
+  float sec_f  = i_binding_down(sec) ? -1.f : 0.f;
   return prim_f + sec_f;
 }
 
@@ -862,8 +884,8 @@ void i_update(void) {
   mouse_b.curr_count = 0;
 
   if (joy_exists) {
-    int count;
-    const float *axes = glfwGetJoystickAxes(joystick_id, &count);
+    int          count;
+    const float* axes = glfwGetJoystickAxes(joystick_id, &count);
 
     // Joy axes in variable
     memcpy(joy_a.prev, joy_a.curr, sizeof(float) * joy_a.curr_count);
@@ -882,7 +904,7 @@ void i_update(void) {
     joy_a.prev_count = joy_a.curr_count;
     joy_a.curr_count = count;
 
-    const unsigned char *buttons = glfwGetJoystickButtons(joystick_id, &count);
+    const unsigned char* buttons = glfwGetJoystickButtons(joystick_id, &count);
 
     overlap = (joy_b.curr_count > joy_b.prev_count) ? joy_b.curr_count
                                                     : joy_b.prev_count;

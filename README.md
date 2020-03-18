@@ -11,54 +11,79 @@
 ### About
 Astera is a game library focused on performance, portability, and maintainability. The goal is to show how to make games and game engines work with lower level languages. Astera aims to rely on as few dependencies as possible.  
 
-#### Latest Release: 0.01-PRE 
+#### Latest Release: 0.01-PRE
 
 ### Building
-Please note that at this stage, the library is not at a stable release candidate. You can try automated building by either running `unix_setup.sh` or `win_setup.ps1` in your terminal. If you have GLFW & OpenAL-Soft installed locally, you can simply run the Makefile, i.e `make` or `mingw32-make` for MinGW systems.
+Please note that at this stage the library is not at a stable release candidate. You can try automated building by either running the `build_unix.sh` or `build_win.bat` script in the root directory. 
 
-For more information see the relevant [wiki page](https://github.com/tek256/astera/wiki/Building).
+Both of the build scripts have the same arguments.
+```
+Usage build_unix.sh && build_win.sh [-hardics]
+-h Show this info"
+-a  Build all (deps, headers, examples)"
+-r  Build release (DEFAULT, optimizations, -O2)"
+-d  Build debug (-g, no optimmizations)"
+-i  Build include headers"
+-e  Build examples"
+-c  Build clean (remove previous binarys / builds)"
+-s  Build static library"
+-n  Don't rebuild dependencies
+-x  Don't build astera
+-q  Quiet output
+-qq Really quiet output
+```
+
+For more information see the relevant [wiki page](https://github.com/tek256/astera/wiki/Setup) or the `docs/setup.md` file.
 
 ### Libraries Used
-_Note: All dependencies are bundled with Astera._  
-[GLFW](https://github.com/glfw/glfw), [OpenAL-Soft](https://github.com/kcat/openal-soft), [GLAD](https://github.com/Dav1dde/glad), [STB](https://github.com/nothings/stb/) Image & Vorbis, [nanovg](https://github.com/memononen/nanovg), and [ZIP](https://github.com/kuba--/zip)
+[GLFW](https://github.com/glfw/glfw), [OpenAL-Soft](https://github.com/kcat/openal-soft), [GLAD](https://github.com/Dav1dde/glad), [STB](https://github.com/nothings/stb/) Image & Vorbis, [nanovg](https://github.com/memononen/nanovg), and [ZIP](https://github.com/kuba--/zip)(optional).
 
 ### Target Platforms
 Here are the target platforms for this library:  
 ```
 - Linux (distro agnostic)
 - Windows XP+
-- Mac OSX (version supporting OpenGL 3.3+)
+- Mac OSX (versions supporting OpenGL 3.3+)
 - BSD (Free, Net, Open)
-- Raspberry Pi (0+)
 ```  
-These are some potential future targets:  
+These are some potential future target platforms:  
 ```
-- Android
+- Raspberry Pi (0+)
 - Nintendo Switch
+- Android
 - iOS
-- OpenGL ES 2.0
+```
+
+### Future Features 
+These are some potential future features: 
+```
+- OpenGL ES 2.0 Support
 ```
 
 ### Changelog
 ```
+Mar 18, 2020
+- Build Script (Unix only for now, Windows in the works)
+- Recreated useful tools
+- Dynamic Compilation Support
+- Static Baked Sheets (layers)
+- PAK File Support
+- Audio Effects (in the works)
+- Level System (in the works)
+- Rendering Bug Fixes
+- Probably missed a lot of things here
+- Added GitHub Workflows (CI) Support
 Feb 5, 2020
 - Largely Documentation
 - Converted Documentation to Markdown & Legible formatting
 - Moved `examples/` into `docs/`
 - Updated scripts in `tool` for usability & legibility
-x Working on level management & collision detection
-x Working on library style makefile
 Feb 3, 2020
 - 0.01 PRE-Release
 - Asset Streaming changes
 - Wave file playing
 - Pedantic cleaning
 - UI Finished
-Jan 16, 2020
-- Prepping for 0.01 Release
-- Rendering changes
-- Audio refactor
-- UI System in progress
 For older changes see docs/changelog-archive.txt
 ```
 

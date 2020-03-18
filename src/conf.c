@@ -20,7 +20,7 @@ c_conf c_defaults() {
   return (c_conf){1280, 720, 0, 60, 1, 0, 100, 75, 50, 2.2f, NULL, NULL};
 }
 
-void c_parse_args(int argc, char **argv) {
+void c_parse_args(int argc, char** argv) {
   if (!argv || !argc) {
     return;
   }
@@ -53,7 +53,7 @@ void c_parse_args(int argc, char **argv) {
     case 'c': {
       char max_conf[64];
       snprintf(max_conf, 63, "%s", optarg);
-      int opt_len = strlen(max_conf);
+      int opt_len  = strlen(max_conf);
       _flags.prefs = malloc(sizeof(char) * opt_len);
       strcpy(_flags.prefs, max_conf);
     } break;
@@ -66,7 +66,7 @@ void c_parse_args(int argc, char **argv) {
 
 c_conf c_parse_table(c_table table) {
   c_conf default_conf = c_defaults();
-  c_conf out_conf = default_conf;
+  c_conf out_conf     = default_conf;
 
   for (int i = 0; i < table.count; ++i) {
     if (out_conf.width == default_conf.width) {
@@ -124,8 +124,8 @@ c_conf c_parse_table(c_table table) {
     }
     if (out_conf.icon == default_conf.icon) {
       if (STR_MATCH(table.keys[i], "icon")) {
-        int length = strlen(table.values[i]);
-        out_conf.icon = (char *)malloc(sizeof(char) * (length + 1));
+        int length    = strlen(table.values[i]);
+        out_conf.icon = (char*)malloc(sizeof(char) * (length + 1));
         strncpy(out_conf.icon, table.values[i], length);
         out_conf.icon[length] = '\0';
       }
@@ -141,7 +141,8 @@ c_conf c_parse_table(c_table table) {
   return out_conf;
 }
 
-void c_write_pref(const char *fp, const char *key, const char *value) {}
+void c_write_pref(const char* fp, const char* key, const char* value) {
+}
 
 void c_table_free(c_table table) {
   if (table.keys)
@@ -150,13 +151,13 @@ void c_table_free(c_table table) {
     free(table.values);
 }
 
-static char *c_cleaned_str(const char *str, int *size, char *str_end) {
+static char* c_cleaned_str(const char* str, int* size, char* str_end) {
   if (!str) {
     _e("Unable to clean null string.\n");
     return 0;
   }
 
-  char *end;
+  char*   end;
   int32_t str_size = 0;
 
   if (str_end) {
@@ -170,7 +171,7 @@ static char *c_cleaned_str(const char *str, int *size, char *str_end) {
   if (str == 0)
     return 0;
 
-  char *start = str;
+  char* start = str;
   if (str_end) {
     while (!isspace(*str) && str < str_end) {
       ++str_size;
@@ -187,7 +188,7 @@ static char *c_cleaned_str(const char *str, int *size, char *str_end) {
     }
   }
 
-  char *new_str = (char *)malloc(sizeof(char) * (str_size + 1));
+  char* new_str = (char*)malloc(sizeof(char) * (str_size + 1));
   strncpy(new_str, start, str_size);
   new_str[str_size] = '\0';
 
@@ -197,12 +198,12 @@ static char *c_cleaned_str(const char *str, int *size, char *str_end) {
   return new_str;
 }
 
-static void c_kv_get(char *src, char **key, char **value, int *key_length,
-                     int *value_length) {
-  char *split = strstr(src, "=");
+static void c_kv_get(char* src, char** key, char** value, int* key_length,
+                     int* value_length) {
+  char* split = strstr(src, "=");
 
   int _key_len, _value_len;
-  *key = c_cleaned_str(src, &_key_len, split);
+  *key   = c_cleaned_str(src, &_key_len, split);
   *value = c_cleaned_str(split + 1, &_value_len, 0);
 
   if (key_length) {
@@ -214,38 +215,38 @@ static void c_kv_get(char *src, char **key, char **value, int *key_length,
   }
 }
 
-c_table c_get_table(asset_t *asset) {
+c_table c_get_table(asset_t* asset) {
   assert(asset);
   assert(asset->data);
 
-  char *data_ptr = (char *)asset->data;
-  char *line = strtok(data_ptr, "\n");
+  char* data_ptr = (char*)asset->data;
+  char* line     = strtok(data_ptr, "\n");
 
-  char *raw_data = (char *)malloc(sizeof(char) * 512);
-  int raw_capacity = 512;
-  int raw_count = 0;
+  char* raw_data     = (char*)malloc(sizeof(char) * 512);
+  int   raw_capacity = 512;
+  int   raw_count    = 0;
 
-  const char **keys = (char **)malloc(sizeof(char *) * 16);
-  const char **values = (char **)malloc(sizeof(char *) * 16);
-  int line_capacity = 16;
-  int line_count = 0;
+  const char** keys          = (char**)malloc(sizeof(char*) * 16);
+  const char** values        = (char**)malloc(sizeof(char*) * 16);
+  int          line_capacity = 16;
+  int          line_count    = 0;
 
   while (line != NULL) {
     char *key, *value;
 
-    int parts = 0;
-    int key_length = 0;
+    int parts        = 0;
+    int key_length   = 0;
     int value_length = 0;
 
     if (line_count == line_capacity) {
-      keys = realloc(keys, sizeof(char *) * (line_capacity + 8));
-      values = realloc(values, sizeof(char *) * (line_capacity + 8));
+      keys   = realloc(keys, sizeof(char*) * (line_capacity + 8));
+      values = realloc(values, sizeof(char*) * (line_capacity + 8));
       line_capacity += 8;
     }
 
     c_kv_get(line, &key, &value, &key_length, &value_length);
 
-    keys[line_count] = key;
+    keys[line_count]   = key;
     values[line_count] = value;
 
     ++line_count;
@@ -259,16 +260,30 @@ c_table c_get_table(asset_t *asset) {
   return (c_table){keys, values, line_count};
 }
 
-int c_has_prefs() { return _flags.prefs != 0; }
+int c_has_prefs() {
+  return _flags.prefs != 0;
+}
 
-char *c_get_pref_p() { return _flags.prefs; }
+char* c_get_pref_p() {
+  return _flags.prefs;
+}
 
-int c_is_debug() { return _flags.debug; }
+int c_is_debug() {
+  return _flags.debug;
+}
 
-int c_allow_render() { return _flags.render; }
+int c_allow_render() {
+  return _flags.render;
+}
 
-int c_allow_audio() { return _flags.audio; }
+int c_allow_audio() {
+  return _flags.audio;
+}
 
-int c_is_silent() { return _flags.verbose == -1; }
+int c_is_silent() {
+  return _flags.verbose == -1;
+}
 
-int c_is_verbose() { return _flags.verbose; }
+int c_is_verbose() {
+  return _flags.verbose;
+}

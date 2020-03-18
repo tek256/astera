@@ -7,4 +7,4 @@ else
 endif
 
 all : $(OBJS)
-	$(CC) src/audio_sampler.c -lm -o $(sampler_exec)
+	$(CC) src/audio_sampler.c -I../dep/misc/ -lm -o $(sampler_exec)

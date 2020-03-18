@@ -8,13 +8,13 @@ file_list=("${file_list[@]}")
 # For each argument check if it's a file or a folder
 for file in "$@"
 do
-	if [ -f $file ]; then
+	if [ -f "$file" ]; then
 		file_list+=("${file}")
 	fi
-	if [ -d $file ]; then
-		for subfile in $(find $file -type f)
+	if [ -d "$file" ]; then
+		for subfile in $(find "$file" -type f)
 		do
-			if [ -f $subfile ]; then
+			if [ -f "$subfile" ]; then
 				file_list+=("${subfile}")
 			fi	
 		done
@@ -22,12 +22,12 @@ do
 done
 
 # Prompt for the output directory 
-read -p "Where would you like it output to? (Default: Current Directory): " output_directory
+read -rp "Where would you like it output to? (Default: Current Directory): " output_directory
 
 # Make sure the output directory exists
-if [[ ! -d $output_directory ]]; then
-  mkdir $output_directory
+if [[ ! -d "$output_directory" ]]; then
+  mkdir "$output_directory"
 fi
 
 # Unzip all the things!
-unzip -d $output_directory ${file_list[@]}
+unzip -d "$output_directory ${file_list[*]}"

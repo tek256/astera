@@ -7,7 +7,7 @@ extern "C" {
 
 #include "sys.h"
 
-int g_init(void);
+int  g_init(void);
 void g_exit(void);
 void g_input(time_s delta);
 void g_update(time_s delta);

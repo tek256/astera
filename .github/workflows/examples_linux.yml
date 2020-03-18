@@ -1,0 +1,16 @@
+name: Build Source & Examples - Linux
+
+on [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@master
+      - name: Update Packages
+        run: sudo apt-get update -qq
+      - name: Install Dependencies
+        run: sudo apt-get install -y --no-install-recommends libx11-dev libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev libxext-dev libxfixes-dev
+      - name: Build Everything
+        run: ./build_unix.sh -a

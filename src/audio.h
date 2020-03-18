@@ -37,11 +37,11 @@ extern "C" {
 #if !defined(AUDIO_CUSTOM_LAYERS)
 #define AUDIO_DEFAULT_LAYERS
 
-#define AUDIO_SFX_LAYER 0
+#define AUDIO_SFX_LAYER   0
 #define AUDIO_MUSIC_LAYER 1
-#define AUDIO_MISC_LAYER 2
-#define AUDIO_UI_LAYER 3
-#define MAX_AUDIO_LAYERS 4
+#define AUDIO_MISC_LAYER  2
+#define AUDIO_UI_LAYER    3
+#define MAX_AUDIO_LAYERS  4
 
 #if !defined(MAX_AUDIO_LAYERS)
 #define MAX_AUDIO_LAYERS 4
@@ -87,17 +87,17 @@ extern "C" {
 
 #define LAYER_STOPPED 1
 #define LAYER_PLAYING 2
-#define LAYER_PAUSED 3
+#define LAYER_PAUSED  3
 
 #if !defined(MAX_MUSIC_RUNTIME)
 #define MAX_MUSIC_RUNTIME 4096
 #endif
 
 #if !defined(MAX_SFX)
-#define MAX_SFX MAX_LAYER_SFX *MAX_AUDIO_LAYERS / 2
+#define MAX_SFX MAX_LAYER_SFX* MAX_AUDIO_LAYERS / 2
 #endif
 #if !defined(MAX_SONGS)
-#define MAX_SONGS MAX_LAYER_SONGS *MAX_AUDIO_LAYERS
+#define MAX_SONGS MAX_LAYER_SONGS* MAX_AUDIO_LAYERS
 #endif
 
 #if !defined(DEFAULT_SFX_RANGE)
@@ -105,20 +105,24 @@ extern "C" {
 #endif
 
 typedef struct {
-  ALCcontext *context;
-  ALCdevice *device;
-  int allow : 1;
+  ALCcontext* context;
+  ALCdevice*  device;
+  int         efx : 1;
+  int         allow : 1;
 } a_ctx;
 
 typedef struct {
   float gain;
-  vec3 pos;
+  vec3  pos;
+  vec3  ori;
+  vec3  vel;
+  float _ori[6];
 } a_listener;
 
 typedef struct {
   uint32_t id;
   uint16_t channels;
-  float length;
+  float    length;
   uint32_t sample_rate;
 } a_buf;
 
@@ -127,77 +131,139 @@ typedef struct {
   uint16_t layer;
 
   // realtime
-  vec3 pos;
-  vec3 vel;
-  float gain, range, max_range;
+  vec3     pos;
+  vec3     vel;
+  float    gain, range;
   uint16_t max_loop;
-  int loop : 1;
-  int stop : 1;
+  int      loop : 1;
+  int      stop : 1;
 
   // callback
   uint16_t loop_count;
-  float time;
+  time_s   time;
 } a_req;
 
 typedef struct {
-  char *file_path;
-  char *name;
-  char **names;
-  int *offsets;
-  int offset_count;
-  int total_samples;
+  char*  file_path;
+  char*  name;
+  char** names;
+  int*   offsets;
+  int    offset_count;
+  int    total_samples;
 } a_meta;
 
 typedef struct {
-  int format;
+  int      format;
   uint32_t source;
   uint32_t buffers[AUDIO_BUFFERS_PER_MUSIC];
-  float gain;
+  float    gain;
 
-  uint32_t current_sample;
-  uint32_t samples_left;
-  uint32_t total_samples;
-  stb_vorbis *vorbis;
+  uint32_t    current_sample;
+  uint32_t    samples_left;
+  uint32_t    total_samples;
+  stb_vorbis* vorbis;
 
-  a_meta *meta;
+  a_meta* meta;
 
   int32_t sample_rate, sample_count;
 
   int16_t packets_per_buffer;
 
-  uint8_t *data;
-  int32_t data_length, data_offset;
-  int32_t header_end;
+  uint8_t* data;
+  int32_t  data_length, data_offset;
+  int32_t  header_end;
 
-  uint16_t *pcm;
-  uint32_t pcm_length;
+  uint16_t* pcm;
+  uint32_t  pcm_length;
 
   float delta;
 
-  a_req *req;
-  int has_req;
+  a_req* req;
+  int    has_req;
 
   int loop : 1;
 } a_music;
 
 typedef struct {
   uint32_t id;
-  vec3 position;
-  float range, gain;
-  int loop;
-  a_req *req;
-  int has_req;
+  vec3     position;
+  float    range, gain;
+  int      loop;
+  a_req*   req;
+  int      has_req;
 } a_sfx;
+
+typedef enum {
+  REVERB    = 0x0001,
+  EQUALIZER = 0x000C,
+} a_fx_type;
+
+// TODO Filter / Delay effects
+
+typedef struct {
+  float density;    // [0.0, 1.0]  default: 1.0
+  float diffusion;  // [0.0, 1.0]  default: 1.0
+  float gain;       // [0.0, 1.0]  default: 0.32
+  float gainhf;     // [0.0, 1.0]  default: 0.89
+  float decay;      // [0.1, 20.0] default: 1.49 [seconds]
+  float refl_gain;  // [0.0, 3.16] default: 0.05
+  float refl_decay; // [0.0, 0.3]  default: 0.007 [seconds]
+} a_fx_reverb;
+
+typedef struct {
+  float low_gain;    // default: 1        [0.126, 7.943]
+  float low_cutoff;  // hz, default: 200  [50.0, 800.0]
+  float mid1_gain;   // default: 1        [0.126, 7.943]
+  float mid1_center; // hz, default: 500  [200.0, 3000.0]
+  float mid1_width;  // default: 1        [0.01, 1.0]
+  float mid2_gain;   // default: 1        [0.126, 7.943]
+  float mid2_center; // hz, default: 3000 [1000.0, 8000.0]
+  float mid2_width;  // default: 1        [0.01, 1.0]
+  float high_gain;   // default 1.0       [0.126, 7.943]
+  float high_cutoff; // hz, default: 6000 [4000.0 - 16000.0]
+} a_fx_equalizer;
+
+typedef struct {
+  uint32_t  id;
+  a_fx_type type;
+  void*     data;
+} a_fx;
+
+typedef enum {
+  LOWPASS  = 0x0001,
+  HIGHPASS = 0x0002,
+  BANDPASS = 0x0003,
+} a_filter_type;
+
+typedef struct {
+  uint32_t      id;
+  a_filter_type type;
+  union {
+    struct {
+      float gain;
+      float gainhf;
+    } lowpass;
+    struct {
+      float gain;
+      float gainlf;
+    } highpass;
+    struct {
+      float gain;
+      float gainlf;
+      float gainhf;
+    } bandpass;
+  } data;
+} a_filter;
 
 typedef struct {
   uint32_t id;
-  float gain;
+  float    gain;
 
   uint32_t sfx_count;
   uint32_t music_count;
 
-  a_sfx *sources[MAX_LAYER_SFX];
-  a_music *musics[MAX_LAYER_SONGS];
+  a_sfx*   sources[MAX_LAYER_SFX];
+  a_music* musics[MAX_LAYER_SONGS];
 
   uint32_t gain_change : 1;
 } a_layer;
@@ -205,31 +271,41 @@ typedef struct {
 typedef struct {
   uint16_t song_count;
   uint16_t song_capacity;
-  a_music songs[MAX_SONGS];
+  a_music  songs[MAX_SONGS];
 
   uint16_t sfx_count;
   uint16_t sfx_capacity;
-  a_sfx sfx[MAX_SFX];
+  a_sfx    sfx[MAX_SFX];
 
-  a_layer layers[MAX_AUDIO_LAYERS];
+  a_layer  layers[MAX_AUDIO_LAYERS];
   uint16_t layer_count;
 
-  uint16_t buf_count;
-  uint16_t buf_capacity;
-  a_buf bufs[MAX_BUFFERS];
-  const char *buf_names[MAX_BUFFERS];
+  uint16_t    buf_count;
+  uint16_t    buf_capacity;
+  a_buf       bufs[MAX_BUFFERS];
+  const char* buf_names[MAX_BUFFERS];
 } a_resource_map;
 
 static a_resource_map g_a_map;
-static a_ctx g_a_ctx;
-static a_listener g_listener;
+static a_ctx          g_a_ctx;
+static a_listener     g_listener;
 
-int a_init(const char *device, uint32_t master, uint32_t sfx, uint32_t music);
+void a_efx_info(void);
+
+int  a_init(const char* device, uint32_t master, uint32_t sfx, uint32_t music);
 void a_exit();
 
 int a_can_play(void);
 
 void a_set_pos(vec3 p);
+void a_set_ori(vec3 d);
+void a_set_orif(float v[6]);
+void a_set_vel(vec3 v);
+
+void a_get_pos(vec3* p);
+void a_get_ori(vec3* o);
+void a_get_orif(float* f);
+void a_get_vel(vec3* v);
 
 void a_set_vol(uint32_t master, uint32_t sfx, uint32_t music);
 void a_set_vol_master(uint32_t master);
@@ -243,32 +319,34 @@ float a_get_vol_music(void);
 void a_update(time_s delta);
 void a_update_sfx(void);
 
-uint32_t a_get_device_name(char *dst, int capacity);
+uint32_t a_get_device_name(char* dst, int capacity);
 
-int8_t a_layer_add_music(uint32_t id, a_music *music);
-int8_t a_layer_add_sfx(uint32_t id, a_sfx *sfx);
+int8_t a_layer_add_music(uint32_t id, a_music* music);
+int8_t a_layer_add_sfx(uint32_t id, a_sfx* sfx);
 
-a_buf a_buf_create(asset_t *asset);
-a_buf *a_buf_get(const char *name);
-void a_buf_destroy(a_buf buffer);
+a_buf  a_buf_create(asset_t* asset);
+a_buf* a_buf_get(const char* name);
+void   a_buf_destroy(a_buf buffer);
 
-a_sfx *a_play_sfxn(const char *name, a_req *req);
-a_sfx *a_play_sfx(a_buf *buff, a_req *req);
+a_sfx* a_play_sfxn(const char* name, a_req* req);
+a_sfx* a_play_sfx(a_buf* buff, a_req* req);
 
-int a_ctx_create(const char *device_name);
+a_req a_req_create(uint16_t layer, vec2 pos, float gain, int8_t loop);
+
+int  a_ctx_create(const char* device_name);
 void a_destroy_context(void);
 
-a_music *a_music_create(asset_t *asset, a_meta *meta, a_req *req);
-void a_music_reset(a_music *music);
-void a_music_destroy(a_music *music);
+a_music* a_music_create(asset_t* asset, a_meta* meta, a_req* req);
+void     a_music_reset(a_music* music);
+void     a_music_destroy(a_music* music);
 
-time_s a_music_len(a_music *music);
-time_s a_music_time(a_music *music);
+time_s a_music_len(a_music* music);
+time_s a_music_time(a_music* music);
 
-void a_music_play(a_music *music);
-void a_music_stop(a_music *music);
-void a_music_resume(a_music *music);
-void a_music_pause(a_music *music);
+void a_music_play(a_music* music);
+void a_music_stop(a_music* music);
+void a_music_resume(a_music* music);
+void a_music_pause(a_music* music);
 
 #ifdef __cplusplus
 }

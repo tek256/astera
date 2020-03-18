@@ -1,11 +1,11 @@
 #ifndef ALC_ENUMERATE_ALL_EXT
 #define ALC_DEFAULT_ALL_DEVICES_SPECIFIER 0x1012
-#define ALC_ALL_DEVICES_SPECIFIER 0x1013
+#define ALC_ALL_DEVICES_SPECIFIER         0x1013
 #endif
 
 #ifndef ALC_EXT_EFX
-#define ALC_EFX_MAJOR_VERSION 0x20001
-#define ALC_EFX_MINOR_VERSION 0x20002
+#define ALC_EFX_MAJOR_VERSION   0x20001
+#define ALC_EFX_MINOR_VERSION   0x20002
 #define ALC_MAX_AUXILIARY_SENDS 0x20003
 #endif
 
@@ -13,32 +13,73 @@
 
 #include "debug.h"
 
+/* Debug Output Macro*/
+#if defined(ASTERA_DEBUG_OUTPUT)
+#if !defined(DBG_E)
+#define DBG_E(fmt, ...) DBGDBG_E(fmt, ##__VA_ARGS_)
+#endif
+#else
+#define DBG_E(fmt, ...)
+#endif
+
+#if !defined(ASTERA_AL_DISTANCE_MODEL)
+#define ASTERA_AL_DISTANCE_MODEL AL_INVERSE_DISTANCE
+#endif
+
+#if !defined(ASTERA_AL_ROLLOFF_FACTOR)
+#define ASTERA_AL_ROLLOFF_FACTOR 1.f
+#endif
+
 #undef STB_VORBIS_HEADER_ONLY
 #include <misc/stb_vorbis.c>
 
 #include <string.h>
 
-int a_can_play(void) { return g_a_ctx.allow; }
+void a_efx_info(void) {
+  if (alcIsExtensionPresent(g_a_ctx.device, "ALC_EXT_EFX") == AL_FALSE) {
+    _l("No ALC_EXT_EFX.\n");
+  } else {
+    _l("ALC_EXT_EFX Present.\n");
+  }
 
-int a_init(const char *device, uint32_t master, uint32_t sfx, uint32_t music) {
+  _l("MAX_AUXILIARY_SENDS: %i\n", ALC_MAX_AUXILIARY_SENDS);
+  ALCint s_sends = 0;
+  alcGetIntegerv(g_a_ctx.device, ALC_MAX_AUXILIARY_SENDS, 1, &s_sends);
+  _l("MAX AUXILIARY SENDS PER SOURCE: %i\n", s_sends);
+}
+
+int a_can_play(void) {
+  return g_a_ctx.allow;
+}
+
+int a_init(const char* device, uint32_t master, uint32_t sfx, uint32_t music) {
   if (!a_ctx_create(device)) {
-    _e("Unable to create audio context.\n");
+    DBG_E("Unable to create audio context.\n");
     return -1;
   }
 
   g_a_map.layer_count = MAX_AUDIO_LAYERS;
 
+#if defined(ASTERA_AL_DISTANCE_MODEL)
+  alDistanceModel(ASTERA_AL_DISTANCE_MODEL);
+#endif
+
   // Initialize cached audio subsystem
   for (int i = 0; i < MAX_SFX; ++i) {
     memset(&g_a_map.sfx[i], 0, sizeof(a_sfx));
     alGenSources(1, &g_a_map.sfx[i].id);
-    //_l("Generated SFX Slot: %i\n", g_a_map.sfx[i].id);
+
     g_a_map.sfx[i].range = DEFAULT_SFX_RANGE;
-    g_a_map.sfx[i].gain = 1.f;
+    g_a_map.sfx[i].gain  = 1.f;
     alSourcef(g_a_map.sfx[i].id, AL_GAIN, 1.f);
 
-    // TODO implement range
-    alSourcefv(g_a_map.sfx[i].id, AL_POSITION, g_a_map.sfx[i].position);
+    alSourcef(g_a_map.sfx[i].id, AL_MAX_DISTANCE, g_a_map.sfx[i].range);
+    alSourcef(g_a_map.sfx[i].id, AL_REFERENCE_DISTANCE,
+              g_a_map.sfx[i].range / 2.f);
+    alSourcef(g_a_map.sfx[i].id, AL_ROLLOFF_FACTOR, ASTERA_AL_ROLLOFF_FACTOR);
+
+    alSource3f(g_a_map.sfx[i].id, AL_POSITION, g_a_map.sfx[i].position[0],
+               g_a_map.sfx[i].position[2], g_a_map.sfx[i].position[1]);
     g_a_map.sfx[i].has_req = 0;
   }
 
@@ -58,60 +99,112 @@ int a_init(const char *device, uint32_t master, uint32_t sfx, uint32_t music) {
     }
 
     g_a_map.songs[i].packets_per_buffer = AUDIO_DEFAULT_FRAMES_PER_BUFFER;
-    g_a_map.songs[i].gain = 1.f;
-    g_a_map.songs[i].has_req = 0;
+    g_a_map.songs[i].gain               = 1.f;
+    g_a_map.songs[i].has_req            = 0;
   }
 
   g_a_map.song_count = MAX_SONGS;
 
-  float master_f = master / 100.f;
+  float master_f  = master / 100.f;
   g_listener.gain = master_f;
   alListenerf(AL_GAIN, g_listener.gain);
   a_set_pos(g_listener.pos);
+  a_set_ori(g_listener.ori);
 
   for (int i = 0; i < MAX_AUDIO_LAYERS; ++i) {
-    g_a_map.layers[i].id = i;
+    g_a_map.layers[i].id   = i;
     g_a_map.layers[i].gain = 1.f;
   }
 
-  // TODO convert to processor bounds check
 #ifdef AUDIO_MUSIC_LAYER
   if (g_a_map.layer_count > AUDIO_MUSIC_LAYER) {
     g_a_map.layers[AUDIO_MUSIC_LAYER].gain = (music / 100.f);
   } else {
-    _e("Not enough layers generated to set volume for music layer on: %i\n",
-       AUDIO_MUSIC_LAYER);
+    DBG_E("Not enough layers generated to set volume for music layer on: %i\n",
+          AUDIO_MUSIC_LAYER);
   }
 #endif
 #ifdef AUDIO_SFX_LAYER
   if (g_a_map.layer_count > AUDIO_SFX_LAYER) {
     g_a_map.layers[AUDIO_SFX_LAYER].gain = (sfx / 100.f);
   } else {
-    _e("Not enough layers generated to set volume for sfx layer on: %i\n",
-       AUDIO_SFX_LAYER);
+    DBG_E("Not enough layers generated to set volume for sfx layer on: %i\n",
+          AUDIO_SFX_LAYER);
   }
 #endif
 #ifdef AUDIO_MISC_LAYER
   if (g_a_map.layer_count > AUDIO_MISC_LAYER) {
     g_a_map.layers[AUDIO_MISC_LAYER].gain = AUDIO_MISC_GAIN;
   } else {
-    _e("Not enough layers generated to set volume for misc layer on: %i\n",
-       AUDIO_MISC_LAYER);
+    DBG_E("Not enough layers generated to set volume for misc layer on: %i\n",
+          AUDIO_MISC_LAYER);
   }
 #endif
 #ifdef AUDIO_UI_LAYER
   if (g_a_map.layer_count > AUDIO_UI_LAYER) {
     g_a_map.layers[AUDIO_UI_LAYER].gain = AUDIO_UI_GAIN;
   } else {
-    _e("Not enough layers generated to set volume for UI layer on: %i\n",
-       AUDIO_UI_LAYER);
+    DBG_E("Not enough layers generated to set volume for UI layer on: %i\n",
+          AUDIO_UI_LAYER);
   }
 #endif
   g_a_ctx.allow = 1;
   return 1;
 }
 
-void a_set_pos(vec3 p) { alListener3f(AL_POSITION, p[0], p[1], p[2]); }
+void a_set_pos(vec3 p) {
+  vec3_dup(g_listener.pos, p);
+  alListener3f(AL_POSITION, p[0], p[2], p[1]);
+}
+
+void a_set_ori(vec3 d) {
+  g_listener._ori[0] = d[0];
+  g_listener._ori[1] = d[1];
+  g_listener.ori[2]  = d[2];
+  vec3_dup(g_listener.ori, d);
+  alListenerfv(AL_ORIENTATION, g_listener._ori);
+}
+
+void a_set_orif(float v[6]) {
+  if (!v) {
+    return;
+  }
+
+  memcpy(g_listener._ori, v, sizeof(float) * 6);
+  g_listener.ori[0] = v[0];
+  g_listener.ori[1] = v[1];
+  g_listener.ori[2] = v[2];
+  alListener3f(AL_VELOCITY, v[0], v[1], v[2]);
+}
+
+void a_set_vel(vec3 v) {
+  vec3_dup(g_listener.vel, v);
+  alListener3f(AL_VELOCITY, v[0], v[1], v[2]);
+}
+
+void a_get_pos(vec3* p) {
+  if (p) {
+    vec3_dup(*p, g_listener.pos);
+  }
+}
+
+void a_get_ori(vec3* o) {
+  if (o) {
+    vec3_dup(*o, g_listener.ori);
+  }
+}
+
+void a_get_orif(float* f) {
+  if (f) {
+    memcpy(f, g_listener._ori, sizeof(float) * 6);
+  }
+}
+
+void a_get_vel(vec3* v) {
+  if (v) {
+    vec3_dup(*v, g_listener.vel);
+  }
+}
 
 void a_set_vol(uint32_t master, uint32_t sfx, uint32_t music) {
   a_set_vol_master(master);
@@ -129,11 +222,12 @@ void a_set_vol_sfx(uint32_t sfx) {
   if (g_a_map.layer_count > AUDIO_SFX_LAYER) {
     float value = sfx / 100.f;
     if (g_a_map.layers[AUDIO_SFX_LAYER].gain != value) {
-      g_a_map.layers[AUDIO_SFX_LAYER].gain = value;
+      g_a_map.layers[AUDIO_SFX_LAYER].gain        = value;
       g_a_map.layers[AUDIO_SFX_LAYER].gain_change = 1;
     }
   } else {
-    _e("Unable to set SFX vol on layer out of bounds: %i\n", AUDIO_SFX_LAYER);
+    DBG_E("Unable to set SFX vol on layer out of bounds: %i\n",
+          AUDIO_SFX_LAYER);
   }
 #endif
 }
@@ -143,25 +237,27 @@ void a_set_vol_music(uint32_t music) {
   if (g_a_map.layer_count > AUDIO_MUSIC_LAYER) {
     float value = (music / 100.f);
     if (value != g_a_map.layers[AUDIO_MUSIC_LAYER].gain) {
-      g_a_map.layers[AUDIO_MUSIC_LAYER].gain = value;
+      g_a_map.layers[AUDIO_MUSIC_LAYER].gain        = value;
       g_a_map.layers[AUDIO_MUSIC_LAYER].gain_change = 1;
     }
   } else {
-    _e("Unable to set music vol on layer out of bounds: %i\n",
-       AUDIO_MUSIC_LAYER);
+    DBG_E("Unable to set music vol on layer out of bounds: %i\n",
+          AUDIO_MUSIC_LAYER);
   }
 #endif
 }
 
-float a_get_vol_master(void) { return g_listener.gain; }
+float a_get_vol_master(void) {
+  return g_listener.gain;
+}
 
 float a_get_vol_sfx(void) {
 #ifdef AUDIO_SFX_LAYER
   if (AUDIO_SFX_LAYER < g_a_map.layer_count) {
     return g_a_map.layers[AUDIO_SFX_LAYER].gain;
   } else {
-    _e("Unable to get volume for SFX layer, [%i] out of bounds.\n",
-       AUDIO_SFX_LAYER);
+    DBG_E("Unable to get volume for SFX layer, [%i] out of bounds.\n",
+          AUDIO_SFX_LAYER);
     return 0.f;
   }
 #else
@@ -174,8 +270,8 @@ float a_get_vol_music(void) {
   if (AUDIO_MUSIC_LAYER < g_a_map.layer_count) {
     return g_a_map.layers[AUDIO_MUSIC_LAYER].gain;
   } else {
-    _e("Unable to get volume for music layer, [%i] out of bounds.\n",
-       AUDIO_MUSIC_LAYER);
+    DBG_E("Unable to get volume for music layer, [%i] out of bounds.\n",
+          AUDIO_MUSIC_LAYER);
     return 0.f;
   }
 #else
@@ -204,34 +300,34 @@ void a_exit(void) {
 
 void a_update(time_s delta) {
   for (int i = 0; i < g_a_map.layer_count; ++i) {
-    a_layer *layer = &g_a_map.layers[i];
+    a_layer* layer = &g_a_map.layers[i];
 
     for (int j = 0; j < layer->sfx_count; ++j) {
-      a_sfx *sfx = &layer->sources[j];
+      a_sfx* sfx = &layer->sources[j];
       if (sfx->has_req) {
-        a_req *req = sfx->req;
+        a_req* req = sfx->req;
         if (sfx->gain != req->gain || layer->gain_change) {
           float n_gain = layer->gain * req->gain;
-          sfx->gain = req->gain;
+          sfx->gain    = req->gain;
           alSourcef(sfx->id, AL_GAIN, n_gain);
         }
 
         if (!vec3_cmp(sfx->position, req->pos)) {
           vec3_dup(sfx->position, req->pos);
-          alSource3f(sfx->id, AL_POSITION, req->pos[0], req->pos[1],
-                     req->pos[2]);
+          alSource3f(sfx->id, AL_POSITION, req->pos[0], req->pos[2],
+                     req->pos[1]);
         }
 
         ALenum state;
         alGetSourcei(sfx->id, AL_SOURCE_STATE, &state);
         if (state == AL_STOPPED) {
           alSourcei(sfx->id, AL_BUFFER, 0);
-          sfx->req = NULL;
+          sfx->req     = NULL;
           sfx->has_req = 0;
         } else if (req) {
           if (req->stop) {
             alSourcei(g_a_map.sfx[i].id, AL_BUFFER, 0);
-            sfx->req = NULL;
+            sfx->req     = NULL;
             sfx->has_req = 0;
           }
         }
@@ -239,27 +335,34 @@ void a_update(time_s delta) {
     }
 
     for (int j = 0; j < MAX_LAYER_SONGS; ++j) {
-      a_music *mus = layer->musics[j];
+      a_music* mus = layer->musics[j];
       if (mus) {
         if (mus->req) {
-          a_req *req = mus->req;
+          a_req* req = mus->req;
+
+          if (req->range != 0.f) {
+            alSourcef(mus->source, AL_MAX_DISTANCE, req->range);
+            alSourcef(mus->source, AL_REFERENCE_DISTANCE, req->range / 2.f);
+            alSourcef(mus->source, AL_ROLLOFF_FACTOR, ASTERA_AL_ROLLOFF_FACTOR);
+          } else {
+            alSourcef(mus->source, AL_MAX_DISTANCE, 0.f);
+          }
 
           float n_gain = layer->gain * req->gain;
-          // NOTE: n_gain is a calculated product, not what we want to store
           alSourcef(mus->source, AL_GAIN, n_gain);
 
-          alSource3f(mus->source, AL_POSITION, req->pos[0], req->pos[1],
-                     req->pos[2]);
+          alSource3f(mus->source, AL_POSITION, req->pos[0], req->pos[2],
+                     req->pos[1]);
 
           ALenum state;
-          ALint proc;
+          ALint  proc;
           alGetSourcei(mus->source, AL_SOURCE_STATE, &state);
           alGetSourcei(mus->source, AL_BUFFERS_PROCESSED, &proc);
 
           if (req->stop) {
             alSourcei(mus->source, AL_BUFFER, 0);
             alSourceStop(mus->source);
-            mus->req = NULL;
+            mus->req     = NULL;
             mus->has_req = 0;
           } else if (proc > 0) {
             if (mus->data_length == mus->data_offset) {
@@ -279,9 +382,8 @@ void a_update(time_s delta) {
               }
 
               uint32_t buffer;
-              int32_t al_err;
+              int32_t  al_err;
 
-              // This is just a comment
               alSourceUnqueueBuffers(mus->source, 1, &buffer);
 
               if (state != AL_PLAYING && !req->stop && k == 0) {
@@ -292,7 +394,7 @@ void a_update(time_s delta) {
               int32_t pcm_total_length = 0;
               int32_t pcm_index = 0, frame_size = 0;
               int32_t bytes_used = 0, num_samples = 0, num_channels = 0;
-              float **out;
+              float** out;
 
               int fail_counter = 0;
               for (int p = 0; p < mus->packets_per_buffer; ++p) {
@@ -318,10 +420,10 @@ void a_update(time_s delta) {
 
                 if (num_samples > 0) {
                   int short_count = num_samples * num_channels;
-                  int pcm_length = sizeof(short) * short_count;
+                  int pcm_length  = sizeof(short) * short_count;
                   pcm_total_length += pcm_length;
                   if (pcm_length + pcm_index > mus->pcm_length) {
-                    _e("Uhhh.\n");
+                    DBG_E("Uhhh.\n");
                     break;
                   }
 
@@ -340,8 +442,8 @@ void a_update(time_s delta) {
               if ((al_err = alGetError()) != AL_INVALID_VALUE) {
                 alSourceQueueBuffers(mus->source, 1, &buffer);
               } else {
-                _e("Unable to unqueue audio buffer for music err [%i]: %i\n",
-                   al_err, buffer);
+                DBG_E("Unable to unqueue audio buffer for music err [%i]: %i\n",
+                      al_err, buffer);
               }
             }
 
@@ -355,8 +457,8 @@ void a_update(time_s delta) {
   }
 }
 
-uint32_t a_get_device_name(char *dst, int capacity) {
-  ALchar *name;
+uint32_t a_get_device_name(char* dst, int capacity) {
+  ALchar* name;
   if (g_a_ctx.device) {
     name = alcGetString(g_a_ctx.device, ALC_DEVICE_SPECIFIER);
   } else {
@@ -364,15 +466,15 @@ uint32_t a_get_device_name(char *dst, int capacity) {
   }
 
   int length = strlen(name);
-  int limit = (length > capacity) ? capacity - 1 : length;
+  int limit  = (length > capacity) ? capacity - 1 : length;
   memcpy(dst, name, sizeof(char) * limit);
   dst[limit] = '\0';
 
   return limit;
 }
 
-int8_t a_layer_add_music(uint32_t id, a_music *music) {
-  a_layer *layer = 0;
+int8_t a_layer_add_music(uint32_t id, a_music* music) {
+  a_layer* layer = 0;
   for (int i = 0; i < g_a_map.layer_count; ++i) {
     if (g_a_map.layers[i].id == id) {
       layer = &g_a_map.layers[i];
@@ -401,8 +503,8 @@ int8_t a_layer_add_music(uint32_t id, a_music *music) {
   return 0;
 }
 
-int8_t a_layer_add_sfx(uint32_t id, a_sfx *sfx) {
-  a_layer *layer = 0;
+int8_t a_layer_add_sfx(uint32_t id, a_sfx* sfx) {
+  a_layer* layer = 0;
   for (int i = 0; i < g_a_map.layer_count; ++i) {
     if (g_a_map.layers[i].id == id) {
       layer = &g_a_map.layers[i];
@@ -429,8 +531,20 @@ int8_t a_layer_add_sfx(uint32_t id, a_sfx *sfx) {
   return 0;
 }
 
-int a_ctx_create(const char *device_name) {
-  ALCdevice *device = NULL;
+a_req a_req_create(uint16_t layer, vec3 pos, float gain, int8_t loop) {
+  a_req req = (a_req){0};
+  vec3_dup(req.pos, pos);
+  req.gain  = gain;
+  req.layer = layer;
+  vec3_clear(req.vel);
+  req.loop = loop ? 1 : 0;
+  req.stop = 0;
+  req.time = 0;
+  return req;
+}
+
+int a_ctx_create(const char* device_name) {
+  ALCdevice* device = NULL;
 
   if (device_name != NULL) {
     device = alcOpenDevice(device_name);
@@ -438,13 +552,32 @@ int a_ctx_create(const char *device_name) {
     device = alcOpenDevice(NULL);
   }
 
-  ALCcontext *context = alcCreateContext(device, NULL);
+#if !defined(ASTERA_AUDIO_NO_EFX)
+  if (alcIsExtensionPresent(device, "ALC_EXT_EFX") == AL_FALSE) {
+    g_a_ctx.efx = 0;
+  } else {
+    g_a_ctx.efx = 1;
+  }
+
+  ALint attribs[4] = {0};
+
+  if (g_a_ctx.efx) {
+    attribs[0] = ALC_MAX_AUXILIARY_SENDS;
+    attribs[1] = 4;
+  }
+
+  ALCcontext* context = alcCreateContext(device, attribs);
+#else
+  ALCcontext* context = alcCreateContext(device, NULL);
+#endif
 
   if (!alcMakeContextCurrent(context)) {
-    _e("Error creating OpenAL Context\n");
+    DBG_E("Error creating OpenAL Context\n");
     return 0;
   }
-  g_a_ctx = (a_ctx){context, device};
+
+  g_a_ctx.context = context;
+  g_a_ctx.device  = device;
 
 #if defined(INIT_DEBUG)
   _l("Loaded audio device.\n");
@@ -453,24 +586,24 @@ int a_ctx_create(const char *device_name) {
   return 1;
 }
 
-static int16_t a_load_int16(asset_t *asset, int offset) {
-  return *((int16_t *)&asset->data[offset]);
+static int16_t a_load_int16(asset_t* asset, int offset) {
+  return *((int16_t*)&asset->data[offset]);
 }
 
-static int32_t a_load_int32(asset_t *asset, int offset) {
-  return *((int32_t *)&asset->data[offset]);
+static int32_t a_load_int32(asset_t* asset, int offset) {
+  return *((int32_t*)&asset->data[offset]);
 }
 
-a_buf a_buf_create(asset_t *asset) {
+a_buf a_buf_create(asset_t* asset) {
   if (!asset || !asset->data) {
-    _e("No asset passed to load into audio buffer.\n");
+    DBG_E("No asset passed to load into audio buffer.\n");
     return (a_buf){0};
   }
 
-  int16_t format = a_load_int16(asset, 20);
-  int16_t channels = a_load_int16(asset, 22);
-  int32_t sample_rate = a_load_int32(asset, 24);
-  int32_t byte_rate = a_load_int32(asset, 28);
+  int16_t format          = a_load_int16(asset, 20);
+  int16_t channels        = a_load_int16(asset, 22);
+  int32_t sample_rate     = a_load_int32(asset, 24);
+  int32_t byte_rate       = a_load_int32(asset, 28);
   int16_t bits_per_sample = a_load_int16(asset, 34);
 
   // NOTE: Just tests if it's valid file
@@ -494,16 +627,16 @@ a_buf a_buf_create(asset_t *asset) {
   }
 
   if (al_format == -1) {
-    _e("Unsupported wave file format.\n");
+    DBG_E("Unsupported wave file format.\n");
     return (a_buf){0};
   }
 
   a_buf buffer;
   alGenBuffers(1, &buffer.id);
 
-  buffer.channels = channels;
+  buffer.channels    = channels;
   buffer.sample_rate = sample_rate;
-  buffer.length = (float)(byte_length / byte_rate);
+  buffer.length      = (float)(byte_length / byte_rate);
 
   alBufferData(buffer.id, al_format, &asset->data[44], byte_length,
                sample_rate);
@@ -533,7 +666,7 @@ void a_buf_destroy(a_buf buffer) {
     }
 
     if (end == g_a_map.buf_capacity - 1) {
-      g_a_map.bufs[end + 1].id = 0;
+      g_a_map.bufs[end + 1].id   = 0;
       g_a_map.buf_names[end + 1] = NULL;
     }
   }
@@ -541,9 +674,9 @@ void a_buf_destroy(a_buf buffer) {
   alDeleteBuffers(1, &buffer.id);
 }
 
-a_buf *a_buf_get(const char *name) {
+a_buf* a_buf_get(const char* name) {
   if (!name) {
-    _e("Unable to get null name buffer.\n");
+    DBG_E("Unable to get null name buffer.\n");
     return NULL;
   }
 
@@ -553,17 +686,17 @@ a_buf *a_buf_get(const char *name) {
     }
   }
 
-  _e("No buffer found named: %s\n", name);
+  DBG_E("No buffer found named: %s\n", name);
   return NULL;
 }
 
-a_sfx *a_play_sfxn(const char *name, a_req *req) {
+a_sfx* a_play_sfxn(const char* name, a_req* req) {
   if (!name) {
-    _e("No buffer name passed to play.\n");
+    DBG_E("No buffer name passed to play.\n");
     return NULL;
   }
 
-  a_buf *buff = a_buf_get(name);
+  a_buf* buff = a_buf_get(name);
 
   int index = -1;
   for (int i = 0; i < MAX_SFX; ++i) {
@@ -577,18 +710,21 @@ a_sfx *a_play_sfxn(const char *name, a_req *req) {
     return NULL;
   }
 
-  a_sfx *src = &g_a_map.sfx[index];
+  a_sfx* src = &g_a_map.sfx[index];
 
   alSourcei(src->id, AL_BUFFER, buff->id);
 
   if (req) {
-    alSourcefv(src->id, AL_POSITION, req->pos);
+    alSource3f(src->id, AL_POSITION, req->pos[0], req->pos[2], req->pos[1]);
     alSourcefv(src->id, AL_VELOCITY, req->vel);
 
     // Adjust to the layer's gain
     float layer_gain = g_a_map.layers[req->layer].gain;
     alSourcef(src->id, AL_GAIN, req->gain * layer_gain);
     // TODO implement range
+    alSourcef(src->id, AL_MAX_DISTANCE, src->range);
+    alSourcef(src->id, AL_REFERENCE_DISTANCE, src->range / 2.f);
+    alSourcef(src->id, AL_ROLLOFF_FACTOR, ASTERA_AL_ROLLOFF_FACTOR);
     alSourcei(src->id, AL_LOOPING, (req->loop) ? AL_TRUE : AL_FALSE);
   } else {
     alSourcefv(src->id, AL_POSITION, (vec3){0.f, 0.f, 0.f});
@@ -596,17 +732,19 @@ a_sfx *a_play_sfxn(const char *name, a_req *req) {
 
     // Adjust to the layer's gain
     alSourcef(src->id, AL_GAIN, 1.f);
-    // TODO implement range
     alSourcei(src->id, AL_LOOPING, AL_FALSE);
+    alSourcef(src->id, AL_MAX_DISTANCE, src->range);
+    alSourcef(src->id, AL_REFERENCE_DISTANCE, src->range / 2.f);
+    alSourcef(src->id, AL_ROLLOFF_FACTOR, ASTERA_AL_ROLLOFF_FACTOR);
   }
 
   alSourcePlay(src->id);
   return src;
 }
 
-a_sfx *a_play_sfx(a_buf *buff, a_req *req) {
+a_sfx* a_play_sfx(a_buf* buff, a_req* req) {
   if (!buff) {
-    _e("No buffer passed to play.\n");
+    DBG_E("No buffer passed to play.\n");
     return NULL;
   }
 
@@ -622,18 +760,22 @@ a_sfx *a_play_sfx(a_buf *buff, a_req *req) {
     return NULL;
   }
 
-  a_sfx *src = &g_a_map.sfx[index];
+  a_sfx* src = &g_a_map.sfx[index];
 
   alSourcei(src->id, AL_BUFFER, buff->id);
 
   if (req) {
-    alSourcefv(src->id, AL_POSITION, req->pos);
+    alSource3f(src->id, AL_POSITION, req->pos[0], req->pos[2], req->pos[1]);
     alSourcefv(src->id, AL_VELOCITY, req->vel);
 
     // Adjust to the layer's gain
     float layer_gain = g_a_map.layers[req->layer].gain;
     alSourcef(src->id, AL_GAIN, req->gain * layer_gain);
-    // TODO implement range
+
+    alSourcef(src->id, AL_MAX_DISTANCE, src->range);
+    alSourcef(src->id, AL_REFERENCE_DISTANCE, src->range / 2.f);
+    alSourcef(src->id, AL_ROLLOFF_FACTOR, ASTERA_AL_ROLLOFF_FACTOR);
+
     alSourcei(src->id, AL_LOOPING, (req->loop) ? AL_TRUE : AL_FALSE);
   } else {
     alSourcefv(src->id, AL_POSITION, (vec3){0.f, 0.f, 0.f});
@@ -641,17 +783,20 @@ a_sfx *a_play_sfx(a_buf *buff, a_req *req) {
 
     // Adjust to the layer's gain
     alSourcef(src->id, AL_GAIN, 1.f);
-    // TODO implement range
+
     alSourcei(src->id, AL_LOOPING, AL_FALSE);
+    alSourcef(src->id, AL_MAX_DISTANCE, src->range);
+    alSourcef(src->id, AL_REFERENCE_DISTANCE, src->range / 2.f);
+    alSourcef(src->id, AL_ROLLOFF_FACTOR, ASTERA_AL_ROLLOFF_FACTOR);
   }
 
   alSourcePlay(src->id);
   return src;
 }
 
-a_music *a_music_create(asset_t *asset, a_meta *meta, a_req *req) {
+a_music* a_music_create(asset_t* asset, a_meta* meta, a_req* req) {
   if (!asset) {
-    _e("No data passed to create music.\n");
+    DBG_E("No data passed to create music.\n");
     return NULL;
   }
 
@@ -665,24 +810,24 @@ a_music *a_music_create(asset_t *asset, a_meta *meta, a_req *req) {
   }
 
   if (index == -1) {
-    _e("No available music slots.\n");
+    DBG_E("No available music slots.\n");
     return NULL;
   }
 
-  a_music *music = &g_a_map.songs[index];
+  a_music* music = &g_a_map.songs[index];
 
   int error, used;
 
   music->data_length = asset->data_length;
-  music->data = asset->data;
-  music->vorbis = stb_vorbis_open_pushdata(asset->data, asset->data_length,
+  music->data        = asset->data;
+  music->vorbis      = stb_vorbis_open_pushdata(asset->data, asset->data_length,
                                            &used, &error, NULL);
 
   if (!music->vorbis) {
     music->data_length = 0;
-    music->data = 0;
-    music->req = 0;
-    _e("Unable to load vorbis, that sucks.\n");
+    music->data        = 0;
+    music->req         = 0;
+    DBG_E("Unable to load vorbis, that sucks.\n");
     return NULL;
   }
 
@@ -690,13 +835,13 @@ a_music *a_music_create(asset_t *asset, a_meta *meta, a_req *req) {
   music->data_offset += used;
 
   stb_vorbis_info info = stb_vorbis_get_info(music->vorbis);
-  music->sample_rate = info.sample_rate;
+  music->sample_rate   = info.sample_rate;
 
   if (info.channels > 2) {
-    _e("Invalid channel size for audio system: %i.\n", info.channels);
+    DBG_E("Invalid channel size for audio system: %i.\n", info.channels);
     music->data_length = 0;
-    music->data = 0;
-    music->req = 0;
+    music->data        = 0;
+    music->req         = 0;
     return 0;
   }
 
@@ -708,17 +853,25 @@ a_music *a_music_create(asset_t *asset, a_meta *meta, a_req *req) {
 
   if (!music->pcm) {
     music->data_length = 0;
-    music->data = 0;
-    music->req = 0;
-    _e("Unable to allocate %i shorts.\n", music->pcm_length);
+    music->data        = 0;
+    music->req         = 0;
+    DBG_E("Unable to allocate %i shorts.\n", music->pcm_length);
     return 0;
+  }
+
+  if (req->range != 0.f) {
+    alSourcef(music->source, AL_MAX_DISTANCE, req->range);
+    alSourcef(music->source, AL_REFERENCE_DISTANCE, req->range / 2.f);
+    alSourcef(music->source, AL_ROLLOFF_FACTOR, ASTERA_AL_ROLLOFF_FACTOR);
+  } else {
+    alSourcef(music->source, AL_MAX_DISTANCE, 0.f);
   }
 
   alSourcef(music->source, AL_PITCH, 1.f);
   if (meta) {
-    music->meta = meta;
+    music->meta          = meta;
     music->total_samples = meta->total_samples;
-    music->samples_left = meta->total_samples;
+    music->samples_left  = meta->total_samples;
   }
 
   for (int i = 0; i < AUDIO_BUFFERS_PER_MUSIC; ++i) {
@@ -729,7 +882,7 @@ a_music *a_music_create(asset_t *asset, a_meta *meta, a_req *req) {
 
     int pcm_total_length = 0;
 
-    float **out;
+    float** out;
 
     memset(music->pcm, 0, sizeof(short) * music->pcm_length);
 
@@ -743,7 +896,7 @@ a_music *a_music_create(asset_t *asset, a_meta *meta, a_req *req) {
           &num_channels, &out, &num_samples);
 
       if (bytes_used == 0) {
-        _e("Unable to process samples from %i bytes.\n", frame_size);
+        DBG_E("Unable to process samples from %i bytes.\n", frame_size);
         break;
       }
 
@@ -751,7 +904,7 @@ a_music *a_music_create(asset_t *asset, a_meta *meta, a_req *req) {
 
       if (num_samples > 0) {
         int sample_count = num_channels * num_samples;
-        int pcm_size = sample_count * sizeof(short);
+        int pcm_size     = sample_count * sizeof(short);
         pcm_total_length += pcm_size;
         for (int s = 0; s < num_samples - 1; ++s) {
           for (int c = 0; c < num_channels; ++c) {
@@ -774,14 +927,14 @@ a_music *a_music_create(asset_t *asset, a_meta *meta, a_req *req) {
   if (req) {
     music->req = req;
     alSourcef(music->source, AL_GAIN, req->gain);
-    music->loop = req->loop;
+    music->loop    = req->loop;
     music->has_req = 1;
   }
 
   return music;
 }
 
-void a_music_reset(a_music *music) {
+void a_music_reset(a_music* music) {
   // TODO finish this implementation
   // NOTE: Playing -> load back buffer first, then push to front & fill back
   // buffer again
@@ -809,7 +962,7 @@ void a_music_reset(a_music *music) {
           &num_channels, &out, &num_samples);
 
       if (bytes_used == 0) {
-        _e("Unable to process samples from %i bytes.\n", frame_size);
+        DBG_E("Unable to process samples from %i bytes.\n", frame_size);
         break;
       }
 
@@ -838,26 +991,30 @@ void a_music_reset(a_music *music) {
   }*/
 }
 
-void a_music_destroy(a_music *music) { stb_vorbis_close(music->vorbis); }
+void a_music_destroy(a_music* music) {
+  stb_vorbis_close(music->vorbis);
+}
 
-time_s a_music_time(a_music *music) {
+time_s a_music_time(a_music* music) {
   uint32_t samples = music->total_samples - music->samples_left;
   return (time_s)(samples / music->sample_rate);
 }
 
-time_s a_music_len(a_music *music) {
+time_s a_music_len(a_music* music) {
   return (time_s)(music->total_samples / music->sample_rate);
 }
 
-void a_music_play(a_music *music) { alSourcePlay(music->source); }
+void a_music_play(a_music* music) {
+  alSourcePlay(music->source);
+}
 
-void a_music_stop(a_music *music) {
+void a_music_stop(a_music* music) {
   alSourceStop(music->source);
   stb_vorbis_seek_start(music->vorbis);
   music->samples_left = music->total_samples;
 }
 
-void a_resume_music(a_music *music) {
+void a_resume_music(a_music* music) {
   ALenum state;
   alSourcei(music->source, AL_SOURCE_STATE, &state);
   if (state == AL_PAUSED) {
@@ -865,7 +1022,9 @@ void a_resume_music(a_music *music) {
   }
 }
 
-void a_music_pause(a_music *music) { alSourcePause(music->source); }
+void a_music_pause(a_music* music) {
+  alSourcePause(music->source);
+}
 
 static int a_get_open_sfx(void) {
   for (int i = 0; i < MAX_SFX; ++i) {

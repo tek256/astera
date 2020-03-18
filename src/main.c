@@ -14,8 +14,8 @@
 #include "input.h"
 #include "sys.h"
 
-int target_fps = 120;
-int max_fps = 120;
+int target_fps = 60;
+int max_fps    = 60;
 
 int init_sys() {
   if (!asset_init()) {
@@ -28,10 +28,10 @@ int init_sys() {
     return EXIT_FAILURE;
   }
 
-  c_conf conf;
+  c_conf        conf;
   r_window_info info;
 
-  char *target_conf_path;
+  char* target_conf_path;
 
 #if defined(CONF_PATH)
   target_conf_path = CONF_PATH;
@@ -46,29 +46,33 @@ int init_sys() {
   }
 
   if (target_conf_path) {
-    asset_t *conf_file = asset_get("sys", target_conf_path);
-    assert(conf_file->data);
-    conf_table = c_get_table(conf_file);
-    conf = c_parse_table(conf_table);
-    asset_free(conf_file);
+    asset_t* conf_file = asset_get("sys", target_conf_path);
+    if (!conf_file) {
+      conf = c_defaults();
+    } else {
+      assert(conf_file->data);
+      conf_table = c_get_table(conf_file);
+      conf       = c_parse_table(conf_table);
+      asset_free(conf_file);
+    }
   } else {
     conf = c_defaults();
   }
 
-  info.width = conf.width;
-  info.height = conf.height;
-  info.fullscreen = conf.fullscreen;
-  info.vsync = conf.vsync;
-  info.borderless = conf.borderless;
+  info.width       = conf.width;
+  info.height      = conf.height;
+  info.fullscreen  = conf.fullscreen;
+  info.vsync       = conf.vsync;
+  info.borderless  = conf.borderless;
   info.refreshRate = conf.refreshRate;
-  info.icon = conf.icon;
+  info.icon        = conf.icon;
   // info.icon = 0;
   info.gamma = conf.gamma;
 
 #if defined(WINDOW_TITLE)
   info.title = WINDOW_TITLE;
 #else
-  info.title = "untitled";
+  info.title       = "untitled";
 #endif
 
   if (!r_init(info)) {
@@ -83,6 +87,8 @@ int init_sys() {
     return EXIT_FAILURE;
   }
 
+  a_efx_info();
+
   if (!g_init()) {
     _fatal("Unable to initialize game runtime.\n");
     return EXIT_FAILURE;
@@ -93,7 +99,7 @@ int init_sys() {
   return 1;
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv) {
 // Free up the extra console initialized with programs in windows
 #if defined(__MINGW32__)
 #if !defined(DEBUG_OUTPUT)
@@ -158,7 +164,7 @@ int main(int argc, char **argv) {
         max_timeframe -= overall_delta.delta;
 
         // Sleep the remainder of the timeframe
-        s_sleep(max_timeframe);
+        // s_sleep(max_timeframe);
       } else if (proj_fps < target_fps && proj_fps > 0) {
         target_fps = proj_fps;
       } else {

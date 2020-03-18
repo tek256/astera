@@ -14,7 +14,7 @@
 #endif
 
 #define LINMATH_H_DEFINE_VEC(n)                                                \
-  typedef float vec##n[n];                                                     \
+  typedef float      vec##n[n];                                                \
   LINMATH_H_FUNC int vec##n##_cmp(vec##n a, vec##n b) {                        \
     for (int i = 0; i < n; ++i) {                                              \
       if (a[i] != b[i]) {                                                      \
@@ -28,6 +28,7 @@
     for (i = 0; i < n; ++i)                                                    \
       r[i] = a[i] + b[i];                                                      \
   }                                                                            \
+                                                                               \
   LINMATH_H_FUNC void vec##n##_sub(vec##n r, vec##n const a, vec##n const b) { \
     int i;                                                                     \
     for (i = 0; i < n; ++i)                                                    \
@@ -41,13 +42,16 @@
   }                                                                            \
   LINMATH_H_FUNC float vec##n##_mul_inner(vec##n const a, vec##n const b) {    \
     float p = 0.;                                                              \
-    int i;                                                                     \
+    int   i;                                                                   \
     for (i = 0; i < n; ++i)                                                    \
       p += b[i] * a[i];                                                        \
     return p;                                                                  \
   }                                                                            \
   LINMATH_H_FUNC float vec##n##_len(vec##n const v) {                          \
     return sqrtf(vec##n##_mul_inner(v, v));                                    \
+  }                                                                            \
+  LINMATH_H_FUNC float vec##n##_lensq(vec##n const v) {                        \
+    return vec##n##_mul_inner(v, v);                                           \
   }                                                                            \
   LINMATH_H_FUNC void vec##n##_norm(vec##n r, vec##n const v) {                \
     float k = 1.0 / vec##n##_len(v);                                           \
@@ -73,13 +77,21 @@
       dst[i] = 0.f;                                                            \
     }                                                                          \
   }                                                                            \
-  LINMATH_H_FUNC int vec##n##_nonzero(vec##n const a) {                        \
+  LINMATH_H_FUNC float vec##n##_dot(vec##n const a, vec##n const b) {          \
+    float r = 0.f;                                                             \
     for (int i = 0; i < n; ++i) {                                              \
-      if (a[i] != 0) {                                                         \
-        return 0;                                                              \
+      r += (a[i]) * (b[i]);                                                    \
+    }                                                                          \
+    return r;                                                                  \
+  }                                                                            \
+  LINMATH_H_FUNC int vec##n##_nonzero(vec##n const a) {                        \
+    int c = 0;                                                                 \
+    for (int i = 0; i < n; ++i) {                                              \
+      if (a[i] != 0.f) {                                                       \
+        ++c;                                                                   \
       }                                                                        \
     }                                                                          \
-    return 1;                                                                  \
+    return c != 0;                                                             \
   }
 
 LINMATH_H_DEFINE_VEC(2)
@@ -112,7 +124,7 @@ LINMATH_H_FUNC void vec3_mul_cross(vec3 r, vec3 const a, vec3 const b) {
 
 LINMATH_H_FUNC void vec3_reflect(vec3 r, vec3 const v, vec3 const n) {
   float p = 2.f * vec3_mul_inner(v, n);
-  int i;
+  int   i;
   for (i = 0; i < 3; ++i)
     r[i] = v[i] - p * n[i];
 }
@@ -126,108 +138,12 @@ LINMATH_H_FUNC void vec4_mul_cross(vec4 r, vec4 a, vec4 b) {
 
 LINMATH_H_FUNC void vec4_reflect(vec4 r, vec4 v, vec4 n) {
   float p = 2.f * vec4_mul_inner(v, n);
-  int i;
+  int   i;
   for (i = 0; i < 4; ++i)
     r[i] = v[i] - p * n[i];
 }
 
-LINMATH_H_FUNC void vec4_bounds(vec4 dst, const vec2 position,
-                                const vec2 size) {
-  dst[0] = position[0];
-  dst[1] = position[1];
-  dst[2] = dst[0] + size[0];
-  dst[3] = dst[1] + size[1];
-}
-
-// Check if a point is within the bounds (vec4){min_x, min_y, max_x, max_y}, but
-// also set the offset from min_x, min_y to point
-LINMATH_H_FUNC int vec2_inside_bounds(vec2 dst, const vec4 bounds,
-                                      const vec2 point) {
-  int valid = (point[0] > bounds[0] && point[1] < bounds[2] &&
-               point[1] > bounds[1] && point[1] < bounds[3]);
-
-  if (valid) {
-    dst[0] = point[0] - bounds[0];
-    dst[1] = point[1] - bounds[1];
-  }
-
-  return valid;
-}
-
-LINMATH_H_FUNC int vec3_inside_bounds(vec2 dst, const vec4 bounds,
-                                      const vec3 point) {
-  int valid = (point[0] > bounds[0] && point[1] < bounds[2] &&
-               point[1] > bounds[1] && point[1] < bounds[3]);
-
-  if (valid) {
-    dst[0] = point[0] - bounds[0];
-    dst[1] = point[1] - bounds[1];
-  }
-
-  return valid;
-}
-
-LINMATH_H_FUNC int vec4_inside_bounds(vec2 dst, const vec4 bounds,
-                                      const vec4 point) {
-  int valid = (point[0] > bounds[0] && point[1] < bounds[2] &&
-               point[1] > bounds[1] && point[1] < bounds[3]);
-
-  if (valid) {
-    dst[0] = point[0] - bounds[0];
-    dst[1] = point[1] - bounds[1];
-  }
-
-  return valid;
-}
-
-// These functions are to check whether or not something is within the bounds
-
-LINMATH_H_FUNC int vec2_within_bounds(const vec4 bounds, const vec2 point) {
-  return (point[0] > bounds[0] && point[1] < bounds[2] &&
-          point[1] > bounds[1] && point[1] < bounds[3]);
-}
-
-LINMATH_H_FUNC int vec3_within_bounds(const vec4 bounds, const vec3 point) {
-  return (point[0] > bounds[0] && point[1] < bounds[2] &&
-          point[1] > bounds[1] && point[1] < bounds[3]);
-}
-
-LINMATH_H_FUNC int vec4_within_bounds(const vec4 bounds, const vec4 point) {
-  return (point[0] > bounds[0] && point[1] < bounds[2] &&
-          point[1] > bounds[1] && point[1] < bounds[3]);
-}
-
-// Return the overlap of b over a
-LINMATH_H_FUNC int vec4_bound_overlap(vec2 overlap, const vec4 a,
-                                      const vec4 b) {
-  vec2 tmp;
-  if (a[0] > b[0] && a[0] < b[2]) {
-    // left -> inside
-    tmp[0] = a[2] - b[0];
-  } else if (a[2] > b[0] && a[2] < b[2]) {
-    // right -> inside
-    tmp[0] = -(b[2] - a[0]);
-  }
-
-  if (a[1] > b[1] && a[1] < b[1]) {
-    // top -> inside
-    tmp[1] = b[3] - a[1];
-  } else if (a[3] > b[1] && a[3] < b[3]) {
-    // bottom -> inside
-    tmp[1] = -(a[3] - b[1]);
-  }
-
-  if (vec2_nonzero(tmp)) {
-    if (overlap) {
-      vec2_dup(overlap, tmp);
-    }
-    return 1;
-  }
-
-  return 0;
-}
-
-typedef vec4 mat4x4[4];
+typedef vec4        mat4x4[4];
 LINMATH_H_FUNC void mat4x4_identity(mat4x4 M) {
   int i, j;
   for (i = 0; i < 4; ++i)
@@ -283,7 +199,7 @@ LINMATH_H_FUNC void mat4x4_scale_aniso(mat4x4 M, mat4x4 a, float x, float y,
 }
 LINMATH_H_FUNC void mat4x4_mul(mat4x4 M, mat4x4 a, mat4x4 b) {
   mat4x4 temp;
-  int k, r, c;
+  int    k, r, c;
   for (c = 0; c < 4; ++c)
     for (r = 0; r < 4; ++r) {
       temp[c][r] = 0.f;
@@ -310,7 +226,7 @@ LINMATH_H_FUNC void mat4x4_translate_in_place(mat4x4 M, float x, float y,
                                               float z) {
   vec4 t = {x, y, z, 0};
   vec4 r;
-  int i;
+  int  i;
   for (i = 0; i < 4; ++i) {
     mat4x4_row(r, M, i);
     M[3][i] += vec4_mul_inner(r, t);
@@ -326,7 +242,7 @@ LINMATH_H_FUNC void mat4x4_rotate(mat4x4 R, mat4x4 M, float x, float y, float z,
                                   float angle) {
   float s = sinf(angle);
   float c = cosf(angle);
-  vec3 u = {x, y, z};
+  vec3  u = {x, y, z};
 
   if (vec3_len(u) > 1e-4) {
     vec3_norm(u, u);
@@ -355,8 +271,8 @@ LINMATH_H_FUNC void mat4x4_rotate(mat4x4 R, mat4x4 M, float x, float y, float z,
   }
 }
 LINMATH_H_FUNC void mat4x4_rotate_x(mat4x4 Q, mat4x4 M, float angle) {
-  float s = sinf(angle);
-  float c = cosf(angle);
+  float  s = sinf(angle);
+  float  c = cosf(angle);
   mat4x4 R = {{1.f, 0.f, 0.f, 0.f},
               {0.f, c, s, 0.f},
               {0.f, -s, c, 0.f},
@@ -364,8 +280,8 @@ LINMATH_H_FUNC void mat4x4_rotate_x(mat4x4 Q, mat4x4 M, float angle) {
   mat4x4_mul(Q, M, R);
 }
 LINMATH_H_FUNC void mat4x4_rotate_y(mat4x4 Q, mat4x4 M, float angle) {
-  float s = sinf(angle);
-  float c = cosf(angle);
+  float  s = sinf(angle);
+  float  c = cosf(angle);
   mat4x4 R = {{c, 0.f, s, 0.f},
               {0.f, 1.f, 0.f, 0.f},
               {-s, 0.f, c, 0.f},
@@ -373,8 +289,8 @@ LINMATH_H_FUNC void mat4x4_rotate_y(mat4x4 Q, mat4x4 M, float angle) {
   mat4x4_mul(Q, M, R);
 }
 LINMATH_H_FUNC void mat4x4_rotate_z(mat4x4 Q, mat4x4 M, float angle) {
-  float s = sinf(angle);
-  float c = cosf(angle);
+  float  s = sinf(angle);
+  float  c = cosf(angle);
   mat4x4 R = {{c, s, 0.f, 0.f},
               {-s, c, 0.f, 0.f},
               {0.f, 0.f, 1.f, 0.f},
@@ -425,7 +341,7 @@ LINMATH_H_FUNC void mat4x4_invert(mat4x4 T, mat4x4 M) {
 LINMATH_H_FUNC void mat4x4_orthonormalize(mat4x4 R, mat4x4 M) {
   mat4x4_dup(R, M);
   float s = 1.;
-  vec3 h;
+  vec3  h;
 
   vec3_norm(R[2], R[2]);
 
@@ -543,10 +459,10 @@ LINMATH_H_FUNC void mat4x4_look_at(mat4x4 m, vec3 eye, vec3 center, vec3 up) {
   mat4x4_translate_in_place(m, -eye[0], -eye[1], -eye[2]);
 }
 
-typedef float quat[4];
+typedef float       quat[4];
 LINMATH_H_FUNC void quat_identity(quat q) {
   q[0] = q[1] = q[2] = 0.f;
-  q[3] = 1.f;
+  q[3]               = 1.f;
 }
 LINMATH_H_FUNC void quat_add(quat r, quat a, quat b) {
   int i;
@@ -574,7 +490,7 @@ LINMATH_H_FUNC void quat_scale(quat r, quat v, float s) {
 }
 LINMATH_H_FUNC float quat_inner_product(quat a, quat b) {
   float p = 0.f;
-  int i;
+  int   i;
   for (i = 0; i < 4; ++i)
     p += b[i] * a[i];
   return p;
@@ -602,7 +518,7 @@ LINMATH_H_FUNC void quat_mul_vec3(vec3 r, quat q, vec3 v) {
    */
   vec3 t;
   vec3 q_xyz = {q[0], q[1], q[2]};
-  vec3 u = {q[0], q[1], q[2]};
+  vec3 u     = {q[0], q[1], q[2]};
 
   vec3_mul_cross(t, q_xyz, v);
   vec3_scale(t, t, 2);
@@ -614,10 +530,10 @@ LINMATH_H_FUNC void quat_mul_vec3(vec3 r, quat q, vec3 v) {
   vec3_add(r, r, u);
 }
 LINMATH_H_FUNC void mat4x4_from_quat(mat4x4 M, quat q) {
-  float a = q[3];
-  float b = q[0];
-  float c = q[1];
-  float d = q[2];
+  float a  = q[3];
+  float b  = q[0];
+  float c  = q[1];
+  float d  = q[2];
   float a2 = a * a;
   float b2 = b * b;
   float c2 = c * c;
@@ -639,7 +555,7 @@ LINMATH_H_FUNC void mat4x4_from_quat(mat4x4 M, quat q) {
   M[2][3] = 0.f;
 
   M[3][0] = M[3][1] = M[3][2] = 0.f;
-  M[3][3] = 1.f;
+  M[3][3]                     = 1.f;
 }
 
 LINMATH_H_FUNC void mat4x4o_mul_quat(mat4x4 R, mat4x4 M, quat q) {
@@ -650,20 +566,20 @@ LINMATH_H_FUNC void mat4x4o_mul_quat(mat4x4 R, mat4x4 M, quat q) {
   quat_mul_vec3(R[2], q, M[2]);
 
   R[3][0] = R[3][1] = R[3][2] = 0.f;
-  R[3][3] = 1.f;
+  R[3][3]                     = 1.f;
 }
 LINMATH_H_FUNC void quat_from_mat4x4(quat q, mat4x4 M) {
   float r = 0.f;
-  int i;
+  int   i;
 
-  int perm[] = {0, 1, 2, 0, 1};
-  int *p = perm;
+  int  perm[] = {0, 1, 2, 0, 1};
+  int* p      = perm;
 
   for (i = 0; i < 3; i++) {
     float m = M[i][i];
     if (m < r)
       continue;
-    m = r;
+    // m = r;
     p = &perm[i];
   }
 

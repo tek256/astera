@@ -15,9 +15,9 @@
 
 #define STR_BUFF_SIZE 128
 
-static int logging = -1;
-static int timestamp = 1;
-static char *log_fp;
+static int   logging   = -1;
+static int   timestamp = 1;
+static char* log_fp;
 
 static int refresh_rate = 5;
 static int changes_made = 0;
@@ -25,11 +25,17 @@ static int changes_made = 0;
 static char time_buff[64];
 static char strbuff[STR_BUFF_SIZE];
 
-void dbg_set_log_fp(const char *fp) { log_fp = fp; }
+void dbg_set_log_fp(const char* fp) {
+  log_fp = fp;
+}
 
-void dbg_set_timestamp(int enabled) { timestamp = enabled; }
+void dbg_set_timestamp(int enabled) {
+  timestamp = enabled;
+}
 
-int dbg_is_logging() { return logging && log_fp; }
+int dbg_is_logging() {
+  return logging && log_fp;
+}
 
 int dbg_cleanup() {
   if (log_fp) {
@@ -38,7 +44,7 @@ int dbg_cleanup() {
   return 1;
 }
 
-void dbg_enable_log(int log, const char *fp) {
+void dbg_enable_log(int log, const char* fp) {
   if (log != logging) {
     logging = log;
   }
@@ -48,7 +54,7 @@ void dbg_enable_log(int log, const char *fp) {
       remove(fp);
     }
 
-    FILE *chk = fopen(fp, "a");
+    FILE* chk = fopen(fp, "a");
     if (!chk) {
       logging = 0;
       _e("Unable to open file: %s\n", fp);
@@ -59,7 +65,7 @@ void dbg_enable_log(int log, const char *fp) {
   }
 }
 
-void _l(const char *format, ...) {
+void _l(const char* format, ...) {
   va_list args;
   va_start(args, format);
 
@@ -72,8 +78,8 @@ void _l(const char *format, ...) {
 
   if (logging) {
     if (timestamp) {
-      time_t raw;
-      struct tm *ti;
+      time_t     raw;
+      struct tm* ti;
       time(&raw);
       ti = localtime(&raw);
 
@@ -81,13 +87,13 @@ void _l(const char *format, ...) {
 
       int ts_len = strlen(time_buff);
 
-      FILE *f = fopen(log_fp, "a");
+      FILE* f = fopen(log_fp, "a");
       fwrite(time_buff, sizeof(char), ts_len, f);
       fwrite(strbuff, sizeof(char), len, f);
       fclose(f);
       memset(time_buff, 0, sizeof(char) * 64);
     } else {
-      FILE *f = fopen(log_fp, "a");
+      FILE* f = fopen(log_fp, "a");
       fwrite(strbuff, sizeof(char), len, f);
       fclose(f);
     }
@@ -97,7 +103,7 @@ void _l(const char *format, ...) {
   va_end(args);
 }
 
-void _fatal(const char *format, ...) {
+void _fatal(const char* format, ...) {
   va_list args;
   va_start(args, format);
 
@@ -106,8 +112,8 @@ void _fatal(const char *format, ...) {
 
   if (logging) {
     if (timestamp) {
-      time_t raw;
-      struct tm *ti;
+      time_t     raw;
+      struct tm* ti;
       time(&raw);
       ti = localtime(&raw);
 
@@ -115,13 +121,13 @@ void _fatal(const char *format, ...) {
 
       int ts_len = strlen(time_buff);
 
-      FILE *f = fopen(log_fp, "a");
+      FILE* f = fopen(log_fp, "a");
       fwrite(time_buff, sizeof(char), ts_len, f);
       fwrite(strbuff, sizeof(char), len, f);
       fclose(f);
       memset(time_buff, 0, sizeof(char) * 64);
     } else {
-      FILE *f = fopen(log_fp, "a");
+      FILE* f = fopen(log_fp, "a");
       fwrite(strbuff, sizeof(char), len, f);
       fclose(f);
     }
@@ -133,7 +139,7 @@ void _fatal(const char *format, ...) {
   d_fatal = 1;
 }
 
-void _e(const char *format, ...) {
+void _e(const char* format, ...) {
   va_list args;
   va_start(args, format);
 
@@ -142,8 +148,8 @@ void _e(const char *format, ...) {
 
   if (logging) {
     if (timestamp) {
-      time_t raw;
-      struct tm *ti;
+      time_t     raw;
+      struct tm* ti;
       time(&raw);
       ti = localtime(&raw);
 
@@ -151,13 +157,13 @@ void _e(const char *format, ...) {
 
       int ts_len = strlen(time_buff);
 
-      FILE *f = fopen(log_fp, "a");
+      FILE* f = fopen(log_fp, "a");
       fwrite(time_buff, sizeof(char), ts_len, f);
       fwrite(strbuff, sizeof(char), len, f);
       fclose(f);
       memset(time_buff, 0, sizeof(char) * 64);
     } else {
-      FILE *f = fopen(log_fp, "a");
+      FILE* f = fopen(log_fp, "a");
       fwrite(strbuff, sizeof(char), len, f);
       fclose(f);
     }
@@ -174,8 +180,8 @@ int dbg_post_to_err() {
     return 0;
   }
 
-  time_t raw;
-  struct tm *ti;
+  time_t     raw;
+  struct tm* ti;
   time(&raw);
   ti = localtime(&raw);
 
@@ -187,8 +193,8 @@ int dbg_post_to_err() {
   strcat(err_buff, ".txt");
   strcat(err_buff, "\0");
 
-  FILE *o = fopen(err_buff, "w");
-  FILE *i = fopen(log_fp, "r");
+  FILE* o = fopen(err_buff, "w");
+  FILE* i = fopen(log_fp, "r");
 
   if (!o) {
     _e("Unable to open, %s for error output.\n", log_fp);
@@ -210,7 +216,7 @@ int dbg_post_to_err() {
 
   fseek(i, 0, SEEK_END);
   long size = ftell(i);
-  long rem = size - 1;
+  long rem  = size - 1;
   rewind(i);
 
   while (rem > 0) {

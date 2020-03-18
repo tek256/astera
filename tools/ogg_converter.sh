@@ -4,10 +4,10 @@ file_list=("${file_list[@]}")
 
 for file in "$@"; 
 do
-	if [ -d $file ]; then
-		for subfile in $(find $file -type f ! -name "*.ogg")
+	if [ -d "$file" ]; then
+		for subfile in $(find "$file" -type f ! -name "*.ogg")
 		do
-			if [ -f $subfile ]; then
+			if [ -f "$subfile" ]; then
 				file_list+=("${subfile}")
 			fi	
 		done

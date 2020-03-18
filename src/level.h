@@ -1,9 +1,15 @@
-#ifndef ASTERA_LEVEL_HEADER
+#define ASTERA_NO_LEVEL
+
+#if !defined(ASTERA_NO_LEVEL)
+#if !defined(ASTERA_LEVEL_HEADER)
 #define ASTERA_LEVEL_HEADER
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#define LEVEL_IS_FLAG(value, offset) ((value) & (1 >> offset))
+#define LEVEL_IS_TYPE(value, type)   ((value) & (type)) == type
 
 #include "asset.h"
 #include "sys.h"
@@ -11,192 +17,157 @@ extern "C" {
 #include <misc/linmath.h>
 #include <stdint.h>
 
-#define LEVEL_IS_FLAG(value, offset) ((value) & (1 >> offset))
-#define LEVEL_IS_TYPE(value, type) ((value) & (type)) == type
-
-#define LEVEL_PTR_MOVED = 1 << 2;
-
-#if !defined(LEVEL_SECTION_TEST_CAPACITY)
-#define LEVEL_SECTION_TEST_CAPACITY 16
-#endif
-
-typedef enum { KINEMATIC = 0, DYNAMIC = 1, STATIC = 2 } collision_type;
+typedef struct {
+  vec2  center, normal;
+  float length;
+} l_plane;
 
 typedef struct {
-  vec2 position, size, velocity;
-  float rotation;
-  int8_t type;
-  int32_t flags;
+  vec2 center, halfsize;
+  vec4 bounds;
+} l_aabb;
+
+typedef struct {
+  vec2  center, halfsize;
+  float rotation; // radians
+  vec4  bounds;
 } l_box;
 
 typedef struct {
-  vec2 position, velocity;
   float radius;
-  int8_t type;
-  int32_t flags;
+  vec2  center;
+  vec4  bounds;
 } l_circle;
 
 typedef struct {
-  vec2 start, end, velocity;
-  vec2 direction; // applied if semi permiable
-  int8_t semi;    // semi permiable (single direction pass thru)
-} l_line;
+  vec4 bounds;
+  vec2 center, size;
 
-typedef struct {
-  vec2 position, velocity;
-  float rotation; // Not sure if I want to have to calculate this, but it might
-                  // prove useful
-  vec2 *points;
-  uint32_t point_count;
+  vec2*    verts;
+  uint32_t count;
 } l_complex;
 
-typedef enum { BOX = 0, CIRCLE = 1, LINE = 2, COMPLEX = 3 } l_col_type;
+typedef struct {
+  vec2  normal;
+  float pentration;
+} l_manifold;
 
-typedef enum { OBJECT = 0, ENTITY = 1, OTHER = 2 } l_owner_type;
+typedef enum { L_AABB = 0, L_BOX = 1, L_CIRCLE = 2, L_COMPLEX = 3 } l_col_type;
 
 typedef struct {
-  l_owner_type type;
-  void *data;
-} l_col_owner;
+  void*   data;
+  uint8_t type;
 
-typedef struct {
-  l_col_type col_type;
-  l_col_owner owner;
-  int8_t active;
-  void *data;
+  uint32_t layer;
+  uint32_t obj_id;
 } l_col;
 
 typedef struct {
-  l_col *a, *b;
-  uint32_t step;
-} l_col_action;
+  uint32_t uid, rid;
+  l_col    col;
+
+  l_box bounds;
+
+  uint32_t type, flags;
+} l_obj;
+
+typedef struct l_quad_leaf l_quad_leaf;
+struct l_quad_leaf {
+  uint32_t uid; // uid == index in array
+
+  l_aabb       aabb;
+  l_quad_leaf *nw, *ne, *sw, *se;
+
+  l_obj**  objs;
+  uint32_t count, capacity, level;
+
+  int8_t is_set;
+};
 
 typedef struct {
-  l_col_action *actions;
-  uint32_t capacity, count;
-} l_col_history;
+  l_obj**  values;
+  uint32_t count, capacity;
+} l_obj_query;
 
 typedef struct {
-  uint32_t uid;
-  uint32_t type;
+  l_quad_leaf* leafs;
+  uint32_t     count, capacity, max_level, leaf_capacity;
 
-  vec2 position, velocity, size;
-
-  l_col col;
-
-  int8_t is_static : 1;
-  int8_t pos_change : 1;
-  int8_t active : 1;
-} l_object;
-
-typedef struct {
-  uint32_t uid;
-  uint32_t type;
-
-  vec2 position, velocity, size;
-
-  l_col col;
-
-  int8_t is_static : 1;
-  int8_t pos_change : 1;
-  int8_t active : 1;
-} l_entity;
+  l_obj_query query;
+} l_quad_tree;
 
 typedef struct {
   uint32_t uid;
-  uint32_t step;
-  int8_t obj : 1;
-} l_change;
 
-// Psuedo-Camera for tracking streaming data
-typedef struct {
-  vec2 position, size, velocity;
-  int8_t change;
-} l_viewer;
-
-typedef struct {
-  vec2 position, size;
-
-  // Relative positions in grid
-  uint32_t x, y;
-
-  l_object **objs;
+  l_obj*   objs;
   uint32_t obj_count, obj_capacity;
 
-  l_entity **ents;
-  uint32_t ent_count, ent_capacity;
-
-  l_change **additions;
-  uint32_t add_count, add_cap;
+  l_quad_tree quad_tree;
 
   uint32_t step;
-} l_section;
-
-// Level Delta type
-// This type is to store specific flags globally for an object
-typedef struct {
-  uint32_t uid;
-  uint16_t flags;
-  int8_t in_file;
-} l_delta;
-
-// Level header struct, for post-file read
-typedef struct {
-  uint32_t *sections;
-  int32_t *section_offsets;
-  int32_t section_count;
-  const char *path;
-
-  asset_t *data;
-} l_header;
-
-// This is the overall level storage part
-typedef struct {
-  l_object *objs;
-  uint32_t obj_count, obj_capacity;
-
-  l_entity *ents;
-  uint32_t ent_count, ent_capacity;
-
-  l_delta *deltas;
-  uint32_t delta_count, delta_capacity;
-  uint32_t new_delta_index;
-
-  l_section *sections;
-  uint32_t section_count, section_capacity;
-
-  l_viewer viewer;
-  l_header header;
-
-  uint32_t step;
+  int8_t   active;
 } l_level;
 
-// Overall update function for level context
-void level_update(l_level *level, time_s delta);
-void level_update_col(l_col *col, vec2 *pos, vec2 vel, time_s delta);
+l_quad_tree l_tree_create(l_box range, vec2 min_size, uint32_t leaf_capacity);
+void        l_tree_destroy(l_quad_tree* tree);
 
-// Generic switch case thing
-int8_t level_col_resolve(l_col *a, l_col *b, int8_t allow_resolution);
+static void l_tree_query_r(l_quad_tree* tree, l_obj_query* query, l_box range,
+                           uint32_t layers);
+l_obj_query l_tree_query(l_quad_tree* tree, l_box range, uint32_t capacity);
+void        l_tree_insert(l_quad_tree* tree, l_obj* obj);
+void        l_tree_remove(l_quad_tree* tree, l_obj* obj);
 
-l_entity *level_get_entity(l_level *level, uint32_t uid);
-l_object *level_get_object(l_level *level, uint32_t uid);
+void l_leaf_subdivide(l_quad_leaf* leaf);
 
-int8_t level_obj_is_current(l_section *section, l_object *obj);
-int8_t level_ent_is_current(l_section *section, l_entity *obj);
+int8_t l_box_contains(l_box box, vec2 point);
+int8_t l_box_intersects(l_box box, l_box other);
 
-l_section *level_get_section_relative(l_level *level, uint32_t x, uint32_t y);
-l_section *level_section_by_point(l_level *level, vec2 point);
-uint32_t level_sections_within_grid(l_section ***dst, uint32_t dst_max,
-                                    l_level *level, uint32_t x_min,
-                                    uint32_t y_min, uint32_t x_max,
-                                    uint32_t y_max);
-uint8_t level_section_overlaps(l_section *section, vec4 bounds);
-uint32_t level_sections_within_bounds(l_section ***dst, uint32_t dst_max,
-                                      l_level *levl, vec4 bounds);
-int8_t level_section_check_add_obj(l_section *section, l_object *obj);
-int8_t level_section_check_add_ent(l_section *section, l_object *ent);
+static float distpow(vec2 a, vec2 b);
+static float distsqrt(vec2 a, vec2 b);
+
+//---  movement functions  ---
+void l_plane_move(l_plane* a, vec2 dist);
+void l_aabb_move(l_aabb* a, vec2 dist);
+void l_box_move(l_box* a, vec2 dist);
+void l_circ_move(l_circle* a, vec2 dist);
+void l_comp_move(l_complex* a, vec2 dist);
+
+//---  point tests  ---
+int8_t l_plane_cont(l_plane a, vec2 point);
+int8_t l_aabb_cont(l_aabbb a, vec2 point);
+int8_t l_box_cont(l_box a, vec2 point);
+int8_t l_cir_cont(l_circle a, vec2 point);
+int8_t l_comp_cont(l_complex a, vec2 point);
+
+//---  intersection tests  ---
+
+// this will be the general precursor function,
+// it's just aabb vs aabb but it'll be used for lesser detail
+// it'll help optimize out GJK / SAT Calls overall
+int8_t l_bounds_sect_bounds(l_manifold* man, vec4 a, vec4 b);
+
+int8_t l_plane_vs_plane(l_manifold* man, l_plane a, l_plane b);
+int8_t l_plane_vs_aabb(l_manifold* man, l_plane a, l_aabb b);
+int8_t l_plane_vs_box(l_manifold* man, l_plane a, l_box b);
+int8_t l_plane_vs_cir(l_manifold* man, l_plane a, l_circle b);
+int8_t l_plane_vs_comp(l_manifold* man, l_plane a, l_complex b);
+
+int8_t l_aabb_vs_aabb(l_manifold* man, l_aabb a, l_aabb b);
+int8_t l_aabb_vs_box(l_manifold* man, l_aabb a, l_box b);
+int8_t l_aabb_vs_cir(l_manifold* man, l_aabb a, l_circle b);
+int8_t l_aabb_vs_complex(l_manifold* man, l_aabb a, l_complex b);
+
+int8_t l_box_vs_box(l_manifold* man, l_box a, l_box b);
+int8_t l_box_vs_cir(l_manifold* man, l_box a, l_circle b);
+int8_t l_box_vs_comp(l_manifold* man, l_box a, l_complex b);
+
+int8_t l_cir_vs_cir(l_manifold* man, l_circle a, l_circle b);
+int8_t l_cir_vs_comp(l_manifold* man, l_circle a, l_complex b);
+
+int8_t l_comp_vs_comp(l_manifold* man, l_complex a, l_complex b);
 
 #ifdef __cplusplus
 }
+#endif
 #endif
 #endif

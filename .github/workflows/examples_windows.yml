@@ -1,0 +1,12 @@
+name: Build Source & Examples - Windows
+
+on [push, pull_request]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@master
+      - name: Build Everything
+        run: ./build_win.bat -a
