@@ -1,13 +1,7 @@
-#ifndef ALC_ENUMERATE_ALL_EXT
+/*#ifndef ALC_ENUMERATE_ALL_EXT
 #define ALC_DEFAULT_ALL_DEVICES_SPECIFIER 0x1012
 #define ALC_ALL_DEVICES_SPECIFIER         0x1013
-#endif
-
-#ifndef ALC_EXT_EFX
-#define ALC_EFX_MAJOR_VERSION   0x20001
-#define ALC_EFX_MINOR_VERSION   0x20002
-#define ALC_MAX_AUXILIARY_SENDS 0x20003
-#endif
+#endif*/
 
 #include "audio.h"
 
@@ -35,6 +29,35 @@
 
 #include <string.h>
 
+#if !defined(ASTERA_AL_NO_EFX)
+#include <AL/efx.h>
+
+static LPALGENEFFECTS    alGenEffects;
+static LPALDELETEEFFECTS alDeleteEffects;
+static LPALISEFFECT      alIsEffect;
+static LPALEFFECTI       alEffecti;
+static LPALEFFECTIV      alEffectiv;
+static LPALEFFECTF       alEffectf;
+static LPALEFFECTFV      alEffectfv;
+static LPALGETEFFECTI    alGetEffecti;
+static LPALGETEFFECTIV   alGetEffectiv;
+static LPALGETEFFECTF    alGetEffectf;
+static LPALGETEFFECTFV   alGetEffectfv;
+
+static LPALGENAUXILIARYEFFECTSLOTS    alGenAuxiliaryEffectSlots;
+static LPALDELETEAUXILIARYEFFECTSLOTS alDeleteAuxiliaryEffectSlots;
+static LPALISAUXILIARYEFFECTSLOT      alIsAuxiliaryEffectSlot;
+static LPALAUXILIARYEFFECTSLOTI       alAuxiliaryEffectSloti;
+static LPALAUXILIARYEFFECTSLOTIV      alAuxiliaryEffectSlotiv;
+static LPALAUXILIARYEFFECTSLOTF       alAuxiliaryEffectSlotf;
+static LPALAUXILIARYEFFECTSLOTFV      alAuxiliaryEffectSlotfv;
+static LPALGETAUXILIARYEFFECTSLOTI    alGetAuxiliaryEffectSloti;
+static LPALGETAUXILIARYEFFECTSLOTIV   alGetAuxiliaryEffectSlotiv;
+static LPALGETAUXILIARYEFFECTSLOTF    alGetAuxiliaryEffectSlotf;
+static LPALGETAUXILIARYEFFECTSLOTFV   alGetAuxiliaryEffectSlotfv;
+
+#endif
+
 void a_efx_info(void) {
   if (alcIsExtensionPresent(g_a_ctx.device, "ALC_EXT_EFX") == AL_FALSE) {
     _l("No ALC_EXT_EFX.\n");
@@ -46,6 +69,310 @@ void a_efx_info(void) {
   ALCint s_sends = 0;
   alcGetIntegerv(g_a_ctx.device, ALC_MAX_AUXILIARY_SENDS, 1, &s_sends);
   _l("MAX AUXILIARY SENDS PER SOURCE: %i\n", s_sends);
+}
+
+static inline float _a_clamp(float value, float min, float max, float def) {
+  return (value == -1.f) ? def
+                         : (value < min) ? min : (value > max) ? max : value;
+}
+
+int16_t a_fx_slot_attach(a_fx* fx) {
+  if (g_a_map.fx_capacity == g_a_map.fx_count || g_a_map.fx_capacity == 0) {
+    DBG_E("a_fx_slot_attach: incomplete fx passed.\n");
+    return -1;
+  }
+
+  for (uint16_t i = 0; i < g_a_map.fx_capacity; ++i) {
+    if (!g_a_map.fx_slots[i].fx) {
+      fx->slot               = &g_a_map.fx_slots[i];
+      g_a_map.fx_slots[i].fx = fx;
+      _l("Attaching effect %i to effect slot %i\n", fx->id, i);
+      alAuxiliaryEffectSloti(g_a_map.fx_slots[i].id, AL_EFFECTSLOT_EFFECT,
+                             fx->id);
+      return i;
+    }
+  }
+
+  return -1;
+}
+
+void a_fx_slot_detach(a_fx* fx) {
+  if (!fx || !fx->slot) {
+    DBG_E("a_fx_slot_detach: incomplete fx struct passed.\n");
+    return;
+  }
+
+  alAuxiliaryEffectSloti(fx->slot->id, AL_EFFECTSLOT_EFFECT, 0);
+  fx->slot->fx = 0;
+  fx->slot     = 0;
+}
+
+void a_fx_slot_update(a_fx_slot* slot) {
+  if (!slot) {
+    DBG_E("a_fx_slot_update: no slot passed.\n");
+    return;
+  }
+
+  alAuxiliaryEffectSlotf(slot->id, AL_EFFECTSLOT_GAIN, slot->gain);
+  alAuxiliaryEffectSloti(slot->id, AL_EFFECTSLOT_EFFECT, 0);
+  if (slot->fx)
+    alAuxiliaryEffectSloti(slot->id, AL_EFFECTSLOT_EFFECT, slot->fx->id);
+}
+
+void a_fx_slot_destroy(a_fx_slot* slot) {
+  alDeleteAuxiliaryEffectSlots(1, &slot->id);
+  if (slot->fx) {
+    slot->fx->slot = 0;
+    slot->fx       = 0;
+  }
+}
+
+a_fx_reverb a_fx_reverb_default(void) {
+  return (a_fx_reverb){
+      .density               = AL_REVERB_DEFAULT_DENSITY,
+      .diffusion             = AL_REVERB_DEFAULT_DIFFUSION,
+      .gain                  = AL_REVERB_DEFAULT_GAIN,
+      .gainhf                = AL_REVERB_DEFAULT_GAINHF,
+      .decay                 = AL_REVERB_DEFAULT_DECAY_TIME,
+      .decay_hfratio         = AL_REVERB_DEFAULT_DECAY_HFRATIO,
+      .refl_gain             = AL_REVERB_DEFAULT_REFLECTIONS_GAIN,
+      .refl_delay            = AL_REVERB_DEFAULT_REFLECTIONS_DELAY,
+      .late_gain             = AL_REVERB_DEFAULT_LATE_REVERB_GAIN,
+      .late_delay            = AL_REVERB_DEFAULT_LATE_REVERB_DELAY,
+      .air_absorption_gainhf = AL_REVERB_DEFAULT_AIR_ABSORPTION_GAINHF,
+      .room_rolloff_factor   = AL_REVERB_DEFAULT_ROOM_ROLLOFF_FACTOR,
+      .decay_hflimit         = AL_REVERB_DEFAULT_DECAY_HFLIMIT};
+}
+
+a_fx_reverb a_fx_reverb_create(float density, float diffusion, float gain,
+                               float gainhf, float decay, float decay_hfratio,
+                               float refl_gain, float refl_delay,
+                               float late_gain, float late_delay,
+                               float  air_absorption_gainhf,
+                               float  room_rolloff_factor,
+                               int8_t decay_hflimit) {
+  a_fx_reverb rev;
+  rev = (a_fx_reverb){
+      .density   = _a_clamp(density, 0.f, 1.f, AL_REVERB_DEFAULT_DENSITY),
+      .diffusion = _a_clamp(diffusion, 0.f, 1.f, AL_REVERB_DEFAULT_DIFFUSION),
+      .gain      = _a_clamp(gain, 0.f, 1.f, AL_REVERB_DEFAULT_GAIN),
+      .gainhf    = _a_clamp(gainhf, 0.f, 1.f, AL_REVERB_DEFAULT_GAINHF),
+      .decay     = _a_clamp(decay, 0.1f, 20.f, AL_REVERB_DEFAULT_DECAY_TIME),
+      .decay_hfratio =
+          _a_clamp(decay_hfratio, 0.1, 2.0, AL_REVERB_DEFAULT_DECAY_HFRATIO),
+      .refl_gain =
+          _a_clamp(refl_gain, 0.f, 3.16, AL_REVERB_DEFAULT_REFLECTIONS_GAIN),
+      .refl_delay =
+          _a_clamp(refl_delay, 0.f, 0.3f, AL_REVERB_DEFAULT_REFLECTIONS_DELAY),
+      .late_gain =
+          _a_clamp(late_gain, 0.0, 10.0, AL_REVERB_DEFAULT_LATE_REVERB_GAIN),
+      .late_delay =
+          _a_clamp(late_delay, 0.0, 0.1, AL_REVERB_DEFAULT_LATE_REVERB_DELAY),
+      .air_absorption_gainhf =
+          _a_clamp(air_absorption_gainhf, 0.892, 1.0,
+                   AL_REVERB_DEFAULT_AIR_ABSORPTION_GAINHF),
+      .room_rolloff_factor = _a_clamp(room_rolloff_factor, 0.0f, 10.f,
+                                      AL_REVERB_DEFAULT_ROOM_ROLLOFF_FACTOR),
+      .decay_hflimit = (decay_hflimit) ? 1 : AL_REVERB_DEFAULT_DECAY_HFLIMIT};
+
+  return rev;
+}
+
+a_fx_eq a_fx_eq_create(float low_gain, float low_cutoff, float mid1_gain,
+                       float mid1_center, float mid1_width, float mid2_gain,
+                       float mid2_center, float mid2_width, float high_gain,
+                       float high_cutoff) {
+  return (a_fx_eq){.low_gain    = _a_clamp(low_gain, 0.126f, 7.943f, 1.f),
+                   .low_cutoff  = _a_clamp(low_cutoff, 50.f, 800.f, 200.f),
+                   .mid1_gain   = _a_clamp(mid1_gain, 0.126f, 7.943f, 1.f),
+                   .mid1_center = _a_clamp(mid1_center, 200.f, 3000.f, 500.f),
+                   .mid1_width  = _a_clamp(mid1_width, 0.01f, 1.f, 1.f),
+                   .mid2_gain   = _a_clamp(mid2_gain, 0.126f, 7.943f, 1.f),
+                   .mid2_center = _a_clamp(mid2_center, 1000.f, 8000.f, 3000.f),
+                   .mid2_width  = _a_clamp(mid2_width, 0.01f, 1.f, 1.f),
+                   .high_gain   = _a_clamp(high_gain, 0.126f, 7.943f, 1.f),
+                   .high_cutoff =
+                       _a_clamp(high_cutoff, 4000.f, 16000.f, 6000.f)};
+}
+
+void a_fx_update(a_fx fx) {
+  if (!fx.data) {
+    DBG_E("a_fx_update: invalid fx passed.\n");
+    return;
+  }
+
+  switch (fx.type) {
+  case EQ: {
+    a_fx_eq* eq = (a_fx_eq*)fx.data;
+    alEffectf(fx.id, AL_EQUALIZER_LOW_GAIN, eq->low_gain);
+    alEffectf(fx.id, AL_EQUALIZER_LOW_CUTOFF, eq->low_cutoff);
+    alEffectf(fx.id, AL_EQUALIZER_MID1_GAIN, eq->mid1_gain);
+    alEffectf(fx.id, AL_EQUALIZER_MID1_CENTER, eq->mid1_center);
+    alEffectf(fx.id, AL_EQUALIZER_MID1_WIDTH, eq->mid1_width);
+    alEffectf(fx.id, AL_EQUALIZER_MID2_GAIN, eq->mid2_gain);
+    alEffectf(fx.id, AL_EQUALIZER_MID2_CENTER, eq->mid2_center);
+    alEffectf(fx.id, AL_EQUALIZER_MID2_WIDTH, eq->mid2_width);
+    alEffectf(fx.id, AL_EQUALIZER_HIGH_GAIN, eq->high_gain);
+    alEffectf(fx.id, AL_EQUALIZER_HIGH_CUTOFF, eq->high_cutoff);
+  } break;
+  case REVERB: {
+    a_fx_reverb* rv = (a_fx_reverb*)fx.data;
+
+    alEffectf(fx.id, AL_REVERB_DENSITY, rv->decay);
+    alEffectf(fx.id, AL_REVERB_DIFFUSION, rv->diffusion);
+    alEffectf(fx.id, AL_REVERB_GAIN, rv->gain);
+    alEffectf(fx.id, AL_REVERB_GAINHF, rv->gainhf);
+    alEffectf(fx.id, AL_REVERB_DECAY_TIME, rv->decay);
+    alEffectf(fx.id, AL_REVERB_DECAY_HFRATIO, rv->decay_hfratio);
+    alEffectf(fx.id, AL_REVERB_REFLECTIONS_GAIN, rv->refl_gain);
+    alEffectf(fx.id, AL_REVERB_REFLECTIONS_DELAY, rv->refl_delay);
+    alEffectf(fx.id, AL_REVERB_LATE_REVERB_GAIN, rv->late_gain);
+    alEffectf(fx.id, AL_REVERB_LATE_REVERB_DELAY, rv->late_delay);
+    alEffectf(fx.id, AL_REVERB_AIR_ABSORPTION_GAINHF,
+              rv->air_absorption_gainhf);
+    alEffectf(fx.id, AL_REVERB_ROOM_ROLLOFF_FACTOR, rv->room_rolloff_factor);
+    alEffecti(fx.id, AL_REVERB_DECAY_HFLIMIT, rv->decay_hflimit);
+
+  } break;
+  default:
+    break;
+  }
+}
+
+a_fx a_fx_create(a_fx_type type, void* data) {
+  a_fx fx = (a_fx){0};
+
+  if (!data) {
+    DBG_E("a_fx_create: no data passed.\n");
+    return fx;
+  }
+
+  switch (type) {
+  case EQ:
+    alGenEffects(1, &fx.id);
+    alEffecti(fx.id, AL_EFFECT_TYPE, AL_EFFECT_EQUALIZER);
+    fx.data = data;
+    fx.type = type;
+
+    a_fx_eq* eq = (a_fx_eq*)fx.data;
+    alEffectf(fx.id, AL_EQUALIZER_LOW_GAIN, eq->low_gain);
+    alEffectf(fx.id, AL_EQUALIZER_LOW_CUTOFF, eq->low_cutoff);
+    alEffectf(fx.id, AL_EQUALIZER_MID1_GAIN, eq->mid1_gain);
+    alEffectf(fx.id, AL_EQUALIZER_MID1_CENTER, eq->mid1_center);
+    alEffectf(fx.id, AL_EQUALIZER_MID1_WIDTH, eq->mid1_width);
+    alEffectf(fx.id, AL_EQUALIZER_MID2_GAIN, eq->mid2_gain);
+    alEffectf(fx.id, AL_EQUALIZER_MID2_CENTER, eq->mid2_center);
+    alEffectf(fx.id, AL_EQUALIZER_MID2_WIDTH, eq->mid2_width);
+    alEffectf(fx.id, AL_EQUALIZER_HIGH_GAIN, eq->high_gain);
+    alEffectf(fx.id, AL_EQUALIZER_HIGH_CUTOFF, eq->high_cutoff);
+
+    break;
+  case REVERB:
+    alGenEffects(1, &fx.id);
+
+    alEffecti(fx.id, AL_EFFECT_TYPE, AL_EFFECT_REVERB);
+    fx.data = data;
+    fx.type = type;
+
+    a_fx_reverb* rv = (a_fx_reverb*)fx.data;
+
+    alEffectf(fx.id, AL_REVERB_DENSITY, (ALfloat)rv->density);
+    alEffectf(fx.id, AL_REVERB_DIFFUSION, (ALfloat)rv->diffusion);
+    alEffectf(fx.id, AL_REVERB_GAIN, AL_REVERB_DEFAULT_GAIN);
+    alEffectf(fx.id, AL_REVERB_GAINHF, AL_REVERB_DEFAULT_GAINHF);
+    alEffectf(fx.id, AL_REVERB_DECAY_TIME, rv->decay);
+    alEffectf(fx.id, AL_REVERB_DECAY_HFRATIO, rv->decay_hfratio);
+    alEffectf(fx.id, AL_REVERB_REFLECTIONS_GAIN, rv->refl_gain);
+    alEffectf(fx.id, AL_REVERB_REFLECTIONS_DELAY, rv->refl_delay);
+    alEffectf(fx.id, AL_REVERB_LATE_REVERB_GAIN, rv->late_gain);
+    alEffectf(fx.id, AL_REVERB_LATE_REVERB_DELAY, rv->late_delay);
+    alEffectf(fx.id, AL_REVERB_AIR_ABSORPTION_GAINHF,
+              rv->air_absorption_gainhf);
+    alEffectf(fx.id, AL_REVERB_ROOM_ROLLOFF_FACTOR, rv->room_rolloff_factor);
+    alEffecti(fx.id, AL_REVERB_DECAY_HFLIMIT, rv->decay_hflimit);
+
+    break;
+  default:
+    return fx;
+    break;
+  }
+  return fx;
+}
+
+void a_fx_destroy(a_fx fx) {
+  alDeleteEffects(1, &fx.id);
+}
+
+a_filter a_filter_create(a_filter_type type, float gain, float hf, float lf) {
+  a_filter fl = (a_filter){0};
+  switch (type) {
+  case LOW:
+    alGenFilters(1, &fl.id);
+    alFilteri(fl.id, AL_FILTER_TYPE, AL_FILTER_LOWPASS);
+
+    fl.data.low.gain   = _a_clamp(gain, 0.f, 1.f, 1.f);
+    fl.data.low.gainhf = _a_clamp(hf, 0.f, 1.f, 1.f);
+
+    alFilterf(fl.id, AL_LOWPASS_GAIN, fl.data.low.gain);
+    alFilterf(fl.id, AL_LOWPASS_GAINHF, fl.data.low.gainhf);
+
+    break;
+  case HIGH:
+    alGenFilters(1, &fl.id);
+    alFilteri(fl.id, AL_FILTER_TYPE, AL_FILTER_HIGHPASS);
+
+    fl.data.high.gain   = _a_clamp(gain, 0.f, 1.f, 1.f);
+    fl.data.high.gainlf = _a_clamp(lf, 0.f, 1.f, 1.f);
+
+    alFilterf(fl.id, AL_HIGHPASS_GAIN, fl.data.high.gain);
+    alFilterf(fl.id, AL_HIGHPASS_GAINLF, fl.data.high.gainlf);
+
+    break;
+  case BAND:
+    alGenFilters(1, &fl.id);
+    alFilteri(fl.id, AL_FILTER_TYPE, AL_FILTER_BANDPASS);
+
+    fl.data.band.gain   = _a_clamp(gain, 0.f, 1.f, 1.f);
+    fl.data.band.gainlf = _a_clamp(lf, 0.f, 1.f, 1.f);
+    fl.data.band.gainhf = _a_clamp(hf, 0.f, 1.f, 1.f);
+
+    alFilterf(fl.id, AL_BANDPASS_GAIN, fl.data.band.gain);
+    alFilterf(fl.id, AL_BANDPASS_GAINLF, fl.data.band.gainlf);
+    alFilterf(fl.id, AL_BANDPASS_GAINHF, fl.data.band.gainhf);
+    break;
+  default:
+    return fl;
+  }
+
+  fl.type = type;
+
+  return fl;
+}
+
+void a_filter_update(a_filter fl) {
+  switch (fl.type) {
+  case LOW:
+    alFilterf(fl.id, AL_LOWPASS_GAIN, fl.data.low.gain);
+    alFilterf(fl.id, AL_LOWPASS_GAINHF, fl.data.low.gainhf);
+    break;
+  case HIGH:
+    alFilterf(fl.id, AL_HIGHPASS_GAIN, fl.data.high.gain);
+    alFilterf(fl.id, AL_HIGHPASS_GAINLF, fl.data.high.gainlf);
+
+    break;
+  case BAND:
+    alFilterf(fl.id, AL_BANDPASS_GAIN, fl.data.band.gain);
+    alFilterf(fl.id, AL_BANDPASS_GAINLF, fl.data.band.gainlf);
+    alFilterf(fl.id, AL_BANDPASS_GAINHF, fl.data.band.gainhf);
+    break;
+  default:
+    DBG_E("a_filter_update: invalid filter type passed.\n");
+    break;
+  }
+}
+
+void a_filter_destroy(a_filter filter) {
+  alDeleteFilters(1, &filter.id);
 }
 
 int a_can_play(void) {
@@ -64,6 +391,51 @@ int a_init(const char* device, uint32_t master, uint32_t sfx, uint32_t music) {
   alDistanceModel(ASTERA_AL_DISTANCE_MODEL);
 #endif
 
+#if !defined(ASTERA_AUDIO_NO_EFX)
+  if (g_a_ctx.max_fx > 0) {
+#define LOAD_PROC(T, x) ((x) = (T)alGetProcAddress(#x))
+    LOAD_PROC(LPALGENEFFECTS, alGenEffects);
+    LOAD_PROC(LPALDELETEEFFECTS, alDeleteEffects);
+    LOAD_PROC(LPALISEFFECT, alIsEffect);
+    LOAD_PROC(LPALEFFECTI, alEffecti);
+    LOAD_PROC(LPALEFFECTIV, alEffectiv);
+    LOAD_PROC(LPALEFFECTF, alEffectf);
+    LOAD_PROC(LPALEFFECTFV, alEffectfv);
+    LOAD_PROC(LPALGETEFFECTI, alGetEffecti);
+    LOAD_PROC(LPALGETEFFECTIV, alGetEffectiv);
+    LOAD_PROC(LPALGETEFFECTF, alGetEffectf);
+    LOAD_PROC(LPALGETEFFECTFV, alGetEffectfv);
+
+    LOAD_PROC(LPALGENAUXILIARYEFFECTSLOTS, alGenAuxiliaryEffectSlots);
+    LOAD_PROC(LPALDELETEAUXILIARYEFFECTSLOTS, alDeleteAuxiliaryEffectSlots);
+    LOAD_PROC(LPALISAUXILIARYEFFECTSLOT, alIsAuxiliaryEffectSlot);
+    LOAD_PROC(LPALAUXILIARYEFFECTSLOTI, alAuxiliaryEffectSloti);
+    LOAD_PROC(LPALAUXILIARYEFFECTSLOTIV, alAuxiliaryEffectSlotiv);
+    LOAD_PROC(LPALAUXILIARYEFFECTSLOTF, alAuxiliaryEffectSlotf);
+    LOAD_PROC(LPALAUXILIARYEFFECTSLOTFV, alAuxiliaryEffectSlotfv);
+    LOAD_PROC(LPALGETAUXILIARYEFFECTSLOTI, alGetAuxiliaryEffectSloti);
+    LOAD_PROC(LPALGETAUXILIARYEFFECTSLOTIV, alGetAuxiliaryEffectSlotiv);
+    LOAD_PROC(LPALGETAUXILIARYEFFECTSLOTF, alGetAuxiliaryEffectSlotf);
+    LOAD_PROC(LPALGETAUXILIARYEFFECTSLOTFV, alGetAuxiliaryEffectSlotfv);
+#undef LOAD_PROC
+
+    g_a_map.fx_slots = (uint32_t*)malloc(sizeof(a_fx_slot) * MAX_FX);
+
+    if (!g_a_map.fx_slots) {
+      DBG_E("a_init: unable to allocate %i fx slots\n", g_a_map.max_fx);
+      a_exit();
+      return -1;
+    }
+
+    for (uint16_t i = 0; i < g_a_ctx.max_fx; ++i) {
+      alGenAuxiliaryEffectSlots(1, &g_a_map.fx_slots[i].id);
+    }
+
+    g_a_map.fx_capacity = MAX_FX;
+    g_a_map.fx_count    = 0;
+  }
+#endif
+
   // Initialize cached audio subsystem
   for (int i = 0; i < MAX_SFX; ++i) {
     memset(&g_a_map.sfx[i], 0, sizeof(a_sfx));
@@ -71,6 +443,7 @@ int a_init(const char* device, uint32_t master, uint32_t sfx, uint32_t music) {
 
     g_a_map.sfx[i].range = DEFAULT_SFX_RANGE;
     g_a_map.sfx[i].gain  = 1.f;
+
     alSourcef(g_a_map.sfx[i].id, AL_GAIN, 1.f);
 
     alSourcef(g_a_map.sfx[i].id, AL_MAX_DISTANCE, g_a_map.sfx[i].range);
@@ -293,6 +666,12 @@ void a_exit(void) {
     alDeleteSources(1, &g_a_map.sfx[i].id);
   }
 
+  for (uint16_t i = 0; i < g_a_map.fx_capacity; ++i) {
+    if (g_a_map.fx_slots[i].id != 0) {
+      alDeleteAuxiliaryEffectSlots(1, &g_a_map.fx_slots[i].id);
+    }
+  }
+
   alcMakeContextCurrent(NULL);
   alcDestroyContext(g_a_ctx.context);
   alcCloseDevice(g_a_ctx.device);
@@ -322,11 +701,40 @@ void a_update(time_s delta) {
         alGetSourcei(sfx->id, AL_SOURCE_STATE, &state);
         if (state == AL_STOPPED) {
           alSourcei(sfx->id, AL_BUFFER, 0);
+
+          // TODO Effect path filtering
+#if !defined(ASTERA_AL_NO_EFX)
+          if (sfx->req->fx_count > 0 && sfx->req->fx) {
+            for (uint16_t e = 0; e < sfx->req->fx_count; ++e) {
+              alSource3i(sfx->id, AL_AUXILIARY_SEND_FILTER, AL_EFFECTSLOT_NULL,
+                         e, NULL);
+            }
+          }
+
+          if (sfx->req->filter) {
+            alSourcei(sfx->id, AL_DIRECT_FILTER, AL_FILTER_NULL);
+          }
+#endif
+
           sfx->req     = NULL;
           sfx->has_req = 0;
         } else if (req) {
           if (req->stop) {
             alSourcei(g_a_map.sfx[i].id, AL_BUFFER, 0);
+
+#if !defined(ASTERA_AL_NO_EFX)
+            if (sfx->req->fx_count > 0 && sfx->req->fx) {
+              for (uint16_t e = 0; e < sfx->req->fx_count; ++e) {
+                alSource3i(sfx->id, AL_AUXILIARY_SEND_FILTER,
+                           AL_EFFECTSLOT_NULL, e, NULL);
+              }
+            }
+
+            if (sfx->req->filter) {
+              alSourcei(sfx->id, AL_DIRECT_FILTER, AL_FILTER_NULL);
+            }
+#endif
+
             sfx->req     = NULL;
             sfx->has_req = 0;
           }
@@ -561,6 +969,8 @@ int a_ctx_create(const char* device_name) {
 
   ALint attribs[4] = {0};
 
+  g_a_ctx.max_fx = MAX_FX;
+
   if (g_a_ctx.efx) {
     attribs[0] = ALC_MAX_AUXILIARY_SENDS;
     attribs[1] = 4;
@@ -579,9 +989,16 @@ int a_ctx_create(const char* device_name) {
   g_a_ctx.context = context;
   g_a_ctx.device  = device;
 
-#if defined(INIT_DEBUG)
-  _l("Loaded audio device.\n");
+#if !defined(ASTERA_AUDIO_NO_EFX)
+  alcGetIntegerv(g_a_ctx.device, ALC_MAX_AUXILIARY_SENDS, 1,
+                 &g_a_ctx.fx_per_source);
+
+  if (g_a_ctx.fx_per_source == 0) {
+    DBG_E("a_ctx_create: 0 effects allowed per source.\n");
+  }
 #endif
+
+  DBG_E("a_ctx_create: context created.\n");
 
   return 1;
 }
@@ -726,6 +1143,23 @@ a_sfx* a_play_sfxn(const char* name, a_req* req) {
     alSourcef(src->id, AL_REFERENCE_DISTANCE, src->range / 2.f);
     alSourcef(src->id, AL_ROLLOFF_FACTOR, ASTERA_AL_ROLLOFF_FACTOR);
     alSourcei(src->id, AL_LOOPING, (req->loop) ? AL_TRUE : AL_FALSE);
+
+    // TODO Effect path filtering
+#if !defined(ASTERA_AL_NO_EFX)
+    if (req->fx && req->fx_count > 0) {
+      for (uint16_t e = 0; e < req->fx_count; ++e) {
+        if (req->fx[e]->slot) {
+          alSource3i(src->id, AL_AUXILIARY_SEND_FILTER,
+                     (ALint)req->fx[e]->slot->id, e, NULL);
+        }
+      }
+    }
+
+    if (req->filter) {
+      alSourcei(src->id, AL_DIRECT_FILTER, req->filter->id);
+    }
+#endif
+
   } else {
     alSourcefv(src->id, AL_POSITION, (vec3){0.f, 0.f, 0.f});
     alSourcefv(src->id, AL_VELOCITY, (vec3){0.f, 0.f, 0.f});
@@ -777,6 +1211,23 @@ a_sfx* a_play_sfx(a_buf* buff, a_req* req) {
     alSourcef(src->id, AL_ROLLOFF_FACTOR, ASTERA_AL_ROLLOFF_FACTOR);
 
     alSourcei(src->id, AL_LOOPING, (req->loop) ? AL_TRUE : AL_FALSE);
+
+    // TODO Effect path filtering
+#if !defined(ASTERA_AL_NO_EFX)
+    if (req->fx && req->fx_count > 0) {
+      for (uint16_t e = 0; e < req->fx_count; ++e) {
+        if (req->fx[e]->slot) {
+          alSource3i(src->id, AL_AUXILIARY_SEND_FILTER,
+                     (ALint)req->fx[e]->slot->id, e, NULL);
+        }
+      }
+    }
+
+    if (req->filter) {
+      alSourcei(src->id, AL_DIRECT_FILTER, req->filter->id);
+    }
+#endif
+
   } else {
     alSourcefv(src->id, AL_POSITION, (vec3){0.f, 0.f, 0.f});
     alSourcefv(src->id, AL_VELOCITY, (vec3){0.f, 0.f, 0.f});
@@ -859,12 +1310,28 @@ a_music* a_music_create(asset_t* asset, a_meta* meta, a_req* req) {
     return 0;
   }
 
-  if (req->range != 0.f) {
-    alSourcef(music->source, AL_MAX_DISTANCE, req->range);
-    alSourcef(music->source, AL_REFERENCE_DISTANCE, req->range / 2.f);
-    alSourcef(music->source, AL_ROLLOFF_FACTOR, ASTERA_AL_ROLLOFF_FACTOR);
-  } else {
-    alSourcef(music->source, AL_MAX_DISTANCE, 0.f);
+  if (req) {
+#if !defined(ASTERA_AL_NO_EFX)
+    if (req->fx && req->fx_count > 0) {
+      for (uint16_t e = 0; e < req->fx_count; ++e) {
+        if (req->fx[e]->slot) {
+          alSource3i(music->source, AL_AUXILIARY_SEND_FILTER,
+                     (ALint)req->fx[e]->slot->id, e, NULL);
+        }
+      }
+    }
+
+    if (req->filter) {
+      alSourcei(music->source, AL_DIRECT_FILTER, req->filter->id);
+    }
+#endif
+    if (req->range != 0.f) {
+      alSourcef(music->source, AL_MAX_DISTANCE, req->range);
+      alSourcef(music->source, AL_REFERENCE_DISTANCE, req->range / 2.f);
+      alSourcef(music->source, AL_ROLLOFF_FACTOR, ASTERA_AL_ROLLOFF_FACTOR);
+    } else {
+      alSourcef(music->source, AL_MAX_DISTANCE, 0.f);
+    }
   }
 
   alSourcef(music->source, AL_PITCH, 1.f);

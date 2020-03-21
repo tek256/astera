@@ -36,7 +36,7 @@ build_cleanup() {
     # Remove any old GLFW Precompiles
     rm -f "lib/libglfw.so" "lib/libglfw.so.3" "lib/libglfw.so.3.4"
     # Remove any old OpenAL-Soft Precompiles
-    rm -f "lib/libopenal.so" "lib/libopenal.so.1" "lib/openal.so.19.1"
+    rm -f "lib/libopenal.so" "lib/libopenal.so.1" "lib/openal.so.1.20.1"
 
     # Remove any old Astera builds
     rm -f "lib/libastera.so"
@@ -274,7 +274,7 @@ build_al() {
   # Check for required libraries even if not requesting rebuild
   if [ -n "$NO_REBUILD" ]; then
     # If the libraries already exist, there's no need to rebuild
-    if [ -f "$1"/lib/libopenal.so ] && [ -f "$1"/lib/libopenal.so.1 ] && [ -f "$1"/lib/libopenal.so.1.19.1 ]; then
+    if [ -f "$1"/lib/libopenal.so ] && [ -f "$1"/lib/libopenal.so.1 ] && [ -f "$1"/lib/libopenal.so.1.20.1 ]; then
       if [ -z "$QUIET" ]; then
         echo "OPENAL BUILD: NO_REBUILD Enabled and OpenAL libraries already exist."
       fi
@@ -286,13 +286,13 @@ build_al() {
       return
     else 
       # Check if an old version still exists
-      if [ -f build/libopenal.so ] && [ -f build/libopenal.so.1 ] && [ -f build/libopenal.so.1.19.1 ]; then
+      if [ -f build/libopenal.so ] && [ -f build/libopenal.so.1 ] && [ -f build/libopenal.so.1.20.1 ]; then
         if [ -z "$QUIET" ]; then
           echo "OPENAL BUILD: Copying previously compiled library to lib folder."
         fi
         cp build/libopenal.so "$1"/lib
         cp build/libopenal.so.1 "$1"/lib
-        cp build/libopenal.so.1.19.1 "$1"/lib
+        cp build/libopenal.so.1.20.1 "$1"/lib
 
         if [ -n "$QUIET" ] && [ -z "$REALLY_QUIET" ]; then
           echo "OPENAL BUILD: Pass"
@@ -349,7 +349,7 @@ build_al() {
 
   cp libopenal.so "$1"/lib
   cp libopenal.so.1 "$1"/lib
-  cp libopenal.so.1.19.1 "$1"/lib
+  cp libopenal.so.1.20.1 "$1"/lib
 
   if [ -n "$QUIET" ] && [ -z "$REALLY_QUIET" ]; then
     echo "OPENAL BUILD: Complete"

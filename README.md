@@ -62,6 +62,12 @@ These are some potential future features:
 
 ### Changelog
 ```
+Mar 21, 2020
+- Updated OpenAL-Soft to 1.20.1
+- AABB & Circle Collision detection working
+- Audio Effects completed
+- Audio Distance Calculations done
+- In progress: Quad trees & level system
 Mar 18, 2020
 - Build Script (Unix only for now, Windows in the works)
 - Recreated useful tools

@@ -12,6 +12,7 @@
 
 #include "asset.h"
 
+#include "level.h"
 #include "ui.h"
 
 #define test_sprite_count 4096 * 16
@@ -20,7 +21,15 @@
 
 typedef enum { TEST0 = 0, TEST1, TEST2, TEST3 } obj_types;
 
+typedef struct {
+  l_obj    obj;
+  r_sprite sprite;
+
+  vec2 pos;
+} g_obj;
+
 r_sprite  sprite, sprite2;
+r_sprite  circle_sprite, aabb_sprite;
 uint32_t* frames;
 
 static int tex_ids, models, flip_x, flip_y;
@@ -29,10 +38,12 @@ vec2 window_size;
 
 r_shader screen_shader;
 
-r_sprite test_sprites[test_sprite_count];
 a_music* test_music;
 a_buf    test_buf;
 a_req    music_req, sfx_req;
+
+l_aabb   aabb, aabb2;
+l_circle circle, circle2;
 
 uint32_t box_uid, button_uid, dropdown_uid;
 
@@ -45,89 +56,16 @@ r_shader      default_shader;
 r_shader      standard_shader, particle_shader;
 r_baked_sheet baked_sheet;
 
+// TODO Finish g_obj impl
+g_obj        test_obj;
+a_fx_reverb* reverb;
+a_fx         reverb_slot;
+
+uint32_t step = 0;
+
+l_quad_tree tree;
+
 int g_init(void) {
-  pak_t* pak;
-
-#if defined(PAK_WRITE_TEST)
-  pak = pak_open("test.pak", "wb");
-  if (!pak) {
-    _l("RIP Pak.\n");
-  }
-
-  char* test_str  = "hello world.\n";
-  char* test_str2 = "Once again, we meet in this weird ass place";
-  char* test_str3 = "With a lot of text";
-  char* test_str4 = "Just to see if this shit really works or not";
-  char* test_str5 = "Hopefully it does, or I might be sad";
-  pak_append(pak, "random.txt", test_str, strlen(test_str));
-  pak_append(pak, "random2.txt", test_str2, strlen(test_str2));
-  pak_append(pak, "random3.txt", test_str3, strlen(test_str3));
-  pak_append(pak, "random4.txt", test_str4, strlen(test_str4));
-  pak_append(pak, "random5.txt", test_str5, strlen(test_str5));
-
-  pak_close(pak);
-#endif
-#if defined(PAK_READ_TEST)
-  pak_t* pak = pak_open("test.pak", "r");
-
-  if (!pak) {
-    _l("Unable to open the pak file for reading.\n");
-  }
-
-  int32_t random_index  = pak_find(pak, "random.txt");
-  int32_t random2_index = pak_find(pak, "random2.txt");
-  int32_t random3_index = pak_find(pak, "random3.txt");
-  int32_t random4_index = pak_find(pak, "random4.txt");
-  int32_t random5_index = pak_find(pak, "random5.txt");
-  /*for (uint32_t i = 0; i < pak->count; ++i) {
-    if (!strcmp("random.txt", pak->entries[i].name)) {
-      random_index = i;
-      break;
-    }
-  }*/
-
-  _l("index: %i, count: %i\n", random_index, pak->count);
-
-  char* filename = pak_name(pak, random_index);
-  if (!filename) {
-    _l("No filename ptr.\n");
-  } else {
-    _l("filename: %s\n", filename);
-  }
-
-  _l("%s : %i -> %i\n", filename, random_index, pak_offset(pak, random_index),
-     pak_size(pak, random_index));
-
-  char* random_data[64];
-
-  memset(random_data, 0, sizeof(char) * 64);
-  pak_extract_noalloc(pak, random_index, random_data, 63 * sizeof(char));
-  random_data[63] = 0;
-  _l("Data: %s\n", random_data);
-
-  memset(random_data, 0, sizeof(char) * 64);
-  pak_extract_noalloc(pak, random2_index, random_data, 63 * sizeof(char));
-  random_data[63] = 0;
-  _l("Data: %s\n", random_data);
-
-  memset(random_data, 0, sizeof(char) * 64);
-  pak_extract_noalloc(pak, random3_index, random_data, 63 * sizeof(char));
-  random_data[63] = 0;
-  _l("Data: %s\n", random_data);
-
-  memset(random_data, 0, sizeof(char) * 64);
-  pak_extract_noalloc(pak, random4_index, random_data, 63 * sizeof(char));
-  random_data[63] = 0;
-  _l("Data: %s\n", random_data);
-
-  memset(random_data, 0, sizeof(char) * 64);
-  pak_extract_noalloc(pak, random5_index, random_data, 63 * sizeof(char));
-  random_data[63] = 0;
-  _l("Data: %s\n", random_data);
-
-  pak_close(pak);
-#endif
-
   r_init_anim_map(32);
   r_init_shader_map(2);
   r_init_batches(4);
@@ -206,14 +144,17 @@ int g_init(void) {
   position[0] = 0.0f;
   position[1] = 0.0f;
 
-  position2[0] = 100.f;
+  position2[0] = 0.f;
   position2[1] = 0.f;
 
   r_subtex sub_tex  = (r_subtex){default_sheet, 1};
   r_subtex sub_tex2 = (r_subtex){default_sheet, 6};
 
-  sprite         = r_sprite_create(default_shader, position, size);
-  sprite2        = r_sprite_create(default_shader, position2, size);
+  sprite  = r_sprite_create(default_shader, position, size);
+  sprite2 = r_sprite_create(default_shader, position2, size);
+
+  sprite.layer   = 5;
+  sprite.change  = 1;
   sprite2.layer  = 5;
   sprite2.change = 1;
 
@@ -261,6 +202,27 @@ int g_init(void) {
   music_req.gain  = 0.8f;
   music_req.range = 10.f;
 
+  /*a_fx_reverb a_fx_reverb_create(float density, float diffusion, float gain,
+                               float gaingf, float decay, float refl_gain,
+                               float refl_delay);
+   *
+   */
+  // Create a reverb with all the defaults
+  // reverb = a_fx_reverb_create(-1.f, -1.f, -1.f, -1.f, -1.f, -1.f, -1.f, -1.f,
+  //                            -1.f, -1.f, -1.f, -1.f, -1.f);
+  reverb  = (a_fx_reverb*)malloc(sizeof(a_fx_reverb));
+  *reverb = a_fx_reverb_default();
+
+  _l("REVERB: gain: %f density: %f\n", reverb->gain, reverb->density);
+
+  reverb_slot = a_fx_create(REVERB, reverb);
+  a_fx_slot_attach(&reverb_slot);
+
+  a_fx** req_fx      = malloc(sizeof(a_fx*));
+  req_fx[0]          = &reverb_slot;
+  music_req.fx       = req_fx;
+  music_req.fx_count = 1;
+
   asset_t* music_asset = asset_get("sys", "res/snd/test_song.ogg");
   test_music           = a_music_create(music_asset, NULL, &music_req);
   a_layer_add_music(1, test_music);
@@ -290,10 +252,91 @@ int g_init(void) {
   float listener_ori[6] = {0.f, 1.f, 0.f, 0.f, 1.f, 0.f};
   a_set_orif(listener_ori);
 
+  vec2 aa_pos  = {0.f, 0.f};
+  vec2 ab_pos  = {100.f, 0.f};
+  vec2 aa_size = {8.f, 8.f};
+
+  vec2  ci_pos  = {0.f, 0.f};
+  vec2  ci2_pos = {100.f, 35.f};
+  float ci_rad  = 16.f;
+  vec2  ci_size = {ci_rad * 2, ci_rad * 2};
+
+  aabb    = l_aabb_create(aa_pos, aa_size);
+  aabb2   = l_aabb_create(ab_pos, aa_size);
+  circle  = l_circle_create(ci_pos, ci_rad);
+  circle2 = l_circle_create(ci2_pos, ci_rad);
+
+  circle_sprite = r_sprite_create(default_shader, ci2_pos, ci_size);
+  aabb_sprite   = r_sprite_create(default_shader, ab_pos, aa_size);
+
+  circle_sprite.layer  = 5;
+  circle_sprite.change = 1;
+
+  aabb_sprite.change = 1;
+  aabb_sprite.layer  = 5;
+
+  r_subtex circ_tex = (r_subtex){dungeon_sheet, 86};
+  r_subtex aabb_tex = (r_subtex){dungeon_sheet, 88};
+
+  r_sprite_set_tex(&circle_sprite, circ_tex);
+  r_sprite_set_tex(&aabb_sprite, aabb_tex);
+
+  vec2 tree_halfsize = {512.f, 512.f};
+  vec2 tree_center   = {tree_halfsize[0], tree_halfsize[1]};
+
+  l_aabb tree_range;
+  vec2_dup(tree_center, tree_range.center);
+  vec2_dup(tree_halfsize, tree_range.halfsize);
+  tree = l_tree_create(tree_range, 128);
+
+  // l_obj l_obj_create(l_col col, uint32_t uid, uint32_t type, uint32_t flags)
+  // {
+
+  /*  sprite  = r_sprite_create(default_shader, position, size);
+  sprite2 = r_sprite_create(default_shader, position2, size);
+
+  sprite.layer   = 5;
+  sprite.change  = 1;
+  sprite2.layer  = 5;
+  sprite2.change = 1;
+
+  r_sprite_set_tex(&sprite, sub_tex);
+  r_sprite_set_anim(&sprite2, anim);
+
+   */
+
+  test_obj.obj = l_obj_create(l_col_create(&aabb, L_AABB, 0), 0, 0, 0);
+  l_tree_insert(&tree, &test_obj.obj);
+
+  vec2 test_obj_pos = {0.f, 0.f};
+  vec2_dup(test_obj.pos, test_obj_pos);
+
   return 1;
 }
 
+static void g_update_obj(g_obj* obj, float delta) {
+  // copy the collider's position to the obj representation
+  l_obj_get_position(&obj->obj, obj->pos);
+}
+
+static int tex_id;
+
+static void g_render_obj(g_obj* obj, float delta) {
+  vec2_dup(obj->sprite.position, obj->pos);
+  obj->sprite.change = 1;
+  r_sprite_update(&obj->sprite, delta);
+  r_sprite_draw(obj->sprite);
+
+  tex_id = r_sprite_get_tex_id(obj->sprite);
+
+  r_shader_sprite_uniform(sprite, tex_ids, &tex_id);
+  r_shader_sprite_uniform(sprite, models, &obj->sprite.model);
+  r_shader_sprite_uniform(sprite, flip_x, &obj->sprite.flip_x);
+  r_shader_sprite_uniform(sprite, flip_y, &obj->sprite.flip_y);
+}
+
 void g_exit(void) {
+  a_fx_destroy(reverb_slot);
 }
 
 static int left_over = 0, up_over = 0;
@@ -303,6 +346,10 @@ static int up_delta = 0, down_delta = 0;
 static int last_dirx, last_diry;
 
 void g_input(time_s delta) {
+  if (i_key_clicked('T')) {
+    _l("test: %f %f\n", test_obj.pos[0], test_obj.pos[1]);
+  }
+
   if (i_key_clicked(GLFW_KEY_ESCAPE))
     r_window_request_close();
 
@@ -440,10 +487,11 @@ void g_input(time_s delta) {
   else if (i_key_down(GLFW_KEY_DOWN))
     dir_y = -1;
 
-  vec2 move;
+  vec2 move = {0.f, 0.f};
   if (dir_x != 0 || dir_y != 0) {
-    move[0] = dir_x * 0.1f * delta;
-    move[1] -= dir_y * 0.1f * delta;
+    move[0] += dir_x * 0.2f * delta;
+    move[1] -= dir_y * 0.2f * delta;
+    // l_obj_move(&test_obj.obj, move);
     sprite2.position[0] += dir_x * 0.2f * delta;
     sprite2.position[1] -= dir_y * 0.2f * delta;
 
@@ -464,40 +512,55 @@ void g_input(time_s delta) {
 
     vec3 a_dir = {last_dirx, 1.f, last_diry};
     a_set_ori(a_dir);
+
+    vec2_dup(aabb.center, sprite2.position);
   } else {
     r_sprite_pause(&sprite2);
   }
 }
 
 void g_update(time_s delta) {
-  vec3 a_pos = {sprite2.position[0], 0.f, sprite2.position[1]};
+  // g_update_obj(&test_obj, delta);
+
+  if (l_aabb_vs_cir(NULL, aabb, circle2)) {
+    _l("AABB intersecting Circle:% i.\n", step);
+  }
+
+  if (l_aabb_vs_aabb(NULL, aabb, aabb2)) {
+    _l("AABB intersecting AABB: %i.\n", step);
+  }
+
+  vec3 a_pos = {test_obj.pos[0], 0.f, test_obj.pos[1]};
   a_set_pos(a_pos);
+
   r_sprite_update(&sprite, delta);
   r_sprite_update(&sprite2, delta);
+  r_sprite_update(&circle_sprite, delta);
+  r_sprite_update(&aabb_sprite, delta);
+
   r_particles_update(&particles, delta);
+  ++step;
 }
 
-void g_render(time_s delta) {
-  r_check_error_loc("Sprite Drawcall");
-
-  int tex_id = r_sprite_get_tex_id(sprite);
+static void g_draw_sprite(r_sprite sprite) {
   r_sprite_draw(sprite);
 
+  tex_id = r_sprite_get_tex_id(sprite);
   // r_check_error_loc("Sprite1 Uniforms");
   r_shader_sprite_uniform(sprite, tex_ids, &tex_id);
   r_shader_sprite_uniform(sprite, models, &sprite.model);
   r_shader_sprite_uniform(sprite, flip_x, &sprite.flip_x);
   r_shader_sprite_uniform(sprite, flip_y, &sprite.flip_y);
+}
 
-  tex_id = r_sprite_get_tex_id(sprite2);
+void g_render(time_s delta) {
+  // g_render_obj(&test_obj, delta);
+  r_check_error_loc("Sprite Drawcall");
 
-  // r_check_error_loc("Sprite2 DrawCall");
-  r_sprite_draw(sprite2);
-  // r_check_error_loc("Sprite2 Uniforms");
-  r_shader_sprite_uniform(sprite2, tex_ids, &tex_id);
-  r_shader_sprite_uniform(sprite2, models, &sprite2.model);
-  r_shader_sprite_uniform(sprite2, flip_x, &sprite2.flip_x);
-  r_shader_sprite_uniform(sprite2, flip_y, &sprite2.flip_y);
+  // g_draw_sprite(sprite);
+  g_draw_sprite(sprite2);
+  g_draw_sprite(circle_sprite);
+  g_draw_sprite(aabb_sprite);
 
   r_baked_sheet_draw(standard_shader, &baked_sheet);
   r_particles_draw(&particles, particle_shader);

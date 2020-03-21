@@ -1,5 +1,9 @@
-#define ASTERA_NO_LEVEL
-
+// TODO Broadphase Detection
+// TODO Box / SAT Implementation
+// TODO GJK Implementation
+// TODO Plane Implementation
+// TODO Level Save
+// TODO Level Load
 #if !defined(ASTERA_NO_LEVEL)
 #if !defined(ASTERA_LEVEL_HEADER)
 #define ASTERA_LEVEL_HEADER
@@ -29,7 +33,7 @@ typedef struct {
 
 typedef struct {
   vec2  center, halfsize;
-  float rotation; // radians
+  float angle; // radians
   vec4  bounds;
 } l_box;
 
@@ -41,7 +45,7 @@ typedef struct {
 
 typedef struct {
   vec4 bounds;
-  vec2 center, size;
+  vec2 center;
 
   vec2*    verts;
   uint32_t count;
@@ -49,14 +53,20 @@ typedef struct {
 
 typedef struct {
   vec2  normal;
-  float pentration;
+  float pen;
 } l_manifold;
 
-typedef enum { L_AABB = 0, L_BOX = 1, L_CIRCLE = 2, L_COMPLEX = 3 } l_col_type;
+typedef enum {
+  L_AABB    = 0,
+  L_BOX     = 1,
+  L_CIRCLE  = 2,
+  L_COMPLEX = 3,
+  L_PLANE   = 4
+} l_col_type;
 
 typedef struct {
-  void*   data;
-  uint8_t type;
+  void*      data;
+  l_col_type type;
 
   uint32_t layer;
   uint32_t obj_id;
@@ -65,8 +75,6 @@ typedef struct {
 typedef struct {
   uint32_t uid, rid;
   l_col    col;
-
-  l_box bounds;
 
   uint32_t type, flags;
 } l_obj;
@@ -92,8 +100,8 @@ typedef struct {
 typedef struct {
   l_quad_leaf* leafs;
   uint32_t     count, capacity, max_level, leaf_capacity;
-
-  l_obj_query query;
+  l_aabb       range;
+  l_obj_query  query;
 } l_quad_tree;
 
 typedef struct {
@@ -108,22 +116,41 @@ typedef struct {
   int8_t   active;
 } l_level;
 
-l_quad_tree l_tree_create(l_box range, vec2 min_size, uint32_t leaf_capacity);
+l_col l_col_create(void* data, l_col_type type, uint32_t layer);
+l_obj l_obj_create();
+void  l_obj_move(l_obj* obj, vec2 dist);
+void  l_obj_get_position(l_obj* obj, vec2 dst);
+
+l_quad_tree l_tree_create(l_aabb range, uint32_t leaf_capacity);
 void        l_tree_destroy(l_quad_tree* tree);
 
-static void l_tree_query_r(l_quad_tree* tree, l_obj_query* query, l_box range,
-                           uint32_t layers);
-l_obj_query l_tree_query(l_quad_tree* tree, l_box range, uint32_t capacity);
+static void l_tree_query_r(l_quad_tree* tree, l_quad_leaf* leaf,
+                           l_obj_query* query, l_aabb range, uint32_t layers);
+
+l_obj_query l_tree_query(l_quad_tree* tree, l_aabb range, uint32_t layer,
+                         uint32_t capacity);
 void        l_tree_insert(l_quad_tree* tree, l_obj* obj);
 void        l_tree_remove(l_quad_tree* tree, l_obj* obj);
 
+// static void l_tree_check_leaf(l_quad_tree* tree, l_quad_leaf* leaf,
+//                              int32_t* result) {
+
+static void l_tree_check_leaf(l_quad_leaf* leaf, l_obj* obj, int32_t* res);
+int32_t     l_tree_check_leafs(l_quad_tree* tree, l_obj* obj);
+
 void l_leaf_subdivide(l_quad_leaf* leaf);
 
-int8_t l_box_contains(l_box box, vec2 point);
-int8_t l_box_intersects(l_box box, l_box other);
+int8_t l_aabb_contains(l_aabb box, vec2 point);
 
 static float distpow(vec2 a, vec2 b);
 static float distsqrt(vec2 a, vec2 b);
+
+// --- creation functions  ---
+l_aabb    l_aabb_create(vec2 center, vec2 size);
+l_circle  l_circle_create(vec2 center, float radius);
+l_box     l_box_create(vec2 center, vec2 size, float angle);
+l_complex l_comp_create(vec2 center, vec2* verts, uint32_t vert_count,
+                        float angle);
 
 //---  movement functions  ---
 void l_plane_move(l_plane* a, vec2 dist);
@@ -134,7 +161,7 @@ void l_comp_move(l_complex* a, vec2 dist);
 
 //---  point tests  ---
 int8_t l_plane_cont(l_plane a, vec2 point);
-int8_t l_aabb_cont(l_aabbb a, vec2 point);
+int8_t l_aabb_cont(l_aabb a, vec2 point);
 int8_t l_box_cont(l_box a, vec2 point);
 int8_t l_cir_cont(l_circle a, vec2 point);
 int8_t l_comp_cont(l_complex a, vec2 point);
@@ -142,8 +169,9 @@ int8_t l_comp_cont(l_complex a, vec2 point);
 //---  intersection tests  ---
 
 // this will be the general precursor function,
-// it's just aabb vs aabb but it'll be used for lesser detail
-// it'll help optimize out GJK / SAT Calls overall
+// it's just aabb vs aabb but it'll be used for
+// lesser detail it'll help optimize out GJK /
+// SAT Calls overall
 int8_t l_bounds_sect_bounds(l_manifold* man, vec4 a, vec4 b);
 
 int8_t l_plane_vs_plane(l_manifold* man, l_plane a, l_plane b);

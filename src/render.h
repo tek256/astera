@@ -383,7 +383,6 @@ int  r_sprite_get_tex_id(r_sprite sprite);
 void r_sprite_set_anim(r_sprite* drawable, r_anim anim);
 void r_sprite_set_tex(r_sprite* drawable, r_subtex tex);
 void r_sprite_update(r_sprite* drawable, long delta);
-void r_sprite_req_draw(r_sprite* drawable);
 
 void r_cam_create(r_camera* camera, vec2 size, vec2 position);
 void r_cam_update(void);

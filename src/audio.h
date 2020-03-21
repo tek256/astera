@@ -1,3 +1,9 @@
+// POSSIBLE CHANGES
+// TODO maybe patch to automatically track/delete all effects created
+//       (ref: a_exit)
+//
+// TODO Filters
+
 #ifndef ASTERA_AUDIO_HEADER
 #define ASTERA_AUDIO_HEADER
 
@@ -29,7 +35,7 @@ extern "C" {
 #if !defined(AUDIO_BUFFERS_PER_MUSIC)
 #define AUDIO_BUFFERS_PER_MUSIC 2
 #endif
-
+// getting dog
 #if !defined(AUDIO_MUSIC_MAX_FAILS)
 #define AUDIO_MUSIC_MAX_FAILS 3
 #endif
@@ -93,6 +99,10 @@ extern "C" {
 #define MAX_MUSIC_RUNTIME 4096
 #endif
 
+#if !defined(MAX_FX)
+#define MAX_FX 32
+#endif
+
 #if !defined(MAX_SFX)
 #define MAX_SFX MAX_LAYER_SFX* MAX_AUDIO_LAYERS / 2
 #endif
@@ -107,6 +117,8 @@ extern "C" {
 typedef struct {
   ALCcontext* context;
   ALCdevice*  device;
+  uint8_t     fx_per_source;
+  uint32_t    max_fx;
   int         efx : 1;
   int         allow : 1;
 } a_ctx;
@@ -127,8 +139,98 @@ typedef struct {
 } a_buf;
 
 typedef struct {
+  char*  file_path;
+  char*  name;
+  char** names;
+  int*   offsets;
+  int    offset_count;
+  int    total_samples;
+} a_meta;
+
+typedef enum {
+  REVERB = 0x0001,
+  EQ     = 0x000C,
+} a_fx_type;
+
+// TODO Filter / Delay effects
+
+typedef struct {
+  float  density;               // [0.0, 1.0],   default 1.0
+  float  diffusion;             // [0.0, 1.0],   default 1.0
+  float  gain;                  // [0.0, 1.0],   default 0.32
+  float  gainhf;                // [0.0, 1.0],   default 0.89
+  float  decay;                 // [0.1, 20.0],  default 1.49
+  float  decay_hfratio;         // [0.1, 2.0],   default 0.83
+  float  refl_gain;             // [0.0, 3.16],  default 0.05
+  float  refl_delay;            // [0.0, 0.3],   default 0.007
+  float  late_gain;             // [0.0, 10.0],  default 1.26
+  float  late_delay;            // [0.0, 0.1],   default 0.011
+  float  air_absorption_gainhf; // [0.892, 1.0], default 0.994
+  float  room_rolloff_factor;   // [0.0, 10.0],  default: 0.0
+  int8_t decay_hflimit;         // [0, 1],       default 1
+} a_fx_reverb;
+
+typedef struct {
+  float low_gain;    // default: 1        [0.126, 7.943]
+  float low_cutoff;  // hz, default: 200  [50.0, 800.0]
+  float mid1_gain;   // default: 1        [0.126, 7.943]
+  float mid1_center; // hz, default: 500  [200.0, 3000.0]
+  float mid1_width;  // default: 1        [0.01, 1.0]
+  float mid2_gain;   // default: 1        [0.126, 7.943]
+  float mid2_center; // hz, default: 3000 [1000.0, 8000.0]
+  float mid2_width;  // default: 1        [0.01, 1.0]
+  float high_gain;   // default 1.0       [0.126, 7.943]
+  float high_cutoff; // hz, default: 6000 [4000.0 - 16000.0]
+} a_fx_eq;
+
+typedef struct a_fx_slot a_fx_slot;
+typedef struct a_fx      a_fx;
+
+struct a_fx {
+  uint32_t   id;
+  a_fx_type  type;
+  a_fx_slot* slot;
+  void*      data;
+};
+
+struct a_fx_slot {
+  uint32_t id;
+  a_fx*    fx;
+  float    gain;
+};
+
+typedef enum {
+  LOW  = 0x0001,
+  HIGH = 0x0002,
+  BAND = 0x0003,
+} a_filter_type;
+
+typedef struct {
+  uint32_t      id;
+  a_filter_type type;
+  union {
+    struct {
+      float gain;
+      float gainhf;
+    } low;
+    struct {
+      float gain;
+      float gainlf;
+    } high;
+    struct {
+      float gain;
+      float gainlf;
+      float gainhf;
+    } band;
+  } data;
+} a_filter;
+
+typedef struct {
   // non-realtime
-  uint16_t layer;
+  uint16_t  layer;
+  a_fx**    fx;
+  uint16_t  fx_count;
+  a_filter* filter;
 
   // realtime
   vec3     pos;
@@ -142,15 +244,6 @@ typedef struct {
   uint16_t loop_count;
   time_s   time;
 } a_req;
-
-typedef struct {
-  char*  file_path;
-  char*  name;
-  char** names;
-  int*   offsets;
-  int    offset_count;
-  int    total_samples;
-} a_meta;
 
 typedef struct {
   int      format;
@@ -185,75 +278,14 @@ typedef struct {
 } a_music;
 
 typedef struct {
-  uint32_t id;
-  vec3     position;
-  float    range, gain;
-  int      loop;
-  a_req*   req;
-  int      has_req;
-} a_sfx;
-
-typedef enum {
-  REVERB    = 0x0001,
-  EQUALIZER = 0x000C,
-} a_fx_type;
-
-// TODO Filter / Delay effects
-
-typedef struct {
-  float density;    // [0.0, 1.0]  default: 1.0
-  float diffusion;  // [0.0, 1.0]  default: 1.0
-  float gain;       // [0.0, 1.0]  default: 0.32
-  float gainhf;     // [0.0, 1.0]  default: 0.89
-  float decay;      // [0.1, 20.0] default: 1.49 [seconds]
-  float refl_gain;  // [0.0, 3.16] default: 0.05
-  float refl_decay; // [0.0, 0.3]  default: 0.007 [seconds]
-} a_fx_reverb;
-
-typedef struct {
-  float low_gain;    // default: 1        [0.126, 7.943]
-  float low_cutoff;  // hz, default: 200  [50.0, 800.0]
-  float mid1_gain;   // default: 1        [0.126, 7.943]
-  float mid1_center; // hz, default: 500  [200.0, 3000.0]
-  float mid1_width;  // default: 1        [0.01, 1.0]
-  float mid2_gain;   // default: 1        [0.126, 7.943]
-  float mid2_center; // hz, default: 3000 [1000.0, 8000.0]
-  float mid2_width;  // default: 1        [0.01, 1.0]
-  float high_gain;   // default 1.0       [0.126, 7.943]
-  float high_cutoff; // hz, default: 6000 [4000.0 - 16000.0]
-} a_fx_equalizer;
-
-typedef struct {
   uint32_t  id;
-  a_fx_type type;
-  void*     data;
-} a_fx;
-
-typedef enum {
-  LOWPASS  = 0x0001,
-  HIGHPASS = 0x0002,
-  BANDPASS = 0x0003,
-} a_filter_type;
-
-typedef struct {
-  uint32_t      id;
-  a_filter_type type;
-  union {
-    struct {
-      float gain;
-      float gainhf;
-    } lowpass;
-    struct {
-      float gain;
-      float gainlf;
-    } highpass;
-    struct {
-      float gain;
-      float gainlf;
-      float gainhf;
-    } bandpass;
-  } data;
-} a_filter;
+  vec3      position;
+  float     range, gain;
+  int       loop;
+  a_req*    req;
+  int       has_req;
+  uint32_t* fx_slots;
+} a_sfx;
 
 typedef struct {
   uint32_t id;
@@ -284,6 +316,10 @@ typedef struct {
   uint16_t    buf_capacity;
   a_buf       bufs[MAX_BUFFERS];
   const char* buf_names[MAX_BUFFERS];
+
+  uint16_t   fx_count;
+  uint16_t   fx_capacity;
+  a_fx_slot* fx_slots;
 } a_resource_map;
 
 static a_resource_map g_a_map;
@@ -318,6 +354,34 @@ float a_get_vol_music(void);
 
 void a_update(time_s delta);
 void a_update_sfx(void);
+
+a_fx_reverb a_fx_reverb_default(void);
+
+a_fx_reverb a_fx_reverb_create(float density, float diffusion, float gain,
+                               float gainhf, float decay, float decay_hfratio,
+                               float refl_gain, float refl_delay,
+                               float late_gain, float late_delay,
+                               float air_absorption_gainhf,
+                               float room_rolloff_factor, int8_t decay_hflimit);
+
+a_fx_eq a_fx_eq_create(float low, float low_cutoff, float mid1_gain,
+                       float mid1_center, float mid1_width, float mid2_gain,
+                       float mid2_center, float mid2_width, float high_gain,
+                       float high_cutoff);
+
+int16_t a_fx_slot_get();
+int16_t a_fx_slot_attach(a_fx* fx);
+void    a_fx_slot_detach(a_fx* fx);
+void    a_fx_slot_update(a_fx_slot* slot);
+void    a_fx_slot_destroy(a_fx_slot* slot);
+
+a_fx a_fx_create(a_fx_type type, void* data);
+void a_fx_update(a_fx fx);
+void a_fx_destroy(a_fx fx);
+
+a_filter a_filter_create(a_filter_type type, float gain, float hf, float lf);
+void     a_filter_update(a_filter filter);
+void     a_filter_destroy(a_filter filter);
 
 uint32_t a_get_device_name(char* dst, int capacity);
 
