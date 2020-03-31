@@ -5,6 +5,12 @@
 #ifndef LINMATH_H
 #define LINMATH_H
 
+// NOTE(dbechrd): I tried putting this around `#include <misc/linmath.h>` in game.c but it didn't
+// work. Not sure why.
+#pragma warning(push)
+#pragma warning(disable: 4244) // conversion from 'double' to 'float', possible loss of data
+#pragma warning(disable: 4204) // nonstandard extension used: non-constant aggregate initializer
+
 #include <math.h>
 
 #ifdef LINMATH_NO_INLINE
@@ -597,5 +603,6 @@ LINMATH_H_FUNC void quat_from_mat4x4(quat q, mat4x4 M) {
   q[3] = (M[p[2]][p[1]] - M[p[1]][p[2]]) / (2.f * r);
 }
 
+#pragma warning(pop)
 #endif
 

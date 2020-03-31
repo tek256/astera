@@ -415,8 +415,21 @@ int8_t l_bounds_sect_bounds(l_manifold* man, vec4 a, vec4 b) {
   float b_halfx = b[2] - b[0];
   float b_halfy = b[3] - b[1];
 
+
+#if 0
+  // CLEANUP(dbechrd): Array initializater lists are only valid with compile-time-constants in MSVC.
+  // FATAL: C2075 'a_center': array initialization requires a brace-enclosed initializer list
+  // FATAL: E0144 a value of type "float *" cannot be used to initialize an entity of type "float"
   vec2 a_center = (vec2){a[0] + a_halfx, a[1] + a_halfy};
   vec2 b_center = (vec2){b[0] + b_halfx, b[1] + b_halfy};
+#else
+  vec2 a_center = { 0 };
+  a_center[0] = a[0] + a_halfx;
+  a_center[1] = a[1] + a_halfy;
+  vec2 b_center = { 0 };
+  b_center[0] = b[0] + b_halfx;
+  b_center[1] = b[1] + b_halfy;
+#endif
 
   vec2 n;
   vec2_sub(n, a_center, b_center);
@@ -581,7 +594,16 @@ int8_t l_cir_vs_cir(l_manifold* man, l_circle a, l_circle b) {
   if (rsq < dist) {
     if (man) {
       man->pen = dist - rsq;
+#if 0
+      // CLEANUP(dbechrd): Array initializater lists are only valid with compile-time-constants in MSVC.
+      // FATAL: C2075 'd': array initialization requires a brace-enclosed initializer list
+      // FATAL: E0144 a value of type "float *" cannot be used to initialize an entity of type "float"
       vec2 d   = (vec2){a.center[0] - b.center[0], a.center[1] - b.center[1]};
+#else
+      vec2 d = { 0 };
+      d[0] = a.center[0] - b.center[0];
+      d[1] = a.center[1] - b.center[1];
+#endif
       vec2_norm(man->normal, d);
     }
     return 1;

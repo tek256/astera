@@ -2,14 +2,13 @@
 
 #include <GLFW/glfw3.h>
 
-#include <unistd.h>
-
 #include "platform.h"
 
 #if defined(PLAT_MSFT)
 #include <windows.h>
 #else
 #include <time.h>
+#include <unistd.h>
 #endif
 
 /* Returns time in milliseconds */

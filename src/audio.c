@@ -44,6 +44,18 @@ static LPALGETEFFECTIV   alGetEffectiv;
 static LPALGETEFFECTF    alGetEffectf;
 static LPALGETEFFECTFV   alGetEffectfv;
 
+static LPALGENFILTERS     alGenFilters;
+static LPALDELETEFILTERS  alDeleteFilters;
+static LPALISFILTER       alIsFilter;
+static LPALFILTERI        alFilteri;
+static LPALFILTERIV       alFilteriv;
+static LPALFILTERF        alFilterf;
+static LPALFILTERFV       alFilterfv;
+static LPALGETFILTERI     alGetFilteri;
+static LPALGETFILTERIV    alGetFilteriv;
+static LPALGETFILTERF     alGetFilterf;
+static LPALGETFILTERFV    alGetFilterfv;
+
 static LPALGENAUXILIARYEFFECTSLOTS    alGenAuxiliaryEffectSlots;
 static LPALDELETEAUXILIARYEFFECTSLOTS alDeleteAuxiliaryEffectSlots;
 static LPALISAUXILIARYEFFECTSLOT      alIsAuxiliaryEffectSlot;
@@ -405,6 +417,18 @@ int a_init(const char* device, uint32_t master, uint32_t sfx, uint32_t music) {
     LOAD_PROC(LPALGETEFFECTIV, alGetEffectiv);
     LOAD_PROC(LPALGETEFFECTF, alGetEffectf);
     LOAD_PROC(LPALGETEFFECTFV, alGetEffectfv);
+
+    LOAD_PROC(LPALGENFILTERS, alGenFilters);
+    LOAD_PROC(LPALDELETEFILTERS, alDeleteFilters);
+    LOAD_PROC(LPALISFILTER, alIsFilter);
+    LOAD_PROC(LPALFILTERI, alFilteri);
+    LOAD_PROC(LPALFILTERIV, alFilteriv);
+    LOAD_PROC(LPALFILTERF, alFilterf);
+    LOAD_PROC(LPALFILTERFV, alFilterfv);
+    LOAD_PROC(LPALGETFILTERI, alGetFilteri);
+    LOAD_PROC(LPALGETFILTERIV, alGetFilteriv);
+    LOAD_PROC(LPALGETFILTERF, alGetFilterf);
+    LOAD_PROC(LPALGETFILTERFV, alGetFilterfv);
 
     LOAD_PROC(LPALGENAUXILIARYEFFECTSLOTS, alGenAuxiliaryEffectSlots);
     LOAD_PROC(LPALDELETEAUXILIARYEFFECTSLOTS, alDeleteAuxiliaryEffectSlots);

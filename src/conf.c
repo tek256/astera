@@ -5,8 +5,10 @@
 #include "debug.h"
 #include "input.h"
 
+#if !defined(PLAT_MSFT)
 #include <getopt.h>
 #include <unistd.h>
+#endif
 
 #include <assert.h>
 #include <ctype.h>
@@ -25,9 +27,15 @@ void c_parse_args(int argc, char** argv) {
     return;
   }
 
+  // HACK(dbechrd): Temporarily ignore args on Windows to allow compile to succeed.
+#if defined(PLAT_MSFT)
+  return;
+#else
   _flags = (c_args){0, 1, 1, 0, NULL};
 
   while (1) {
+    // FATAL(dbechrd): `getopt.h` doesn't exist on Windows. Find Windows
+    // alternative, or make platform independent
     char c = getopt(argc, argv, "srvadc:");
 
     if (c == -1) {
@@ -52,6 +60,8 @@ void c_parse_args(int argc, char** argv) {
       break;
     case 'c': {
       char max_conf[64];
+      // FATAL(dbechrd): `getopt.h` doesn't exist on Windows. Find Windows
+      // alternative, or make platform independent
       snprintf(max_conf, 63, "%s", optarg);
       int opt_len  = strlen(max_conf);
       _flags.prefs = malloc(sizeof(char) * opt_len);
@@ -59,6 +69,7 @@ void c_parse_args(int argc, char** argv) {
     } break;
     }
   }
+#endif
 }
 
 // Quality of life thing, can factor out later

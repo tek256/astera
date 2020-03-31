@@ -1,10 +1,13 @@
 #include "debug.h"
+#include "platform.h"
 
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#if !defined(PLAT_MSFT)
 #include <unistd.h>
+#endif
 
 #ifndef DEBUG_OUTPUT
 #if defined(PLAT_MSFT) || defined(PLAT_MSFT_64)
@@ -50,9 +53,14 @@ void dbg_enable_log(int log, const char* fp) {
   }
 
   if (fp && log) {
+    // HACK(dbechrd): Temporarily skip access check on Windows to allow compile to succeed.
+#if !defined(PLAT_MSFT)
+    // FATAL(dbechrd): `access()` doesn't exist on Windows. Find Windows
+    // alternative, or make platform independent
     if (access(fp, F_OK) != -1) {
       remove(fp);
     }
+#endif
 
     FILE* chk = fopen(fp, "a");
     if (!chk) {

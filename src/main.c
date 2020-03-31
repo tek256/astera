@@ -3,7 +3,9 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#if !defined(PLAT_MSFT)
 #include <unistd.h>
+#endif
 
 #include "audio.h"
 #include "conf.h"
