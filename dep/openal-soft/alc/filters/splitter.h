@@ -1,36 +1,40 @@
 #ifndef FILTER_SPLITTER_H
 #define FILTER_SPLITTER_H
 
-#include <cstddef>
-
-#include "alspan.h"
+#include "alMain.h"
 
 
 /* Band splitter. Splits a signal into two phase-matching frequency bands. */
-template<typename Real>
-class BandSplitterR {
-    Real mCoeff{0.0f};
-    Real mLpZ1{0.0f};
-    Real mLpZ2{0.0f};
-    Real mApZ1{0.0f};
+typedef struct BandSplitter {
+    ALfloat coeff;
+    ALfloat lp_z1;
+    ALfloat lp_z2;
+    ALfloat hp_z1;
+} BandSplitter;
 
-public:
-    BandSplitterR() = default;
-    BandSplitterR(const BandSplitterR&) = default;
-    BandSplitterR(Real f0norm) { init(f0norm); }
+void bandsplit_init(BandSplitter *splitter, ALfloat f0norm);
+void bandsplit_clear(BandSplitter *splitter);
+void bandsplit_process(BandSplitter *splitter, ALfloat *restrict hpout, ALfloat *restrict lpout,
+                       const ALfloat *input, ALsizei count);
 
-    void init(Real f0norm);
-    void clear() noexcept { mLpZ1 = mLpZ2 = mApZ1 = 0.0f; }
-    void process(const al::span<const Real> input, Real *hpout, Real *lpout);
+/* The all-pass portion of the band splitter. Applies the same phase shift
+ * without splitting the signal.
+ */
+typedef struct SplitterAllpass {
+    ALfloat coeff;
+    ALfloat z1;
+} SplitterAllpass;
 
-    void applyHfScale(const al::span<Real> samples, const Real hfscale);
+void splitterap_init(SplitterAllpass *splitter, ALfloat f0norm);
+void splitterap_clear(SplitterAllpass *splitter);
+void splitterap_process(SplitterAllpass *splitter, ALfloat *restrict samples, ALsizei count);
 
-    /* The all-pass portion of the band splitter. Applies the same phase shift
-     * without splitting the signal. Note that each use of this method is
-     * indepedent, it does not track history between calls.
-     */
-    void applyAllpass(const al::span<Real> samples) const;
-};
-using BandSplitter = BandSplitterR<float>;
+
+typedef struct FrontStablizer {
+    SplitterAllpass APFilter[MAX_OUTPUT_CHANNELS];
+    BandSplitter LFilter, RFilter;
+    alignas(16) ALfloat LSplit[2][BUFFERSIZE];
+    alignas(16) ALfloat RSplit[2][BUFFERSIZE];
+} FrontStablizer;
 
 #endif /* FILTER_SPLITTER_H */

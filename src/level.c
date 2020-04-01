@@ -415,8 +415,8 @@ int8_t l_bounds_sect_bounds(l_manifold* man, vec4 a, vec4 b) {
   float b_halfx = b[2] - b[0];
   float b_halfy = b[3] - b[1];
 
-  vec2 a_center = (vec2){a[0] + a_halfx, a[1] + a_halfy};
-  vec2 b_center = (vec2){b[0] + b_halfx, b[1] + b_halfy};
+  vec2 a_center = {a[0] + a_halfx, a[1] + a_halfy};
+  vec2 b_center = {b[0] + b_halfx, b[1] + b_halfy};
 
   vec2 n;
   vec2_sub(n, a_center, b_center);
@@ -581,7 +581,7 @@ int8_t l_cir_vs_cir(l_manifold* man, l_circle a, l_circle b) {
   if (rsq < dist) {
     if (man) {
       man->pen = dist - rsq;
-      vec2 d   = (vec2){a.center[0] - b.center[0], a.center[1] - b.center[1]};
+      vec2 d   = {a.center[0] - b.center[0], a.center[1] - b.center[1]};
       vec2_norm(man->normal, d);
     }
     return 1;

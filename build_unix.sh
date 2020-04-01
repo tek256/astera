@@ -482,7 +482,9 @@ if [ -z "$CC" ]; then
     CC=clang
   fi
 else
-  echo "CC Override, using compiler: $CC."
+  if [ -z "$QUIET" ]; then
+    echo "CC Override, using compiler: $CC."
+  fi
 fi
 
 if [ -z "$CC_FLAGS" ]; then

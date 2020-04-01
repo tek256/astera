@@ -1,22 +1,23 @@
-ifeq ($(OS),Windows_NT)
-	SHELL := cmd.exe
-	MAKE_DIR := $(shell cd)
-	CC = clang
-else
-	MAKE_DIR := $(shell pwd)
-	CC = clang 
-endif
-
 TARGET_COMPILER_FLAGS := -std=c99 -w #-O2 -Wall -pedantic -Wextra -ferror-limit=500
 EXEC_NAME := astera
 OBJS := $(wildcard src/*.c)	
 UNAME_S := $(shell uname)
 
+ifeq ($(OS),Windows_NT)
+	SHELL := cmd.exe
+	MAKE_DIR := $(shell cd)
+	CC = gcc
+	RM_CMD := -del\
+	TARGET_LINKER_FLAGS := -I$(MAKE_DIR)\dep\ -I$(MAKE_DIR)\dep\misc\ -I$(MAKE_DIR)\dep\glfw\include\ -I$(MAKE_DIR)\dep\openal-soft\include\ -Wl,-rpath,lib\ -lopengl32 -lglfw3 -lgdi32 -lm -lopenal32
+	TARGET_EXEC_NAME := $(EXEC_NAME).exe
+else
+	MAKE_DIR := $(shell pwd)
+	CC = clang 
+endif
+
 # Windows Native
 ifeq ($(OS),Windows_NT)
-	RM_CMD := -del
-	TARGET_LINKER_FLAGS := -I$(MAKE_DIR)\dep\ -I$(MAKE_DIR)\dep\glfw\include -I$(MAKE_DIR)\dep\openal-soft\include\ -L$(MAKE_DIR)\dep\glfw\src -L$(MAKE_DIR)\dep\openal-soft\ -lopengl32 -lglfw3 -lgdi32 -lm -lopenal32
-	TARGET_EXEC_NAME := $(EXEC_NAME)
+
 	#TARGET_COMPILER_FLAGS += -D WIN32
 # Unix / BSD
 else

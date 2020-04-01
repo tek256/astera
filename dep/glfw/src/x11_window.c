@@ -1,5 +1,5 @@
 //========================================================================
-// GLFW 3.4 X11 - www.glfw.org
+// GLFW 3.3 X11 - www.glfw.org
 //------------------------------------------------------------------------
 // Copyright (c) 2002-2006 Marcus Geelnard
 // Copyright (c) 2006-2019 Camilla Löwy <elmindreda@glfw.org>
@@ -2905,76 +2905,29 @@ int _glfwPlatformCreateCursor(_GLFWcursor* cursor,
 
 int _glfwPlatformCreateStandardCursor(_GLFWcursor* cursor, int shape)
 {
-    if (_glfw.x11.xcursor.handle)
-    {
-        char* theme = XcursorGetTheme(_glfw.x11.display);
-        if (theme)
-        {
-            const int size = XcursorGetDefaultSize(_glfw.x11.display);
-            const char* name = NULL;
+    int native = 0;
 
-            if (shape == GLFW_ARROW_CURSOR)
-                name = "default";
-            else if (shape == GLFW_IBEAM_CURSOR)
-                name = "text";
-            else if (shape == GLFW_CROSSHAIR_CURSOR)
-                name = "crosshair";
-            else if (shape == GLFW_POINTING_HAND_CURSOR)
-                name = "pointer";
-            else if (shape == GLFW_RESIZE_EW_CURSOR)
-                name = "ew-resize";
-            else if (shape == GLFW_RESIZE_NS_CURSOR)
-                name = "ns-resize";
-            else if (shape == GLFW_RESIZE_NWSE_CURSOR)
-                name = "nwse-resize";
-            else if (shape == GLFW_RESIZE_NESW_CURSOR)
-                name = "nesw-resize";
-            else if (shape == GLFW_RESIZE_ALL_CURSOR)
-                name = "all-scroll";
-            else if (shape == GLFW_NOT_ALLOWED_CURSOR)
-                name = "not-allowed";
+    if (shape == GLFW_ARROW_CURSOR)
+        native = XC_left_ptr;
+    else if (shape == GLFW_IBEAM_CURSOR)
+        native = XC_xterm;
+    else if (shape == GLFW_CROSSHAIR_CURSOR)
+        native = XC_crosshair;
+    else if (shape == GLFW_HAND_CURSOR)
+        native = XC_hand2;
+    else if (shape == GLFW_HRESIZE_CURSOR)
+        native = XC_sb_h_double_arrow;
+    else if (shape == GLFW_VRESIZE_CURSOR)
+        native = XC_sb_v_double_arrow;
+    else
+        return GLFW_FALSE;
 
-            XcursorImage* image = XcursorLibraryLoadImage(name, theme, size);
-            if (image)
-            {
-                cursor->x11.handle = XcursorImageLoadCursor(_glfw.x11.display, image);
-                XcursorImageDestroy(image);
-            }
-        }
-    }
-
+    cursor->x11.handle = XCreateFontCursor(_glfw.x11.display, native);
     if (!cursor->x11.handle)
     {
-        unsigned int native = 0;
-
-        if (shape == GLFW_ARROW_CURSOR)
-            native = XC_left_ptr;
-        else if (shape == GLFW_IBEAM_CURSOR)
-            native = XC_xterm;
-        else if (shape == GLFW_CROSSHAIR_CURSOR)
-            native = XC_crosshair;
-        else if (shape == GLFW_POINTING_HAND_CURSOR)
-            native = XC_hand2;
-        else if (shape == GLFW_RESIZE_EW_CURSOR)
-            native = XC_sb_h_double_arrow;
-        else if (shape == GLFW_RESIZE_NS_CURSOR)
-            native = XC_sb_v_double_arrow;
-        else if (shape == GLFW_RESIZE_ALL_CURSOR)
-            native = XC_fleur;
-        else
-        {
-            _glfwInputError(GLFW_CURSOR_UNAVAILABLE,
-                            "X11: Standard cursor shape unavailable");
-            return GLFW_FALSE;
-        }
-
-        cursor->x11.handle = XCreateFontCursor(_glfw.x11.display, native);
-        if (!cursor->x11.handle)
-        {
-            _glfwInputError(GLFW_PLATFORM_ERROR,
-                            "X11: Failed to create standard cursor");
-            return GLFW_FALSE;
-        }
+        _glfwInputError(GLFW_PLATFORM_ERROR,
+                        "X11: Failed to create standard cursor");
+        return GLFW_FALSE;
     }
 
     return GLFW_TRUE;

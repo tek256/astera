@@ -5,8 +5,11 @@
 #include "debug.h"
 #include "input.h"
 
-#include <getopt.h>
+#include <misc/getopt.h>
+
+#if defined(PLAT_UNIX) || defined(PLAT_LINUX) || defined(PLAT_BSD)
 #include <unistd.h>
+#endif
 
 #include <assert.h>
 #include <ctype.h>

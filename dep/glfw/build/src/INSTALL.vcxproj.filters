@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="16.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\Devon\Documents\GitHub\astera\dep\glfw\build\CMakeFiles\3d64460cc803f24a243fde168948ac4b\INSTALL_force.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{54AD7C35-2D0F-393D-B480-671C0E13067D}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

@@ -1,7 +1,6 @@
 #ifndef CPU_CAPS_H
 #define CPU_CAPS_H
 
-
 extern int CPUCapFlags;
 enum {
     CPU_CAP_SSE    = 1<<0,

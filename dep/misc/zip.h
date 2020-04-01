@@ -24,10 +24,14 @@ extern "C" {
 #define _SSIZE_T
 // 64-bit Windows is the only mainstream platform
 // where sizeof(long) != sizeof(void*)
+#ifdef __MINGW32__
+
+#else 
 #ifdef _WIN64
 typedef long long ssize_t; /* byte count or error */
 #else
 typedef long ssize_t; /* byte count or error */
+#endif
 #endif
 #endif
 

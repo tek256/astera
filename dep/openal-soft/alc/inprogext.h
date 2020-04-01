@@ -9,23 +9,23 @@
 extern "C" {
 #endif
 
-#ifndef ALC_SOFT_loopback_bformat
-#define ALC_SOFT_loopback_bformat 1
-#define ALC_AMBISONIC_LAYOUT_SOFT                0x1997
-#define ALC_AMBISONIC_SCALING_SOFT               0x1998
-#define ALC_AMBISONIC_ORDER_SOFT                 0x1999
-#define ALC_MAX_AMBISONIC_ORDER_SOFT             0x199B
+#ifndef ALC_SOFT_loopback2
+#define ALC_SOFT_loopback2 1
+#define ALC_AMBISONIC_LAYOUT_SOFT                0xfff0
+#define ALC_AMBISONIC_SCALING_SOFT               0xfff1
+#define ALC_AMBISONIC_ORDER_SOFT                 0xfff2
+#define ALC_MAX_AMBISONIC_ORDER_SOFT             0xfff3
 
 #define ALC_BFORMAT3D_SOFT                       0x1508
 
 /* Ambisonic layouts */
-#define ALC_FUMA_SOFT                            0x0000
-#define ALC_ACN_SOFT                             0x0001
+#define ALC_ACN_SOFT                             0xfff4
+#define ALC_FUMA_SOFT                            0xfff5
 
 /* Ambisonic scalings (normalization) */
 /*#define ALC_FUMA_SOFT*/
-#define ALC_SN3D_SOFT                            0x0001
-#define ALC_N3D_SOFT                             0x0002
+#define ALC_SN3D_SOFT                            0xfff6
+#define ALC_N3D_SOFT                             0xfff7
 #endif
 
 #ifndef AL_SOFT_map_buffer
@@ -72,9 +72,12 @@ AL_API void AL_APIENTRY alGetPointervSOFT(ALenum pname, void **values);
 #endif
 #endif
 
-#ifndef AL_SOFT_effect_chain
-#define AL_SOFT_effect_chain
-#define AL_EFFECTSLOT_TARGET_SOFT                0xf000
+#ifndef AL_SOFT_buffer_layers
+#define AL_SOFT_buffer_layers
+typedef void (AL_APIENTRY*LPALSOURCEQUEUEBUFFERLAYERSSOFT)(ALuint src, ALsizei nb, const ALuint *buffers);
+#ifdef AL_ALEXT_PROTOTYPES
+AL_API void AL_APIENTRY alSourceQueueBufferLayersSOFT(ALuint src, ALsizei nb, const ALuint *buffers);
+#endif
 #endif
 
 #ifdef __cplusplus

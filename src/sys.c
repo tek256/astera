@@ -2,7 +2,9 @@
 
 #include <GLFW/glfw3.h>
 
+#if defined(PLAT_UNIX) || defined(PLAT_LINUX) || defined(PLAT_BSD)
 #include <unistd.h>
+#endif
 
 #include "platform.h"
 

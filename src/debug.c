@@ -1,10 +1,15 @@
 #include "debug.h"
 
+#include "platform.h"
+
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+
+#if defined(PLAT_UNIX) || defined(PLAT_LINUX) || defined(PLAT_BSD)
 #include <unistd.h>
+#endif
 
 #ifndef DEBUG_OUTPUT
 #if defined(PLAT_MSFT) || defined(PLAT_MSFT_64)
@@ -50,9 +55,13 @@ void dbg_enable_log(int log, const char* fp) {
   }
 
   if (fp && log) {
+    #if defined(PLAT_MSFT)
+      remove(fp);
+    #else
     if (access(fp, F_OK) != -1) {
       remove(fp);
     }
+    #endif
 
     FILE* chk = fopen(fp, "a");
     if (!chk) {

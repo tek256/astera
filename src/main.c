@@ -3,7 +3,9 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#if defined(PLAT_UNIX) || defined(PLAT_LINUX) || defined(PLAT_BSD)
 #include <unistd.h>
+#endif
 
 #include "audio.h"
 #include "conf.h"

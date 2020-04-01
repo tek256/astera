@@ -1,5 +1,5 @@
 //========================================================================
-// GLFW 3.4 - www.glfw.org
+// GLFW 3.3 - www.glfw.org
 //------------------------------------------------------------------------
 // Copyright (c) 2002-2006 Marcus Geelnard
 // Copyright (c) 2006-2019 Camilla Löwy <elmindreda@glfw.org>
@@ -275,9 +275,6 @@ struct _GLFWwndconfig
         char      className[256];
         char      instanceName[256];
     } x11;
-    struct {
-        GLFWbool  keymenu;
-    } win32;
 };
 
 // Context configuration

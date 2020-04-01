@@ -1,5 +1,5 @@
 //========================================================================
-// GLFW 3.4 X11 - www.glfw.org
+// GLFW 3.3 X11 - www.glfw.org
 //------------------------------------------------------------------------
 // Copyright (c) 2002-2006 Marcus Geelnard
 // Copyright (c) 2006-2019 Camilla Löwy <elmindreda@glfw.org>
@@ -36,7 +36,6 @@
 #include <limits.h>
 #include <stdio.h>
 #include <locale.h>
-#include <unistd.h>
 
 
 // Translate an X11 key code to a GLFW key code.
@@ -616,12 +615,6 @@ static GLFWbool initExtensions(void)
             _glfw_dlsym(_glfw.x11.xcursor.handle, "XcursorImageDestroy");
         _glfw.x11.xcursor.ImageLoadCursor = (PFN_XcursorImageLoadCursor)
             _glfw_dlsym(_glfw.x11.xcursor.handle, "XcursorImageLoadCursor");
-        _glfw.x11.xcursor.GetTheme = (PFN_XcursorGetTheme)
-            _glfw_dlsym(_glfw.x11.xcursor.handle, "XcursorGetTheme");
-        _glfw.x11.xcursor.GetDefaultSize = (PFN_XcursorGetDefaultSize)
-            _glfw_dlsym(_glfw.x11.xcursor.handle, "XcursorGetDefaultSize");
-        _glfw.x11.xcursor.LibraryLoadImage = (PFN_XcursorLibraryLoadImage)
-            _glfw_dlsym(_glfw.x11.xcursor.handle, "XcursorLibraryLoadImage");
     }
 
 #if defined(__CYGWIN__)

@@ -1,68 +1,119 @@
 #ifndef MIXER_DEFS_H
 #define MIXER_DEFS_H
 
+#include "AL/alc.h"
 #include "AL/al.h"
+#include "alMain.h"
+#include "alu.h"
 
-#include "alcmain.h"
-#include "alspan.h"
-#include "hrtf.h"
+struct MixGains;
 
-union InterpState;
-struct MixHrtfFilter;
+struct MixHrtfParams;
+struct HrtfState;
+
+/* C resamplers */
+const ALfloat *Resample_copy_C(const InterpState *state, const ALfloat *restrict src, ALsizei frac, ALint increment, ALfloat *restrict dst, ALsizei dstlen);
+const ALfloat *Resample_point_C(const InterpState *state, const ALfloat *restrict src, ALsizei frac, ALint increment, ALfloat *restrict dst, ALsizei dstlen);
+const ALfloat *Resample_lerp_C(const InterpState *state, const ALfloat *restrict src, ALsizei frac, ALint increment, ALfloat *restrict dst, ALsizei dstlen);
+const ALfloat *Resample_cubic_C(const InterpState *state, const ALfloat *restrict src, ALsizei frac, ALint increment, ALfloat *restrict dst, ALsizei dstlen);
+const ALfloat *Resample_bsinc_C(const InterpState *state, const ALfloat *restrict src, ALsizei frac, ALint increment, ALfloat *restrict dst, ALsizei dstlen);
 
 
-enum InstSetType {
-    CTag,
-    SSETag,
-    SSE2Tag,
-    SSE3Tag,
-    SSE4Tag,
-    NEONTag
-};
+/* C mixers */
+void MixHrtf_C(ALfloat *restrict LeftOut, ALfloat *restrict RightOut,
+               const ALfloat *data, ALsizei Offset, ALsizei OutPos,
+               const ALsizei IrSize, struct MixHrtfParams *hrtfparams,
+               struct HrtfState *hrtfstate, ALsizei BufferSize);
+void MixHrtfBlend_C(ALfloat *restrict LeftOut, ALfloat *restrict RightOut,
+                    const ALfloat *data, ALsizei Offset, ALsizei OutPos,
+                    const ALsizei IrSize, const HrtfParams *oldparams,
+                    MixHrtfParams *newparams, HrtfState *hrtfstate,
+                    ALsizei BufferSize);
+void MixDirectHrtf_C(ALfloat *restrict LeftOut, ALfloat *restrict RightOut,
+                     const ALfloat *data, ALsizei Offset, const ALsizei IrSize,
+                     const ALfloat (*restrict Coeffs)[2], ALfloat (*restrict Values)[2],
+                     ALsizei BufferSize);
+void Mix_C(const ALfloat *data, ALsizei OutChans, ALfloat (*restrict OutBuffer)[BUFFERSIZE],
+           ALfloat *CurrentGains, const ALfloat *TargetGains, ALsizei Counter, ALsizei OutPos,
+           ALsizei BufferSize);
+void MixRow_C(ALfloat *OutBuffer, const ALfloat *Gains,
+              const ALfloat (*restrict data)[BUFFERSIZE], ALsizei InChans,
+              ALsizei InPos, ALsizei BufferSize);
 
-enum ResampleType {
-    CopyTag,
-    PointTag,
-    LerpTag,
-    CubicTag,
-    BSincTag,
-    FastBSincTag
-};
+/* SSE mixers */
+void MixHrtf_SSE(ALfloat *restrict LeftOut, ALfloat *restrict RightOut,
+                 const ALfloat *data, ALsizei Offset, ALsizei OutPos,
+                 const ALsizei IrSize, struct MixHrtfParams *hrtfparams,
+                 struct HrtfState *hrtfstate, ALsizei BufferSize);
+void MixHrtfBlend_SSE(ALfloat *restrict LeftOut, ALfloat *restrict RightOut,
+                      const ALfloat *data, ALsizei Offset, ALsizei OutPos,
+                      const ALsizei IrSize, const HrtfParams *oldparams,
+                      MixHrtfParams *newparams, HrtfState *hrtfstate,
+                      ALsizei BufferSize);
+void MixDirectHrtf_SSE(ALfloat *restrict LeftOut, ALfloat *restrict RightOut,
+                       const ALfloat *data, ALsizei Offset, const ALsizei IrSize,
+                       const ALfloat (*restrict Coeffs)[2], ALfloat (*restrict Values)[2],
+                       ALsizei BufferSize);
+void Mix_SSE(const ALfloat *data, ALsizei OutChans, ALfloat (*restrict OutBuffer)[BUFFERSIZE],
+             ALfloat *CurrentGains, const ALfloat *TargetGains, ALsizei Counter, ALsizei OutPos,
+             ALsizei BufferSize);
+void MixRow_SSE(ALfloat *OutBuffer, const ALfloat *Gains,
+                const ALfloat (*restrict data)[BUFFERSIZE], ALsizei InChans,
+                ALsizei InPos, ALsizei BufferSize);
 
-template<ResampleType TypeTag, InstSetType InstTag>
-const ALfloat *Resample_(const InterpState *state, const ALfloat *RESTRICT src, ALuint frac,
-    ALuint increment, const al::span<float> dst);
-
-template<InstSetType InstTag>
-void Mix_(const al::span<const float> InSamples, const al::span<FloatBufferLine> OutBuffer,
-    float *CurrentGains, const float *TargetGains, const size_t Counter, const size_t OutPos);
-template<InstSetType InstTag>
-void MixRow_(const al::span<float> OutBuffer, const al::span<const float> Gains,
-    const float *InSamples, const size_t InStride);
-
-template<InstSetType InstTag>
-void MixHrtf_(const float *InSamples, float2 *AccumSamples, const ALuint IrSize,
-    const MixHrtfFilter *hrtfparams, const size_t BufferSize);
-template<InstSetType InstTag>
-void MixHrtfBlend_(const float *InSamples, float2 *AccumSamples, const ALuint IrSize,
-    const HrtfFilter *oldparams, const MixHrtfFilter *newparams, const size_t BufferSize);
-template<InstSetType InstTag>
-void MixDirectHrtf_(FloatBufferLine &LeftOut, FloatBufferLine &RightOut,
-    const al::span<const FloatBufferLine> InSamples, float2 *AccumSamples, DirectHrtfState *State,
-    const size_t BufferSize);
-
-/* Vectorized resampler helpers */
-inline void InitPosArrays(ALuint frac, ALuint increment, ALuint *frac_arr, ALuint *pos_arr,
-    size_t size)
+/* SSE resamplers */
+inline void InitiatePositionArrays(ALsizei frac, ALint increment, ALsizei *restrict frac_arr, ALsizei *restrict pos_arr, ALsizei size)
 {
+    ALsizei i;
+
     pos_arr[0] = 0;
     frac_arr[0] = frac;
-    for(size_t i{1};i < size;i++)
+    for(i = 1;i < size;i++)
     {
-        const ALuint frac_tmp{frac_arr[i-1] + increment};
+        ALint frac_tmp = frac_arr[i-1] + increment;
         pos_arr[i] = pos_arr[i-1] + (frac_tmp>>FRACTIONBITS);
         frac_arr[i] = frac_tmp&FRACTIONMASK;
     }
 }
+
+const ALfloat *Resample_lerp_SSE2(const InterpState *state, const ALfloat *restrict src,
+                                  ALsizei frac, ALint increment, ALfloat *restrict dst,
+                                  ALsizei numsamples);
+const ALfloat *Resample_lerp_SSE41(const InterpState *state, const ALfloat *restrict src,
+                                   ALsizei frac, ALint increment, ALfloat *restrict dst,
+                                   ALsizei numsamples);
+
+const ALfloat *Resample_bsinc_SSE(const InterpState *state, const ALfloat *restrict src,
+                                  ALsizei frac, ALint increment, ALfloat *restrict dst,
+                                  ALsizei dstlen);
+
+/* Neon mixers */
+void MixHrtf_Neon(ALfloat *restrict LeftOut, ALfloat *restrict RightOut,
+                  const ALfloat *data, ALsizei Offset, ALsizei OutPos,
+                  const ALsizei IrSize, struct MixHrtfParams *hrtfparams,
+                  struct HrtfState *hrtfstate, ALsizei BufferSize);
+void MixHrtfBlend_Neon(ALfloat *restrict LeftOut, ALfloat *restrict RightOut,
+                       const ALfloat *data, ALsizei Offset, ALsizei OutPos,
+                       const ALsizei IrSize, const HrtfParams *oldparams,
+                       MixHrtfParams *newparams, HrtfState *hrtfstate,
+                       ALsizei BufferSize);
+void MixDirectHrtf_Neon(ALfloat *restrict LeftOut, ALfloat *restrict RightOut,
+                        const ALfloat *data, ALsizei Offset, const ALsizei IrSize,
+                        const ALfloat (*restrict Coeffs)[2], ALfloat (*restrict Values)[2],
+                        ALsizei BufferSize);
+void Mix_Neon(const ALfloat *data, ALsizei OutChans, ALfloat (*restrict OutBuffer)[BUFFERSIZE],
+              ALfloat *CurrentGains, const ALfloat *TargetGains, ALsizei Counter, ALsizei OutPos,
+              ALsizei BufferSize);
+void MixRow_Neon(ALfloat *OutBuffer, const ALfloat *Gains,
+                 const ALfloat (*restrict data)[BUFFERSIZE], ALsizei InChans,
+                 ALsizei InPos, ALsizei BufferSize);
+
+/* Neon resamplers */
+const ALfloat *Resample_lerp_Neon(const InterpState *state, const ALfloat *restrict src,
+                                  ALsizei frac, ALint increment, ALfloat *restrict dst,
+                                  ALsizei numsamples);
+const ALfloat *Resample_bsinc_Neon(const InterpState *state, const ALfloat *restrict src,
+                                   ALsizei frac, ALint increment, ALfloat *restrict dst,
+                                   ALsizei dstlen);
 
 #endif /* MIXER_DEFS_H */
