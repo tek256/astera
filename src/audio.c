@@ -25,7 +25,7 @@
 #endif
 
 #undef STB_VORBIS_HEADER_ONLY
-#include <misc/stb_vorbis.c>
+#include <stb_vorbis.c>
 
 #include <string.h>
 

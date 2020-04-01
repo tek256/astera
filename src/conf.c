@@ -5,7 +5,7 @@
 #include "debug.h"
 #include "input.h"
 
-#include <misc/getopt.h>
+#include <getopt.h>
 
 #if defined(PLAT_UNIX) || defined(PLAT_LINUX) || defined(PLAT_BSD)
 #include <unistd.h>

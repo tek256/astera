@@ -1,6 +1,8 @@
 #if !defined(ASTERA_NO_LEVEL)
 #include "level.h"
 
+#include <stdlib.h>
+
 #if defined(ASTERA_DEBUG_OUTPUT)
 #if !defined(DBG_E)
 #define DBG_E(fmt, ...) DBGDBG_E(fmt, ##__VA_ARGS_)

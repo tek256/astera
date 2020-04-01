@@ -14,12 +14,12 @@ extern "C" {
 #include <AL/al.h>
 #include <AL/alc.h>
 
-#include <misc/linmath.h>
+#include <linmath.h>
 
 #include <stdint.h>
 
 #define STB_VORBIS_HEADER_ONLY
-#include <misc/stb_vorbis.c>
+#include <stb_vorbis.c>
 
 #include "asset.h"
 #include "sys.h"

@@ -25,7 +25,7 @@
 #endif
 
 #define STB_IMAGE_IMPLEMENTATION
-#include <misc/stb_image.h>
+#include <stb_image.h>
 
 #include "debug.h"
 #include "sys.h"

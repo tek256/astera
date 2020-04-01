@@ -2,18 +2,15 @@
 #include "debug.h"
 
 #if !defined(ASTERA_NO_ZIP)
-#include <misc/zip.h>
+#include <zip.h>
 #endif
 
-#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 #if !defined(alloca)
 #define alloca(x) __builtin_alloca(x)
-#endif
-
-#if !defined(ASTERA_NO_ZIP)
-#include <misc/zip.c>
 #endif
 
 /*

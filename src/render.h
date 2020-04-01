@@ -6,7 +6,7 @@ extern "C" {
 #endif
 
 #include <GLFW/glfw3.h>
-#include <misc/linmath.h>
+#include <linmath.h>
 
 #include "asset.h"
 

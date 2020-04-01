@@ -5,13 +5,12 @@
 extern "C" {
 #endif
 
-#include <misc/linmath.h>
+#include <linmath.h>
 #include <stdint.h>
 
-#define GLFW_INCLUDE_GLEXT
+#include <glad/glad.h>
+#define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
-
-#include <nanovg/nanovg.h>
 
 #include "asset.h"
 
@@ -237,18 +236,6 @@ typedef struct {
   uint16_t capacity, count;
   int      loop : 1;
 } ui_tree;
-
-typedef struct {
-  vec2        size;
-  float       pixel_scale;
-  NVGcontext* nvg;
-  uint32_t    global_id;
-
-  ui_attrib_map attribs;
-
-  vec2 mouse_pos;
-  int  use_mouse : 1;
-} ui_ctx;
 
 uint8_t ui_init(vec2 size, float pixel_scale, int use_mouse);
 void    ui_update(vec2 mouse_pos);

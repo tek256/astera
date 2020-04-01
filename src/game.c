@@ -1,5 +1,5 @@
 #include <assert.h>
-#include <misc/linmath.h>
+#include <linmath.h>
 
 #include "game.h"
 

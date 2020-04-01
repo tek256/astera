@@ -7,7 +7,7 @@ extern "C" {
 
 #include "platform.h"
 
-#include <misc/linmath.h>
+#include <linmath.h>
 #include <stdint.h>
 
 #define BINDING_KEY  1

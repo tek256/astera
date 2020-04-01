@@ -2,16 +2,28 @@
 
 #include "debug.h"
 
+#include <nanovg/nanovg.h>
 #define NANOVG_GL3_IMPLEMENTATION
 #include <nanovg/nanovg_gl.h>
-
-#include <nanovg/nanovg.c>
 
 #if !defined(UI_DEFAULT_ATTRIB_CAPACITY)
 #define UI_DEFAULT_ATTRIB_CAPACITY 24
 #endif
 
 #include <stdio.h>
+#include <assert.h>
+
+typedef struct {
+  vec2        size;
+  float       pixel_scale;
+  NVGcontext* nvg;
+  uint32_t    global_id;
+
+  ui_attrib_map attribs;
+
+  vec2 mouse_pos;
+  int  use_mouse : 1;
+} ui_ctx;
 
 static ui_ctx g_ui_ctx;
 

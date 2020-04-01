@@ -18,7 +18,7 @@ extern "C" {
 #include "asset.h"
 #include "sys.h"
 
-#include <misc/linmath.h>
+#include <linmath.h>
 #include <stdint.h>
 
 typedef struct {
