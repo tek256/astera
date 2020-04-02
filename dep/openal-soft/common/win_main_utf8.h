@@ -14,8 +14,6 @@
 #include <windows.h>
 #include <shellapi.h>
 
-typedef int errno_t;
-
 static FILE *my_fopen(const char *fname, const char *mode)
 {
     WCHAR *wname=NULL, *wmode=NULL;

@@ -15,4 +15,4 @@ jobs:
       - name: Generate CMake Build
         run: cmake -GNinja -S. -Bbuild
       - name: Run CMake Build
-	run: cmake --build build
+      	run: cmake --build build
