@@ -11,6 +11,8 @@ jobs:
       - name: Update Packages
         run: sudo apt-get update -qq
       - name: Install Dependencies
-        run: sudo apt-get install -y --no-install-recommends libx11-dev libxcursor-dev libxrandr-dev libxinerama-dev libxi-dev libxext-dev libxfixes-dev
-      - name: Build Everything
-        run: ./build_unix.sh -a
+        run: sudo apt-get install -y --no-install-recommends mesa-common-dev libx11-dev libxrandr-dev libxi-dev xorg-dev libgl1-mesa-dev libglu1-mesa-dev
+      - name: Generate CMake Build
+        run: cmake -GNinja -S. -Bbuild
+      - name: Run CMake Build
+	run: cmake --build build

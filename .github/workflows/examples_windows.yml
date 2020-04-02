@@ -8,5 +8,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@master
-      - name: Build Everything
-        run: ./build_win.bat -a
+      - name: Generate CMake Build
+        run: cmake -Bbuild -GNinja -S.
+      - name: Run CMake Build
+        run: cmake --build build
+
