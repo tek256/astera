@@ -1,6 +1,8 @@
 #ifndef ASTERA_DEBUG_HEADER
 #define ASTERA_DEBUG_HEADER
 
+#define ASTERA_DEBUG_INCLUDED
+
 #ifdef __cplusplus
 extern "C" {
 #endif

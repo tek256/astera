@@ -1,6 +1,19 @@
 #include "ui.h"
 
-#include "debug.h"
+/* Debug Output Macro*/
+#if defined(ASTERA_DEBUG_INCLUDED)
+#if defined(ASTERA_DEBUG_OUTPUT)
+#if !defined(DBG_E)
+#define DBG_E(fmt, ...) DBG_E(fmt, ##__VA_ARGS_)
+#endif
+#elif !defined(DBG_E)
+#define DBG_E(fmt, ...)
+#endif
+#else
+#if !defined(DBG_E)
+#define DBG_E(fmt, ...)
+#endif
+#endif
 
 #include <nanovg/nanovg.h>
 #define NANOVG_GL3_IMPLEMENTATION
@@ -10,8 +23,8 @@
 #define UI_DEFAULT_ATTRIB_CAPACITY 24
 #endif
 
-#include <stdio.h>
 #include <assert.h>
+#include <stdio.h>
 
 typedef struct {
   vec2        size;
@@ -832,7 +845,6 @@ void ui_button_draw(ui_button* button, int8_t focused) {
       offset[1] = text_size[1];
     }
 
-    // offset[1] += button->size[1] / 2.f;
     nvgText(g_ui_ctx.nvg, button_position[0] + offset[0],
             button_position[1] + offset[1], button->text, 0);
   }
@@ -840,7 +852,7 @@ void ui_button_draw(ui_button* button, int8_t focused) {
 
 float ui_dropdown_max_font_size(ui_dropdown dropdown) {
   if (dropdown.option_count == 0) {
-    _l("Dropdown doesn't contain any options.\n");
+    DBG_E("Dropdown doesn't contain any options.\n");
     return -1.f;
   }
 
@@ -899,7 +911,6 @@ void ui_dropdown_draw(ui_dropdown* dropdown, int8_t focused) {
     dropdown_size[1] *= dropdown->option_display;
   }
 
-  // Initial background paint
   if (dropdown->use_border) {
     if (dropdown->border_size != 0.f) {
       nvgStrokeWidth(g_ui_ctx.nvg, dropdown->border_size);
@@ -1232,13 +1243,13 @@ uint32_t ui_tree_add(ui_tree* tree, void* data, ui_element_type type,
   }
 
   if (tree->count == tree->capacity - 1) {
-    _e("No free space in tree.\n");
+    DBG_E("No free space in tree.\n");
     return 0;
   }
 
   ui_leaf* leaf_ptr = &tree->raw[tree->count];
   if (!leaf_ptr) {
-    _e("Invalid leaf pointer.\n");
+    DBG_E("Invalid leaf pointer.\n");
     return 0;
   }
 
@@ -1280,52 +1291,52 @@ uint32_t ui_tree_add(ui_tree* tree, void* data, ui_element_type type,
 
 void ui_tree_print(ui_tree* tree) {
   if (!tree) {
-    _e("No tree passed.\n");
+    DBG_E("No tree passed.\n");
     return;
   }
 
   ui_leaf* cursor = tree->start;
-  _l("Tree: ");
+  DBG_E("Tree: ");
 
   if (!cursor) {
-    _l("None\n");
+    DBG_E("None\n");
   } else {
     while (cursor) {
       switch (cursor->element.type) {
       case UI_TEXT:
-        _l("Text");
+        DBG_E("Text");
         break;
       case UI_BOX:
-        _l("Box");
+        DBG_E("Box");
         break;
       case UI_OPTION:
-        _l("Option");
+        DBG_E("Option");
         break;
       case UI_BUTTON:
-        _l("Button");
+        DBG_E("Button");
         break;
       case UI_DROPDOWN:
-        _l("Dropdown");
+        DBG_E("Dropdown");
         break;
       case UI_LINE:
-        _l("Line");
+        DBG_E("Line");
         break;
       case UI_IMAGE:
-        _l("Image");
+        DBG_E("Image");
         break;
       default:
-        _l("Unk");
+        DBG_E("Unk");
         break;
       }
 
       if (cursor->next) {
-        _l(" -> ");
+        DBG_E(" -> ");
         cursor = cursor->next;
       } else {
         break;
       }
     }
-    _l("\n");
+    DBG_E("\n");
   }
 }
 
@@ -1358,7 +1369,7 @@ uint32_t ui_tree_get_cursor_id(ui_tree* tree) {
 
 void ui_tree_draw(ui_tree tree) {
   if (!tree.start) {
-    _e("No start in tree.\n");
+    DBG_E("No start in tree.\n");
     return;
   }
 
@@ -1602,7 +1613,7 @@ ui_dropdown ui_dropdown_create(vec2 pos, vec2 size, char** options,
     dropdown.option_capacity = 8;
 
     if (!dropdown.options) {
-      _e("Unable to allocate space for dropdown options\n");
+      DBG_E("Unable to allocate space for dropdown options\n");
       return (ui_dropdown){0};
     }
   }
@@ -1825,7 +1836,7 @@ ui_box ui_box_create(vec2 pos, vec2 size, vec4 color, vec4 hover_color) {
 ui_img ui_image_create(asset_t* image_data, ui_img_flags flags, vec2 pos,
                        vec2 size) {
   if (!image_data || !image_data->data || !image_data->data_length) {
-    _e("No data passed.\n");
+    DBG_E("No data passed.\n");
     return (ui_img){0};
   }
 
@@ -1844,7 +1855,7 @@ void ui_dropdown_add_option(ui_dropdown* dropdown, const char* option) {
         dropdown->options, sizeof(char*) * dropdown->option_capacity + 4);
     dropdown->option_count += 4;
     if (!dropdown->options) {
-      _e("Unable to expand memory for dropdown options\n");
+      DBG_E("Unable to expand memory for dropdown options\n");
       return;
     }
   }

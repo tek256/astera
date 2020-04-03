@@ -2,11 +2,22 @@
 #define INPUT_C
 
 #include "input.h"
-#include "debug.h"
-#include "render.h"
 
-#include <GLFW/glfw3.h>
-#include <stdio.h>
+/* Debug Output Macro*/
+#if defined(ASTERA_DEBUG_INCLUDED)
+#if defined(ASTERA_DEBUG_OUTPUT)
+#if !defined(DBG_E)
+#define DBG_E(fmt, ...) _l(fmt, ##__VA_ARGS_)
+#endif
+#elif !defined(DBG_E)
+#define DBG_E(fmt, ...)
+#endif
+#else
+#if !defined(DBG_E)
+#define DBG_E(fmt, ...)
+#endif
+#endif
+
 #include <stdlib.h>
 #include <string.h>
 
@@ -41,21 +52,21 @@ int          key_binding_count;
 uint16_t i_init(void) {
   mouse_b = i_create_s(MAX_MOUSE_BUTTONS);
   if (!mouse_b.curr || !mouse_b.prev) {
-    _e("Unable to malloc space for mouse.\n");
+    DBG_E("Unable to malloc space for mouse.\n");
     i_exit();
     return 0;
   }
 
   keyboard = i_create_s(MAX_KEYS);
   if (!keyboard.curr || !keyboard.prev) {
-    _e("Unable to malloc space for keyboard.\n");
+    DBG_E("Unable to malloc space for keyboard.\n");
     i_exit();
     return 0;
   }
 
   current_keys = malloc(sizeof(uint16_t) * MAX_KEYS);
   if (!current_keys) {
-    _e("Unable to malloc space for keyboard.\n");
+    DBG_E("Unable to malloc space for keyboard.\n");
     i_exit();
     return 0;
   }
@@ -69,7 +80,7 @@ uint16_t i_init(void) {
   key_bindings        = malloc(sizeof(key_binding) * MAX_KEY_BINDINGS);
   memset(key_bindings, 0, sizeof(key_binding) * MAX_KEY_BINDINGS);
   if (!key_bindings) {
-    _e("Unable to malloc space for key bindings.\n");
+    DBG_E("Unable to malloc space for key bindings.\n");
     i_exit();
     return 0;
   }
@@ -310,23 +321,23 @@ void i_get_chars(char* dst, uint16_t count) {
   memcpy(dst, chars, sizeof(char) * cpy_count);
 }
 
-void i_set_mouse_grab(int grab) {
+void i_set_mouse_grab(const GLFWwindow* window, int grab) {
   if (grab) {
-    glfwSetInputMode(g_window.glfw, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
   } else {
-    glfwSetInputMode(g_window.glfw, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
   }
 }
 
-int i_get_mouse_grab(void) {
-  int value = glfwGetInputMode(g_window.glfw, GLFW_CURSOR);
+int i_get_mouse_grab(const GLFWwindow* window) {
+  int value = glfwGetInputMode(window, GLFW_CURSOR);
 
   if (value == GLFW_CURSOR_DISABLED) {
     return 1;
   } else if (value == GLFW_CURSOR_NORMAL) {
     return 0;
   } else {
-    printf("Error: Invalid input mode for GLFW_CURSOR: %i\n", value);
+    DBG_E("Error: Invalid input mode for GLFW_CURSOR: %i\n", value);
     return 0;
   }
 }
@@ -386,27 +397,6 @@ double i_get_scroll_y(void) {
   return mouse_s.y;
 }
 
-uint16_t i_mouse_within_normalized(vec2 min, vec2 max) {
-  double n_x = mouse_p.x / screen_width;
-  double n_y = mouse_p.y / screen_height;
-
-  if (min[0] <= n_x && max[0] >= n_x) {
-    if (min[1] <= n_y && max[1] >= n_y) {
-      return 1;
-    }
-  }
-  return 0;
-}
-
-uint16_t i_mouse_within(vec2 min, vec2 max) {
-  if (min[0] <= mouse_p.x && max[0] >= mouse_p.x) {
-    if (min[1] <= mouse_p.y && max[1] >= mouse_p.y) {
-      return 1;
-    }
-  }
-  return 0;
-}
-
 void i_get_mouse_pos(double* x, double* y) {
   *x = mouse_p.x;
   *y = mouse_p.y;
@@ -463,7 +453,7 @@ void i_add_binding(const char* name, int value, int type) {
     }
 
     if (key_binding_count == MAX_KEY_BINDINGS) {
-      _l("Unable to add more key bindings.\n");
+      DBG_E("Unable to add more key bindings.\n");
       return;
     }
   }
@@ -795,58 +785,6 @@ float i_opposing(const char* prim, const char* sec) {
   return prim_f + sec_f;
 }
 
-void i_default_bindings(void) {
-  if (!i_binding_defined("left")) {
-    i_add_binding("left", GLFW_KEY_A, BINDING_KEY);
-  }
-
-  if (!i_binding_defined("right")) {
-    i_add_binding("right", GLFW_KEY_D, BINDING_KEY);
-  }
-
-  if (!i_binding_defined("up")) {
-    i_add_binding("up", GLFW_KEY_W, BINDING_KEY);
-  }
-
-  if (!i_binding_defined("down")) {
-    i_add_binding("down", GLFW_KEY_S, BINDING_KEY);
-  }
-
-  if (!i_binding_defined("do")) {
-    i_add_binding("do", GLFW_KEY_F, BINDING_KEY);
-  }
-
-  if (!i_binding_defined("start")) {
-    i_add_binding("start", GLFW_KEY_TAB, BINDING_KEY);
-  }
-
-  if (!i_binding_defined("jump")) {
-    i_add_binding("jump", GLFW_KEY_SPACE, BINDING_KEY);
-  }
-
-  // TODO: add other gamepad type support
-  if (joy_exists) {
-    int type = i_get_joy_type(0);
-    switch (type) {
-    case XBOX_360_PAD:
-      i_add_binding("horizontal", XBOX_L_X, BINDING_JOYA);
-      i_add_binding("vertical", XBOX_L_Y, BINDING_JOYA);
-      i_add_binding_alt("interact", XBOX_X, BINDING_JOYB);
-      i_add_binding_alt("start", XBOX_START, BINDING_JOYB);
-      i_add_binding_alt("jump", XBOX_A, BINDING_JOYB);
-      break;
-    case XBOX_ONE_PAD:
-      break;
-    case PS3_PAD:
-      break;
-    case PS4_PAD:
-      break;
-    case GENERIC_PAD:
-      break;
-    }
-  }
-}
-
 void i_update(void) {
   mouse_p.dx = mouse_p.x - mouse_l.x;
   mouse_p.dy = mouse_p.y - mouse_l.y;
@@ -858,7 +796,7 @@ void i_update(void) {
     for (int i = 0; i < 16; ++i) {
       if (glfwJoystickPresent(i)) {
         i_create_joy(i);
-        _l("Joystick [%i] found.\n", i);
+        DBG_E("Joystick [%i] found.\n", i);
         joy_exists = 1;
         break;
       }

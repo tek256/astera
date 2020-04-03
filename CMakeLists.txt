@@ -44,7 +44,7 @@ if (NOT TARGET OpenAL::AL)
 endif()
 
 file(GLOB sources CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/src/*.c)
-add_executable(${PROJECT_NAME})
+add_library(${PROJECT_NAME})
 target_sources(${PROJECT_NAME} PRIVATE ${sources})
 target_sources(${PROJECT_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/dep/nanovg/nanovg.c)
 target_sources(${PROJECT_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/dep/misc/getopt.c)

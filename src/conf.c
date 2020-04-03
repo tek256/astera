@@ -1,17 +1,27 @@
 #include "conf.h"
 
-#include "platform.h"
-
-#include "debug.h"
-#include "input.h"
-
 #include <getopt.h>
 
-#if defined(PLAT_UNIX) || defined(PLAT_LINUX) || defined(PLAT_BSD)
+/* Debug Output Macro*/
+#if defined(ASTERA_DEBUG_INCLUDED)
+#if defined(ASTERA_DEBUG_OUTPUT)
+#if !defined(DBG_E)
+#define DBG_E(fmt, ...) _l(fmt, ##__VA_ARGS_)
+#endif
+#elif !defined(DBG_E)
+#define DBG_E(fmt, ...)
+#endif
+#else
+#if !defined(DBG_E)
+#define DBG_E(fmt, ...)
+#endif
+#endif
+
+#if defined(__linux__) || defined(__unix__) || defined(__FreeBSD__) || \
+    defined(__APPLE__)
 #include <unistd.h>
 #endif
 
-#include <assert.h>
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -156,11 +166,10 @@ void c_table_free(c_table table) {
 
 static char* c_cleaned_str(const char* str, int* size, char* str_end) {
   if (!str) {
-    _e("Unable to clean null string.\n");
+    DBG_E("Unable to clean null string.\n");
     return 0;
   }
 
-  char*   end;
   int32_t str_size = 0;
 
   if (str_end) {
@@ -174,14 +183,14 @@ static char* c_cleaned_str(const char* str, int* size, char* str_end) {
   if (str == 0)
     return 0;
 
-  char* start = str;
+  const char* start = str;
   if (str_end) {
     while (!isspace(*str) && str < str_end) {
       ++str_size;
       str++;
     }
   } else {
-    while (*str != NULL) {
+    while (!*str) {
       if (!isspace(*str)) {
         ++str_size;
         str++;
@@ -218,26 +227,18 @@ static void c_kv_get(char* src, char** key, char** value, int* key_length,
   }
 }
 
-c_table c_get_table(asset_t* asset) {
-  assert(asset);
-  assert(asset->data);
-
-  char* data_ptr = (char*)asset->data;
+c_table c_get_table(unsigned char* data, int length) {
+  char* data_ptr = (char*)data;
   char* line     = strtok(data_ptr, "\n");
 
-  char* raw_data     = (char*)malloc(sizeof(char) * 512);
-  int   raw_capacity = 512;
-  int   raw_count    = 0;
-
-  const char** keys          = (char**)malloc(sizeof(char*) * 16);
-  const char** values        = (char**)malloc(sizeof(char*) * 16);
+  const char** keys          = (const char**)malloc(sizeof(char*) * 16);
+  const char** values        = (const char**)malloc(sizeof(char*) * 16);
   int          line_capacity = 16;
   int          line_count    = 0;
 
   while (line != NULL) {
     char *key, *value;
 
-    int parts        = 0;
     int key_length   = 0;
     int value_length = 0;
 

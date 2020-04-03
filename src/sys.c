@@ -1,37 +1,41 @@
 #include "sys.h"
 
 #include <GLFW/glfw3.h>
+#include <math.h>
 
-#if defined(PLAT_UNIX) || defined(PLAT_LINUX) || defined(PLAT_BSD)
+#if defined(__linux__) || defined(__unix__) || defined(__FreeBSD__) || \
+    defined(__APPLE__)
 #include <unistd.h>
 #endif
 
-#include "platform.h"
-
-#if defined(PLAT_MSFT)
+#if defined(_WIN32) || defined(_WIN64)
 #include <windows.h>
 #else
 #include <time.h>
 #endif
 
 /* Returns time in milliseconds */
-time_s s_get_time() { return glfwGetTime() * MS_TO_SEC; }
+time_s s_get_time() {
+  return glfwGetTime() * MS_TO_SEC;
+}
 
-time_s s_timer_update(s_timer *t) {
+time_s s_timer_update(s_timer* t) {
   time_s current = s_get_time();
-  t->delta = current - t->last;
-  t->last = current;
+  t->delta       = current - t->last;
+  t->last        = current;
   return t->delta;
 }
 
-s_timer s_timer_create() { return (s_timer){s_get_time(), 0}; }
+s_timer s_timer_create() {
+  return (s_timer){s_get_time(), 0};
+}
 
 time_s s_sleep(time_s duration) {
-#ifdef WIN32
+#if defined(_WIN32) || defined(_WIN64)
   Sleep(duration * MS_TO_MCS);
 #elif _POSIX_C_SOURCE >= 199309L
   struct timespec ts;
-  ts.tv_sec = duration / MS_TO_SEC;
+  ts.tv_sec  = duration / MS_TO_SEC;
   ts.tv_nsec = fmod(duration, MS_TO_NS);
   nanosleep(&ts, NULL);
 #else
@@ -41,9 +45,9 @@ time_s s_sleep(time_s duration) {
   return duration;
 }
 
-static char *s_reverse(char *string, int length) {
+static char* s_reverse(char* string, int length) {
   int start = 0;
-  int end = length - 1;
+  int end   = length - 1;
 
   char tmp_a, tmp_b;
 
@@ -51,7 +55,7 @@ static char *s_reverse(char *string, int length) {
     tmp_a = string[start];
     tmp_b = string[end];
 
-    string[end] = tmp_a;
+    string[end]   = tmp_a;
     string[start] = tmp_b;
 
     ++start;
@@ -61,8 +65,8 @@ static char *s_reverse(char *string, int length) {
   return string;
 }
 
-char *s_itoa(int value, char *string, int base) {
-  int i = 0;
+char* s_itoa(int value, char* string, int base) {
+  int i        = 0;
   int negative = 0;
 
   if (value == 0) {
@@ -74,12 +78,12 @@ char *s_itoa(int value, char *string, int base) {
 
   if (value < 0 && base == 10) {
     negative = 1;
-    value = -value;
+    value    = -value;
   }
 
   while (value != 0) {
     int remainder = value % base;
-    string[i] = (remainder > 9) ? (remainder - 10) + 'a' : remainder + '0';
+    string[i]     = (remainder > 9) ? (remainder - 10) + 'a' : remainder + '0';
     ++i;
     value = value / base;
   }

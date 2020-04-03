@@ -8,27 +8,18 @@ extern "C" {
 //#define ASSET_NO_SYS_MAP -- this one is a tricky one, it'll break _everything_
 // but I don't know that I want to have to require system map
 
+// Alright, I'm gonna do this a specific way now,
+// I have the git history in case I Want to revert it,
+// but I'm essentially going to remove any hints of statically defined asset
+// maps Everything will be call response, no request / queue involved It'll make
+// things easier to support in the long run, and I can always provide examples
+// later on on how to implement this in games for others tho, it's not terribly
+// important that it exist in other's games for them. Often times dynamic
+// resource loading is easier done with straight call response
+
+// So, goodbye to the cache!
+
 #include <stdint.h>
-
-#include "platform.h"
-
-// Asset Configurations
-#if !defined(MAX_ASSET_CACHE)
-#define MAX_ASSET_CACHE 256
-#endif
-
-#if !defined(MIN_ASSET_CACHE)
-#define MIN_ASSET_CACHE 16
-#endif
-
-#if !defined(ASSET_CACHE_GROWTH)
-#define ASSET_CACHE_GROWTH 16
-#endif
-
-// Max amount of map_t's
-#if !defined(ASSET_MAX_MAPS)
-#define ASSET_MAX_MAPS 4
-#endif
 
 typedef struct {
   unsigned int   uid;
@@ -43,16 +34,6 @@ typedef struct {
   int req_free : 1;
   int chunk : 1;
 } asset_t;
-
-typedef struct {
-  asset_t*    assets;
-  uint32_t    count;
-  uint32_t    capacity;
-  const char* name;
-  const char* filename;
-  uint8_t     compression_level;
-  int         free : 1;
-} asset_map_t;
 
 #if !defined(ASTERA_NO_PAK)
 #include <stdio.h>
@@ -103,32 +84,58 @@ char*    pak_name(pak_t* pak, uint32_t index);
 
 #endif
 
-static asset_map_t  asset_maps[ASSET_MAX_MAPS];
-static unsigned int asset_map_count = 0;
-static unsigned int asset_uid_count = 0;
+typedef enum { MAP_FS = 0, MAP_PAK = 1, MAP_ZIP = 2 } asset_map_type;
 
-int8_t asset_init();
-void   asset_exit();
+typedef struct {
+  asset_t** assets;
 
-asset_t* asset_get(const char* map_name, const char* file);
-asset_t* asset_req(const char* map_name, const char* file);
+  uint32_t count;
+  uint32_t capacity;
 
-asset_t* asset_get_chunk(const char* map, const char* file,
-                         uint32_t chunk_start, uint32_t chunk_length);
-asset_t* asset_req_chunk(const char* map, const char* file,
-                         uint32_t chunk_start, uint32_t chunk_length);
+  const char* name;
+  const char* filename;
 
-asset_map_t* asset_create_map(const char* filename, const char* name,
-                              uint32_t capacity, uint8_t compression_level);
+#if !defined(ASTERA_NO_PAK)
+  pak_t* pak;
+#endif
 
-void asset_update_map(asset_map_t* map);
+  uint8_t        compression_level;
+  asset_map_type type;
+} asset_map_t;
 
+/* Create an asset map to track assets */
+asset_map_t asset_map_create(const char* filename, const char* name,
+                             uint32_t capacity, uint8_t compression_level,
+                             asset_map_type type);
+
+/* Check asset map for a file
+ * if allow_fetch: go and load the data immediately */
+asset_t* asset_map_find(asset_map_t* map, const char* name, int allow_fetch);
+
+/* Add an asset into the tracking of a map */
+void asset_map_add(asset_map_t* map, asset_t* asset);
+/* Remove an asset from the tracking of a map */
+void asset_map_remove(asset_map_t* map, asset_t* asset);
+/* Remove an asset from the tracking of a map by id */
+void asset_map_removei(asset_map_t* map, uint32_t id);
+
+/* Update for any free requests made*/
+void asset_map_update(asset_map_t* map);
+
+/* Get a file from the local system */
+asset_t* asset_get(const char* file);
+
+/* Get a chunk from a local system file */
+asset_t* asset_get_chunk(const char* file, uint32_t chunk_start,
+                         uint32_t chunk_length);
+
+/* Free any memory used by the asset */
 void asset_free(asset_t* asset);
-void asset_map_free(const char* map);
-void asset_map_free_t(asset_map_t* map);
+
+/* Free the map and all the assets within the map */
+void asset_map_free(asset_map_t* map);
 
 #ifdef __cplusplus
 }
 #endif
-
 #endif

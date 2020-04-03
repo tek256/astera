@@ -29,9 +29,6 @@ IF NOT "x!ARG!" == "x!ARG:a=!" (
 IF NOT "x!ARG!" == "x!ARG:r=!" (
   set BUILD_RELEASE=1
 )
-IF NOT "x!ARG!" == "x!ARG:d=!" (
-  set BUILD_DEBUG=1
-)
 IF NOT "x!ARG!" == "x!ARG:i=! (
   set BUILD_INCLUDES=1
 )
@@ -80,7 +77,7 @@ echo -c  Build clean (remove previous binarys / builds)
 echo -s  Build static library
 echo -n  Don't rebuild dependencies
 echo -x  Don't build astera
-echo -m  Force using MinGW (GCC)
+echo -m  Force using MinGW (GCC/G++)
 echo -l  Force using LLVM/Clang
 echo -q  Suppress output from the script
 echo -qq Suppress all output from the script
@@ -89,68 +86,19 @@ exit /B
 :PREPARE
 REM Define what compilation environment we'll be using
 IF DEFINED FORCE_MINGW (
-  IF EXIST "C:\MinGW\" (
-    set MINGW_SET=1
-    set USE_GCC=1
-  ) ELSE IF EXIST "C:\msys\mingw32" (
-    set MSYS_SET=1
-    set USE_GCC=1
-  ) ELSE IF EXIST "C:\msys\mingw64" (
-    set MSYS_SET=1
-    set USE_GCC=1
-  ) ELSE IF EXIST "C:\msys64\mingw32" (
-    set MSYS_SET=1
-    set USE_GCC=1
-  ) ELSE IF EXIST "C:\msys64\mingw64" (
-    set MSYS_SET=1
-    set USE_GCC=1
+  set GENERATOR="MinGW Makefiles"
+  set C_COMPILER="gcc"
+  set CXX_COMPILER="g++"
   ) ELSE (
-    REM Unable to find MSYS or MinGW
-    echo "Unable to find MinGW or MSYS in order to compile with GCC."
-    exit /B
-  )
-) ELSE (
-  IF DEFINED FORCE_LLVM (
-    IF EXIST "C:\Program Files (x86)\LLVM\" (
-      set USE_LLVM=1
-    ) ELSE IF EXIST "C:\Program Files\LLVM\" (
-      set USE_LLVM=1
+    IF DEFINED FORCE_LLVM (
+      set GENERATOR=""
+      set C_COMPILER="clang"
+      set CXX_COMPILER="clang++"
     ) ELSE (
-      REM No LLVM Installation found
-      echo "Couldn't find LLVM install, please make sure it's set"
-      exit /B
+      set GENERATOR=""
+      set C_COMPILER="cl"
+      set CXX_COMPILER="cl"
     )
-  ) ELSE (
-    IF EXIST "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvarsall.bat" (
-    set VC_INIT="C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvarsall.bat"
-    set USE_VC=1
-    ) ELSE IF EXIST "C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Auxiliary\Build\vcvarsall.bat" (
-      set VC_INIT="C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Auxiliary\Build\vcvarsall.bat"
-      set USE_VC=1
-    ) ELSE IF EXIST "C:\Program Files (x86)\Microsoft Visual C++ Build Tools\vcbuildtools.bat" (
-      set VC_INIT="C:\Program Files (x86)\Microsoft Visual C++ Build Tools\vcbuildtools.bat"
-      set USE_VC=1
-    ) ELSE (
-      REM Initialize your vc environment here if the defaults don't work
-      REM set VC_INIT="C:\your\path\here\vcvarsall.bat"
-      REM And then remove/comment out the following two lines
-      echo "Couldn't find vcvarsall.bat or vcbuildtools.bat, please set it manually."
-      exit /B
-    )
-  )
-)
-
-IF DEFINED USE_VC (
-  IF DEFINED VC17 (
-
-  ) ELSE (
-
-  )
-) ELSE (
-  IF DEFINED USE_MINGW ( 
-    IF NOT DEFINED QUIET echo "Building using MinGW"
-  ) ELSE IF DEFINED USE_LLVM (
-    IF NOT DEFINED QUIET echo "Building using LLVM/Clang"
   )
 )
 
@@ -168,6 +116,7 @@ REM GLFW's headers
 IF NOT EXIST !ROOT_DIR!\include\GLFW\ (
   xcopy /s dep\glfw\include include
 )
+
 REM Copy Astera's headers
 IF NOT EXIST !ROOT_DIR!\include\astera\ (
   mkdir !ROOT_DIR!\include\astera\
@@ -186,124 +135,47 @@ IF NOT EXIST !ROOT_DIR!\dep\glfw\build (
   mkdir !ROOT_DIR!\dep\glfw\build
 )
 
-cd !ROOT_DIR!\dep\glfw\build
 
-IF DEFINED USE_VC (
-  REM IF DEFINED QUIET (
-  REM   cmake ..\ -G "Visual Studio 15 2017" > NUL 2&1
-  REM ) ELSE (
-  REM   cmake ..\ -G "Visual Studio 15 2017"
-  REM )
-) ELSE (
-  IF DEFINED USE_GCC (
-    IF DEFINED QUIET (
-      IF NOT DEFINED REALLY_QUIET (
-        echo GLFW BUILD: Generating GLFW Makefile
-      )
-
-      cmake ..\ -G "MinGW Makefiles" > NUL 2&1
-
-      IF NOT DEFINED REALLY_QUIET (
-        echo GLFW BUILD: Compiling GLFW
-      )
-      
-      mingw32-make > NUL 2&1
-    ) ELSE (
-      echo GLFW BUILD: Generating GLFW Makefile
-      cmake ..\ -G "MinGW Makefiles"
-
-      echo GLFW BUILD: Compiling GLFW
-      mingw32-make
-    )
-  ) ELSE (
-    echo LOL
-  )
-)
-
-cd !ROOT_DIR!
-xcopy 
 
 :BUILD_ASTERA
 IF NOT DEFINED NO_ASTERA (
-  set "ROOT_DIR=%CD%"
-  set "SOURCES=%!ROOT_DIR!\!SOURCES!"
+  IF NOT DEFINED QUIET (
+    echo "BUILD INFO: Generating Makefiles"
+  )
 
-  REM Setup Compiler flags
-  IF DEFINED USE_VC (
-    REM set LD_FLAGS=/link /LTCG kernel32.lib user32.lib shell32.lib winmm.lib gdi32.lib opengl32.lib
-    REM set OUTPUT_DIR="!ROOT_DIR!"
-
-    REM IF DEFINED BUILD_DEBUG (
-    REM   set CC_FLAGS=/Od /Zi
-    REM   set WARNING_FLAGS=/Wall
-    REM   set SUBSYSTEM_FLAGS=
-    REM   IF NOT DEFINED QUIET echo Compiling in debug mode using msvc, flags: !CC_FLAGS! !WARNING_FLAGS! 
-    REM ) ELSE (
-    REM   set CC_FLAGS=/01 /GL
-    REM   set WARNING_FLAGS=
-    REM   set SUBSYSTEM_FLAGS=/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup
-    REM   IF NOT DEFINED QUIET echo Compiling in release mode using msvc, flags: !CC_FLAGS! /link /LTCG
-    REM )
-  ) ELSE (
-    IF DEFINED BUILD_DEBUG (
-      set CC_FLAGS=-w -g
-    ) ELSE IF DEFINED BUILD_RELEASE (
-      set CC_FLAGS=-w -O2
+  REM Generate Makefiles with CMake
+  IF DEFINED QUIET (
+    IF DEFINED FORCE_LLVM (
+      cmake -Bbuild -S. -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ > NUL 2&1
     ) ELSE (
-      set CC_FLAGS=-w
-    )
-  )
-
-  REM IF NOT DEFINED VERBOSE ( 
-  REM   set VERBOSITY_FLAG=/nologo
-  REM )
-
-  set "TMP_DIR=lib"
-
-  REM Clear out old build
-  IF EXIST !TMP_DIR!\ (
-    IF NOT DEFINED NO_REBUILD (
-      IF NOT DEFINED QUIET echo "Found cached astera, rebuilding"
-      del /Q !TMP_DIR!
-      rmdir !TMP_DIR!
-    )
-  )
-
-  REM Create the temporary directory if it doesn't exist
-  IF NOT EXIST !TMP_DIR!\ (
-    mkdir !TMP_DIR!
-  )
-
-  cd !TMP_DIR!
-  set C_FILES="!SRC!\main.c" "!SRC!\game.c" "!SRC!\render.c" "!SRC!\audio.c" "!SRC!\asset.c" "!SRC!\conf.c" "!SRC!\debug.c" "!SRC!\input.c" "!SRC!\sys.c" "!SRC!\ui.c"
-
-  IF DEFINED USE_VC (
-    set INCLUDES=/I"!ROOT_DIR!\dep\glfw\include" /I"!ROOT_DIR!\dep\openal-soft\include" /I"!ROOT_DIR!\dep\"
-
-    IF DEFINED REALLY_QUIET (
-      cl.exe /w /c !INCLUDES! !CC_FLAGS! !C_FILES! > NUL 2>&1 || exit /B
-    ) ELSE (
-      cl.exe /w /c !VERBOSITY_FLAG! !INCLUDES! !CC_FLAGS! !C_FILES! || exit /B
-    )
-  ) ELSE (
-    set INCLUDES=-I"!ROOT_DIR!\dep\glfw\include" -I"!ROOT_DIR!\dep\openal-soft\include" -I"!ROOT_DIR!\dep\"
-    IF DEFINED USE_GCC ( 
-      IF DEFINED REALLY_QUIET (
-        gcc !CC_FLAGS! !INCLUDES! !LIBRARIES! !C_FILES! -o astera > NUL 2&1 || exit /B
+      IF DEFINED FORCE_MINGW (
+        cmake -Bbuild -S. -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++ > NUL 2&1
       ) ELSE (
-        gcc !CC_FLAGS! !INCLUDES! !LIBRARIES! !C_FILES! -o astera || exit /B
+        cmake -Bbuild -S. > NUL 2&1
       )
-    ) ELSE IF DEFINED USE_LLVM (
-      IF DEFINED REALLY_QUIET (
-        clang !CC_FLAGS! !INCLUDES! !LIBRARIES! !C_FILES! -o astera > NUL 2>&1 || exit /B
+    )
+  ) ELSE (
+    IF DEFINED FORCE_LLVM (
+      cmake -Bbuild -S. -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+    ) ELSE (
+      IF DEFINED FORCE_MINGW (
+        cmake -Bbuild -S. -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++
       ) ELSE (
-        clang !CC_FLAGS! !INCLUDES! !LIBRARIES! !C_FILES! -o astera || exit /B
+        cmake -Bbuild -S.
       )
     )
   )
 
-  IF NOT DEFINED QUIET echo Astera compiled into: !TMP_DIR!\
-  cd !ROOT_DIR!
+  IF NOT DEFINED QUIET (
+    echo "BUILD INFO: Building libraries"
+  )
+
+  REM BUild the libraries
+  IF DEFINED QUIET (
+    cmake --build build > NUL 2&1
+  ) ELSE (
+    cmake --build build
+  )
 )
 
 :BUILD_EXAMPLES

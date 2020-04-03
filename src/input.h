@@ -5,10 +5,10 @@
 extern "C" {
 #endif
 
-#include "platform.h"
-
 #include <linmath.h>
 #include <stdint.h>
+
+#include <GLFW/glfw3.h>
 
 #define BINDING_KEY  1
 #define BINDING_MB   2
@@ -190,8 +190,8 @@ void i_set_char_tracking(int tracking);
 void i_char_callback(uint32_t c);
 void i_get_chars(char* dst, uint16_t count);
 
-void i_set_mouse_grab(int grabbed);
-int  i_get_mouse_grab(void);
+void i_set_mouse_grab(const GLFWwindow* window, int grabbed);
+int  i_get_mouse_grab(const GLFWwindow* window);
 
 void i_mouse_button_callback(uint16_t button);
 void i_mouse_pos_callback(double x, double y);
@@ -231,8 +231,6 @@ float    i_binding_val(const char* key_binding); // gets the value
 uint16_t i_binding_defined(const char* key_binding);
 
 float i_opposing(const char* prim, const char* sec);
-
-void i_default_bindings(void);
 
 void i_update(void);
 

@@ -1,21 +1,40 @@
+// TODO: Combine pak_t & asset_map_t
+/*
+ * NOTE: The PAK System is inspired by the r-lyeh/sdarc.c implementation
+ */
 #include "asset.h"
-#include "debug.h"
+
+/* Debug Output Macro*/
+#if defined(ASTERA_DEBUG_INCLUDED)
+#if defined(ASTERA_DEBUG_OUTPUT)
+#if !defined(DBG_E)
+#define DBG_E(fmt, ...) _l(fmt, ##__VA_ARGS_)
+#endif
+#elif !defined(DBG_E)
+#define DBG_E(fmt, ...)
+#endif
+#else
+#if !defined(DBG_E)
+#define DBG_E(fmt, ...)
+#endif
+#endif
 
 #if !defined(ASTERA_NO_ZIP)
 #include <zip.h>
+
+#if !defined(ASTERA_ZIP_LEVEL)
+#define ASTERA_ZIP_LEVEL 0
 #endif
 
+#endif
+
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
 
 #if !defined(alloca)
 #define alloca(x) __builtin_alloca(x)
 #endif
-
-/*
- * NOTE: The PAK System is inspired by the r-lyeh/sdarc.c implementation
- */
 
 #if !defined(ASTERA_NO_PAK)
 #include <sys/stat.h>
@@ -45,22 +64,18 @@ pak_t* pak_open(const char* file, const char* mode) {
   if (mode[0] == 'a' && !exists)
     mode = "wb";
   if (mode[0] != 'w' && mode[0] != 'r' && mode[0] != 'a')
-    return NULL;
+    return 0;
 
   FILE* fp = fopen(file, mode[0] == 'w' ? "wb" : mode[0] == 'r' ? "rb" : "r+b");
   if (!fp) {
-#if defined(ASTERA_DEBUG_OUTPUT)
-    _e("pak_open: unable to open pak file %s\n", file);
-#endif
+    DBG_E("pak_open: unable to open pak file %s\n", file);
     return 0;
   }
 
   pak_t *pak = (pak_t*)malloc(sizeof(pak_t)), zero = {0};
 
   if (!pak) {
-#if defined(ASTERA_DEBUG_OUTPUT)
-    _e("pak_open: unable to alloc pak_t.\n");
-#endif
+    DBG_E("pak_open: unable to alloc pak_t.\n");
     fclose(fp);
     return 0;
   }
@@ -72,16 +87,12 @@ pak_t* pak_open(const char* file, const char* mode) {
     pak_header_t header = (pak_header_t){0};
 
     if (fread(&header, 1, sizeof(pak_header_t), fp) != sizeof(pak_header_t)) {
-#if defined(ASTERA_DEBUG_OUTPUT)
-      _e("Pack File Read Error: %s\n", file);
-#endif
+      DBG_E("Pack File Read Error: %s\n", file);
       return 0;
     }
 
     if (memcmp(header.id, "PACK", 4)) {
-#if defined(ASTERA_DEBUG_OUTPUT)
-      _e("Not a valid pack file: %s\n", file);
-#endif
+      DBG_E("Not a valid pack file: %s\n", file);
       return 0;
     }
 
@@ -91,9 +102,7 @@ pak_t* pak_open(const char* file, const char* mode) {
     uint32_t num_files = header.size / sizeof(pak_file_t);
 
     if (fseek(fp, header.offset, SEEK_SET) != 0) {
-#if defined(ASTERA_DEBUG_OUTPUT)
-      _e("Read Error: %s\n", file);
-#endif
+      DBG_E("Read Error: %s\n", file);
       free(pak);
       fclose(fp);
       return 0;
@@ -105,9 +114,7 @@ pak_t* pak_open(const char* file, const char* mode) {
 
     if (fread(pak->entries, num_files, sizeof(pak_file_t), fp) !=
         sizeof(pak_file_t)) {
-#if defined(ASTERA_DEBUG_OUTPUT)
-      _e("Invalid Read of entries: %s\n", file);
-#endif
+      DBG_E("Invalid Read of entries: %s\n", file);
       fclose(fp);
       free(pak->entries);
       free(pak);
@@ -134,7 +141,7 @@ pak_t* pak_open(const char* file, const char* mode) {
       }
 
       pak->out = fp;
-      pak->in  = NULL;
+      pak->in  = 0;
     } else {
       pak->in = fp;
     }
@@ -146,9 +153,7 @@ pak_t* pak_open(const char* file, const char* mode) {
     pak->out        = fp;
     char header[12] = {0};
     if (fwrite(header, 1, 12, pak->out) != 12) {
-#if defined(ASTERA_DEBUG_OUTPUT)
-      _e("Unable to write temporary header for file %s.\n", file);
-#endif
+      DBG_E("Unable to write temporary header for file %s.\n", file);
       fclose(fp);
       return 0;
     }
@@ -160,16 +165,12 @@ pak_t* pak_open(const char* file, const char* mode) {
 int32_t pak_append(pak_t* pak, const char* filename, const unsigned char* data,
                    uint32_t data_length) {
   if (!data || !data_length) {
-#if defined(ASTERA_DEBUG_OUTPUT)
-    _e("pak_append: invalid data pointer passed.\n");
-#endif
+    DBG_E("pak_append: invalid data pointer passed.\n");
     return -1;
   }
 
   if (!pak->out || !pak->file_mode) {
-#if defined(ASTERA_DEBUG_OUTPUT)
-    _e("pak_append: unable to append to read-only pak file.\n");
-#endif
+    DBG_E("pak_append: unable to append to read-only pak file.\n");
     return -1;
   }
 
@@ -178,9 +179,7 @@ int32_t pak_append(pak_t* pak, const char* filename, const unsigned char* data,
     pak->entries   = realloc(pak->entries, pak->count * sizeof(pak_file_t));
 
     if (!pak->entries) {
-#if defined(ASTERA_DEBUG_OUTPUT)
-      _e("pak_append: unable to reallocate entries.\n");
-#endif
+      DBG_E("pak_append: unable to reallocate entries.\n");
       return -1;
     }
 
@@ -198,23 +197,17 @@ int32_t pak_append(pak_t* pak, const char* filename, const unsigned char* data,
 
 int32_t pak_append_file(pak_t* pak, const char* filename, FILE* in) {
   if (!pak) {
-#if defined(ASTERA_DEBUG_OUTPUT)
-    _e("pak_append_file: no pak struct passed.\n");
-#endif
+    DBG_E("pak_append_file: no pak struct passed.\n");
     return -1;
   }
 
   if (!filename) {
-#if defined(ASTERA_DEBUG_OUTPUT)
-    _e("pak_append_file: no filename passed.\n");
-#endif
+    DBG_E("pak_append_file: no filename passed.\n");
     return -1;
   }
 
   if (!in) {
-#if defined(ASTERA_DEBUG_OUTPUT)
-    _e("pak_append_file: no in file passed.\n");
-#endif
+    DBG_E("pak_append_file: no in file passed.\n");
     return -1;
   }
 
@@ -241,9 +234,7 @@ int32_t pak_append_file(pak_t* pak, const char* filename, FILE* in) {
 
 void pak_open_mem(pak_t* pak, unsigned char* data, uint32_t data_length) {
   if (!data || !data_length) {
-#if defined(ASTERA_DEBUG_OUTPUT)
-    _e("pak_open_mem: invalid data arguments passed.\n");
-#endif
+    DBG_E("pak_open_mem: invalid data arguments passed.\n");
     return;
   }
 
@@ -255,16 +246,12 @@ void pak_open_mem(pak_t* pak, unsigned char* data, uint32_t data_length) {
 
   pak_header_t* header = (pak_header_t*)data;
   if (!header) {
-#if defined(ASTERA_DEBUG_OUTPUT)
-    _e("pak_open_mem: unable to obtain header pointer.\n");
-#endif
+    DBG_E("pak_open_mem: unable to obtain header pointer.\n");
     return;
   }
 
   if (memcmp(header->id, "PACK", 4)) {
-#if defined(ASTERA_DEBUG_OUTPUT)
-    _e("pak_open_mem: invalid pak file.\n");
-#endif
+    DBG_E("pak_open_mem: invalid pak file.\n");
     return;
   }
 
@@ -275,9 +262,7 @@ void pak_open_mem(pak_t* pak, unsigned char* data, uint32_t data_length) {
 
   pak_file_t* start = (pak_file_t*)&data[header->offset];
   if (!start) {
-#if defined(ASTERA_DEBUG_OUTPUT)
-    _e("pak_open_mem: unable to seek to start of data.\n");
-#endif
+    DBG_E("pak_open_mem: unable to seek to start of data.\n");
     return;
   }
 
@@ -285,10 +270,8 @@ void pak_open_mem(pak_t* pak, unsigned char* data, uint32_t data_length) {
   pak->entries = (pak_file_t*)malloc(sizeof(pak_file_t) * num_files);
 
   if (!pak->entries) {
-#if defined(ASTERA_DEBUG_OUTPUT)
-    _e("pak_open_mem: unable to malloc %i bytes.\n",
-       (sizeof(pak_file_t) * num_files));
-#endif
+    DBG_E("pak_open_mem: unable to malloc %i bytes.\n",
+          (sizeof(pak_file_t) * num_files));
     return;
   }
 
@@ -299,9 +282,7 @@ void pak_open_mem(pak_t* pak, unsigned char* data, uint32_t data_length) {
     pak_file_t* pak_ptr   = (pak_file_t*)&pak->entries[i];
 
     if (!start_ptr || !pak_ptr) {
-#if defined(ASTERA_DEBUG_OUTPUT)
-      _e("pak_open_mem: invalid read of entries.\n");
-#endif
+      DBG_E("pak_open_mem: invalid read of entries.\n");
       free(pak->entries);
       return;
     }
@@ -318,24 +299,18 @@ unsigned char* pak_extract(pak_t* pak, uint32_t index) {
 #if !defined(ASTERA_PAK_NO_FILE)
     if (pak->file_mode && pak->in) {
       if (fseek(pak->in, file->offset, SEEK_SET) != 0) {
-#if defined(ASTERA_DEBUG_OUTPUT)
-        _e("File read error: cannot seek to offset %i\n", file->offset);
-#endif
+        DBG_E("File read error: cannot seek to offset %i\n", file->offset);
         return 0;
       }
 
       unsigned char* buffer = (unsigned char*)malloc(sizeof(char) * file->size);
       if (!buffer) {
-#if defined(ASTERA_DEBUG_OUTPUT)
-        _e("File read error: cannot malloc %i bytes.\n", file->size);
-#endif
+        DBG_E("File read error: cannot malloc %i bytes.\n", file->size);
         return 0;
       }
 
       if (fread(buffer, 1, file->size, pak->in) != file->size) {
-#if defined(ASTERA_DEBUG_OUTPUT)
-        _e("File read error: invalid read size.\n");
-#endif
+        DBG_E("File read error: invalid read size.\n");
         return 0;
       }
 
@@ -347,18 +322,14 @@ unsigned char* pak_extract(pak_t* pak, uint32_t index) {
       unsigned char* offset = &pak->data_ptr[file->offset];
 
       if (!offset) {
-#if defined(ASTERA_DEBUG_OUTPUT)
-        _e("Memory read error: offset out of bounds: %i\n", file->offset);
-#endif
+        DBG_E("Memory read error: offset out of bounds: %i\n", file->offset);
         return 0;
       }
 
       unsigned char* buffer = (unsigned char*)malloc(sizeof(char) * file->size);
 
       if (!buffer) {
-#if defined(ASTERA_DEBUG_OUTPUT)
-        _e("Memory read error: unable to malloc %i bytes.\n", file->size);
-#endif
+        DBG_E("Memory read error: unable to malloc %i bytes.\n", file->size);
         return 0;
       }
 
@@ -373,9 +344,7 @@ unsigned char* pak_extract(pak_t* pak, uint32_t index) {
 unsigned char* pak_extract_noalloc(pak_t* pak, uint32_t index,
                                    unsigned char* out, uint32_t out_cap) {
   if (!out || !out_cap) {
-#if defined(ASTERA_DEBUG_OUTPUT)
-    _e("pak_extract_noalloc: invalid out buffer parameters passed.\n");
-#endif
+    DBG_E("pak_extract_noalloc: invalid out buffer parameters passed.\n");
     return 0;
   }
 
@@ -383,26 +352,20 @@ unsigned char* pak_extract_noalloc(pak_t* pak, uint32_t index,
     pak_file_t* file = &pak->entries[index];
 
     if (file->size > out_cap) {
-#if defined(ASTERA_DEBUG_OUTPUT)
-      _e("pak_extract_no_alloc: out_cap too small to hold %i bytes.\n",
-         file->size);
-#endif
+      DBG_E("pak_extract_no_alloc: out_cap too small to hold %i bytes.\n",
+            file->size);
       return 0;
     }
 
 #if !defined(ASTERA_PAK_NO_FILE)
     if (pak->file_mode && pak->in) {
       if (fseek(pak->in, file->offset, SEEK_SET) != 0) {
-#if defined(ASTERA_DEBUG_OUTPUT)
-        _e("File read error: cannot seek to offset %i\n", file->offset);
-#endif
+        DBG_E("File read error: cannot seek to offset %i\n", file->offset);
         return 0;
       }
 
       if (fread(out, 1, file->size, pak->in) != file->size) {
-#if defined(ASTERA_DEBUG_OUTPUT)
-        _e("File read error: invalid read size.\n");
-#endif
+        DBG_E("File read error: invalid read size.\n");
         return 0;
       }
 
@@ -414,9 +377,7 @@ unsigned char* pak_extract_noalloc(pak_t* pak, uint32_t index,
       unsigned char* offset = &pak->data_ptr[file->offset];
 
       if (!offset) {
-#if defined(ASTERA_DEBUG_OUTPUT)
-        _e("Memory read error: offset out of bounds: %i\n", file->offset);
-#endif
+        DBG_E("Memory read error: offset out of bounds: %i\n", file->offset);
         return 0;
       }
 
@@ -475,6 +436,8 @@ pak_t* pak_close(pak_t* pak) {
   if (pak->entries) {
     free(pak->entries);
   }
+
+  return pak;
 }
 
 int32_t pak_find(pak_t* pak, const char* filename) {
@@ -547,25 +510,6 @@ char* pak_name(pak_t* pak, uint32_t index) {
 
 #endif
 
-int8_t asset_init() {
-#if ASSET_MAX_MAPS > 0
-  memset(asset_maps, 0, sizeof(asset_map_t) * ASSET_MAX_MAPS);
-  for (uint32_t i = 0; i < ASSET_MAX_MAPS; ++i) {
-    asset_maps[i].free = 1;
-  }
-
-  asset_create_map(NULL, "sys", MIN_ASSET_CACHE, 0);
-#endif
-
-  return 1;
-}
-
-void asset_exit() {
-  for (uint32_t i = 0; i < ASSET_MAX_MAPS; ++i) {
-    asset_map_free_t(&asset_maps[i]);
-  }
-}
-
 void asset_free(asset_t* asset) {
   asset->name   = 0;
   asset->filled = 0;
@@ -573,28 +517,16 @@ void asset_free(asset_t* asset) {
   free(asset->data);
 }
 
-void asset_map_free(const char* map_name) {
-  asset_map_t* map;
-  for (uint32_t i = 0; i < asset_map_count; ++i) {
-    if (strcmp(asset_maps[i].name, map_name) == 0) {
-      map = &asset_maps[i];
-      break;
-    } else if (strcmp(asset_maps[i].filename, map_name) == 0) {
-      map = &asset_maps[i];
-      break;
-    }
-  }
-
+void asset_map_free(asset_map_t* map) {
   if (!map) {
-    _e("Unable to find map %s to free.\n", map);
+    DBG_E("No map passed to free.\n");
     return;
   }
 
   for (uint32_t i = 0; i < map->capacity; ++i) {
-    asset_t* asset = &map->assets[i];
+    asset_t* asset = map->assets[i];
     if (asset->data) {
       free(asset->data);
-      asset->data = 0;
     }
   }
 
@@ -606,165 +538,57 @@ void asset_map_free(const char* map_name) {
   map->filename = 0;
 }
 
-void asset_map_free_t(asset_map_t* map) {
-  if (!map) {
-    _e("No map passed to free.\n");
-    return;
-  }
-
-  for (uint32_t i = 0; i < map->capacity; ++i) {
-    asset_t* asset = &map->assets[i];
-    if (asset->data) {
-      free(asset->data);
-      asset->data = 0;
-    }
-  }
-
-  free(map->assets);
-  map->assets   = 0;
-  map->count    = 0;
-  map->capacity = 0;
-  map->name     = 0;
-  map->filename = 0;
+// TODO
+asset_t* asset_map_get(asset_map_t* map, const char* file) {
+  return 0;
 }
 
-asset_t* asset_get(const char* map_name, const char* file) {
-  asset_map_t* map = NULL;
-
+// NOTE: Local System
+asset_t* asset_get(const char* file) {
   if (!file) {
-    _e("No file requested.\n");
+    DBG_E("asset_get: no file requested.\n");
     return 0;
   }
 
-  for (uint32_t i = 0; i < ASSET_MAX_MAPS; ++i) {
-    if (map_name) {
-      if (asset_maps[i].name) {
-        if (!strcmp(asset_maps[i].name, map_name)) {
-          map = &asset_maps[i];
-          break;
-        }
-      }
+  asset_t* asset = malloc(sizeof(asset_t));
 
-      if (asset_maps[i].filename) {
-        if (!strcmp(asset_maps[i].filename, map_name)) {
-          map = &asset_maps[i];
-          break;
-        }
-      }
-    } else {
-      if (asset_maps[i].name) {
-        if (!strcmp(asset_maps[i].name, "sys")) {
-          map = &asset_maps[i];
-          break;
-        }
-      }
-    }
-  }
+  FILE* f = fopen(file, "r+b");
 
-  if (!map) {
-    _l("No map with name or filepath of: %s\n", map_name);
+  if (!f) {
+    DBG_E("Unable to open system file: %s\n", file);
     return 0;
   }
 
-  asset_t* asset = NULL;
-  for (uint32_t i = 0; i < map->capacity; ++i) {
-    if (!asset) {
-      if ((!map->assets[i].filled && !map->assets[i].req) ||
-          map->assets[i].req_free) {
-        asset = &map->assets[i];
-      }
-    }
+  fseek(f, 0, SEEK_END);
+  uint32_t file_size = ftell(f);
+  rewind(f);
 
-    if (map->assets[i].name) {
-      if (strcmp(map->assets[i].name, file) == 0) {
-        asset = &map->assets[i];
+  unsigned char* data =
+      (unsigned char*)malloc(sizeof(unsigned char) * (file_size + 1));
 
-        // Don't double read
-        if (map->assets[i].filled)
-          return &map->assets[i];
-      }
-    }
-  }
-
-  // At capacity for asset map
-  if (!asset) {
-    _e("No free asset slots in map %s\n", map->name);
-    return 0;
-  }
-
-  for (uint32_t i = 0; i < map->capacity; ++i) {
-    if (!map->assets[i].filled && !map->assets[i].req) {
-      asset = &map->assets[i];
-      break;
-    }
-  }
-
-  if (strcmp(map->name, "sys") == 0) {
-    FILE* f = fopen(file, "r+b");
-
-    if (!f) {
-      _e("Unable to open system file: %s\n", file);
-      return NULL;
-    }
-
-    fseek(f, 0, SEEK_END);
-    uint32_t file_size = ftell(f);
-    rewind(f);
-
-    unsigned char* data =
-        (unsigned char*)malloc(sizeof(unsigned char) * (file_size + 1));
-
-    if (!data) {
-      _e("Unable to allocate %i bytes for file %s\n", file_size, file);
-      fclose(f);
-      return NULL;
-    }
-
-    uint32_t data_read = fread(data, sizeof(unsigned char), file_size, f);
-
-    if (data_read != file_size) {
-      _l("Incomplete read: %i expeceted, %i read.\n", file_size, data_read);
-    }
-
-    data[data_read] = 0;
-
+  if (!data) {
+    DBG_E("Unable to allocate %i bytes for file %s\n", file_size, file);
+    free(asset);
     fclose(f);
-    asset->data        = data;
-    asset->data_length = data_read;
-  } else {
-#if !defined(ASTERA_NO_ZIP)
-    struct zip_t* zip;
-
-    zip = zip_open(map->filename, map->compression_level, 'r');
-    if (!zip) {
-      _e("Unable to open zip entry: %s.\n", map->filename);
-      return NULL;
-    }
-
-    if (zip_entry_open(zip, file) < 0) {
-      _e("Unable to open file: %s in zip archive: %s\n", file, map->filename);
-      zip_close(zip);
-      return NULL;
-    }
-
-    uint32_t       entry_size = zip_entry_size(zip);
-    unsigned char* data =
-        (unsigned char*)malloc(sizeof(unsigned char) * entry_size);
-    if (!data) {
-      _e("Unable to allocate %i bytes for file %s.\n", entry_size, file);
-      zip_close(zip);
-      return NULL;
-    }
-
-    // TODO more error handling
-    zip_entry_noallocread(zip, (void*)data, entry_size);
-
-    zip_close(zip);
-
-    asset->data        = data;
-    asset->data_length = entry_size;
-#endif
+    return 0;
   }
+
+  uint32_t data_read = fread(data, sizeof(unsigned char), file_size, f);
+
+  if (data_read != file_size) {
+    DBG_E("Incomplete read: %i expeceted, %i read.\n", file_size, data_read);
+    free(data);
+    free(asset);
+    return 0;
+  }
+
+  // NULL-Terminate the data
+  data[data_read] = 0;
+
+  fclose(f);
+
+  asset->data        = data;
+  asset->data_length = data_read;
 
   asset->name     = file;
   asset->filled   = 1;
@@ -772,256 +596,228 @@ asset_t* asset_get(const char* map_name, const char* file) {
   asset->req_free = 0;
   asset->chunk    = 0;
 
-  ++asset_uid_count;
-  asset->uid = asset_uid_count;
-
   return asset;
 }
 
-asset_t* asset_req(const char* map_name, const char* file) {
-  asset_map_t* map = 0;
-  for (uint32_t i = 0; i < asset_map_count; ++i) {
-    if (map_name) {
-      if (asset_maps[i].name) {
-        if (strcmp(asset_maps[i].name, map_name) == 0) {
-          map = &asset_maps[i];
-          break;
-        }
-      }
-
-      if (asset_maps[i].filename) {
-        if (strcmp(asset_maps[i].filename, map_name) == 0) {
-          map = &asset_maps[i];
-          break;
-        }
-      }
-    } else {
-      if (!strcmp(asset_maps[i].name, "sys")) {
-        map = &asset_maps[i];
-        break;
-      }
-    }
-  }
-
-  if (map_name) {
-    if (!map) {
-      _l("No map with name or filepath of: %s\n", map_name);
-      return 0;
-    }
-  } else {
-    _l("No sys map exists.\n");
-    return 0;
-  }
-
-  asset_t* asset = 0;
+void asset_map_add(asset_map_t* map, asset_t* asset) {
   for (uint32_t i = 0; i < map->capacity; ++i) {
-    if (!map->assets[i].filled && !map->assets[i].req) {
-      asset = &map->assets[i];
-    }
-
-    if (strcmp(map->assets[i].name, file) == 0) {
-      if (!map->assets[i].req) {
-        map->assets[i].req   = 1;
-        map->assets[i].chunk = 0;
-      }
-
-      return &map->assets[i];
+    if (!map->assets[i]) {
+      map->assets[i] = asset;
+      asset->uid     = i;
+      break;
     }
   }
-
-  if (!asset)
-    return 0;
-
-  asset->req    = 1;
-  asset->chunk  = 0;
-  asset->filled = 0;
-  asset->name   = file;
-  asset->uid    = ++asset_uid_count;
-
-  return asset;
 }
 
-asset_t* asset_get_chunk(const char* map_name, const char* file,
-                         uint32_t chunk_start, uint32_t chunk_length) {
-  if (!file) {
-    _e("No file requested\n");
-    return 0;
+void asset_map_remove(asset_map_t* map, asset_t* asset) {
+  asset_map_removei(map, asset->uid);
+}
+
+void asset_map_removei(asset_map_t* map, uint32_t id) {
+  if (!map->assets[id]) {
+    DBG_E("asset_map_removei: no asset at index %i on asset map.\n", id);
+    return;
   }
 
-  asset_map_t* map = NULL;
+  free(map->assets[id]->data);
+  map->assets[id]->uid = 0;
+}
 
-  if (!file) {
-    return 0;
-  }
-
-  if (!map_name) {
-    map_name = "sys";
-  }
-
-  for (uint32_t i = 0; i < ASSET_MAX_MAPS; ++i) {
-    if (map_name) {
-      if (asset_maps[i].name) {
-        if (strcmp(asset_maps[i].name, map_name) == 0) {
-          map = &asset_maps[i];
-          break;
-        }
-      }
-
-      if (asset_maps[i].filename) {
-        if (strcmp(asset_maps[i].filename, map_name) == 0) {
-          map = &asset_maps[i];
-          break;
-        }
-      }
-    } else {
-      if (asset_maps[i].name) {
-        if (!strcmp("sys", asset_maps[i].name)) {
-          map = &asset_maps[i];
-          break;
-        }
-      }
-    }
-  }
-
+asset_t* asset_map_find(asset_map_t* map, const char* name, int allow_fetch) {
   if (!map) {
-    _l("No map with name or filepath of: %s\n", map_name);
+    DBG_E("asset_map_find: no map passed.\n");
     return 0;
   }
 
-  asset_t* asset = NULL;
+  if (!name) {
+    DBG_E("asset_map_find: no filename or name passed.\n");
+    return 0;
+  }
 
   for (uint32_t i = 0; i < map->capacity; ++i) {
-    if (!asset) {
-      if (!map->assets[i].filled && !map->assets[i].req) {
-        asset = &map->assets[i];
-        continue;
-      }
-    }
-
-    if (map->assets[i].name) {
-      if (strcmp(map->assets[i].name, file) == 0) {
-        asset = &map->assets[i];
-        break;
+    if (map->assets[i]->filled) {
+      if (map->assets[i]->name) {
+        if (!strcmp(map->assets[i]->name, name)) {
+          return map->assets[i];
+        }
       }
     }
   }
 
-  if (!asset) {
-    _e("No space in map %s for file %s\n", map_name, file);
+  if (allow_fetch) {
+    asset_t* new_asset;
+    switch (map->type) {
+    case MAP_FS: {
+      new_asset = asset_get(name);
+      if (!new_asset) {
+        DBG_E("asset_map_find: unable to open file from filesystem: %s\n",
+              name);
+        return 0;
+      }
+    }
+      return new_asset;
+    case MAP_PAK: {
+      new_asset        = (asset_t*)malloc(sizeof(asset_t));
+      int      f_index = pak_find(map->pak, name);
+      uint32_t f_size;
+
+      if (f_index) {
+        f_size = pak_size(map->pak, f_index);
+
+        unsigned char* data = pak_extract(map->pak, f_index);
+
+        if (!data) {
+          DBG_E("asset_map_find: unable to extra file from pak: %s\n", name);
+          free(new_asset);
+          return 0;
+        }
+
+        new_asset->data        = data;
+        new_asset->data_length = f_size;
+        new_asset->filled      = 1;
+        new_asset->name        = name;
+
+        return new_asset;
+
+      } else {
+        DBG_E("asset_map_find: unable to fetch file from pak: %s\n", name);
+        free(new_asset);
+        return 0;
+      }
+
+    } break;
+    case MAP_ZIP: {
+      new_asset = (asset_t*)malloc(sizeof(asset_t));
+
+      if (!new_asset) {
+        DBG_E(
+            "asset_map_find: unable to allocate space for new asset struct.\n");
+        return 0;
+      }
+
+      struct zip_t* zip = zip_open(map->filename, ASTERA_ZIP_LEVEL, 'r');
+      if (!zip) {
+        DBG_E("asset_map_find: unable to open zip file.\n", map->filename);
+        free(new_asset);
+        return 0;
+      }
+
+      if (zip_entry_open(zip, name)) {
+        DBG_E("asset_map_find: unable to open zip entry: %s\n", name);
+        free(new_asset);
+        zip_close(zip);
+        return 0;
+      }
+
+      long           entry_size = zip_entry_size(zip);
+      unsigned char* data =
+          (unsigned char*)malloc(sizeof(unsigned char) * (entry_size + 1));
+
+      if (!data) {
+        DBG_E("asset_map_find: unable to alloc space for zip entry [%i]: %s\n",
+              entry_size + 1, name);
+        zip_close(zip);
+        free(new_asset);
+        return 0;
+      }
+
+      if (!zip_entry_noallocread(zip, data, entry_size + 1)) {
+        DBG_E("asset_map_find: unable to read zip data for entry: %s\n",
+              entry_size);
+        zip_close(zip);
+        free(data);
+        free(new_asset);
+        return 0;
+      }
+
+      data[entry_size] = 0;
+
+      new_asset->data        = data;
+      new_asset->data_length = entry_size + 1;
+      new_asset->filled      = 1;
+      new_asset->name        = name;
+
+      zip_close(zip);
+
+      return new_asset;
+    } break;
+    }
+  } else {
     return 0;
   }
 
-  if (strcmp(map->name, "sys") == 0) {
-    FILE* f = fopen(file, "r+b");
+  return 0;
+}
 
-    if (!f) {
-      _e("Unable to open system file: %s\n", file);
-      return NULL;
+void asset_map_update(asset_map_t* map) {
+  for (uint32_t i = 0; i < map->capacity; ++i) {
+    if (map->assets[i]->filled && map->assets[i]->req_free) {
+      asset_map_removei(map, i);
     }
-
-    fseek(f, 0, SEEK_END);
-    uint32_t file_size = ftell(f);
-    rewind(f);
-
-    if (chunk_start > file_size) {
-      _e("Chunk requested starts out of bounds [%i] of the file [%i].\n",
-         chunk_start, file_size);
-      asset->req   = 0;
-      asset->chunk = 0;
-      return 0;
-    }
-
-    // Allow for size clamping, in case we just want the data and not to have
-    // to analyze it prior
-    uint32_t max_length = (chunk_start + chunk_length > file_size)
-                              ? file_size - chunk_start
-                              : chunk_length;
-
-    unsigned char* data =
-        (unsigned char*)malloc(sizeof(unsigned char) * (max_length + 1));
-
-    if (!data) {
-      _e("Unable to allocate [%i] bytes for file chunk %s\n", max_length, file);
-      fclose(f);
-      return NULL;
-    }
-
-    uint32_t data_read = fread(data, sizeof(unsigned char), max_length, f);
-
-    if (data_read != max_length) {
-      _l("Incomplete read: %i expeceted, %i read.\n", max_length, data_read);
-    }
-
-    data[data_read] = 0;
-
-    fclose(f);
-
-    asset->data_length = data_read;
-    asset->data        = data;
-  } else {
-#if !defined(ASTERA_NO_ZIP)
-    struct zip_t* zip;
-
-    zip = zip_open(map->filename, map->compression_level, 'r');
-    if (!zip) {
-      _e("Unable to open zip entry: %s.\n", map->filename);
-      return NULL;
-    }
-
-    if (zip_entry_open(zip, file) < 0) {
-      _e("Unable to open file: %s in zip archive: %s\n", file, map->filename);
-      zip_close(zip);
-      asset->req   = 0;
-      asset->chunk = 0;
-      return NULL;
-    }
-
-    uint32_t entry_size = zip_entry_size(zip);
-
-    if (chunk_start > entry_size) {
-      zip_close(zip);
-      asset->req   = 0;
-      asset->chunk = 0;
-      return 0;
-    }
-
-    unsigned char* data =
-        (unsigned char*)malloc(sizeof(unsigned char) * entry_size);
-    if (!data) {
-      _e("Unable to allocate %i bytes for file %s.\n", entry_size, file);
-      zip_close(zip);
-      return 0;
-    }
-
-    uint32_t max_length = (chunk_start + chunk_length > entry_size)
-                              ? entry_size - chunk_start
-                              : chunk_length;
-
-    unsigned char* chunk =
-        (unsigned char*)malloc(sizeof(unsigned char) * (max_length + 1));
-
-    if (!chunk) {
-      _e("Unable to allocate [%i] bytes for chunk of file [%s]\n", max_length,
-         file);
-      free(data);
-      zip_close(zip);
-      return 0;
-    }
-
-    memcpy(chunk, &data[chunk_start], max_length);
-    chunk[max_length] = '\0';
-
-    free(data);
-
-    zip_entry_noallocread(zip, (void*)data, entry_size);
-
-    zip_close(zip);
-
-    asset->data         = chunk;
-    asset->data_length  = max_length;
-    asset->chunk_length = max_length;
-#endif
   }
+}
+
+asset_t* asset_get_chunk(const char* file, uint32_t chunk_start,
+                         uint32_t chunk_length) {
+  if (!file) {
+    DBG_E("No file requested\n");
+    return 0;
+  }
+
+  asset_t* asset = (asset_t*)malloc(sizeof(asset_t));
+  FILE*    f     = fopen(file, "r+b");
+
+  if (!f) {
+    DBG_E("asset_get_chunk: Unable to open system file: %s\n", file);
+    free(asset);
+    return 0;
+  }
+
+  fseek(f, 0, SEEK_END);
+  uint32_t file_size = ftell(f);
+  rewind(f);
+
+  if (chunk_start > file_size) {
+    DBG_E("asset_get_chunk: Chunk requested starts out of bounds [%i] of the "
+          "file [%i].\n",
+          chunk_start, file_size);
+    asset->req   = 0;
+    asset->chunk = 0;
+    return 0;
+  }
+
+  // Allow for size clamping, in case we just want the data and not to have
+  // to analyze it prior
+  uint32_t max_length = (chunk_start + chunk_length > file_size)
+                            ? file_size - chunk_start
+                            : chunk_length;
+
+  unsigned char* data =
+      (unsigned char*)malloc(sizeof(unsigned char) * (max_length + 1));
+
+  if (!data) {
+    DBG_E("Unable to allocate [%i] bytes for file chunk %s\n", max_length,
+          file);
+    free(asset);
+    fclose(f);
+    return 0;
+  }
+
+  uint32_t data_read = fread(data, sizeof(unsigned char), max_length, f);
+
+  if (data_read != max_length) {
+    DBG_E("Incomplete read: %i expeceted, %i read.\n", max_length, data_read);
+    free(asset);
+    free(data);
+    return 0;
+  }
+
+  data[data_read] = 0;
+
+  fclose(f);
+
+  asset->data_length = data_read;
+  asset->data        = data;
 
   asset->name        = file;
   asset->filled      = 1;
@@ -1030,171 +826,29 @@ asset_t* asset_get_chunk(const char* map_name, const char* file,
   asset->req         = 0;
   asset->req_free    = 0;
 
-  asset->uid = ++asset_uid_count;
-
   return asset;
 }
 
-asset_t* asset_req_chunk(const char* map_name, const char* file,
-                         uint32_t chunk_start, uint32_t chunk_length) {
-  if (!file) {
-    _e("No file requested.\n");
+asset_map_t asset_map_create(const char* filename, const char* name,
+                             uint32_t capacity, uint8_t compression_level,
+                             asset_map_type type) {
+#if defined(ASTERA_NO_PAK)
+  if (is_pak) {
+    DBG_E("asset_create_map: unable to create map using pak without pak "
+          "features included.\n");
     return 0;
   }
-
-  asset_map_t* map = 0;
-  for (uint32_t i = 0; i < asset_map_count; ++i) {
-    if (map_name) {
-      if (strcmp(asset_maps[i].name, map_name) == 0) {
-        map = &asset_maps[i];
-        break;
-      } else if (strcmp(asset_maps[i].filename, map_name) == 0) {
-        map = &asset_maps[i];
-        break;
-      }
-    } else {
-      if (strcmp(asset_maps[i].name, "sys") == 0) {
-        map = &asset_maps[i];
-        break;
-      }
-    }
-  }
-
-  if (!map) {
-    _l("No map with name or filepath of [%s]\n", map_name);
-    return 0;
-  }
-
-  asset_t* asset = 0;
-  for (uint32_t i = 0; i < map->capacity; ++i) {
-    if (!asset) {
-      if (!map->assets[i].filled && !map->assets[i].req) {
-        asset = &map->assets[i];
-      }
-    }
-
-    if (strcmp(map->assets[i].name, file) == 0) {
-      if (!map->assets[i].req && !map->assets[i].filled) {
-        map->assets[i].req          = 1;
-        map->assets[i].chunk        = 1;
-        map->assets[i].chunk_start  = chunk_start;
-        map->assets[i].chunk_length = chunk_length;
-
-        return &map->assets[i];
-      } else if (map->assets[i].filled) {
-        if (map->assets[i].chunk && map->assets[i].chunk_start == chunk_start &&
-            map->assets[i].chunk_length == chunk_length) {
-          return &map->assets[i];
-        }
-      }
-    }
-  }
-
-  if (!asset) {
-    _e("No free slots in asset map: %s.\n", map_name);
-    return 0;
-  }
-
-  asset->req = 1;
-
-  asset->chunk        = 1;
-  asset->chunk_start  = chunk_start;
-  asset->chunk_length = chunk_length;
-
-  asset->filled = 0;
-  asset->name   = file;
-  asset->uid    = ++asset_uid_count;
-
-  return asset;
-}
-
-asset_map_t* asset_create_map(const char* filename, const char* name,
-                              uint32_t capacity, uint8_t compression_level) {
-  uint32_t free_maps = 0;
-  for (uint32_t i = 0; i < ASSET_MAX_MAPS; ++i) {
-    if (asset_maps[i].free) {
-      ++free_maps;
-      continue;
-    }
-
-    if (filename) {
-      if (strcmp(filename, asset_maps[i].filename) == 0) {
-        return &asset_maps[i];
-      }
-    }
-
-    if (strcmp(name, asset_maps[i].name) == 0) {
-      return &asset_maps[i];
-    }
-  }
-
-  if (!free_maps) {
-    return 0;
-  }
-
-  for (uint32_t i = 0; i < ASSET_MAX_MAPS; ++i) {
-    if (asset_maps[i].free) {
-      asset_maps[i].assets = (asset_t*)malloc(sizeof(asset_t) * capacity);
-      asset_maps[i].compression_level = compression_level;
-      asset_maps[i].capacity          = capacity;
-      asset_maps[i].filename          = filename;
-      asset_maps[i].name              = name;
-      asset_maps[i].free              = 0;
-      return &asset_maps[i];
-    }
-  }
-
-  return 0;
-}
-
-void asset_update_map(asset_map_t* map) {
-#if !defined(ASTERA_NO_ZIP)
-  struct zip_t* zip;
 #endif
 
-  for (uint32_t i = 0; i < map->capacity; ++i) {
-    if (map->assets[i].req_free) {
-      free(map->assets[i].data);
-      memset(&map->assets[i], 0, sizeof(asset_t));
-    }
+  asset_map_t map =
+      (asset_map_t){.assets   = (asset_t**)malloc(sizeof(asset_t*) * capacity),
+                    .count    = 0,
+                    .capacity = capacity,
+                    .name     = name,
+                    .filename = filename,
+                    .compression_level = compression_level,
+                    .type              = type};
 
-#if !defined(ASTERA_NO_ZIP)
-    if (map->assets[i].req) {
-      if (!zip)
-        zip = zip_open(map->filename, map->compression_level, 'r');
-      if (!zip) {
-        _e("Unable to open: %s\n", map->filename);
-        break;
-      }
-
-      if (zip_entry_open(zip, map->assets[i].name) < 0) {
-        _e("Unable to open file: %s in archive: %s\n", map->assets[i].name,
-           map->filename);
-        zip_entry_close(zip);
-        continue;
-      }
-
-      uint32_t file_size = zip_entry_size(zip);
-      if (!file_size) {
-        _e("Unable to open file with size of 0, %s.\n", map->assets[i].name);
-        continue;
-      }
-
-      map->assets[i].data =
-          (unsigned char*)malloc(file_size * sizeof(unsigned char));
-      map->assets[i].data_length = file_size;
-      map->assets[i].req         = 0;
-      map->assets[i].filled      = 1;
-
-      zip_entry_noallocread(zip, (void*)map->assets[i].data, file_size);
-      zip_entry_close(zip);
-      ++map->count;
-    }
-#endif
-  }
-
-#if !defined(ASTERA_NO_ZIP)
-  if (zip)
-    zip_close(zip);
-#endif
+  return map;
 }
+

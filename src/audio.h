@@ -117,7 +117,7 @@ extern "C" {
 typedef struct {
   ALCcontext* context;
   ALCdevice*  device;
-  uint8_t     fx_per_source;
+  int         fx_per_source;
   uint32_t    max_fx;
   int         efx : 1;
   int         allow : 1;
@@ -243,6 +243,7 @@ typedef struct {
   // callback
   uint16_t loop_count;
   time_s   time;
+  int      playing : 1;
 } a_req;
 
 typedef struct {
@@ -388,6 +389,7 @@ uint32_t a_get_device_name(char* dst, int capacity);
 int8_t a_layer_add_music(uint32_t id, a_music* music);
 int8_t a_layer_add_sfx(uint32_t id, a_sfx* sfx);
 
+// well, I need to convert this bit too lol, refactoring can be a bitch
 a_buf  a_buf_create(asset_t* asset);
 a_buf* a_buf_get(const char* name);
 void   a_buf_destroy(a_buf buffer);

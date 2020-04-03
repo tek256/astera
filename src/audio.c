@@ -33,7 +33,9 @@
 #include <AL/efx.h>
 
 static LPALGENEFFECTS    alGenEffects;
+static LPALGENFILTERS    alGenFilters;
 static LPALDELETEEFFECTS alDeleteEffects;
+static LPALDELETEFILTERS alDeleteFilters;
 static LPALISEFFECT      alIsEffect;
 static LPALEFFECTI       alEffecti;
 static LPALEFFECTIV      alEffectiv;
@@ -43,6 +45,9 @@ static LPALGETEFFECTI    alGetEffecti;
 static LPALGETEFFECTIV   alGetEffectiv;
 static LPALGETEFFECTF    alGetEffectf;
 static LPALGETEFFECTFV   alGetEffectfv;
+
+static LPALFILTERF alFilterf;
+static LPALFILTERI alFilteri;
 
 static LPALGENAUXILIARYEFFECTSLOTS    alGenAuxiliaryEffectSlots;
 static LPALDELETEAUXILIARYEFFECTSLOTS alDeleteAuxiliaryEffectSlots;
@@ -58,6 +63,7 @@ static LPALGETAUXILIARYEFFECTSLOTFV   alGetAuxiliaryEffectSlotfv;
 
 #endif
 
+// TODO: Implement more info
 void a_efx_info(void) {
   if (alcIsExtensionPresent(g_a_ctx.device, "ALC_EXT_EFX") == AL_FALSE) {
     _l("No ALC_EXT_EFX.\n");
@@ -86,7 +92,7 @@ int16_t a_fx_slot_attach(a_fx* fx) {
     if (!g_a_map.fx_slots[i].fx) {
       fx->slot               = &g_a_map.fx_slots[i];
       g_a_map.fx_slots[i].fx = fx;
-      _l("Attaching effect %i to effect slot %i\n", fx->id, i);
+      DBG_E("Attaching effect %i to effect slot %i\n", fx->id, i);
       alAuxiliaryEffectSloti(g_a_map.fx_slots[i].id, AL_EFFECTSLOT_EFFECT,
                              fx->id);
       return i;
@@ -395,7 +401,9 @@ int a_init(const char* device, uint32_t master, uint32_t sfx, uint32_t music) {
   if (g_a_ctx.max_fx > 0) {
 #define LOAD_PROC(T, x) ((x) = (T)alGetProcAddress(#x))
     LOAD_PROC(LPALGENEFFECTS, alGenEffects);
+    LOAD_PROC(LPALGENFILTERS, alGenFilters);
     LOAD_PROC(LPALDELETEEFFECTS, alDeleteEffects);
+    LOAD_PROC(LPALDELETEFILTERS, alDeleteFilters);
     LOAD_PROC(LPALISEFFECT, alIsEffect);
     LOAD_PROC(LPALEFFECTI, alEffecti);
     LOAD_PROC(LPALEFFECTIV, alEffectiv);
@@ -405,6 +413,9 @@ int a_init(const char* device, uint32_t master, uint32_t sfx, uint32_t music) {
     LOAD_PROC(LPALGETEFFECTIV, alGetEffectiv);
     LOAD_PROC(LPALGETEFFECTF, alGetEffectf);
     LOAD_PROC(LPALGETEFFECTFV, alGetEffectfv);
+
+    LOAD_PROC(LPALFILTERF, alFilterf);
+    LOAD_PROC(LPALFILTERI, alFilteri);
 
     LOAD_PROC(LPALGENAUXILIARYEFFECTSLOTS, alGenAuxiliaryEffectSlots);
     LOAD_PROC(LPALDELETEAUXILIARYEFFECTSLOTS, alDeleteAuxiliaryEffectSlots);
@@ -419,7 +430,7 @@ int a_init(const char* device, uint32_t master, uint32_t sfx, uint32_t music) {
     LOAD_PROC(LPALGETAUXILIARYEFFECTSLOTFV, alGetAuxiliaryEffectSlotfv);
 #undef LOAD_PROC
 
-    g_a_map.fx_slots = (uint32_t*)malloc(sizeof(a_fx_slot) * MAX_FX);
+    g_a_map.fx_slots = (a_fx_slot*)malloc(sizeof(a_fx_slot) * MAX_FX);
 
     if (!g_a_map.fx_slots) {
       DBG_E("a_init: unable to allocate %i fx slots\n", g_a_map.max_fx);
@@ -461,8 +472,8 @@ int a_init(const char* device, uint32_t master, uint32_t sfx, uint32_t music) {
   unsigned int sources[MAX_SONGS];
   unsigned int buffers[MAX_SONGS * AUDIO_BUFFERS_PER_MUSIC];
 
-  alGenSources(MAX_SONGS, &sources);
-  alGenBuffers(MAX_SONGS * AUDIO_BUFFERS_PER_MUSIC, &buffers);
+  alGenSources(MAX_SONGS, sources);
+  alGenBuffers(MAX_SONGS * AUDIO_BUFFERS_PER_MUSIC, buffers);
 
   for (int i = 0; i < MAX_SONGS; ++i) {
     g_a_map.songs[i].source = sources[i];
@@ -653,13 +664,14 @@ float a_get_vol_music(void) {
 }
 
 void a_exit(void) {
-  if (g_a_ctx.context == NULL) {
+  if (!g_a_ctx.context) {
     return;
   }
 
   for (int i = 0; i < g_a_map.song_count; ++i) {
     alDeleteSources(1, &g_a_map.songs[i].source);
-    alDeleteBuffers(AUDIO_BUFFERS_PER_MUSIC, &g_a_map.songs[i].buffers);
+    alDeleteBuffers(AUDIO_BUFFERS_PER_MUSIC,
+                    (const ALuint*)&g_a_map.songs[i].buffers);
   }
 
   for (int i = 0; i < g_a_map.sfx_count; ++i) {
@@ -672,7 +684,7 @@ void a_exit(void) {
     }
   }
 
-  alcMakeContextCurrent(NULL);
+  alcMakeContextCurrent(0);
   alcDestroyContext(g_a_ctx.context);
   alcCloseDevice(g_a_ctx.device);
 }
@@ -682,7 +694,7 @@ void a_update(time_s delta) {
     a_layer* layer = &g_a_map.layers[i];
 
     for (int j = 0; j < layer->sfx_count; ++j) {
-      a_sfx* sfx = &layer->sources[j];
+      a_sfx* sfx = layer->sources[j];
       if (sfx->has_req) {
         a_req* req = sfx->req;
         if (sfx->gain != req->gain || layer->gain_change) {
@@ -707,7 +719,7 @@ void a_update(time_s delta) {
           if (sfx->req->fx_count > 0 && sfx->req->fx) {
             for (uint16_t e = 0; e < sfx->req->fx_count; ++e) {
               alSource3i(sfx->id, AL_AUXILIARY_SEND_FILTER, AL_EFFECTSLOT_NULL,
-                         e, NULL);
+                         e, 0);
             }
           }
 
@@ -716,17 +728,18 @@ void a_update(time_s delta) {
           }
 #endif
 
-          sfx->req     = NULL;
+          sfx->req     = 0;
           sfx->has_req = 0;
         } else if (req) {
           if (req->stop) {
+            req->playing = 0;
             alSourcei(g_a_map.sfx[i].id, AL_BUFFER, 0);
 
 #if !defined(ASTERA_AL_NO_EFX)
             if (sfx->req->fx_count > 0 && sfx->req->fx) {
               for (uint16_t e = 0; e < sfx->req->fx_count; ++e) {
                 alSource3i(sfx->id, AL_AUXILIARY_SEND_FILTER,
-                           AL_EFFECTSLOT_NULL, e, NULL);
+                           AL_EFFECTSLOT_NULL, e, 0);
               }
             }
 
@@ -735,8 +748,10 @@ void a_update(time_s delta) {
             }
 #endif
 
-            sfx->req     = NULL;
+            sfx->req     = 0;
             sfx->has_req = 0;
+          } else {
+            req->playing = 1;
           }
         }
       }
@@ -767,11 +782,18 @@ void a_update(time_s delta) {
           alGetSourcei(mus->source, AL_SOURCE_STATE, &state);
           alGetSourcei(mus->source, AL_BUFFERS_PROCESSED, &proc);
 
+          if (state == AL_PLAYING) {
+            mus->req->playing = 1;
+          } else {
+            mus->req->playing = 0;
+          }
+
           if (req->stop) {
             alSourcei(mus->source, AL_BUFFER, 0);
             alSourceStop(mus->source);
-            mus->req     = NULL;
-            mus->has_req = 0;
+            mus->req->playing = 0;
+            mus->req          = 0;
+            mus->has_req      = 0;
           } else if (proc > 0) {
             if (mus->data_length == mus->data_offset) {
               if (mus->loop) {
@@ -819,7 +841,8 @@ void a_update(time_s delta) {
                     mus->vorbis, mus->data + mus->data_offset, frame_size,
                     &num_channels, &out, &num_samples);
                 if (!bytes_used) {
-                  _l("Unable to load samples from [%i] bytes.\n", frame_size);
+                  DBG_E("Unable to load samples from [%i] bytes.\n",
+                        frame_size);
                   ++fail_counter;
                   continue;
                 }
@@ -866,11 +889,12 @@ void a_update(time_s delta) {
 }
 
 uint32_t a_get_device_name(char* dst, int capacity) {
-  ALchar* name;
+  const ALchar* name;
+
   if (g_a_ctx.device) {
     name = alcGetString(g_a_ctx.device, ALC_DEVICE_SPECIFIER);
   } else {
-    name = alcGetString(NULL, ALC_DEFAULT_DEVICE_SPECIFIER);
+    name = alcGetString(0, ALC_DEFAULT_DEVICE_SPECIFIER);
   }
 
   int length = strlen(name);
@@ -891,17 +915,17 @@ int8_t a_layer_add_music(uint32_t id, a_music* music) {
   }
 
   if (!layer) {
-    _l("Unable to find layer: %i\n", id);
+    DBG_E("Unable to find layer: %i\n", id);
     return -1;
   }
 
   if (layer->music_count == MAX_LAYER_SONGS) {
-    _l("No space left in layer: %i\n", id);
+    DBG_E("No space left in layer: %i\n", id);
     return -1;
   }
 
   for (int i = 0; i < MAX_LAYER_SONGS; ++i) {
-    if (layer->musics[i] == NULL) {
+    if (!layer->musics[i]) {
       layer->musics[i] = music;
       ++layer->music_count;
       return 1;
@@ -929,7 +953,7 @@ int8_t a_layer_add_sfx(uint32_t id, a_sfx* sfx) {
   }
 
   for (int i = 0; i < MAX_LAYER_SFX; ++i) {
-    if (layer->sources[i] == NULL) {
+    if (!layer->sources[i]) {
       layer->sources[i] = sfx;
       ++layer->sfx_count;
       return 1;
@@ -952,12 +976,12 @@ a_req a_req_create(uint16_t layer, vec3 pos, float gain, int8_t loop) {
 }
 
 int a_ctx_create(const char* device_name) {
-  ALCdevice* device = NULL;
+  ALCdevice* device = 0;
 
-  if (device_name != NULL) {
+  if (device_name) {
     device = alcOpenDevice(device_name);
   } else {
-    device = alcOpenDevice(NULL);
+    device = alcOpenDevice(0);
   }
 
 #if !defined(ASTERA_AUDIO_NO_EFX)
@@ -978,7 +1002,7 @@ int a_ctx_create(const char* device_name) {
 
   ALCcontext* context = alcCreateContext(device, attribs);
 #else
-  ALCcontext* context = alcCreateContext(device, NULL);
+  ALCcontext* context = alcCreateContext(device, 0);
 #endif
 
   if (!alcMakeContextCurrent(context)) {
@@ -1017,7 +1041,8 @@ a_buf a_buf_create(asset_t* asset) {
     return (a_buf){0};
   }
 
-  int16_t format          = a_load_int16(asset, 20);
+  // format, don't need to use it at the moment tho
+  // int16_t format          = a_load_int16(asset, 20);
   int16_t channels        = a_load_int16(asset, 22);
   int32_t sample_rate     = a_load_int32(asset, 24);
   int32_t byte_rate       = a_load_int32(asset, 28);
@@ -1084,7 +1109,7 @@ void a_buf_destroy(a_buf buffer) {
 
     if (end == g_a_map.buf_capacity - 1) {
       g_a_map.bufs[end + 1].id   = 0;
-      g_a_map.buf_names[end + 1] = NULL;
+      g_a_map.buf_names[end + 1] = 0;
     }
   }
 
@@ -1094,7 +1119,7 @@ void a_buf_destroy(a_buf buffer) {
 a_buf* a_buf_get(const char* name) {
   if (!name) {
     DBG_E("Unable to get null name buffer.\n");
-    return NULL;
+    return 0;
   }
 
   for (int i = 0; i < g_a_map.buf_count; ++i) {
@@ -1104,13 +1129,13 @@ a_buf* a_buf_get(const char* name) {
   }
 
   DBG_E("No buffer found named: %s\n", name);
-  return NULL;
+  return 0;
 }
 
 a_sfx* a_play_sfxn(const char* name, a_req* req) {
   if (!name) {
     DBG_E("No buffer name passed to play.\n");
-    return NULL;
+    return 0;
   }
 
   a_buf* buff = a_buf_get(name);
@@ -1124,7 +1149,7 @@ a_sfx* a_play_sfxn(const char* name, a_req* req) {
   }
 
   if (index == -1) {
-    return NULL;
+    return 0;
   }
 
   a_sfx* src = &g_a_map.sfx[index];
@@ -1150,7 +1175,7 @@ a_sfx* a_play_sfxn(const char* name, a_req* req) {
       for (uint16_t e = 0; e < req->fx_count; ++e) {
         if (req->fx[e]->slot) {
           alSource3i(src->id, AL_AUXILIARY_SEND_FILTER,
-                     (ALint)req->fx[e]->slot->id, e, NULL);
+                     (ALint)req->fx[e]->slot->id, e, 0);
         }
       }
     }
@@ -1179,7 +1204,7 @@ a_sfx* a_play_sfxn(const char* name, a_req* req) {
 a_sfx* a_play_sfx(a_buf* buff, a_req* req) {
   if (!buff) {
     DBG_E("No buffer passed to play.\n");
-    return NULL;
+    return 0;
   }
 
   int index = -1;
@@ -1191,7 +1216,7 @@ a_sfx* a_play_sfx(a_buf* buff, a_req* req) {
   }
 
   if (index == -1) {
-    return NULL;
+    return 0;
   }
 
   a_sfx* src = &g_a_map.sfx[index];
@@ -1218,7 +1243,7 @@ a_sfx* a_play_sfx(a_buf* buff, a_req* req) {
       for (uint16_t e = 0; e < req->fx_count; ++e) {
         if (req->fx[e]->slot) {
           alSource3i(src->id, AL_AUXILIARY_SEND_FILTER,
-                     (ALint)req->fx[e]->slot->id, e, NULL);
+                     (ALint)req->fx[e]->slot->id, e, 0);
         }
       }
     }
@@ -1248,7 +1273,7 @@ a_sfx* a_play_sfx(a_buf* buff, a_req* req) {
 a_music* a_music_create(asset_t* asset, a_meta* meta, a_req* req) {
   if (!asset) {
     DBG_E("No data passed to create music.\n");
-    return NULL;
+    return 0;
   }
 
   // Get the first free open song slot
@@ -1262,7 +1287,7 @@ a_music* a_music_create(asset_t* asset, a_meta* meta, a_req* req) {
 
   if (index == -1) {
     DBG_E("No available music slots.\n");
-    return NULL;
+    return 0;
   }
 
   a_music* music = &g_a_map.songs[index];
@@ -1272,14 +1297,14 @@ a_music* a_music_create(asset_t* asset, a_meta* meta, a_req* req) {
   music->data_length = asset->data_length;
   music->data        = asset->data;
   music->vorbis      = stb_vorbis_open_pushdata(asset->data, asset->data_length,
-                                           &used, &error, NULL);
+                                           &used, &error, 0);
 
   if (!music->vorbis) {
     music->data_length = 0;
     music->data        = 0;
     music->req         = 0;
     DBG_E("Unable to load vorbis, that sucks.\n");
-    return NULL;
+    return 0;
   }
 
   music->header_end = used;
@@ -1316,7 +1341,7 @@ a_music* a_music_create(asset_t* asset, a_meta* meta, a_req* req) {
       for (uint16_t e = 0; e < req->fx_count; ++e) {
         if (req->fx[e]->slot) {
           alSource3i(music->source, AL_AUXILIARY_SEND_FILTER,
-                     (ALint)req->fx[e]->slot->id, e, NULL);
+                     (ALint)req->fx[e]->slot->id, e, 0);
         }
       }
     }
@@ -1483,7 +1508,7 @@ void a_music_stop(a_music* music) {
 
 void a_resume_music(a_music* music) {
   ALenum state;
-  alSourcei(music->source, AL_SOURCE_STATE, &state);
+  alGetSourcei(music->source, AL_SOURCE_STATE, &state);
   if (state == AL_PAUSED) {
     alSourcePlay(music->source);
   }
@@ -1491,14 +1516,4 @@ void a_resume_music(a_music* music) {
 
 void a_music_pause(a_music* music) {
   alSourcePause(music->source);
-}
-
-static int a_get_open_sfx(void) {
-  for (int i = 0; i < MAX_SFX; ++i) {
-    if (!g_a_map.sfx[i].has_req) {
-      return i;
-    }
-  }
-
-  return -1;
 }

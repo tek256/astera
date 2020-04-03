@@ -1,18 +1,18 @@
 #include "debug.h"
 
-#include "platform.h"
-
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
 
-#if defined(PLAT_UNIX) || defined(PLAT_LINUX) || defined(PLAT_BSD)
+#if defined(__linux__) || defined(__unix__) || defined(__FreeBSD__) || \
+    defined(__APPLE__)
 #include <unistd.h>
 #endif
 
+// Macro to free console from process
 #ifndef DEBUG_OUTPUT
-#if defined(PLAT_MSFT) || defined(PLAT_MSFT_64)
+#if defined(_WIN32) || defined(_WIN64)
 #undef _WIN32_WINNT
 #define _WIN32_WINNT 0x0500
 #endif
@@ -20,12 +20,10 @@
 
 #define STR_BUFF_SIZE 128
 
-static int   logging   = -1;
-static int   timestamp = 1;
-static char* log_fp;
-
-static int refresh_rate = 5;
-static int changes_made = 0;
+static int         dbg_silent = 0;
+static int         logging    = -1;
+static int         timestamp  = 1;
+static const char* log_fp;
 
 static char time_buff[64];
 static char strbuff[STR_BUFF_SIZE];
@@ -55,13 +53,13 @@ void dbg_enable_log(int log, const char* fp) {
   }
 
   if (fp && log) {
-    #if defined(PLAT_MSFT)
-      remove(fp);
-    #else
+#if defined(PLAT_MSFT)
+    remove(fp);
+#else
     if (access(fp, F_OK) != -1) {
       remove(fp);
     }
-    #endif
+#endif
 
     FILE* chk = fopen(fp, "a");
     if (!chk) {
@@ -79,7 +77,7 @@ void _l(const char* format, ...) {
   va_start(args, format);
 
   vsprintf(strbuff, format, args);
-  if (!c_is_silent()) {
+  if (!dbg_silent) {
     fprintf(stdout, "%s", strbuff);
   }
 

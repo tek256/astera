@@ -9,7 +9,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@master
       - name: Generate CMake Build
-        run: cmake -Bbuild -GNinja -S.
+        run: cmake -Bbuild -G "Unix Makefiles" -S.
       - name: Run CMake Build
         run: cmake --build build
 

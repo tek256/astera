@@ -6,12 +6,18 @@
 #include <string.h>
 
 /* Debug Output Macro*/
+#if defined(ASTERA_DEBUG_INCLUDED)
 #if defined(ASTERA_DEBUG_OUTPUT)
 #if !defined(DBG_E)
-#define DBG_E(fmt, ...) DBG_E(fmt, ##__VA_ARGS_)
+#define DBG_E(fmt, ...) _l(fmt, ##__VA_ARGS_)
+#endif
+#elif !defined(DBG_E)
+#define DBG_E(fmt, ...)
 #endif
 #else
+#if !defined(DBG_E)
 #define DBG_E(fmt, ...)
+#endif
 #endif
 
 #if !defined(ASTERA_MORE_IMG_SUPPORT)
@@ -27,7 +33,6 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
-#include "debug.h"
 #include "sys.h"
 
 static r_flags flags;
@@ -396,11 +401,10 @@ void r_tex_bind(uint32_t tex) {
   glBindTexture(GL_TEXTURE_2D, tex);
 }
 
-r_tex r_tex_create(asset_t* asset) {
+r_tex r_tex_create(unsigned char* data, int length) {
   int            w, h, ch;
-  unsigned char* img =
-      stbi_load_from_memory(asset->data, asset->data_length, &w, &h, &ch, 0);
-  uint32_t id;
+  unsigned char* img = stbi_load_from_memory(data, length, &w, &h, &ch, 0);
+  uint32_t       id;
   glGenTextures(1, &id);
   glBindTexture(GL_TEXTURE_2D, id);
 
@@ -413,17 +417,16 @@ r_tex r_tex_create(asset_t* asset) {
                img);
 
   stbi_image_free(img);
-  asset->req_free = 1;
+
   return (r_tex){id, (uint32_t)w, (uint32_t)h};
 }
 
-r_sheet r_sheet_create(asset_t* asset, uint32_t sub_width,
+r_sheet r_sheet_create(unsigned char* data, int length, uint32_t sub_width,
                        uint32_t sub_height) {
   int      w, h, ch;
   uint32_t id;
 
-  unsigned char* img =
-      stbi_load_from_memory(asset->data, asset->data_length, &w, &h, &ch, 0);
+  unsigned char* img = stbi_load_from_memory(data, length, &w, &h, &ch, 0);
 
   int format = (ch == 4) ? GL_RGBA : (ch == 3) ? GL_RGB : GL_RGB;
 
@@ -441,7 +444,6 @@ r_sheet r_sheet_create(asset_t* asset, uint32_t sub_width,
   glBindTexture(GL_TEXTURE_2D, 0);
 
   stbi_image_free(img);
-  asset->req_free = 1;
 
   return (r_sheet){id, w, h, sub_width, sub_height};
 }
@@ -669,7 +671,7 @@ void r_keyframes_destroy(r_keyframes* frames) {
 void r_keyframes_set(r_keyframes* frames, int frame, float point, float value,
                      r_keyframe_curve curve) {
   if (frame < 0 || frames->count < frame)
-    _l("Invalid keyframe: %i in list.\n", frame);
+    DBG_E("Invalid keyframe: %i in list.\n", frame);
   frames->list[frame].point = point;
   frames->list[frame].value = value;
   frames->list[frame].curve = curve;
@@ -1102,7 +1104,6 @@ void r_particles_draw(r_particles* particles, r_shader shader) {
   if (particles->animated || particles->texture) {
     memset(tex_id_array->data.int_ptr, 0, sizeof(int) * tex_id_array->count);
     tex_id_array->count = 0;
-  } else if (particles->colored) {
   }
 }
 
@@ -1134,8 +1135,8 @@ void r_sprite_draw(r_sprite draw) {
   }
 
   if (!batch) {
-    _l("Cache miss for shader ID [%i] and sheet ID [%i].\n", draw.shader,
-       r_sprite_get_sheet_id(draw));
+    DBG_E("Cache miss for shader ID [%i] and sheet ID [%i].\n", draw.shader,
+          r_sprite_get_sheet_id(draw));
     return;
   }
 
@@ -1202,7 +1203,7 @@ int r_batch_count(void) {
 
 void r_batch_info(void) {
   for (uint32_t i = 0; i < g_shader_map.batch_capacity; ++i) {
-    _l("Shader: %i\n", g_shader_map.batches[i].shader);
+    DBG_E("Shader: %i\n", g_shader_map.batches[i].shader);
   }
 }
 
@@ -1244,17 +1245,17 @@ void r_shader_clear_array(r_uniform_array* array) {
     memset(array->data.int_ptr, 0, sizeof(int) * array->capacity);
   } break;
   default:
-    _l("Unsupported data type: array_clear\n");
+    DBG_E("Unsupported data type: array_clear\n");
     break;
   }
   array->count = 0;
 }
 
-static GLuint r_shader_create_sub(asset_t* asset, int type) {
+static GLuint r_shader_create_sub(unsigned char* data, int length, int type) {
   GLint  success = 0;
   GLuint id      = glCreateShader(type);
 
-  const char* ptr = (const char*)asset->data;
+  const char* ptr = (const char*)data;
 
   glShaderSource(id, 1, &ptr, NULL);
   glCompileShader(id);
@@ -1268,8 +1269,8 @@ static GLuint r_shader_create_sub(asset_t* asset, int type) {
     char* log = malloc(maxlen);
 
     glGetShaderInfoLog(id, maxlen, &len, log);
-    const char* type_str = (type == GL_FRAGMENT_SHADER) ? "FRAGMENT" : "VERTEX";
-    _l("%s: %s\n", type_str, log);
+    DBG_E("%s: %s\n", (type == GL_FRAGMENT_SHADER) ? "FRAGMENT" : "VERTEX",
+          log);
     free(log);
   }
 
@@ -1285,9 +1286,10 @@ r_shader r_shader_get(const char* name) {
   return 0;
 }
 
-r_shader r_shader_create(asset_t* vert, asset_t* frag) {
-  GLuint v = r_shader_create_sub(vert, GL_VERTEX_SHADER);
-  GLuint f = r_shader_create_sub(frag, GL_FRAGMENT_SHADER);
+r_shader r_shader_create(unsigned char* vert_data, int vert_length,
+                         unsigned char* frag_data, int frag_length) {
+  GLuint v = r_shader_create_sub(vert_data, vert_length, GL_VERTEX_SHADER);
+  GLuint f = r_shader_create_sub(frag_data, frag_length, GL_FRAGMENT_SHADER);
 
   GLuint id = glCreateProgram();
 
@@ -1304,7 +1306,7 @@ r_shader r_shader_create(asset_t* vert, asset_t* frag) {
     glGetProgramiv(id, GL_INFO_LOG_LENGTH, &maxlen);
     char* log = malloc(maxlen);
     glGetProgramInfoLog(id, maxlen, &len, log);
-    _l("%s\n", log);
+    DBG_E("%s\n", log);
     free(log);
   }
 
@@ -1325,8 +1327,8 @@ void r_shader_cache(r_shader shader, const char* name) {
 
   for (unsigned int i = 0; i < g_shader_map.count; ++i) {
     if (g_shader_map.batches[i].shader == shader) {
-      _l("Shader: %d already contained with alias of: %s\n", shader,
-         g_shader_map.names[i]);
+      DBG_E("Shader: %d already contained with alias of: %s\n", shader,
+            g_shader_map.names[i]);
       return;
     }
   }
@@ -1503,7 +1505,7 @@ r_shader_batch* r_batch_create(r_shader shader, r_sheet sheet) {
     array.name   = uniform_map->names[i];
 
     if (!uniform_map->names[i]) {
-      _l("No name set at index: %i\n", i);
+      DBG_E("No name set at index: %i\n", i);
     }
 
     array.capacity = uniform_map->capacities[i];
@@ -1669,7 +1671,7 @@ void r_anim_pause(r_anim* anim) {
 
 int r_anim_get_index(const char* name) {
   if (g_anim_map.count == 0) {
-    _l("No animations in cache to check for.\n");
+    DBG_E("No animations in cache to check for.\n");
     return 0;
   }
 
@@ -1679,7 +1681,7 @@ int r_anim_get_index(const char* name) {
     }
   }
 
-  _l("No animations matching: %s in cache.\n", name);
+  DBG_E("No animations matching: %s in cache.\n", name);
   return 0;
 }
 
@@ -1846,11 +1848,11 @@ int r_shader_setup_array(r_shader shader, const char* name, int capacity,
         map->shader = shader;
         map->used   = 1;
 
-        map->names      = (char**)malloc(sizeof(const char*));
+        map->names      = (const char**)malloc(sizeof(const char*));
         map->uids       = (uint32_t*)malloc(sizeof(uint32_t));
         map->types      = (int*)malloc(sizeof(int));
-        map->locations  = (int*)malloc(sizeof(int));
-        map->capacities = (int*)malloc(sizeof(int));
+        map->locations  = (unsigned int*)malloc(sizeof(int));
+        map->capacities = (unsigned int*)malloc(sizeof(int));
 
         break;
       }
@@ -1864,7 +1866,7 @@ int r_shader_setup_array(r_shader shader, const char* name, int capacity,
 
   if (map->count > 0) {
     int       count      = map->count + 1;
-    char*     names      = (char**)malloc(sizeof(char*) * count);
+    char*     names      = (char*)malloc(sizeof(char*) * count);
     uint32_t* uids       = (uint32_t*)malloc(sizeof(uint32_t) * count);
     int*      types      = (int*)malloc(sizeof(int) * count);
     int*      locations  = (int*)malloc(sizeof(int) * count);
@@ -1921,7 +1923,7 @@ void r_shader_uniform(r_shader shader, r_sheet sheet, const char* name,
   r_uniform_array* array = r_shader_get_array(shader, sheet, name);
 
   if (!array) {
-    _l("Unable to find Shader Uniform array with UID: %i\n");
+    DBG_E("Unable to find Shader Uniform array with UID: %i\n");
     return;
   }
 
@@ -1973,7 +1975,7 @@ void r_shader_uniform(r_shader shader, r_sheet sheet, const char* name,
     }
   } break;
   default:
-    _l("Unsupported data type.\n");
+    DBG_E("Unsupported data type.\n");
     return;
   }
 }
@@ -1983,7 +1985,7 @@ void r_shader_uniformi(r_shader shader, r_sheet sheet, int uid, void* data,
   r_uniform_array* array = r_shader_get_arrayi(shader, sheet, uid);
 
   if (!array) {
-    _l("Unable to find Shader Uniform array with UID: %i\n");
+    DBG_E("Unable to find Shader Uniform array with UID: %i\n");
     return;
   }
 
@@ -2035,7 +2037,7 @@ void r_shader_uniformi(r_shader shader, r_sheet sheet, int uid, void* data,
     }
   } break;
   default:
-    _l("Unsupported data type.\n");
+    DBG_E("Unsupported data type.\n");
     return;
   }
 }
@@ -2075,7 +2077,7 @@ void r_shader_sprite_uniform(r_sprite sprite, int uid, void* data) {
     array->data.float_ptr[array->count] = *src;
   } break;
   default:
-    _l("Unsupported data type.\n");
+    DBG_E("Unsupported data type.\n");
     return;
   }
   ++array->count;
@@ -2198,7 +2200,7 @@ int r_get_videomode_str(char* dst, int index) {
 
 void r_select_mode(int index, int fullscreen, int vsync, int borderless) {
   if (index > flags.video_mode_count) {
-    _l("Invalid video mode index, not setting.\n");
+    DBG_E("Invalid video mode index, not setting.\n");
     return;
   }
 
@@ -2227,7 +2229,7 @@ void r_select_mode(int index, int fullscreen, int vsync, int borderless) {
       g_window.borderless = borderless;
       glfwSetWindowAttrib(g_window.glfw, GLFW_DECORATED,
                           (borderless == 0) ? GLFW_TRUE : GLFW_FALSE);
-      _l("Setting borderless to: %i\n", borderless);
+      DBG_E("Setting borderless to: %i\n", borderless);
     }
 
     if (selected_mode->width != g_window.width ||
@@ -2280,6 +2282,10 @@ int r_is_fullscreen(void) {
 
 int r_is_borderless(void) {
   return g_window.borderless;
+}
+
+void r_poll_events(void) {
+  glfwPollEvents();
 }
 
 static void r_window_get_modes(void) {
@@ -2340,7 +2346,7 @@ static const GLFWvidmode* r_find_best_mode(void) {
 
 int r_window_create(r_window_info info) {
 #if defined(INIT_DEBUG)
-  _l("Creating window.\n");
+  DBG_E("Creating window.\n");
 #endif
 
   glfwSetErrorCallback(glfw_err_cb);
@@ -2427,12 +2433,6 @@ int r_window_create(r_window_info info) {
 
   g_window.glfw = window;
 
-  if (info.icon) {
-    asset_t* icon = asset_get(0, info.icon);
-    r_window_set_icon(icon);
-    asset_free(icon);
-  }
-
   glfwMakeContextCurrent(window);
 
   gladLoadGL(glfwGetProcAddress);
@@ -2442,7 +2442,7 @@ int r_window_create(r_window_info info) {
   }
 
 #if defined(INIT_DEBUG)
-  _l("Window context created successfully.\n");
+  DBG_E("Window context created successfully.\n");
 #endif
 
   flags.allowed = 1;
@@ -2458,7 +2458,7 @@ int r_window_create(r_window_info info) {
 
 #if !defined(CUSTOM_GLFW_CALLBACKS)
 #if defined(INIT_DEBUG)
-  _l("Setting Callbacks.\n");
+  DBG_E("Setting Callbacks.\n");
 #endif
   glfwSetWindowPosCallback(g_window.glfw, glfw_window_pos_cb);
   glfwSetWindowSizeCallback(g_window.glfw, glfw_window_size_cb);
@@ -2474,10 +2474,8 @@ int r_window_create(r_window_info info) {
   r_window_get_modes();
 
 #if defined(INIT_DEBUG)
-  _l("Setting default bindings.\n");
+  DBG_E("Setting default bindings.\n");
 #endif
-
-  i_default_bindings();
 
   return 1;
 }
@@ -2522,20 +2520,17 @@ void r_window_set_pos(int x, int y) {
   glfwSetWindowPos(g_window.glfw, x, y);
 }
 
-int r_window_set_icon(asset_t* asset) {
-  if (asset->filled) {
+int r_window_set_icon(unsigned char* data, int length) {
+  if (data) {
     int            w, h, ch;
-    unsigned char* img =
-        stbi_load_from_memory(asset->data, asset->data_length, &w, &h, &ch, 0);
+    unsigned char* img = stbi_load_from_memory(data, length, &w, &h, &ch, 0);
 
     GLFWimage glfw_img = (GLFWimage){w, h, img};
     glfwSetWindowIcon(g_window.glfw, 1, &glfw_img);
 
     free(img);
-
-    asset->req_free = 1;
   } else {
-    _l("No window icon passed to set.\n");
+    DBG_E("No window icon passed to set.\n");
     return 0;
   }
 

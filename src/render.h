@@ -8,7 +8,9 @@ extern "C" {
 #include <GLFW/glfw3.h>
 #include <linmath.h>
 
-#include "asset.h"
+// Lets go ahead and remove this,
+// it's not too much trouble for the user to go
+// asset_struct->data, asset_struct->data_length,
 
 #include <stdint.h>
 
@@ -319,10 +321,11 @@ void          r_framebuffer_destroy(r_framebuffer fbo);
 void          r_framebuffer_bind(r_framebuffer fbo);
 void          r_framebuffer_draw(r_framebuffer fbo);
 
-r_tex r_tex_create(asset_t* asset);
+r_tex r_tex_create(unsigned char* data, int length);
 void  r_tex_bind(uint32_t tex);
 
-r_sheet r_sheet_create(asset_t* asset, uint32_t subwidth, uint32_t subheight);
+r_sheet r_sheet_create(unsigned char* data, int length, uint32_t subwidth,
+                       uint32_t subheight);
 void    r_sheet_bind(uint32_t sheet);
 
 r_baked_sheet r_baked_sheet_create(r_sheet sheet, r_baked_quad* quads,
@@ -390,7 +393,8 @@ void r_cam_move(float x, float y);
 void r_cam_get_size(float* width, float* height);
 void r_cam_set_size(float width, float height);
 
-r_shader r_shader_create(asset_t* vert, asset_t* frag);
+r_shader r_shader_create(unsigned char* vert, int vert_length,
+                         unsigned char* frag, int frag_length);
 r_shader r_shader_get(const char* name);
 
 void r_shader_bind(r_shader shader);
@@ -440,10 +444,12 @@ int r_is_vsync(void);
 int r_is_fullscreen(void);
 int r_is_borderless(void);
 
+void r_poll_events(void);
+
 int  r_window_create(r_window_info info);
 void r_window_destroy(void);
 void r_window_request_close(void);
-int  r_window_set_icon(asset_t* asset);
+int  r_window_set_icon(unsigned char* data, int length);
 
 void r_window_center(void);
 void r_window_set_pos(int x, int y);

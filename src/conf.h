@@ -1,11 +1,10 @@
+// TODO write_pref
 #ifndef ASTERA_CONF_HEADER
 #define ASTERA_CONF_HEADER
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include "asset.h"
 
 typedef struct {
   int   render;
@@ -35,7 +34,7 @@ typedef struct {
 void    c_parse_args(int argc, char** argv);
 c_conf  c_defaults();
 c_conf  c_parse_table(c_table table);
-c_table c_get_table(asset_t* asset);
+c_table c_get_table(unsigned char* data, int length);
 void    c_table_free(c_table table);
 
 void c_write_pref(const char* fp, const char* key, const char* value);

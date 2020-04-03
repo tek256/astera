@@ -1,6 +1,6 @@
 <div id="header">
     <p align="center">
-      <img width="64px" height="64px" style="border-radius: 6px;" src="res/tex/icon.png"><br>
+      <img width="64px" height="64px" style="border-radius: 6px;" src="docs/icon.png"><br>
       <b>astera</b><br>
 	  <span font-size="16px">a cross platform game library</span><br>
       <span font-size="12px">Made by <a href="http://tek256.com">Devon</a> with love.</span><br><br>
