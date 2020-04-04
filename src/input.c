@@ -70,6 +70,7 @@ uint16_t i_init(void) {
     i_exit();
     return 0;
   }
+
   current_key_count = 0;
 
   mouse_p = i_create_p();
@@ -321,7 +322,7 @@ void i_get_chars(char* dst, uint16_t count) {
   memcpy(dst, chars, sizeof(char) * cpy_count);
 }
 
-void i_set_mouse_grab(const GLFWwindow* window, int grab) {
+void i_set_mouse_grab(GLFWwindow* window, int grab) {
   if (grab) {
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
   } else {
@@ -329,7 +330,7 @@ void i_set_mouse_grab(const GLFWwindow* window, int grab) {
   }
 }
 
-int i_get_mouse_grab(const GLFWwindow* window) {
+int i_get_mouse_grab(GLFWwindow* window) {
   int value = glfwGetInputMode(window, GLFW_CURSOR);
 
   if (value == GLFW_CURSOR_DISABLED) {

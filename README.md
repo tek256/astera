@@ -11,14 +11,12 @@
 ### About
 Astera is a game library focused on performance, portability, and maintainability. The goal is to show how to make games and game engines work with lower level languages. Astera aims to rely on as few dependencies as possible.  
 
-#### Latest Release: 0.01-PRE
+#### Latest Release: 0.01
 
 ### Building
-Please note that at this stage the library is not at a stable release candidate. You can try automated building by either running the `build_unix.sh` or `build_win.bat` script in the root directory. 
-
-Both of the build scripts have the same arguments.
+Astera and it's dependencies are built using CMake. You can run your own CMake command or try using one of the automated build scripts.
 ```
-Usage build_unix.sh && build_win.sh [-hardiecsnxqq]
+Usage build_unix.sh && build_win.bat [-hardiecsnxqq]
 -h  Show this info
 -a  Build all (deps, headers, examples)
 -r  Build release (DEFAULT, optimizations, -O2)
@@ -36,13 +34,13 @@ Usage build_unix.sh && build_win.sh [-hardiecsnxqq]
 For more information see the relevant [wiki page](https://github.com/tek256/astera/wiki/Setup) or the `docs/setup.md` file.
 
 ### Libraries Used
-[GLFW](https://github.com/glfw/glfw), [OpenAL-Soft](https://github.com/kcat/openal-soft), [GLAD](https://github.com/Dav1dde/glad), [STB](https://github.com/nothings/stb/) Image & Vorbis, [nanovg](https://github.com/memononen/nanovg), and [ZIP](https://github.com/kuba--/zip)(optional).
+[GLFW](https://github.com/glfw/glfw), [OpenAL-Soft](https://github.com/kcat/openal-soft), [GLAD](https://github.com/Dav1dde/glad), [STB](https://github.com/nothings/stb/) Image & Vorbis, [nanovg](https://github.com/memononen/nanovg), and [ZIP](https://github.com/kuba--/zip).
 
 ### Target Platforms
 Here are the target platforms for this library:  
 ```
-- Linux (distro agnostic)
-- Windows XP+
+- Windows
+- Linux
 - Mac OSX (versions supporting OpenGL 3.3+)
 - BSD (Free, Net, Open)
 ```  
@@ -54,42 +52,25 @@ These are some potential future target platforms:
 - iOS
 ```
 
-### Future Features 
-These are some potential future features: 
-```
-- OpenGL ES 2.0 Support
-```
-
 ### Changelog
 ```
+Apr 3, 2020
+- 0.01 Release!
+- Partial collision detection (AABB & Circle)
+- Moved to CMake for build system (special thanks to @slurps-mad-rips)
+- Remove level.c/h, conf.c/h, game.c/h, and main.c
+- Library style build now (use examples to see astera running)
+- Examples exist & run now!
+- Culled out some somewhat useless tools, will make more as needed.
+- Overall library tweaks & modifications to make it more functional.
+
 Mar 21, 2020
 - Updated OpenAL-Soft to 1.20.1
 - AABB & Circle Collision detection working
 - Audio Effects completed
 - Audio Distance Calculations done
 - In progress: Quad trees & level system
-Mar 18, 2020
-- Build Script (Unix only for now, Windows in the works)
-- Recreated useful tools
-- Dynamic Compilation Support
-- Static Baked Sheets (layers)
-- PAK File Support
-- Audio Effects (in the works)
-- Level System (in the works)
-- Rendering Bug Fixes
-- Probably missed a lot of things here
-- Added GitHub Workflows (CI) Support
-Feb 5, 2020
-- Largely Documentation
-- Converted Documentation to Markdown & Legible formatting
-- Moved `examples/` into `docs/`
-- Updated scripts in `tool` for usability & legibility
-Feb 3, 2020
-- 0.01 PRE-Release
-- Asset Streaming changes
-- Wave file playing
-- Pedantic cleaning
-- UI Finished
+
 For older changes see docs/changelog-archive.txt
 ```
 

@@ -2217,7 +2217,7 @@ void r_select_mode(int index, int fullscreen, int vsync, int borderless) {
     glfwWindowHint(GLFW_BLUE_BITS, selected_mode->blueBits);
     glfwWindowHint(GLFW_REFRESH_RATE, selected_mode->refreshRate);
 
-    g_window.refreshRate = selected_mode->refreshRate;
+    g_window.refresh_rate = selected_mode->refreshRate;
 
     vec2_dup(r_res, (vec2){selected_mode->width, selected_mode->height});
 
@@ -2372,7 +2372,7 @@ int r_window_create(r_window_info info) {
   if (info.fullscreen) {
     const GLFWvidmode* selected_mode;
 
-    if (info.width > 0 && info.height > 0 && info.refreshRate > 0) {
+    if (info.width > 0 && info.height > 0 && info.refresh_rate > 0) {
       selected_mode = r_find_closest_mode(info);
     } else {
       selected_mode = r_find_best_mode();
@@ -2385,10 +2385,10 @@ int r_window_create(r_window_info info) {
 
     r_default_monitor = glfwGetPrimaryMonitor();
 
-    g_window.refreshRate = selected_mode->refreshRate;
-    g_window.width       = selected_mode->width;
-    g_window.height      = selected_mode->height;
-    g_window.fullscreen  = 1;
+    g_window.refresh_rate = selected_mode->refreshRate;
+    g_window.width        = selected_mode->width;
+    g_window.height       = selected_mode->height;
+    g_window.fullscreen   = 1;
 
     vec2_dup(r_res, (vec2){selected_mode->width, selected_mode->height});
 
@@ -2400,11 +2400,11 @@ int r_window_create(r_window_info info) {
                    (info.borderless == 0) ? GLFW_TRUE : GLFW_FALSE);
     g_window.borderless = info.borderless;
 
-    if (info.refreshRate > 0) {
-      glfwWindowHint(GLFW_REFRESH_RATE, info.refreshRate);
-      g_window.refreshRate = info.refreshRate;
+    if (info.refresh_rate > 0) {
+      glfwWindowHint(GLFW_REFRESH_RATE, info.refresh_rate);
+      g_window.refresh_rate = info.refresh_rate;
     } else {
-      g_window.refreshRate =
+      g_window.refresh_rate =
           glfwGetVideoMode(glfwGetPrimaryMonitor())->refreshRate;
     }
 
@@ -2542,12 +2542,12 @@ void r_window_destroy(void) {
 
   glfwDestroyWindow(g_window.glfw);
 
-  g_window.glfw        = NULL;
-  g_window.width       = -1;
-  g_window.height      = -1;
-  g_window.refreshRate = -1;
-  g_window.fullscreen  = 0;
-  g_window.vsync       = 0;
+  g_window.glfw         = NULL;
+  g_window.width        = -1;
+  g_window.height       = -1;
+  g_window.refresh_rate = -1;
+  g_window.fullscreen   = 0;
+  g_window.vsync        = 0;
 }
 
 void r_window_request_close(void) {
@@ -2571,7 +2571,30 @@ void r_window_clear_color(const char* str) {
   r_get_color(color, str);
   glClearColor(color[0], color[1], color[2], 1.0f);
 }
+/*typedef struct {
+  int   width, height;
+  int   fullscreen, vsync, borderless;
+  int   refreshRate;
+  float gamma;
+  char* title;
+  char* icon;
+} r_window_info;
+ */
+r_window_info r_window_info_create(int width, int height, const char* name,
+                                   int refresh_rate, int vsync, int fullscreen,
+                                   int borderless) {
+  return (r_window_info){
+      .width        = width,
+      .height       = height,
+      .title        = name,
+      .refresh_rate = refresh_rate,
+      .fullscreen   = fullscreen,
+      .borderless   = borderless,
+      .vsync        = vsync,
+      .icon         = 0,
+  };
+}
 
 int r_get_refresh_rate(void) {
-  return g_window.refreshRate;
+  return g_window.refresh_rate;
 }

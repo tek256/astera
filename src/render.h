@@ -25,12 +25,12 @@ typedef struct {
 } r_flags;
 
 typedef struct {
-  int   width, height;
-  int   fullscreen, vsync, borderless;
-  int   refreshRate;
-  float gamma;
-  char* title;
-  char* icon;
+  int         width, height;
+  int         fullscreen, vsync, borderless;
+  int         refresh_rate;
+  float       gamma;
+  const char* title;
+  char*       icon;
 } r_window_info;
 
 typedef struct {
@@ -38,7 +38,7 @@ typedef struct {
   int         x, y;
   int         fullscreen, vsync, borderless;
   int         close_requested;
-  int         refreshRate;
+  int         refresh_rate;
   float       gamma;
   GLFWwindow* glfw;
 } r_window;
@@ -459,6 +459,10 @@ int r_window_should_close(void);
 void r_window_swap_buffers(void);
 void r_window_clear(void);
 void r_window_clear_color(const char* str);
+
+r_window_info r_window_info_create(int width, int height, const char* name,
+                                   int refresh_rate, int vsync, int fullscreen,
+                                   int borderless);
 
 int r_get_refresh_rate(void);
 

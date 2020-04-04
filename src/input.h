@@ -190,8 +190,8 @@ void i_set_char_tracking(int tracking);
 void i_char_callback(uint32_t c);
 void i_get_chars(char* dst, uint16_t count);
 
-void i_set_mouse_grab(const GLFWwindow* window, int grabbed);
-int  i_get_mouse_grab(const GLFWwindow* window);
+void i_set_mouse_grab(GLFWwindow* window, int grabbed);
+int  i_get_mouse_grab(GLFWwindow* window);
 
 void i_mouse_button_callback(uint16_t button);
 void i_mouse_pos_callback(double x, double y);

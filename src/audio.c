@@ -1431,7 +1431,7 @@ void a_music_reset(a_music* music) {
   // NOTE: Playing -> load back buffer first, then push to front & fill back
   // buffer again
   // Stopped -> throw out both buffers and fill normally
-  /*music->data_offset = 0;
+  music->data_offset = 0;
   for (int i = 0; i < AUDIO_BUFFERS_PER_MUSIC; ++i) {
     unsigned int buffer = music->buffers[i];
 
@@ -1440,7 +1440,7 @@ void a_music_reset(a_music* music) {
 
     int pcm_total_length = 0;
 
-    float **out;
+    float** out;
 
     memset(music->pcm, 0, sizeof(short) * music->pcm_length);
 
@@ -1462,7 +1462,7 @@ void a_music_reset(a_music* music) {
 
       if (num_samples > 0) {
         int sample_count = num_channels * num_samples;
-        int pcm_size = sample_count * sizeof(short);
+        int pcm_size     = sample_count * sizeof(short);
         pcm_total_length += pcm_size;
         for (int s = 0; s < num_samples - 1; ++s) {
           for (int c = 0; c < num_channels; ++c) {
@@ -1480,7 +1480,7 @@ void a_music_reset(a_music* music) {
     alBufferData(buffer, music->format, music->pcm, pcm_total_length,
                  music->vorbis->sample_rate);
     alSourceQueueBuffers(music->source, 1, &buffer);
-  }*/
+  }
 }
 
 void a_music_destroy(a_music* music) {

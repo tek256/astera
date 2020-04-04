@@ -1,3 +1,5 @@
+// TODO: Clipping / Scissor effects
+
 #ifndef ASTERA_UI_HEADER
 #define ASTERA_UI_HEADER
 

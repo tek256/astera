@@ -1,3 +1,25 @@
+Mar 18, 2020
+- Build Script (Unix only for now, Windows in the works)
+- Recreated useful tools
+- Dynamic Compilation Support
+- Static Baked Sheets (layers)
+- PAK File Support
+- Audio Effects (in the works)
+- Level System (in the works)
+- Rendering Bug Fixes
+- Probably missed a lot of things here
+- Added GitHub Workflows (CI) Support
+Feb 5, 2020
+- Largely Documentation
+- Converted Documentation to Markdown & Legible formatting
+- Moved `examples/` into `docs/`
+- Updated scripts in `tool` for usability & legibility
+Feb 3, 2020
+- 0.01 PRE-Release
+- Asset Streaming changes
+- Wave file playing
+- Pedantic cleaning
+- UI Finished
 Jan 16, 2020
 - Prepping for 0.01 Release
 - Rendering changes
