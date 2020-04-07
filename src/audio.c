@@ -3,9 +3,7 @@
 #define ALC_ALL_DEVICES_SPECIFIER         0x1013
 #endif*/
 
-#include "audio.h"
-
-#include "debug.h"
+#include <astera/audio.h>
 
 /* Debug Output Macro*/
 #if defined(ASTERA_DEBUG_OUTPUT)
@@ -66,15 +64,15 @@ static LPALGETAUXILIARYEFFECTSLOTFV   alGetAuxiliaryEffectSlotfv;
 // TODO: Implement more info
 void a_efx_info(void) {
   if (alcIsExtensionPresent(g_a_ctx.device, "ALC_EXT_EFX") == AL_FALSE) {
-    _l("No ALC_EXT_EFX.\n");
+    DBG_E("No ALC_EXT_EFX.\n");
   } else {
-    _l("ALC_EXT_EFX Present.\n");
+    DBG_E("ALC_EXT_EFX Present.\n");
   }
 
-  _l("MAX_AUXILIARY_SENDS: %i\n", ALC_MAX_AUXILIARY_SENDS);
+  DBG_E("MAX_AUXILIARY_SENDS: %i\n", ALC_MAX_AUXILIARY_SENDS);
   ALCint s_sends = 0;
   alcGetIntegerv(g_a_ctx.device, ALC_MAX_AUXILIARY_SENDS, 1, &s_sends);
-  _l("MAX AUXILIARY SENDS PER SOURCE: %i\n", s_sends);
+  DBG_E("MAX AUXILIARY SENDS PER SOURCE: %i\n", s_sends);
 }
 
 static inline float _a_clamp(float value, float min, float max, float def) {

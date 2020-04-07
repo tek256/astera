@@ -1,4 +1,4 @@
-#include "conf.h"
+#include <astera/conf.h>
 
 #include <getopt.h>
 

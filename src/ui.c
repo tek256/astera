@@ -1,16 +1,16 @@
-#include "ui.h"
+#include <astera/ui.h>
 
 /* Debug Output Macro*/
-#if defined(ASTERA_DEBUG_INCLUDED)
-#if defined(ASTERA_DEBUG_OUTPUT)
-#if !defined(DBG_E)
-#define DBG_E(fmt, ...) DBG_E(fmt, ##__VA_ARGS_)
+#if defined  ASTERA_DEBUG_INCLUDED
+#if defined  ASTERA_DEBUG_OUTPUT
+#if !defined DBG_E
+#define DBG_E(fmt, ...) _l(fmt, ##__VA_ARGS_)
 #endif
-#elif !defined(DBG_E)
+#elif !defined DBG_E
 #define DBG_E(fmt, ...)
 #endif
 #else
-#if !defined(DBG_E)
+#if !defined DBG_E
 #define DBG_E(fmt, ...)
 #endif
 #endif
@@ -53,6 +53,15 @@ uint32_t ui_element_get_uid(ui_element element) {
 }
 
 uint8_t ui_init(vec2 size, float pixel_scale, int use_mouse) {
+#ifdef ASTERA_DEBUG_OUTPUT
+#ifdef ASTERA_DEBUG_INCLUDED
+  _l("ASTERA DEBUG ENABLED\n");
+#else
+  printf("Astera debug enabled.\n");
+#endif
+#else
+  printf("No debug output.\n");
+#endif
   g_ui_ctx = (ui_ctx){0};
 
   vec2_dup(g_ui_ctx.size, size);
@@ -1833,15 +1842,15 @@ ui_box ui_box_create(vec2 pos, vec2 size, vec4 color, vec4 hover_color) {
   return box;
 }
 
-ui_img ui_image_create(asset_t* image_data, ui_img_flags flags, vec2 pos,
-                       vec2 size) {
-  if (!image_data || !image_data->data || !image_data->data_length) {
+ui_img ui_image_create(unsigned char* data, int data_length, ui_img_flags flags,
+                       vec2 pos, vec2 size) {
+  if (!data || !data_length) {
     DBG_E("No data passed.\n");
     return (ui_img){0};
   }
 
-  int32_t image_handle = nvgCreateImageMem(
-      g_ui_ctx.nvg, flags, image_data->data, image_data->data_length);
+  int32_t image_handle =
+      nvgCreateImageMem(g_ui_ctx.nvg, flags, data, data_length);
   ui_img img;
   img.handle = image_handle;
   vec2_dup(img.position, pos);
@@ -1921,9 +1930,8 @@ ui_font ui_font_get(const char* font_name) {
   return nvgFindFont(g_ui_ctx.nvg, font_name);
 }
 
-ui_font ui_font_create(asset_t* asset, const char* name) {
-  int font_id =
-      nvgCreateFontMem(g_ui_ctx.nvg, name, asset->data, asset->data_length, 0);
+ui_font ui_font_create(unsigned char* data, int data_length, const char* name) {
+  int font_id = nvgCreateFontMem(g_ui_ctx.nvg, name, data, data_length, 0);
   return font_id;
 }
 

@@ -1,6 +1,6 @@
 #include <glad/glad_gl.c>
 
-#include "render.h"
+#include <astera/render.h>
 
 #include <math.h>
 #include <string.h>
@@ -33,7 +33,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
-#include "sys.h"
+#include <astera/sys.h>
 
 static r_flags flags;
 
@@ -47,7 +47,7 @@ static r_shader_map g_shader_map;
 
 #if !defined(CUSTOM_GLFW_CALLBACKS)
 
-#include "input.h"
+#include <astera/input.h>
 
 static void glfw_err_cb(int error, const char* msg) {
   DBG_E("ERROR: %i %s\n", error, msg);

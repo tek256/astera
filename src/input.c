@@ -1,7 +1,7 @@
 #ifndef INPUT_C
 #define INPUT_C
 
-#include "input.h"
+#include <astera/input.h>
 
 /* Debug Output Macro*/
 #if defined(ASTERA_DEBUG_INCLUDED)
@@ -162,6 +162,14 @@ void i_create_joy(uint16_t joy_id) {
   }
 }
 
+int8_t i_joy_exists(uint16_t joy) {
+  return glfwJoystickPresent(joy);
+}
+
+uint8_t i_joy_connected() {
+  return joystick_id;
+}
+
 float i_joy_axis_delta(uint16_t axis) {
   if (!joy_exists)
     return 0;
@@ -263,6 +271,7 @@ void i_rm_key(uint16_t key) {
   for (int i = index; i < cap - 1; ++i) {
     current_keys[i] = current_keys[i + 1];
   }
+
   current_keys[cap - 1] = 0;
   --current_key_count;
 }

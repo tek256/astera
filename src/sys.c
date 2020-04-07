@@ -1,4 +1,4 @@
-#include "sys.h"
+#include <astera/sys.h>
 
 #include <GLFW/glfw3.h>
 #include <math.h>
