@@ -2,10 +2,6 @@
 /build/
 *build/
 
-# Include headers are to be generated
-# on the client machine
-include/
-
 # Excluse any CMakeBuild info
 CMakeFiles/
 CMakeCache.txt

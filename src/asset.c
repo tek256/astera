@@ -2,7 +2,6 @@
 /*
  * NOTE: The PAK System is inspired by the r-lyeh/sdarc.c implementation
  */
-
 #include <astera/asset.h>
 
 /* Debug Output Macro*/
