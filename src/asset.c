@@ -160,6 +160,8 @@ pak_t* pak_open(const char* file, const char* mode) {
 
     return pak;
   }
+
+  return 0;
 }
 
 int32_t pak_append(pak_t* pak, const char* filename, const unsigned char* data,
@@ -193,6 +195,8 @@ int32_t pak_append(pak_t* pak, const char* filename, const unsigned char* data,
 
     return !ferror(pak->out);
   }
+
+  return -1;
 }
 
 int32_t pak_append_file(pak_t* pak, const char* filename, FILE* in) {
@@ -213,7 +217,8 @@ int32_t pak_append_file(pak_t* pak, const char* filename, FILE* in) {
 
   uint32_t index = pak->count++;
 
-  pak->entries      = realloc(pak->entries, pak->count * sizeof(pak_file_t));
+  pak->entries =
+      (pak_file_t*)realloc(pak->entries, pak->count * sizeof(pak_file_t));
   pak_file_t *entry = &pak->entries[index], zero = {0};
   *entry = zero;
 

@@ -170,7 +170,7 @@ static char* c_cleaned_str(const char* str, int* size, char* str_end) {
     return 0;
   }
 
-  int32_t str_size = 0;
+  int str_size = 0;
 
   if (str_end) {
     while (isspace(*str) && str < str_end)

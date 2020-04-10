@@ -53,7 +53,7 @@ void dbg_enable_log(int log, const char* fp) {
   }
 
   if (fp && log) {
-#if defined(PLAT_MSFT)
+#if defined _WIN32 || defined _WIN64
     remove(fp);
 #else
     if (access(fp, F_OK) != -1) {

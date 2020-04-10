@@ -1860,8 +1860,9 @@ ui_img ui_image_create(unsigned char* data, int data_length, ui_img_flags flags,
 
 void ui_dropdown_add_option(ui_dropdown* dropdown, const char* option) {
   if (dropdown->option_count == dropdown->option_capacity) {
-    dropdown->options = (const char**)realloc(
-        dropdown->options, sizeof(char*) * dropdown->option_capacity + 4);
+    dropdown->options =
+        (const char**)realloc((void*)dropdown->options,
+                              sizeof(char*) * dropdown->option_capacity + 4);
     dropdown->option_count += 4;
     if (!dropdown->options) {
       DBG_E("Unable to expand memory for dropdown options\n");

@@ -54,7 +54,7 @@ These are some potential future target platforms:
 
 ### Changelog
 ```
-Apr 3, 2020
+Apr X, 2020
 - 0.01 Release!
 - Partial collision detection (AABB & Circle)
 - Moved to CMake for build system (special thanks to @slurps-mad-rips)
@@ -73,6 +73,11 @@ Mar 21, 2020
 
 For older changes see docs/changelog-archive.txt
 ```
+
+### Special Thanks
+[Isabella Muerte](https://github.com/slurps-mad-rips) for being a patient friend and helping create the build system.  
+[Sharlock93](https://github.com/sharlock93) for helping diagnose issues.  
+[Dan Bechard](https://github.com/dbechrd) for helping test on Windows & discuss ideas with.  
 
 ### License  
 The Unlicense 
