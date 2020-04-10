@@ -17,13 +17,14 @@ foreach (entry IN LISTS entries)
 endforeach()
 list(REMOVE_ITEM directories "${CMAKE_CURRENT_SOURCE_DIR}/resources")
 
-add_library(${PROJECT_NAME}-examples INTERFACE)
-#add_custom_command(TARGET ${PROJECT_NAME}-examples POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory "${PROJECT_SOURCE_DIR}/resources" "$<TARGET_FILE_DIR:${PROJECT_NAME}-examples>/resources")
 add_custom_target(${PROJECT_NAME}-examples-resources
-  COMMAND ${CMAKE_COMMAND} -E copy_directory "${PROJECT_SOURCE_DIR}/resources" "$<TARGET_FILE_DIR:${PROJECT_NAME}-examples>/resources"
-  COMMENT "Copying examples resources"
+  COMMAND
+    ${CMAKE_COMMAND} -E copy_directory
+      "${CMAKE_CURRENT_SOURCE_DIR}/resources"
+      "${CMAKE_CURRENT_BINARY_DIR}/resources"
+  MAIN_DEPENDENCY "${CMAKE_CURRENT_SOURCE_DIR}/resources"
+  COMMENT "Copying resources directory"
   VERBATIM)
-add_dependencies(${PROJECT_NAME}-examples ${PROJECT_NAME}-examples-resources)
 
 foreach(directory IN LISTS directories)
   file(GLOB sources CONFIGURE_DEPENDS "${directory}/*.c") 
@@ -33,7 +34,5 @@ foreach(directory IN LISTS directories)
   target_compile_definitions(${name} 
     PRIVATE
     $<${opengl-deprecation}:GL_SILENCE_DEPRECATION>)
-
-  target_link_libraries(${name} PRIVATE ${PROJECT_NAME}-examples)
   set_property(TARGET ${name} PROPERTY BUILD_RPATH $<TARGET_FILE_DIR:astera>)
 endforeach()
