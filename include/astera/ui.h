@@ -81,7 +81,10 @@ typedef struct {
   uint32_t     id;
   const char** options;
   uint16_t     option_count, option_display, option_capacity;
-  uint16_t     selected, cursor;
+  uint16_t     start; // the start index for scrolling
+  uint16_t     top_scroll_pad,
+      bottom_scroll_pad; // the points in which scrolling will start
+  uint16_t selected, cursor, mouse_cursor;
 
   ui_font font;
   float   font_size;
@@ -241,6 +244,8 @@ uint8_t ui_init(vec2 size, float pixel_scale, int use_mouse);
 void    ui_update(vec2 mouse_pos);
 void    ui_destroy();
 
+void ui_get_color(vec4 val, const char* v);
+
 // Convert Pixels to Screen Size (Context defined)
 void ui_px_to_scale(vec2 dst, vec2 px);
 // Convert Screen Scale to Pixels
@@ -302,13 +307,13 @@ ui_img ui_image_create(unsigned char* data, int data_len, ui_img_flags flags,
 void ui_text_next(ui_text* text);
 void ui_text_prev(ui_text* text);
 
-void   ui_dropdown_add_option(ui_dropdown* dropdown, const char* option);
-int8_t ui_dropdown_contains(ui_dropdown* dropdown, vec2 pos);
-void   ui_dropdown_set_to_cursor(ui_dropdown* dropdown);
-void   ui_dropdown_set(ui_dropdown* dropdown, uint16_t select);
-void   ui_dropdown_next(ui_dropdown* dropdown);
-void   ui_dropdown_prev(ui_dropdown* dropdown);
-int8_t ui_dropdown_has_change(ui_dropdown* dropdown);
+uint16_t ui_dropdown_add_option(ui_dropdown* dropdown, const char* option);
+int8_t   ui_dropdown_contains(ui_dropdown* dropdown, vec2 pos);
+void     ui_dropdown_set_to_cursor(ui_dropdown* dropdown);
+void     ui_dropdown_set(ui_dropdown* dropdown, uint16_t select);
+void     ui_dropdown_next(ui_dropdown* dropdown);
+void     ui_dropdown_prev(ui_dropdown* dropdown);
+int8_t   ui_dropdown_has_change(ui_dropdown* dropdown);
 
 void ui_image_destroy(ui_img* img);
 
@@ -340,7 +345,7 @@ void ui_tree_print(ui_tree* tree);
 
 uint32_t ui_tree_get_cursor_id(ui_tree* tree);
 int8_t   ui_tree_is_active(ui_tree* tree, uint32_t id);
-uint32_t ui_tree_select(ui_tree* tree, int32_t event_type);
+uint32_t ui_tree_select(ui_tree* tree, int32_t event_type, int is_mouse);
 uint32_t ui_tree_next(ui_tree* tree);
 uint32_t ui_tree_prev(ui_tree* tree);
 

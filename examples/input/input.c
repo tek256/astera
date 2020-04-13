@@ -29,11 +29,13 @@ uint32_t box_uid, button_uid, dropdown_uid;
 float text_time, text_rate;
 int   text_count;
 
+int option_a, option_b, option_c, option_d, option_e;
+
 void init_ui() {
   ui_init(window_size, 1.f, 1);
 
-  vec2     text_pos   = {0.0f, 0.1f};
-  vec2     text_pos2  = {0.1f, 0.2f};
+  vec2     text_pos   = {0.5f, 0.05f};
+  vec2     text_pos2  = {0.5f, 0.065f};
   asset_t* font_asset = asset_get("resources/fonts/monogram.ttf");
 
   test_font =
@@ -46,7 +48,7 @@ void init_ui() {
   text_time        = 0.f;
   text_rate        = 150.f;
   text_count       = 0;
-  text.use_reveal  = 1;
+  text.use_reveal  = 0;
   text.use_shadow  = 1;
   text.shadow_size = 25.f;
 
@@ -62,8 +64,8 @@ void init_ui() {
   float max_size = ui_text_max_size(text, window_size, 0);
   text.size      = max_size;
 
-  text2 = ui_text_create(text_pos2, "Yeah, a little bit.", 16.f, test_font,
-                         UI_ALIGN_LEFT);
+  text2 = ui_text_create(text_pos2, "Astera Input Example", 24.f, test_font,
+                         UI_ALIGN_CENTER | UI_ALIGN_BOTTOM);
 
   vec2 box_pos          = {0.0f, 0.0f};
   vec2 box_size         = {0.2f, 0.2f};
@@ -93,14 +95,28 @@ void init_ui() {
   vec4_dup(button.hover_color, button_color);
 
   vec2 dropdown_position = {0.5f, 0.5f};
-  vec2 dropdown_size     = {0.15f, 0.05f};
+  vec2 dropdown_size     = {0.20f, 0.075f};
 
-  vec4 dropdown_bg           = {0.2f, 0.2f, 0.2f, 1.f};
-  vec4 dropdown_hover_bg     = {0.4f, 0.4f, 0.4f, 1.f};
-  vec4 dropdown_color        = {0.8f, 0.8f, 0.8f, 0.8f};
-  vec4 dropdown_hover_color  = {1.f, 1.f, 1.f, 1.f};
-  vec4 dropdown_select_color = {1.f, 1.f, 1.f, 1.f};
-  vec4 dropdown_border_color = {0.6f, 0.1f, 0.4f, 1.f};
+  vec4 white, off_white, grey2;
+  vec4 black;
+  vec4 dark, dark2;
+  vec4 gray, grey;
+
+  ui_get_color(white, "FFF");
+  ui_get_color(off_white, "EEE");
+  ui_get_color(grey2, "777");
+  ui_get_color(grey, "444");
+  ui_get_color(gray, "2D2D2D");
+  ui_get_color(dark, "0A0A0A");
+  ui_get_color(dark2, "111");
+  ui_get_color(black, "000");
+
+  /*  vec4 dropdown_bg           = {0.2f, 0.2f, 0.2f, 1.f};
+    vec4 dropdown_hover_bg     = {0.4f, 0.4f, 0.4f, 1.f};
+    vec4 dropdown_color        = {0.8f, 0.8f, 0.8f, 0.8f};
+    vec4 dropdown_hover_color  = {1.f, 1.f, 1.f, 1.f};
+    vec4 dropdown_select_color = {1.f, 1.f, 1.f, 1.f};
+    vec4 dropdown_border_color = {0.3f, 0.3f, 0.3f, 0.7f};*/
 
   dropdown = ui_dropdown_create(dropdown_position, dropdown_size, 0, 0);
 
@@ -108,44 +124,60 @@ void init_ui() {
   dropdown.border_size   = 3.f;
   dropdown.use_border    = 1;
 
-  ui_dropdown_add_option(&dropdown, "Test");
-  ui_dropdown_add_option(&dropdown, "Test2");
-  ui_dropdown_add_option(&dropdown, "Test3");
-  ui_dropdown_add_option(&dropdown, "Test4");
-  ui_dropdown_add_option(&dropdown, "Test5");
+  option_a = ui_dropdown_add_option(&dropdown, "Test - A");
+  option_b = ui_dropdown_add_option(&dropdown, "Test - B");
+  option_c = ui_dropdown_add_option(&dropdown, "Test - C");
+  option_d = ui_dropdown_add_option(&dropdown, "Test - D");
+  option_e = ui_dropdown_add_option(&dropdown, "Test - E");
+  ui_dropdown_add_option(&dropdown, "Test - F");
+  ui_dropdown_add_option(&dropdown, "Test - G");
+  ui_dropdown_add_option(&dropdown, "Test - H");
+  ui_dropdown_add_option(&dropdown, "Test - I");
+  ui_dropdown_add_option(&dropdown, "Test - J");
 
   float dropdown_font_size = ui_dropdown_max_font_size(dropdown);
   dropdown.font_size       = dropdown_font_size;
 
-  dropdown.align          = UI_ALIGN_MIDDLE | UI_ALIGN_CENTER;
-  dropdown.showing        = 1;
-  dropdown.option_display = 5;
+  dropdown.align             = UI_ALIGN_MIDDLE | UI_ALIGN_CENTER;
+  dropdown.showing           = 0;
+  dropdown.option_display    = 5;
+  dropdown.top_scroll_pad    = 2;
+  dropdown.bottom_scroll_pad = 2;
 
-  vec4_dup(dropdown.border_color, dropdown_border_color);
-  vec4_dup(dropdown.hover_border_color, dropdown_border_color);
+  vec4_dup(dropdown.border_color, black);
+  vec4_dup(dropdown.hover_border_color, black);
 
-  vec4_dup(dropdown.bg, dropdown_bg);
-  vec4_dup(dropdown.hover_bg, dropdown_hover_bg);
-  vec4_dup(dropdown.color, dropdown_color);
-  vec4_dup(dropdown.hover_color, dropdown_hover_color);
-  vec4_dup(dropdown.select_color, dropdown_select_color);
-  vec4_dup(dropdown.hover_select_color, dropdown_select_color);
+  vec4_dup(dropdown.bg, dark2);
+  vec4_dup(dropdown.hover_bg, grey);
+  vec4_dup(dropdown.color, grey2);
+  vec4_dup(dropdown.hover_color, white);
+  vec4_dup(dropdown.select_color, white);
+  vec4_dup(dropdown.hover_select_color, white);
 
-  // Root, MAX_ELEMENTS
+  /*  vec4_dup(dropdown.border_color, dropdown_border_color);
+    vec4_dup(dropdown.hover_border_color, dropdown_border_color);
+
+    vec4_dup(dropdown.bg, dropdown_bg);
+    vec4_dup(dropdown.hover_bg, dropdown_hover_bg);
+    vec4_dup(dropdown.color, dropdown_color);
+    vec4_dup(dropdown.hover_color, dropdown_hover_color);
+    vec4_dup(dropdown.select_color, dropdown_select_color);
+    vec4_dup(dropdown.hover_select_color, dropdown_select_color);*/
+
   tree = ui_tree_create(64);
 
-  vec2 line_start = {0.2f, 0.2f};
-  vec2 line_end   = {0.3f, 0.4f};
-  vec4 line_color = {1.f, 1.f, 1.f, 1.f};
-  line            = ui_line_create(line_start, line_end, line_color, 10.f);
+  vec2 line_start = {0.25f, 0.1f};
+  vec2 line_end   = {0.75f, 0.1f};
+  vec4 line_color = {0.2f, 0.2f, 0.2f, 1.f};
+  line            = ui_line_create(line_start, line_end, line_color, 3.f);
 
-  asset_t* ui_img_file = asset_get("resources/textures/icon.png");
+  /*asset_t* ui_img_file = asset_get("resources/textures/icon.png");
 
   if (ui_img_file->data) {
     printf("Loaded img data sizeof %i\n", ui_img_file->data_length);
   }
 
-  vec2 img_pos = {0.75f, 0.75f};
+  vec2 img_pos = {0.25f, 0.05f};
   vec2 img_size;
   vec2 img_px_size = {75.f, 75.f};
 
@@ -153,15 +185,15 @@ void init_ui() {
   img = ui_image_create(ui_img_file->data, ui_img_file->data_length,
                         IMG_NEAREST | IMG_REPEATX | IMG_REPEATY |
                             IMG_GENERATE_MIPMAPS,
-                        img_pos, img_size);
+                        img_pos, img_size);*/
 
   ui_tree_add(&tree, &text, UI_TEXT, 0);
   ui_tree_add(&tree, &text2, UI_TEXT, 0);
-  box_uid      = ui_tree_add(&tree, &box, UI_BOX, 1);
+  // box_uid      = ui_tree_add(&tree, &box, UI_BOX, 1);
   button_uid   = ui_tree_add(&tree, &button, UI_BUTTON, 1);
   dropdown_uid = ui_tree_add(&tree, &dropdown, UI_DROPDOWN, 1);
   ui_tree_add(&tree, &line, UI_LINE, 0);
-  ui_tree_add(&tree, &img, UI_IMAGE, 0);
+  // ui_tree_add(&tree, &img, UI_IMAGE, 0);
 }
 
 void init() {
@@ -214,7 +246,7 @@ void input(time_s delta) {
   uint16_t joy_id = i_joy_connected();
   if (joy_id > -1) {
     if (i_joy_exists(joy_id)) {
-      printf("Joy exists!\n");
+      // printf("Joy exists!\n");
     }
     if (i_joy_button_clicked(XBOX_R1)) {
       // next
@@ -227,7 +259,7 @@ void input(time_s delta) {
     }
 
     if (i_joy_button_clicked(XBOX_A)) {
-      ui_tree_select(&tree, 1);
+      ui_tree_select(&tree, 1, 0);
     }
   }
 
@@ -258,11 +290,11 @@ void input(time_s delta) {
   }
 
   if (i_key_clicked(KEY_SPACE)) {
-    ui_tree_select(&tree, 1);
+    ui_tree_select(&tree, 1, 0);
   }
 
   if (i_mouse_clicked(0)) {
-    ui_tree_select(&tree, 1);
+    ui_tree_select(&tree, 1, 1);
   }
 
   if (i_key_clicked(KEY_ESCAPE) || r_window_should_close()) {

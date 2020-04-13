@@ -13,12 +13,6 @@ set(CMAKE_FIND_FRAMEWORK FIRST)
 
 include(CMakeDependentOption)
 
-find_program(CCACHE_FOUND ccache)
-if(CCACHE_FOUND)
-  set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ccache)
-  set_property(GLOBAL PROPERTY RULE_LAUNCH_LNIK ccache)
-endif(CCACHE_FOUND)
-
 find_package(OpenGL REQUIRED)
 
 cmake_dependent_option(ASTERA_BUILD_EXAMPLES 

@@ -88,6 +88,67 @@ void ui_destroy() {
   nvgDeleteGL3(g_ui_ctx.nvg);
 }
 
+static int ui_hex_number(const char v) {
+  if (v >= '0' && v <= '9') {
+    return v - 0x30;
+  } else {
+    switch (v) {
+    case 'A':
+    case 'a':
+      return 10;
+    case 'B':
+    case 'b':
+      return 11;
+    case 'C':
+    case 'c':
+      return 12;
+    case 'D':
+    case 'd':
+      return 13;
+    case 'E':
+    case 'e':
+      return 14;
+    case 'F':
+    case 'f':
+      return 15;
+    default:
+      return 0;
+    }
+  }
+}
+
+static int ui_hex_multi(const char* v, int len) {
+  if (len == 2) {
+    return ui_hex_number(v[0]) * 16 + ui_hex_number(v[1]);
+  } else if (len == 1) {
+    return ui_hex_number(v[0]) * 16 + ui_hex_number(v[0]);
+  }
+  return -1;
+}
+
+void ui_get_color(vec4 val, const char* v) {
+  int len    = strlen(v);
+  int offset = 0;
+  if (len == 4) {
+    offset = 1;
+    len    = 3;
+  } else if (len == 7) {
+    offset = 1;
+    len    = 6;
+  }
+
+  if (len == 3) {
+    val[0] = ui_hex_multi(&v[offset], 1) / 255.f;
+    val[1] = ui_hex_multi(&v[offset + 1], 1) / 255.f;
+    val[2] = ui_hex_multi(&v[offset + 2], 1) / 255.f;
+  } else if (len == 6) {
+    val[0] = ui_hex_multi(&v[offset], 2) / 255.f;
+    val[1] = ui_hex_multi(&v[offset + 2], 2) / 255.f;
+    val[2] = ui_hex_multi(&v[offset + 4], 2) / 255.f;
+  }
+  val[3] = 1.f;
+}
+
 void ui_px_to_scale(vec2 dst, vec2 px) {
   vec2 tmp;
   tmp[0] = px[0] / g_ui_ctx.size[0];
@@ -664,7 +725,7 @@ uint32_t ui_tree_check(ui_tree* tree) {
       if (cursor->element.type == UI_DROPDOWN && hovered > -1) {
         ui_dropdown* dropdown = (ui_dropdown*)cursor->element.data;
         if (dropdown->showing) {
-          dropdown->cursor = hovered - 1;
+          dropdown->cursor = dropdown->start + hovered - 1;
         } else {
           hovered += 1;
         }
@@ -966,19 +1027,13 @@ void ui_dropdown_draw(ui_dropdown* dropdown, int8_t focused) {
   nvgTextAlign(g_ui_ctx.nvg, dropdown->align);
 
   if (dropdown->showing) {
-    int start         = dropdown->selected;
-    int cursor_offset = 0;
-
-    if (start + dropdown->option_display > dropdown->option_count) {
-      start         = dropdown->option_count - dropdown->option_display;
-      cursor_offset = dropdown->option_count - dropdown->selected;
-    }
-
+    int start = dropdown->start;
     for (int i = 0; i < dropdown->option_display; ++i) {
       int cursor_index = i + start;
 
       if (cursor_index == dropdown->cursor ||
-          cursor_index == dropdown->selected) {
+          cursor_index == dropdown->selected ||
+          cursor_index == dropdown->mouse_cursor) {
         if (focused) {
           nvgFillColor(g_ui_ctx.nvg, ui_vec4_color(dropdown->hover_select_bg));
         } else {
@@ -1519,7 +1574,6 @@ ui_text ui_text_create(vec2 pos, char* string, float font_size, ui_font font_id,
 
 ui_button ui_button_create(vec2 pos, vec2 size, char* text, int text_alignment,
                            float font_size) {
-
   ui_button button;
   vec2_dup(button.position, pos);
   vec2_dup(button.size, size);
@@ -1858,20 +1912,22 @@ ui_img ui_image_create(unsigned char* data, int data_length, ui_img_flags flags,
   return img;
 }
 
-void ui_dropdown_add_option(ui_dropdown* dropdown, const char* option) {
+uint16_t ui_dropdown_add_option(ui_dropdown* dropdown, const char* option) {
   if (dropdown->option_count == dropdown->option_capacity) {
     dropdown->options =
         (const char**)realloc((void*)dropdown->options,
                               sizeof(char*) * dropdown->option_capacity + 4);
-    dropdown->option_count += 4;
+    dropdown->option_capacity += 4;
     if (!dropdown->options) {
       DBG_E("Unable to expand memory for dropdown options\n");
-      return;
+      return 0;
     }
   }
 
   dropdown->options[dropdown->option_count] = option;
   ++dropdown->option_count;
+
+  return dropdown->option_count - 1;
 }
 
 void ui_text_next(ui_text* text) {
@@ -1892,9 +1948,21 @@ void ui_text_prev(ui_text* text) {
   }
 }
 
+// TODO Mouse Scrolling w/ Click / Hover
 void ui_dropdown_next(ui_dropdown* dropdown) {
   if (dropdown->cursor < dropdown->option_count - 1) {
     dropdown->cursor += 1;
+  }
+
+  int cursor_rel =
+      dropdown->option_display - (dropdown->cursor - dropdown->start);
+  printf("rel: %i\n", cursor_rel);
+  if (cursor_rel < dropdown->bottom_scroll_pad) {
+    if (dropdown->start < dropdown->option_count - dropdown->option_display) {
+      dropdown->start += 1;
+    } else {
+      dropdown->start = dropdown->option_count - dropdown->option_display;
+    }
   }
 }
 
@@ -1902,13 +1970,35 @@ void ui_dropdown_prev(ui_dropdown* dropdown) {
   if (dropdown->cursor > 0) {
     dropdown->cursor--;
   }
+
+  int cursor_rel = dropdown->cursor - dropdown->start;
+
+  printf("rel: %i\n", cursor_rel);
+  if (cursor_rel < dropdown->top_scroll_pad) {
+    if (dropdown->start > 0) {
+      dropdown->start--;
+      printf("Dropdown down.\n");
+    } else {
+      dropdown->start = 0;
+    }
+  }
 }
 
 void ui_dropdown_set_to_cursor(ui_dropdown* dropdown) {
   if (dropdown->selected != dropdown->cursor) {
     dropdown->has_change = 1;
   }
+
   dropdown->selected = dropdown->cursor;
+
+  dropdown->start = dropdown->selected - dropdown->option_display / 2;
+
+  if (dropdown->start < 0) {
+    dropdown->start = 0;
+  } else if (dropdown->start >
+             dropdown->option_count - dropdown->option_display) {
+    dropdown->start = dropdown->option_count - dropdown->option_display;
+  }
 }
 
 void ui_dropdown_set(ui_dropdown* dropdown, uint16_t select) {
@@ -1917,6 +2007,15 @@ void ui_dropdown_set(ui_dropdown* dropdown, uint16_t select) {
       dropdown->has_change = 1;
     }
     dropdown->selected = select;
+
+    dropdown->start = dropdown->selected - dropdown->option_display / 2;
+
+    if (dropdown->start < 0) {
+      dropdown->start = 0;
+    } else if (dropdown->start >
+               dropdown->option_count - dropdown->option_display) {
+      dropdown->start = dropdown->option_count - dropdown->option_display;
+    }
   }
 }
 
@@ -1971,15 +2070,16 @@ void ui_text_bounds(ui_text* text, vec4 bounds) {
   }
 }
 
-uint32_t ui_tree_select(ui_tree* tree, int32_t event_type) {
-  if (g_ui_ctx.use_mouse) {
+uint32_t ui_tree_select(ui_tree* tree, int32_t event_type, int is_mouse) {
+  if (g_ui_ctx.use_mouse && is_mouse) {
     if (tree->mouse_hover) {
       tree->mouse_hover->event = event_type;
 
       if (tree->mouse_hover->element.type == UI_DROPDOWN) {
-        int16_t selection =
-            ui_element_contains(tree->mouse_hover->element, g_ui_ctx.mouse_pos);
         ui_dropdown* dropdown = (ui_dropdown*)tree->mouse_hover->element.data;
+        int16_t      selection =
+            ui_element_contains(tree->mouse_hover->element, g_ui_ctx.mouse_pos);
+
         if (selection > 0 && dropdown->showing) {
           ui_dropdown_set(dropdown, selection);
         } else if (selection > 0 && !dropdown->showing) {
@@ -1991,7 +2091,7 @@ uint32_t ui_tree_select(ui_tree* tree, int32_t event_type) {
     }
   }
 
-  if (tree->cursor) {
+  if (tree->cursor && !is_mouse) {
     tree->cursor->event = event_type;
     return tree->cursor->uid;
   }

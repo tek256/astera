@@ -17,12 +17,12 @@ foreach (entry IN LISTS entries)
 endforeach()
 list(REMOVE_ITEM directories "${CMAKE_CURRENT_SOURCE_DIR}/resources")
 
-add_custom_target(${PROJECT_NAME}-examples-resources
+add_custom_target(${PROJECT_NAME}-examples-resources ALL
   COMMAND
     ${CMAKE_COMMAND} -E copy_directory
       "${CMAKE_CURRENT_SOURCE_DIR}/resources"
       "${CMAKE_CURRENT_BINARY_DIR}/resources"
-  MAIN_DEPENDENCY "${CMAKE_CURRENT_SOURCE_DIR}/resources"
+      #MAIN_DEPENDENCY "${CMAKE_CURRENT_SOURCE_DIR}/resources"
   COMMENT "Copying resources directory"
   VERBATIM)
 
@@ -34,5 +34,6 @@ foreach(directory IN LISTS directories)
   target_compile_definitions(${name} 
     PRIVATE
     $<${opengl-deprecation}:GL_SILENCE_DEPRECATION>)
+  target_link_libraries(${name} PRIVATE ${PROJECT_NAME})
   set_property(TARGET ${name} PROPERTY BUILD_RPATH $<TARGET_FILE_DIR:astera>)
 endforeach()
