@@ -14,6 +14,8 @@ extern "C" {
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
+#include <astera/export.h>
+
 #define UI_IS_ALIGN(value, offset) ((value) & (1 << (offset)))
 #define UI_IS_TYPE(value, type) (((value & (type)) == type)
 
@@ -240,40 +242,40 @@ typedef struct {
   int      loop : 1;
 } ui_tree;
 
-uint8_t ui_init(vec2 size, float pixel_scale, int use_mouse);
-void    ui_update(vec2 mouse_pos);
-void    ui_destroy();
+ASTERA_API uint8_t ui_init(vec2 size, float pixel_scale, int use_mouse);
+ASTERA_API void    ui_update(vec2 mouse_pos);
+ASTERA_API void    ui_destroy();
 
-void ui_get_color(vec4 val, const char* v);
+ASTERA_API void ui_get_color(vec4 val, const char* v);
 
 // Convert Pixels to Screen Size (Context defined)
-void ui_px_to_scale(vec2 dst, vec2 px);
+ASTERA_API void ui_px_to_scale(vec2 dst, vec2 px);
 // Convert Screen Scale to Pixels
-void ui_scale_to_px(vec2 dst, vec2 scale);
+ASTERA_API void ui_scale_to_px(vec2 dst, vec2 scale);
 
 // Function to calculate new scale from pixel size within 'screen' size
-void ui_px_from_scale(vec2 dst, vec2 px, vec2 screen);
+ASTERA_API void ui_px_from_scale(vec2 dst, vec2 px, vec2 screen);
 
 // Check if value (int) contains 1 or 0 at offset of alignment (binary)
-int8_t ui_is_align(int value, ui_align alignment);
+ASTERA_API int8_t ui_is_align(int value, ui_align alignment);
 // Check if value contains bitflag of type
-int8_t ui_is_type(int value, int type);
+ASTERA_API int8_t ui_is_type(int value, int type);
 
 // Start the NanoVG Frame
-void ui_frame_start();
+ASTERA_API void ui_frame_start();
 // End the NanoVG Frame
-void ui_frame_end();
+ASTERA_API void ui_frame_end();
 
 // Set Attributes
-void ui_attrib_set(ui_attrib attrib, void* value, ui_attrib_type type);
-void ui_attrib_set3f(ui_attrib attrib, float x, float y, float z);
-void ui_attrib_set3fv(ui_attrib attrib, vec3 value);
-void ui_attrib_set4f(ui_attrib attrib, float x, float y, float z, float w);
-void ui_attrib_set4fv(ui_attrib attrib, vec4 value);
-void ui_attrib_set2f(ui_attrib attrib, float x, float y);
-void ui_attrib_set2fv(ui_attrib attrib, vec2 value);
-void ui_attrib_setf(ui_attrib attrib, float value);
-void ui_attrib_seti(ui_attrib attrib, int32_t value);
+ASTERA_API void ui_attrib_set(ui_attrib attrib, void* value, ui_attrib_type type);
+ASTERA_API void ui_attrib_set3f(ui_attrib attrib, float x, float y, float z);
+ASTERA_API void ui_attrib_set3fv(ui_attrib attrib, vec3 value);
+ASTERA_API void ui_attrib_set4f(ui_attrib attrib, float x, float y, float z, float w);
+ASTERA_API void ui_attrib_set4fv(ui_attrib attrib, vec4 value);
+ASTERA_API void ui_attrib_set2f(ui_attrib attrib, float x, float y);
+ASTERA_API void ui_attrib_set2fv(ui_attrib attrib, vec2 value);
+ASTERA_API void ui_attrib_setf(ui_attrib attrib, float value);
+ASTERA_API void ui_attrib_seti(ui_attrib attrib, int32_t value);
 
 ui_attrib_storage ui_attrib_get(ui_attrib attrib);
 int               ui_attrib_geti(ui_attrib attrib);

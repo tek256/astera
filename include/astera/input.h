@@ -10,6 +10,8 @@ extern "C" {
 
 #include <GLFW/glfw3.h>
 
+#include <astera/export.h>
+
 #define BINDING_KEY  1
 #define BINDING_MB   2
 #define BINDING_JOYA 3
@@ -166,22 +168,22 @@ void i_destroy_joy(uint16_t joy);
 
 float i_joy_axis(uint16_t axis);
 
-int8_t      i_joy_exists(uint16_t joy);
-uint8_t     i_joy_connected();
-uint16_t    i_joy_button_down(uint16_t button);
-uint16_t    i_joy_button_up(uint16_t button);
-uint16_t    i_joy_button_clicked(uint16_t button);
-uint16_t    i_joy_button_released(uint16_t button);
-void        i_get_joy_buttons(uint16_t* dst, int count);
-const char* i_get_joy_name(uint16_t joy);
-uint16_t    i_get_joy_type(uint16_t joy);
+ASTERA_API int8_t      i_joy_exists(uint16_t joy);
+ASTERA_API uint8_t     i_joy_connected();
+ASTERA_API uint16_t    i_joy_button_down(uint16_t button);
+ASTERA_API uint16_t    i_joy_button_up(uint16_t button);
+ASTERA_API uint16_t    i_joy_button_clicked(uint16_t button);
+ASTERA_API uint16_t    i_joy_button_released(uint16_t button);
+ASTERA_API void        i_get_joy_buttons(uint16_t* dst, int count);
+ASTERA_API const char* i_get_joy_name(uint16_t joy);
+ASTERA_API uint16_t    i_get_joy_type(uint16_t joy);
 
 float i_joy_axis_delta(uint16_t joy);
 
-void     i_key_callback(int key, int scancode, int toggle);
-uint16_t i_key_down(uint16_t key);
-uint16_t i_key_up(uint16_t key);
-uint16_t i_key_clicked(uint16_t key);
+ASTERA_API void     i_key_callback(int key, int scancode, int toggle);
+ASTERA_API uint16_t i_key_down(uint16_t key);
+ASTERA_API uint16_t i_key_up(uint16_t key);
+ASTERA_API uint16_t i_key_clicked(uint16_t key);
 uint16_t i_key_released(uint16_t key);
 
 uint16_t i_key_binding_track(void);
