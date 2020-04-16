@@ -5,12 +5,12 @@
 extern "C" {
 #endif
 
-#include <linmath.h>
 #include <stdint.h>
 
 #include <GLFW/glfw3.h>
 
 #include <astera/export.h>
+#include <astera/linmath.h>
 
 #define BINDING_KEY  1
 #define BINDING_MB   2
@@ -154,19 +154,19 @@ typedef struct {
 
 static uint16_t key_binding_track = 0;
 
-uint16_t i_init(void);
-void     i_exit(void);
+ASTERA_API uint16_t i_init(void);
+ASTERA_API void     i_exit(void);
 
-uint16_t i_contains(uint16_t val, uint16_t* arr, int count);
+ASTERA_API uint16_t i_contains(uint16_t val, uint16_t* arr, int count);
 
-i_positions i_create_p(void);
-i_statesf   i_create_sf(uint16_t size);
-i_states    i_create_s(uint16_t size);
+ASTERA_API i_positions i_create_p(void);
+ASTERA_API i_statesf   i_create_sf(uint16_t size);
+ASTERA_API i_states    i_create_s(uint16_t size);
 
-void i_create_joy(uint16_t joy);
-void i_destroy_joy(uint16_t joy);
+ASTERA_API void i_create_joy(uint16_t joy);
+ASTERA_API void i_destroy_joy(uint16_t joy);
 
-float i_joy_axis(uint16_t axis);
+ASTERA_API float i_joy_axis(uint16_t axis);
 
 ASTERA_API int8_t      i_joy_exists(uint16_t joy);
 ASTERA_API uint8_t     i_joy_connected();
@@ -178,64 +178,64 @@ ASTERA_API void        i_get_joy_buttons(uint16_t* dst, int count);
 ASTERA_API const char* i_get_joy_name(uint16_t joy);
 ASTERA_API uint16_t    i_get_joy_type(uint16_t joy);
 
-float i_joy_axis_delta(uint16_t joy);
+ASTERA_API float i_joy_axis_delta(uint16_t joy);
 
 ASTERA_API void     i_key_callback(int key, int scancode, int toggle);
 ASTERA_API uint16_t i_key_down(uint16_t key);
 ASTERA_API uint16_t i_key_up(uint16_t key);
 ASTERA_API uint16_t i_key_clicked(uint16_t key);
-uint16_t i_key_released(uint16_t key);
+ASTERA_API uint16_t i_key_released(uint16_t key);
 
-uint16_t i_key_binding_track(void);
+ASTERA_API uint16_t i_key_binding_track(void);
 
-void i_set_screensize(uint32_t width, uint32_t height);
-void i_set_char_tracking(int tracking);
-void i_char_callback(uint32_t c);
-void i_get_chars(char* dst, uint16_t count);
+ASTERA_API void i_set_screensize(uint32_t width, uint32_t height);
+ASTERA_API void i_set_char_tracking(int tracking);
+ASTERA_API void i_char_callback(uint32_t c);
+ASTERA_API void i_get_chars(char* dst, uint16_t count);
 
-void i_set_mouse_grab(GLFWwindow* window, int grabbed);
-int  i_get_mouse_grab(GLFWwindow* window);
+ASTERA_API void i_set_mouse_grab(GLFWwindow* window, int grabbed);
+ASTERA_API int  i_get_mouse_grab(GLFWwindow* window);
 
-void i_mouse_button_callback(uint16_t button);
-void i_mouse_pos_callback(double x, double y);
-void i_mouse_scroll_callback(double sx, double sy);
+ASTERA_API void i_mouse_button_callback(uint16_t button);
+ASTERA_API void i_mouse_pos_callback(double x, double y);
+ASTERA_API void i_mouse_scroll_callback(double sx, double sy);
 
-void   i_get_scroll(double* x, double* y);
-double i_get_scroll_x(void);
-double i_get_scroll_y(void);
+ASTERA_API void   i_get_scroll(double* x, double* y);
+ASTERA_API double i_get_scroll_x(void);
+ASTERA_API double i_get_scroll_y(void);
 
-uint16_t i_mouse_down(uint16_t button);
-uint16_t i_mouse_up(uint16_t button);
-uint16_t i_mouse_clicked(uint16_t button);
-uint16_t i_mouse_released(uint16_t button);
+ASTERA_API uint16_t i_mouse_down(uint16_t button);
+ASTERA_API uint16_t i_mouse_up(uint16_t button);
+ASTERA_API uint16_t i_mouse_clicked(uint16_t button);
+ASTERA_API uint16_t i_mouse_released(uint16_t button);
 
-uint16_t i_mouse_within(vec2 start, vec2 end);
+ASTERA_API uint16_t i_mouse_within(vec2 start, vec2 end);
 
-void   i_get_mouse_pos(double* x, double* y);
-double i_get_mouse_x(void);
-double i_get_mouse_y(void);
+ASTERA_API void   i_get_mouse_pos(double* x, double* y);
+ASTERA_API double i_get_mouse_x(void);
+ASTERA_API double i_get_mouse_y(void);
 
-void   i_get_moues_delta(double* x, double* y);
-double i_get_delta_x(void);
-double i_get_delta_y(void);
+ASTERA_API void   i_get_moues_delta(double* x, double* y);
+ASTERA_API double i_get_delta_x(void);
+ASTERA_API double i_get_delta_y(void);
 
-void     i_add_binding(const char* name, int value, int type);
-void     i_enable_binding_track(const char* key_binding);
-uint16_t i_binding_count(void);
+ASTERA_API void     i_add_binding(const char* name, int value, int type);
+ASTERA_API void     i_enable_binding_track(const char* key_binding);
+ASTERA_API uint16_t i_binding_count(void);
 
-void     i_binding_track_callback(int value, int type);
-uint16_t i_get_binding_type(const char* key_binding);
-uint16_t i_get_binding_alt_type(const char* key_bindg);
-uint16_t i_binding_clicked(const char* key_binding);
-uint16_t i_binding_released(const char* key_binding);
-uint16_t i_binding_down(const char* key_binding);
-uint16_t i_binding_up(const char* key_binding);
-float    i_binding_val(const char* key_binding); // gets the value
-uint16_t i_binding_defined(const char* key_binding);
+ASTERA_API void     i_binding_track_callback(int value, int type);
+ASTERA_API uint16_t i_get_binding_type(const char* key_binding);
+ASTERA_API uint16_t i_get_binding_alt_type(const char* key_bindg);
+ASTERA_API uint16_t i_binding_clicked(const char* key_binding);
+ASTERA_API uint16_t i_binding_released(const char* key_binding);
+ASTERA_API uint16_t i_binding_down(const char* key_binding);
+ASTERA_API uint16_t i_binding_up(const char* key_binding);
+ASTERA_API float    i_binding_val(const char* key_binding); // gets the value
+ASTERA_API uint16_t i_binding_defined(const char* key_binding);
 
-float i_opposing(const char* prim, const char* sec);
+ASTERA_API float i_opposing(const char* prim, const char* sec);
 
-void i_update(void);
+ASTERA_API void i_update(void);
 
 #ifdef __cplusplus
 }

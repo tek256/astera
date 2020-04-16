@@ -6,11 +6,9 @@ extern "C" {
 #endif
 
 #include <GLFW/glfw3.h>
-#include <linmath.h>
 
-// Lets go ahead and remove this,
-// it's not too much trouble for the user to go
-// asset_struct->data, asset_struct->data_length,
+#include <astera/export.h>
+#include <astera/linmath.h>
 
 #include <stdint.h>
 
@@ -301,170 +299,180 @@ typedef struct {
 static r_window g_window;
 static r_camera g_camera;
 
-int8_t r_check_error(void);
-int8_t r_check_error_loc(const char* loc);
+ASTERA_API int8_t r_check_error(void);
+ASTERA_API int8_t r_check_error_loc(const char* loc);
 
-void r_init_anim_map(int size);
-void r_init_shader_map(int size);
-void r_init_batches(int size);
+ASTERA_API void r_init_anim_map(int size);
+ASTERA_API void r_init_shader_map(int size);
+ASTERA_API void r_init_batches(int size);
 
-void r_get_color(vec3 val, const char* v);
+ASTERA_API void r_get_color(vec3 val, const char* v);
 
-int  r_init(r_window_info info);
-void r_exit(void);
-void r_update(void);
-void r_end(void);
+ASTERA_API int  r_init(r_window_info info);
+ASTERA_API void r_exit(void);
+ASTERA_API void r_update(void);
+ASTERA_API void r_end(void);
 
-r_framebuffer r_framebuffer_create(uint32_t width, uint32_t height,
-                                   r_shader shader);
-void          r_framebuffer_destroy(r_framebuffer fbo);
-void          r_framebuffer_bind(r_framebuffer fbo);
-void          r_framebuffer_draw(r_framebuffer fbo);
+ASTERA_API r_framebuffer r_framebuffer_create(uint32_t width, uint32_t height,
+                                              r_shader shader);
+ASTERA_API void          r_framebuffer_destroy(r_framebuffer fbo);
+ASTERA_API void          r_framebuffer_bind(r_framebuffer fbo);
+ASTERA_API void          r_framebuffer_draw(r_framebuffer fbo);
 
-r_tex r_tex_create(unsigned char* data, int length);
-void  r_tex_bind(uint32_t tex);
+ASTERA_API r_tex r_tex_create(unsigned char* data, int length);
+ASTERA_API void  r_tex_bind(uint32_t tex);
 
-r_sheet r_sheet_create(unsigned char* data, int length, uint32_t subwidth,
-                       uint32_t subheight);
-void    r_sheet_bind(uint32_t sheet);
+ASTERA_API r_sheet r_sheet_create(unsigned char* data, int length,
+                                  uint32_t subwidth, uint32_t subheight);
+ASTERA_API void    r_sheet_bind(uint32_t sheet);
 
-r_baked_sheet r_baked_sheet_create(r_sheet sheet, r_baked_quad* quads,
-                                   uint32_t quad_count, vec2 pos,
-                                   uint32_t layer);
-void          r_baked_sheet_draw(r_shader shader, r_baked_sheet* sheet);
-void          r_baked_sheet_destroy(r_baked_sheet* sheet);
+ASTERA_API r_baked_sheet r_baked_sheet_create(r_sheet       sheet,
+                                              r_baked_quad* quads,
+                                              uint32_t quad_count, vec2 pos,
+                                              uint32_t layer);
+ASTERA_API void r_baked_sheet_draw(r_shader shader, r_baked_sheet* sheet);
+ASTERA_API void r_baked_sheet_destroy(r_baked_sheet* sheet);
 
-float       r_keyframe_get_value(r_keyframes frames, float point);
-r_keyframes r_keyframes_create(int keyframe_count);
-void r_keyframes_set(r_keyframes* frames, int frame, float point, float value,
-                     r_keyframe_curve curve);
+ASTERA_API float       r_keyframe_get_value(r_keyframes frames, float point);
+ASTERA_API r_keyframes r_keyframes_create(int keyframe_count);
+ASTERA_API void r_keyframes_set(r_keyframes* frames, int frame, float point,
+                                float value, r_keyframe_curve curve);
 
-void r_particles_init(r_particles* system, unsigned int particle_capacity);
-void r_particles_update(r_particles* system, double delta);
-void r_particles_destroy(r_particles* particles);
-void r_particles_draw(r_particles* particles, r_shader shader);
+ASTERA_API void r_particles_init(r_particles* system,
+                                 unsigned int particle_capacity);
+ASTERA_API void r_particles_update(r_particles* system, double delta);
+ASTERA_API void r_particles_destroy(r_particles* particles);
+ASTERA_API void r_particles_draw(r_particles* particles, r_shader shader);
 
-void r_sprite_draw(r_sprite draw);
-void r_batch_draw(r_shader_batch* batch);
+ASTERA_API void r_sprite_draw(r_sprite draw);
+ASTERA_API void r_batch_draw(r_shader_batch* batch);
 
-int  r_batch_count(void);
-int  r_sprite_draw_count(void);
-void r_batch_info(void);
-void r_batch_clear(r_shader_batch* batch);
+ASTERA_API int  r_batch_count(void);
+ASTERA_API int  r_sprite_draw_count(void);
+ASTERA_API void r_batch_info(void);
+ASTERA_API void r_batch_clear(r_shader_batch* batch);
 
-void            r_shader_clear_array(r_uniform_array* array);
-r_shader_batch* r_batch_create(r_shader shader, r_sheet sheet);
+ASTERA_API void r_shader_clear_array(r_uniform_array* array);
+ASTERA_API r_shader_batch* r_batch_create(r_shader shader, r_sheet sheet);
 
-r_shader_batch* r_shader_get_batch(r_shader shader, r_sheet sheet);
-void            r_batch_set_arrays(r_shader_batch* batch);
-void            r_batch_destroy_all(r_shader shader);
-void            r_batch_destroy(r_shader shader, r_sheet sheet);
+ASTERA_API r_shader_batch* r_shader_get_batch(r_shader shader, r_sheet sheet);
+ASTERA_API void            r_batch_set_arrays(r_shader_batch* batch);
+ASTERA_API void            r_batch_destroy_all(r_shader shader);
+ASTERA_API void            r_batch_destroy(r_shader shader, r_sheet sheet);
 
-r_anim  r_anim_create(r_sheet sheet, uint32_t* frames, int frame_count,
-                      int frame_rate);
-void    r_anim_destroy(int uid);
-int     r_anim_get_index(const char* name);
-r_anim* r_anim_get(int uid);
-int     r_anim_cache(r_anim anim, const char* name);
+ASTERA_API r_anim r_anim_create(r_sheet sheet, uint32_t* frames,
+                                int frame_count, int frame_rate);
+ASTERA_API void   r_anim_destroy(int uid);
+ASTERA_API int    r_anim_get_index(const char* name);
+ASTERA_API r_anim* r_anim_get(int uid);
+ASTERA_API int     r_anim_cache(r_anim anim, const char* name);
 
-void r_anim_play(r_anim* anim);
-void r_anim_stop(r_anim* anim);
-void r_anim_pause(r_anim* anim);
+ASTERA_API void r_anim_play(r_anim* anim);
+ASTERA_API void r_anim_stop(r_anim* anim);
+ASTERA_API void r_anim_pause(r_anim* anim);
 
-r_sprite r_sprite_create(r_shader shader, vec2 pos, vec2 size);
+ASTERA_API r_sprite r_sprite_create(r_shader shader, vec2 pos, vec2 size);
 
-r_sheet r_sprite_get_sheet(r_sprite sprite);
-int     r_sprite_get_sheet_id(r_sprite sprite);
+ASTERA_API r_sheet r_sprite_get_sheet(r_sprite sprite);
+ASTERA_API int     r_sprite_get_sheet_id(r_sprite sprite);
 
-void r_sprite_play(r_sprite* sprite);
-void r_sprite_pause(r_sprite* sprite);
-void r_sprite_stop(r_sprite* sprite);
+ASTERA_API void r_sprite_play(r_sprite* sprite);
+ASTERA_API void r_sprite_pause(r_sprite* sprite);
+ASTERA_API void r_sprite_stop(r_sprite* sprite);
 
-r_subtex r_subtex_create(r_sheet sheet, uint32_t id);
+ASTERA_API r_subtex r_subtex_create(r_sheet sheet, uint32_t id);
 
-int  r_sprite_get_tex_id(r_sprite sprite);
-void r_sprite_set_anim(r_sprite* drawable, r_anim anim);
-void r_sprite_set_tex(r_sprite* drawable, r_subtex tex);
-void r_sprite_update(r_sprite* drawable, long delta);
+ASTERA_API int  r_sprite_get_tex_id(r_sprite sprite);
+ASTERA_API void r_sprite_set_anim(r_sprite* drawable, r_anim anim);
+ASTERA_API void r_sprite_set_tex(r_sprite* drawable, r_subtex tex);
+ASTERA_API void r_sprite_update(r_sprite* drawable, long delta);
 
-void r_cam_create(r_camera* camera, vec2 size, vec2 position);
-void r_cam_update(void);
-void r_cam_move(float x, float y);
-void r_cam_get_size(float* width, float* height);
-void r_cam_set_size(float width, float height);
+ASTERA_API void r_cam_create(r_camera* camera, vec2 size, vec2 position);
+ASTERA_API void r_cam_update(void);
+ASTERA_API void r_cam_move(float x, float y);
+ASTERA_API void r_cam_get_size(float* width, float* height);
+ASTERA_API void r_cam_set_size(float width, float height);
 
-r_shader r_shader_create(unsigned char* vert, int vert_length,
-                         unsigned char* frag, int frag_length);
-r_shader r_shader_get(const char* name);
+ASTERA_API r_shader r_shader_create(unsigned char* vert, int vert_length,
+                                    unsigned char* frag, int frag_length);
+ASTERA_API r_shader r_shader_get(const char* name);
 
-void r_shader_bind(r_shader shader);
-void r_shader_destroy(r_shader shader);
+ASTERA_API void r_shader_bind(r_shader shader);
+ASTERA_API void r_shader_destroy(r_shader shader);
 
-void r_shader_cache(r_shader shader, const char* name);
+ASTERA_API void r_shader_cache(r_shader shader, const char* name);
 
-void r_shader_uniform(r_shader shader, r_sheet sheet, const char* name,
-                      void* data, int count);
-void r_shader_uniformi(r_shader shader, r_sheet sheet, int uid, void* data,
-                       int count);
-void r_shader_sprite_uniform(r_sprite sprite, int uid, void* data);
-void r_shader_clear_arrays(r_shader shader);
+ASTERA_API void r_shader_uniform(r_shader shader, r_sheet sheet,
+                                 const char* name, void* data, int count);
+ASTERA_API void r_shader_uniformi(r_shader shader, r_sheet sheet, int uid,
+                                  void* data, int count);
+ASTERA_API void r_shader_sprite_uniform(r_sprite sprite, int uid, void* data);
+ASTERA_API void r_shader_clear_arrays(r_shader shader);
 
-int r_shader_setup_array(r_shader shader, const char* name, int capacity,
-                         int type);
+ASTERA_API int r_shader_setup_array(r_shader shader, const char* name,
+                                    int capacity, int type);
 
-r_uniform_map* r_shader_get_uniform_map(r_shader shader);
+ASTERA_API r_uniform_map* r_shader_get_uniform_map(r_shader shader);
 
-int              r_shader_get_array_index(r_shader shader, const char* name);
-r_uniform_array* r_shader_get_arrayi(r_shader shader, r_sheet sheet, int uid);
+ASTERA_API int r_shader_get_array_index(r_shader shader, const char* name);
+ASTERA_API r_uniform_array* r_shader_get_arrayi(r_shader shader, r_sheet sheet,
+                                                int uid);
 
-void r_set_uniformf(r_shader shader, const char* name, float value);
-void r_set_uniformi(r_shader shader, const char* name, int value);
-void r_set_v4(r_shader shader, const char* name, vec4 value);
-void r_set_v3(r_shader shader, const char* name, vec3 value);
-void r_set_v2(r_shader shader, const char* name, vec2 value);
-void r_set_m4(r_shader shader, const char* name, mat4x4 value);
+ASTERA_API void r_set_uniformf(r_shader shader, const char* name, float value);
+ASTERA_API void r_set_uniformi(r_shader shader, const char* name, int value);
+ASTERA_API void r_set_v4(r_shader shader, const char* name, vec4 value);
+ASTERA_API void r_set_v3(r_shader shader, const char* name, vec3 value);
+ASTERA_API void r_set_v2(r_shader shader, const char* name, vec2 value);
+ASTERA_API void r_set_m4(r_shader shader, const char* name, mat4x4 value);
 
-void r_set_m4x(r_shader shader, uint32_t count, const char* name,
-               mat4x4* values);
-void r_set_ix(r_shader shader, uint32_t count, const char* name, int* values);
-void r_set_fx(r_shader shader, uint32_t count, const char* name, float* values);
-void r_set_v2x(r_shader shader, uint32_t count, const char* name, vec2* values);
-void r_set_v3x(r_shader shader, uint32_t count, const char* name, vec3* values);
-void r_set_v4x(r_shader shader, uint32_t count, const char* name, vec4* values);
+ASTERA_API void r_set_m4x(r_shader shader, uint32_t count, const char* name,
+                          mat4x4* values);
+ASTERA_API void r_set_ix(r_shader shader, uint32_t count, const char* name,
+                         int* values);
+ASTERA_API void r_set_fx(r_shader shader, uint32_t count, const char* name,
+                         float* values);
+ASTERA_API void r_set_v2x(r_shader shader, uint32_t count, const char* name,
+                          vec2* values);
+ASTERA_API void r_set_v3x(r_shader shader, uint32_t count, const char* name,
+                          vec3* values);
+ASTERA_API void r_set_v4x(r_shader shader, uint32_t count, const char* name,
+                          vec4* values);
 
-void r_window_get_size(int* w, int* h);
+ASTERA_API void r_window_get_size(int* w, int* h);
 
-int  r_get_videomode_str(char* dst, int index);
-void r_set_videomode(int index);
-void r_select_mode(int index, int fullscreen, int vsync, int borderless);
-int  r_get_vidmode_count(void);
+ASTERA_API int  r_get_videomode_str(char* dst, int index);
+ASTERA_API void r_set_videomode(int index);
+ASTERA_API void r_select_mode(int index, int fullscreen, int vsync,
+                              int borderless);
+ASTERA_API int  r_get_vidmode_count(void);
 
-int r_allow_render(void);
-int r_is_vsync(void);
-int r_is_fullscreen(void);
-int r_is_borderless(void);
+ASTERA_API int r_allow_render(void);
+ASTERA_API int r_is_vsync(void);
+ASTERA_API int r_is_fullscreen(void);
+ASTERA_API int r_is_borderless(void);
 
-void r_poll_events(void);
+ASTERA_API void r_poll_events(void);
 
-int  r_window_create(r_window_info info);
-void r_window_destroy(void);
-void r_window_request_close(void);
-int  r_window_set_icon(unsigned char* data, int length);
+ASTERA_API int  r_window_create(r_window_info info);
+ASTERA_API void r_window_destroy(void);
+ASTERA_API void r_window_request_close(void);
+ASTERA_API int  r_window_set_icon(unsigned char* data, int length);
 
-void r_window_center(void);
-void r_window_set_pos(int x, int y);
+ASTERA_API void r_window_center(void);
+ASTERA_API void r_window_set_pos(int x, int y);
 
-int r_window_should_close(void);
+ASTERA_API int r_window_should_close(void);
 
-void r_window_swap_buffers(void);
-void r_window_clear(void);
-void r_window_clear_color(const char* str);
+ASTERA_API void r_window_swap_buffers(void);
+ASTERA_API void r_window_clear(void);
+ASTERA_API void r_window_clear_color(const char* str);
 
-r_window_info r_window_info_create(int width, int height, const char* name,
-                                   int refresh_rate, int vsync, int fullscreen,
-                                   int borderless);
+ASTERA_API r_window_info r_window_info_create(int width, int height,
+                                              const char* name,
+                                              int refresh_rate, int vsync,
+                                              int fullscreen, int borderless);
 
-int r_get_refresh_rate(void);
+ASTERA_API int r_get_refresh_rate(void);
 
 #ifdef __cplusplus
 }

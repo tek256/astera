@@ -6,6 +6,8 @@
 extern "C" {
 #endif
 
+#include <astera/export.h>
+
 typedef struct {
   int   render;
   int   audio;
@@ -31,21 +33,22 @@ typedef struct {
   char*        path;
 } c_conf;
 
-void    c_parse_args(int argc, char** argv);
-c_conf  c_defaults();
-c_conf  c_parse_table(c_table table);
-c_table c_get_table(unsigned char* data, int length);
-void    c_table_free(c_table table);
+ASTERA_API void    c_parse_args(int argc, char** argv);
+ASTERA_API c_conf  c_defaults();
+ASTERA_API c_conf  c_parse_table(c_table table);
+ASTERA_API c_table c_get_table(unsigned char* data, int length);
+ASTERA_API void    c_table_free(c_table table);
 
-void c_write_pref(const char* fp, const char* key, const char* value);
+ASTERA_API void c_write_pref(const char* fp, const char* key,
+                             const char* value);
 
-int   c_has_prefs();
-char* c_get_pref_p();
-int   c_is_debug();
-int   c_allow_render();
-int   c_allow_audio();
-int   c_is_silent();
-int   c_is_verbose();
+ASTERA_API int   c_has_prefs();
+ASTERA_API char* c_get_pref_p();
+ASTERA_API int   c_is_debug();
+ASTERA_API int   c_allow_render();
+ASTERA_API int   c_allow_audio();
+ASTERA_API int   c_is_silent();
+ASTERA_API int   c_is_verbose();
 
 #ifdef __cplusplus
 }

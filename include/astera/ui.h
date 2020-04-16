@@ -7,12 +7,8 @@
 extern "C" {
 #endif
 
-#include <linmath.h>
+#include <astera/linmath.h>
 #include <stdint.h>
-
-#include <glad/glad.h>
-#define GLFW_INCLUDE_NONE
-#include <GLFW/glfw3.h>
 
 #include <astera/export.h>
 
@@ -267,91 +263,100 @@ ASTERA_API void ui_frame_start();
 ASTERA_API void ui_frame_end();
 
 // Set Attributes
-ASTERA_API void ui_attrib_set(ui_attrib attrib, void* value, ui_attrib_type type);
+ASTERA_API void ui_attrib_set(ui_attrib attrib, void* value,
+                              ui_attrib_type type);
 ASTERA_API void ui_attrib_set3f(ui_attrib attrib, float x, float y, float z);
 ASTERA_API void ui_attrib_set3fv(ui_attrib attrib, vec3 value);
-ASTERA_API void ui_attrib_set4f(ui_attrib attrib, float x, float y, float z, float w);
+ASTERA_API void ui_attrib_set4f(ui_attrib attrib, float x, float y, float z,
+                                float w);
 ASTERA_API void ui_attrib_set4fv(ui_attrib attrib, vec4 value);
 ASTERA_API void ui_attrib_set2f(ui_attrib attrib, float x, float y);
 ASTERA_API void ui_attrib_set2fv(ui_attrib attrib, vec2 value);
 ASTERA_API void ui_attrib_setf(ui_attrib attrib, float value);
 ASTERA_API void ui_attrib_seti(ui_attrib attrib, int32_t value);
 
-ui_attrib_storage ui_attrib_get(ui_attrib attrib);
-int               ui_attrib_geti(ui_attrib attrib);
-float             ui_attrib_getf(ui_attrib attrib);
-void              ui_attrib_get2f(ui_attrib attrib, vec2 dst);
-void              ui_attrib_get3f(ui_attrib attrib, vec3 dst);
-void              ui_attrib_get4f(ui_attrib attrib, vec4 dst);
+ASTERA_API ui_attrib_storage ui_attrib_get(ui_attrib attrib);
+ASTERA_API int               ui_attrib_geti(ui_attrib attrib);
+ASTERA_API float             ui_attrib_getf(ui_attrib attrib);
+ASTERA_API void              ui_attrib_get2f(ui_attrib attrib, vec2 dst);
+ASTERA_API void              ui_attrib_get3f(ui_attrib attrib, vec3 dst);
+ASTERA_API void              ui_attrib_get4f(ui_attrib attrib, vec4 dst);
 
-int8_t ui_attrib_exists(ui_attrib attrib);
+ASTERA_API int8_t ui_attrib_exists(ui_attrib attrib);
 
 // Get the font ID by name
-ui_font ui_font_get(const char* font_name);
+ASTERA_API ui_font ui_font_get(const char* font_name);
 // Create a font to use
-ui_font ui_font_create(unsigned char* data, int data_length, const char* name);
+ASTERA_API ui_font ui_font_create(unsigned char* data, int data_length,
+                                  const char* name);
 
 // Create a UI Text field
-ui_text ui_text_create(vec2 pos, char* string, float font_size, ui_font font_id,
-                       int alignment);
+ASTERA_API ui_text ui_text_create(vec2 pos, char* string, float font_size,
+                                  ui_font font_id, int alignment);
 // Create a UI Button
-ui_button   ui_button_create(vec2 pos, vec2 size, char* text,
-                             int32_t text_alignment, float font_size);
-ui_line     ui_line_create(vec2 start, vec2 end, vec4 color, float thickness);
-ui_dropdown ui_dropdown_create(vec2 pos, vec2 size, char** options,
-                               int option_count);
-ui_option   ui_option_create(const char* text, float font_size,
-                             int32_t text_alignment, vec2 pos, vec2 size);
-ui_box      ui_box_create(vec2 pos, vec2 size, vec4 color, vec4 hover_color);
-ui_img ui_image_create(unsigned char* data, int data_len, ui_img_flags flags,
-                       vec2 pos, vec2 size);
+ASTERA_API ui_button   ui_button_create(vec2 pos, vec2 size, char* text,
+                                        int32_t text_alignment, float font_size);
+ASTERA_API ui_line     ui_line_create(vec2 start, vec2 end, vec4 color,
+                                      float thickness);
+ASTERA_API ui_dropdown ui_dropdown_create(vec2 pos, vec2 size, char** options,
+                                          int option_count);
+ASTERA_API ui_option   ui_option_create(const char* text, float font_size,
+                                        int32_t text_alignment, vec2 pos,
+                                        vec2 size);
+ASTERA_API ui_box      ui_box_create(vec2 pos, vec2 size, vec4 color,
+                                     vec4 hover_color);
+ASTERA_API ui_img      ui_image_create(unsigned char* data, int data_len,
+                                       ui_img_flags flags, vec2 pos, vec2 size);
 
-void ui_text_next(ui_text* text);
-void ui_text_prev(ui_text* text);
+ASTERA_API void ui_text_next(ui_text* text);
+ASTERA_API void ui_text_prev(ui_text* text);
 
-uint16_t ui_dropdown_add_option(ui_dropdown* dropdown, const char* option);
-int8_t   ui_dropdown_contains(ui_dropdown* dropdown, vec2 pos);
-void     ui_dropdown_set_to_cursor(ui_dropdown* dropdown);
-void     ui_dropdown_set(ui_dropdown* dropdown, uint16_t select);
-void     ui_dropdown_next(ui_dropdown* dropdown);
-void     ui_dropdown_prev(ui_dropdown* dropdown);
-int8_t   ui_dropdown_has_change(ui_dropdown* dropdown);
+ASTERA_API uint16_t ui_dropdown_add_option(ui_dropdown* dropdown,
+                                           const char*  option);
+ASTERA_API int8_t   ui_dropdown_contains(ui_dropdown* dropdown, vec2 pos);
+ASTERA_API void     ui_dropdown_set_to_cursor(ui_dropdown* dropdown);
+ASTERA_API void     ui_dropdown_set(ui_dropdown* dropdown, uint16_t select);
+ASTERA_API void     ui_dropdown_next(ui_dropdown* dropdown);
+ASTERA_API void     ui_dropdown_prev(ui_dropdown* dropdown);
+ASTERA_API int8_t   ui_dropdown_has_change(ui_dropdown* dropdown);
 
-void ui_image_destroy(ui_img* img);
+ASTERA_API void ui_image_destroy(ui_img* img);
 
-void ui_text_bounds(ui_text* text, vec4 bounds);
+ASTERA_API void ui_text_bounds(ui_text* text, vec4 bounds);
 
-void ui_text_draw(ui_text* text);
-void ui_box_draw(ui_box* box, int8_t focused);
-void ui_button_draw(ui_button* button, int8_t focused);
-void ui_dropdown_draw(ui_dropdown* dropdown, int8_t focused);
-void ui_line_draw(ui_line* line);
-void ui_option_draw(ui_option* option, int8_t focused);
-void ui_image_draw(ui_img* img);
+ASTERA_API void ui_text_draw(ui_text* text);
+ASTERA_API void ui_box_draw(ui_box* box, int8_t focused);
+ASTERA_API void ui_button_draw(ui_button* button, int8_t focused);
+ASTERA_API void ui_dropdown_draw(ui_dropdown* dropdown, int8_t focused);
+ASTERA_API void ui_line_draw(ui_line* line);
+ASTERA_API void ui_option_draw(ui_option* option, int8_t focused);
+ASTERA_API void ui_image_draw(ui_img* img);
 
-void ui_im_text_draw(vec2 pos, float font_size, ui_font font, char* text);
+ASTERA_API void ui_im_text_draw(vec2 pos, float font_size, ui_font font,
+                                char* text);
 
-float ui_text_max_size(ui_text text, vec2 bounds, int allow_reveal);
-float ui_dropdown_max_font_size(ui_dropdown dropdown);
+ASTERA_API float ui_text_max_size(ui_text text, vec2 bounds, int allow_reveal);
+ASTERA_API float ui_dropdown_max_font_size(ui_dropdown dropdown);
 
-int16_t ui_element_contains(ui_element element, vec2 point);
-int32_t ui_element_event(ui_tree* tree, uint32_t uid);
+ASTERA_API int16_t ui_element_contains(ui_element element, vec2 point);
+ASTERA_API int32_t ui_element_event(ui_tree* tree, uint32_t uid);
 
-ui_tree  ui_tree_create(uint16_t capacity);
-uint32_t ui_tree_check(ui_tree* tree);
-void     ui_tree_destroy(ui_tree* tree);
-uint32_t ui_tree_add(ui_tree* tree, void* data, ui_element_type type,
-                     int8_t selectable);
+ASTERA_API ui_tree  ui_tree_create(uint16_t capacity);
+ASTERA_API uint32_t ui_tree_check(ui_tree* tree);
+ASTERA_API void     ui_tree_destroy(ui_tree* tree);
+ASTERA_API uint32_t ui_tree_add(ui_tree* tree, void* data, ui_element_type type,
+                                int8_t selectable);
 
-void ui_tree_print(ui_tree* tree);
+ASTERA_API void ui_tree_print(ui_tree* tree);
 
-uint32_t ui_tree_get_cursor_id(ui_tree* tree);
-int8_t   ui_tree_is_active(ui_tree* tree, uint32_t id);
-uint32_t ui_tree_select(ui_tree* tree, int32_t event_type, int is_mouse);
-uint32_t ui_tree_next(ui_tree* tree);
-uint32_t ui_tree_prev(ui_tree* tree);
+ASTERA_API uint32_t ui_tree_get_cursor_id(ui_tree* tree);
+ASTERA_API int8_t   ui_tree_is_active(ui_tree* tree, uint32_t id);
+ASTERA_API uint32_t ui_tree_select(ui_tree* tree, int32_t event_type,
+                                   int is_mouse);
+ASTERA_API uint32_t ui_tree_next(ui_tree* tree);
+ASTERA_API uint32_t ui_tree_prev(ui_tree* tree);
 
-void ui_tree_draw(ui_tree tree);
+ASTERA_API void ui_tree_draw(ui_tree tree);
 
 #ifdef __cplusplus
 }

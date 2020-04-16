@@ -5,6 +5,8 @@
 extern "C" {
 #endif
 
+#include <astera/export.h>
+
 #define SEC_TO_NS   1e-9
 #define SEC_TO_MCS  1e-6
 #define SEC_TO_MS   1e-6
@@ -41,19 +43,19 @@ typedef struct {
 } s_timer;
 
 /* Returns time in Milliseconds */
-time_s s_get_time();
+ASTERA_API time_s s_get_time();
 
 /* Update the mark & delta for timer */
-time_s s_timer_update(s_timer* t);
+ASTERA_API time_s s_timer_update(s_timer* t);
 
 /* Create a timer that is up to date */
-s_timer s_timer_create();
+ASTERA_API s_timer s_timer_create();
 
 /* Sleep for time in Milliseconds */
-time_s s_sleep(time_s duration);
+ASTERA_API time_s s_sleep(time_s duration);
 
 /* Convert integer to String */
-char* s_itoa(int value, char* string, int base);
+ASTERA_API char* s_itoa(int value, char* string, int base);
 
 #ifdef __cplusplus
 }

@@ -11,18 +11,19 @@
 extern "C" {
 #endif
 
+#include <astera/export.h>
+#include <astera/linmath.h>
+
 #include <AL/al.h>
 #include <AL/alc.h>
-
-#include <linmath.h>
 
 #include <stdint.h>
 
 #define STB_VORBIS_HEADER_ONLY
 #include <stb_vorbis.c>
 
-#include "asset.h"
-#include "sys.h"
+#include <astera/asset.h>
+#include <astera/sys.h>
 
 #if !defined(AUDIO_FRAME_SIZE)
 #define AUDIO_FRAME_SIZE 4096
@@ -327,92 +328,95 @@ static a_resource_map g_a_map;
 static a_ctx          g_a_ctx;
 static a_listener     g_listener;
 
-void a_efx_info(void);
+ASTERA_API void a_efx_info(void);
 
-int  a_init(const char* device, uint32_t master, uint32_t sfx, uint32_t music);
-void a_exit();
+ASTERA_API int  a_init(const char* device, uint32_t master, uint32_t sfx,
+                       uint32_t music);
+ASTERA_API void a_exit();
 
-int a_can_play(void);
+ASTERA_API int a_can_play(void);
 
-void a_set_pos(vec3 p);
-void a_set_ori(vec3 d);
-void a_set_orif(float v[6]);
-void a_set_vel(vec3 v);
+ASTERA_API void a_set_pos(vec3 p);
+ASTERA_API void a_set_ori(vec3 d);
+ASTERA_API void a_set_orif(float v[6]);
+ASTERA_API void a_set_vel(vec3 v);
 
-void a_get_pos(vec3* p);
-void a_get_ori(vec3* o);
-void a_get_orif(float* f);
-void a_get_vel(vec3* v);
+ASTERA_API void a_get_pos(vec3* p);
+ASTERA_API void a_get_ori(vec3* o);
+ASTERA_API void a_get_orif(float* f);
+ASTERA_API void a_get_vel(vec3* v);
 
-void a_set_vol(uint32_t master, uint32_t sfx, uint32_t music);
-void a_set_vol_master(uint32_t master);
-void a_set_vol_sfx(uint32_t sfx);
-void a_set_vol_music(uint32_t sfx);
+ASTERA_API void a_set_vol(uint32_t master, uint32_t sfx, uint32_t music);
+ASTERA_API void a_set_vol_master(uint32_t master);
+ASTERA_API void a_set_vol_sfx(uint32_t sfx);
+ASTERA_API void a_set_vol_music(uint32_t sfx);
 
-float a_get_vol_master(void);
-float a_get_vol_sfx(void);
-float a_get_vol_music(void);
+ASTERA_API float a_get_vol_master(void);
+ASTERA_API float a_get_vol_sfx(void);
+ASTERA_API float a_get_vol_music(void);
 
-void a_update(time_s delta);
-void a_update_sfx(void);
+ASTERA_API void a_update(time_s delta);
+ASTERA_API void a_update_sfx(void);
 
-a_fx_reverb a_fx_reverb_default(void);
+ASTERA_API a_fx_reverb a_fx_reverb_default(void);
 
-a_fx_reverb a_fx_reverb_create(float density, float diffusion, float gain,
-                               float gainhf, float decay, float decay_hfratio,
-                               float refl_gain, float refl_delay,
-                               float late_gain, float late_delay,
-                               float air_absorption_gainhf,
-                               float room_rolloff_factor, int8_t decay_hflimit);
+ASTERA_API a_fx_reverb a_fx_reverb_create(
+    float density, float diffusion, float gain, float gainhf, float decay,
+    float decay_hfratio, float refl_gain, float refl_delay, float late_gain,
+    float late_delay, float air_absorption_gainhf, float room_rolloff_factor,
+    int8_t decay_hflimit);
 
-a_fx_eq a_fx_eq_create(float low, float low_cutoff, float mid1_gain,
-                       float mid1_center, float mid1_width, float mid2_gain,
-                       float mid2_center, float mid2_width, float high_gain,
-                       float high_cutoff);
+ASTERA_API a_fx_eq a_fx_eq_create(float low, float low_cutoff, float mid1_gain,
+                                  float mid1_center, float mid1_width,
+                                  float mid2_gain, float mid2_center,
+                                  float mid2_width, float high_gain,
+                                  float high_cutoff);
 
-int16_t a_fx_slot_get();
-int16_t a_fx_slot_attach(a_fx* fx);
-void    a_fx_slot_detach(a_fx* fx);
-void    a_fx_slot_update(a_fx_slot* slot);
-void    a_fx_slot_destroy(a_fx_slot* slot);
+ASTERA_API int16_t a_fx_slot_get();
+ASTERA_API int16_t a_fx_slot_attach(a_fx* fx);
+ASTERA_API void    a_fx_slot_detach(a_fx* fx);
+ASTERA_API void    a_fx_slot_update(a_fx_slot* slot);
+ASTERA_API void    a_fx_slot_destroy(a_fx_slot* slot);
 
-a_fx a_fx_create(a_fx_type type, void* data);
-void a_fx_update(a_fx fx);
-void a_fx_destroy(a_fx fx);
+ASTERA_API a_fx a_fx_create(a_fx_type type, void* data);
+ASTERA_API void a_fx_update(a_fx fx);
+ASTERA_API void a_fx_destroy(a_fx fx);
 
-a_filter a_filter_create(a_filter_type type, float gain, float hf, float lf);
-void     a_filter_update(a_filter filter);
-void     a_filter_destroy(a_filter filter);
+ASTERA_API a_filter a_filter_create(a_filter_type type, float gain, float hf,
+                                    float lf);
+ASTERA_API void     a_filter_update(a_filter filter);
+ASTERA_API void     a_filter_destroy(a_filter filter);
 
-uint32_t a_get_device_name(char* dst, int capacity);
+ASTERA_API uint32_t a_get_device_name(char* dst, int capacity);
 
-int8_t a_layer_add_music(uint32_t id, a_music* music);
-int8_t a_layer_add_sfx(uint32_t id, a_sfx* sfx);
+ASTERA_API int8_t a_layer_add_music(uint32_t id, a_music* music);
+ASTERA_API int8_t a_layer_add_sfx(uint32_t id, a_sfx* sfx);
 
 // well, I need to convert this bit too lol, refactoring can be a bitch
-a_buf  a_buf_create(asset_t* asset);
-a_buf* a_buf_get(const char* name);
-void   a_buf_destroy(a_buf buffer);
+ASTERA_API a_buf a_buf_create(asset_t* asset);
+ASTERA_API a_buf* a_buf_get(const char* name);
+ASTERA_API void   a_buf_destroy(a_buf buffer);
 
-a_sfx* a_play_sfxn(const char* name, a_req* req);
-a_sfx* a_play_sfx(a_buf* buff, a_req* req);
+ASTERA_API a_sfx* a_play_sfxn(const char* name, a_req* req);
+ASTERA_API a_sfx* a_play_sfx(a_buf* buff, a_req* req);
 
-a_req a_req_create(uint16_t layer, vec2 pos, float gain, int8_t loop);
+ASTERA_API a_req a_req_create(uint16_t layer, vec2 pos, float gain,
+                              int8_t loop);
 
-int  a_ctx_create(const char* device_name);
-void a_destroy_context(void);
+ASTERA_API int  a_ctx_create(const char* device_name);
+ASTERA_API void a_destroy_context(void);
 
-a_music* a_music_create(asset_t* asset, a_meta* meta, a_req* req);
-void     a_music_reset(a_music* music);
-void     a_music_destroy(a_music* music);
+ASTERA_API a_music* a_music_create(asset_t* asset, a_meta* meta, a_req* req);
+ASTERA_API void     a_music_reset(a_music* music);
+ASTERA_API void     a_music_destroy(a_music* music);
 
-time_s a_music_len(a_music* music);
-time_s a_music_time(a_music* music);
+ASTERA_API time_s a_music_len(a_music* music);
+ASTERA_API time_s a_music_time(a_music* music);
 
-void a_music_play(a_music* music);
-void a_music_stop(a_music* music);
-void a_music_resume(a_music* music);
-void a_music_pause(a_music* music);
+ASTERA_API void a_music_play(a_music* music);
+ASTERA_API void a_music_stop(a_music* music);
+ASTERA_API void a_music_resume(a_music* music);
+ASTERA_API void a_music_pause(a_music* music);
 
 #ifdef __cplusplus
 }

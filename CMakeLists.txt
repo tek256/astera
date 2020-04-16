@@ -56,7 +56,7 @@ target_sources(${PROJECT_NAME} PRIVATE ${sources})
 target_sources(${PROJECT_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/dep/nanovg/nanovg.c)
 target_sources(${PROJECT_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/dep/getopt/getopt.c)
 target_sources(${PROJECT_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/dep/zip/zip.c)
-target_sources(${PROJECT_NAME} PRIVATE $<TARGET_OBJECTS:OpenAL::AL> $<TARGET_OBJECTS:glfw>)
+#target_sources(${PROJECT_NAME} PRIVATE $<TARGET_OBJECTS:OpenAL::AL> $<TARGET_OBJECTS:glfw>)
 
 target_include_directories(${PROJECT_NAME}
   PUBLIC

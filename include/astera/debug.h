@@ -7,20 +7,22 @@
 extern "C" {
 #endif
 
+#include <astera/export.h>
+
 int d_fatal;
 
-void dbg_enable_log(int log, const char* fp);
-void dbg_set_log_fp(const char* fp);
+ASTERA_API void dbg_enable_log(int log, const char* fp);
+ASTERA_API void dbg_set_log_fp(const char* fp);
 
-void dbg_set_timestamp(int enabled);
-int  dbg_is_logging();
-int  dbg_post_to_err();
+ASTERA_API void dbg_set_timestamp(int enabled);
+ASTERA_API int  dbg_is_logging();
+ASTERA_API int  dbg_post_to_err();
 
-int dbg_cleanup();
+ASTERA_API int dbg_cleanup();
 
-void _fatal(const char* format, ...);
-void _l(const char* format, ...);
-void _e(const char* format, ...);
+ASTERA_API void _fatal(const char* format, ...);
+ASTERA_API void _l(const char* format, ...);
+ASTERA_API void _e(const char* format, ...);
 
 #ifdef __cplusplus
 }
