@@ -1,7 +1,0 @@
-# Exclude any builds
-/build/
-*build/
-
-# Excluse any CMakeBuild info
-CMakeFiles/
-CMakeCache.txt

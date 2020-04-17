@@ -7,24 +7,53 @@ extern "C" {
 
 #include <stdint.h>
 
+#if !defined ASTERA_KB_NAMELEN
+#define ASTERA_KB_NAMELEN 8
+#endif
+
 #include <GLFW/glfw3.h>
 
 #include <astera/export.h>
-#include <astera/linmath.h>
 
-#define BINDING_KEY  1
-#define BINDING_MB   2
-#define BINDING_JOYA 3
-#define BINDING_JOYB 4
+#if !defined ASTERA_BINDING_KEY
+#define ASTERA_BINDING_KEY 1
+#endif
 
-#define MAX_KEYS          16
-#define MAX_CHARS         16
-#define MAX_MOUSE_BUTTONS 16
+#if !defined ASTERA_BINDING_MB
+#define ASTERA_BINDING_MB 2
+#endif
 
-#define MAX_KEY_BINDINGS 32
+#if !defined ASTERA_BINDING_JOYA
+#define ASTERA_BINDING_JOYA 3
+#endif
 
-#define MAX_JOY_AXES    12
-#define MAX_JOY_BUTTONS 16
+#if !defined ASTERA_BINDING_JOYB
+#define ASTERA_BINDING_JOYB 4
+#endif
+
+#if !defined ASTERA_MAX_KEYS
+#define ASTERA_MAX_KEYS 16
+#endif
+
+#if !defined ASTERA_MAX_CHARS
+#define ASTERA_MAX_CHARS 16
+#endif
+
+#if !defined ASTERA_MAX_MOUSE_BUTTONS
+#define ASTERA_MAX_MOUSE_BUTTONS 16
+#endif
+
+#if !defined ASTERA_MAX_KEYBINDINGS
+#define ASTERA_MAX_KEY_BINDINGS 32
+#endif
+
+#if !defined ASTERA_MAX_JOY_AXES
+#define ASTERA_MAX_JOY_AXES 12
+#endif
+
+#if !defined ASTERA_MAX_JOY_BUTTONS
+#define ASTERA_MAX_JOY_BUTTONS 16
+#endif
 
 #define XBOX_360_PAD 0
 #define XBOX_ONE_PAD 1
@@ -139,7 +168,7 @@ typedef struct {
 } i_statesf;
 
 typedef struct {
-  char     name[8];
+  char     name[ASTERA_KB_NAMELEN];
   uint16_t uid;
   uint8_t  state;
 
@@ -208,8 +237,6 @@ ASTERA_API uint16_t i_mouse_down(uint16_t button);
 ASTERA_API uint16_t i_mouse_up(uint16_t button);
 ASTERA_API uint16_t i_mouse_clicked(uint16_t button);
 ASTERA_API uint16_t i_mouse_released(uint16_t button);
-
-ASTERA_API uint16_t i_mouse_within(vec2 start, vec2 end);
 
 ASTERA_API void   i_get_mouse_pos(double* x, double* y);
 ASTERA_API double i_get_mouse_x(void);

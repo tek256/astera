@@ -27,6 +27,7 @@
 
 #include <string.h>
 
+#include <AL/al.h>
 #if !defined(ASTERA_AL_NO_EFX)
 #include <AL/efx.h>
 
@@ -1025,31 +1026,31 @@ int a_ctx_create(const char* device_name) {
   return 1;
 }
 
-static int16_t a_load_int16(asset_t* asset, int offset) {
-  return *((int16_t*)&asset->data[offset]);
+static int16_t a_load_int16(unsigned char* data, int offset) {
+  return *((int16_t*)&data[offset]);
 }
 
-static int32_t a_load_int32(asset_t* asset, int offset) {
-  return *((int32_t*)&asset->data[offset]);
+static int32_t a_load_int32(unsigned char* data, int offset) {
+  return *((int32_t*)&data[offset]);
 }
 
-a_buf a_buf_create(asset_t* asset) {
-  if (!asset || !asset->data) {
+a_buf a_buf_create(unsigned char* data, int data_length) {
+  if (!data || !data_length) {
     DBG_E("No asset passed to load into audio buffer.\n");
     return (a_buf){0};
   }
 
   // format, don't need to use it at the moment tho
-  // int16_t format          = a_load_int16(asset, 20);
-  int16_t channels        = a_load_int16(asset, 22);
-  int32_t sample_rate     = a_load_int32(asset, 24);
-  int32_t byte_rate       = a_load_int32(asset, 28);
-  int16_t bits_per_sample = a_load_int16(asset, 34);
+  // int16_t format          = a_load_int16(data, 20);
+  int16_t channels        = a_load_int16(data, 22);
+  int32_t sample_rate     = a_load_int32(data, 24);
+  int32_t byte_rate       = a_load_int32(data, 28);
+  int16_t bits_per_sample = a_load_int16(data, 34);
 
   // NOTE: Just tests if it's valid file
-  assert(strncmp(&asset->data[36], "data", 4) == 0);
+  assert(strncmp(&data[36], "data", 4) == 0);
 
-  int32_t byte_length = a_load_int32(asset, 40);
+  int32_t byte_length = a_load_int32(data, 40);
 
   int al_format = -1;
   if (channels == 2) {
@@ -1078,8 +1079,7 @@ a_buf a_buf_create(asset_t* asset) {
   buffer.sample_rate = sample_rate;
   buffer.length      = (float)(byte_length / byte_rate);
 
-  alBufferData(buffer.id, al_format, &asset->data[44], byte_length,
-               sample_rate);
+  alBufferData(buffer.id, al_format, &data[44], byte_length, sample_rate);
 
   return buffer;
 }
@@ -1268,8 +1268,9 @@ a_sfx* a_play_sfx(a_buf* buff, a_req* req) {
   return src;
 }
 
-a_music* a_music_create(asset_t* asset, a_meta* meta, a_req* req) {
-  if (!asset) {
+a_music* a_music_create(unsigned char* data, int data_length, a_meta* meta,
+                        a_req* req) {
+  if (!data || !data_length) {
     DBG_E("No data passed to create music.\n");
     return 0;
   }
@@ -1292,10 +1293,9 @@ a_music* a_music_create(asset_t* asset, a_meta* meta, a_req* req) {
 
   int error, used;
 
-  music->data_length = asset->data_length;
-  music->data        = asset->data;
-  music->vorbis      = stb_vorbis_open_pushdata(asset->data, asset->data_length,
-                                           &used, &error, 0);
+  music->data_length = data_length;
+  music->data        = data;
+  music->vorbis = stb_vorbis_open_pushdata(data, data_length, &used, &error, 0);
 
   if (!music->vorbis) {
     music->data_length = 0;

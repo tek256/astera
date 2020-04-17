@@ -21,7 +21,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-static char     chars[MAX_CHARS];
+static char     chars[ASTERA_MAX_CHARS];
 static uint16_t char_count = 0;
 static char     char_track = 0;
 
@@ -50,21 +50,21 @@ key_binding* tracked_key_binding;
 int          key_binding_count;
 
 uint16_t i_init(void) {
-  mouse_b = i_create_s(MAX_MOUSE_BUTTONS);
+  mouse_b = i_create_s(ASTERA_MAX_MOUSE_BUTTONS);
   if (!mouse_b.curr || !mouse_b.prev) {
     DBG_E("Unable to malloc space for mouse.\n");
     i_exit();
     return 0;
   }
 
-  keyboard = i_create_s(MAX_KEYS);
+  keyboard = i_create_s(ASTERA_MAX_KEYS);
   if (!keyboard.curr || !keyboard.prev) {
     DBG_E("Unable to malloc space for keyboard.\n");
     i_exit();
     return 0;
   }
 
-  current_keys = malloc(sizeof(uint16_t) * MAX_KEYS);
+  current_keys = malloc(sizeof(uint16_t) * ASTERA_MAX_KEYS);
   if (!current_keys) {
     DBG_E("Unable to malloc space for keyboard.\n");
     i_exit();
@@ -78,8 +78,8 @@ uint16_t i_init(void) {
 
   key_binding_count   = 0;
   tracked_key_binding = 0;
-  key_bindings        = malloc(sizeof(key_binding) * MAX_KEY_BINDINGS);
-  memset(key_bindings, 0, sizeof(key_binding) * MAX_KEY_BINDINGS);
+  key_bindings        = malloc(sizeof(key_binding) * ASTERA_MAX_KEY_BINDINGS);
+  memset(key_bindings, 0, sizeof(key_binding) * ASTERA_MAX_KEY_BINDINGS);
   if (!key_bindings) {
     DBG_E("Unable to malloc space for key bindings.\n");
     i_exit();
@@ -155,8 +155,8 @@ void i_create_joy(uint16_t joy_id) {
       return;
     }
 
-    joy_a = i_create_sf(MAX_JOY_AXES);
-    joy_b = i_create_s(MAX_JOY_BUTTONS);
+    joy_a = i_create_sf(ASTERA_MAX_JOY_AXES);
+    joy_b = i_create_s(ASTERA_MAX_JOY_BUTTONS);
 
     joystick_id = joy_id;
   }
@@ -179,14 +179,15 @@ float i_joy_axis_delta(uint16_t axis) {
 void i_get_joy_buttons(uint16_t* dst, int count) {
   if (!joy_exists)
     return;
-  int cpy_count = (count > MAX_JOY_BUTTONS) ? MAX_JOY_BUTTONS : count;
+  int cpy_count =
+      (count > ASTERA_MAX_JOY_BUTTONS) ? ASTERA_MAX_JOY_BUTTONS : count;
   memcpy(dst, joy_b.curr, cpy_count * sizeof(uint16_t));
 }
 
 void i_get_joy_axes(float* dst, int count) {
   if (!joy_exists)
     return;
-  int cpy_count = (count > MAX_JOY_AXES) ? MAX_JOY_AXES : count;
+  int cpy_count = (count > ASTERA_MAX_JOY_AXES) ? ASTERA_MAX_JOY_AXES : count;
   memcpy(dst, joy_a.curr, cpy_count * sizeof(float));
 }
 
@@ -266,7 +267,8 @@ void i_rm_key(uint16_t key) {
     }
   }
 
-  int cap = (current_key_count >= MAX_KEYS - 1) ? MAX_KEYS : current_key_count;
+  int cap = (current_key_count >= ASTERA_MAX_KEYS - 1) ? ASTERA_MAX_KEYS
+                                                       : current_key_count;
 
   for (int i = index; i < cap - 1; ++i) {
     current_keys[i] = current_keys[i + 1];
@@ -279,7 +281,7 @@ void i_rm_key(uint16_t key) {
 void i_key_callback(int key, int scancode, int toggle) {
   if (toggle) {
     if (key_binding_track) {
-      i_binding_track_callback(key, BINDING_KEY);
+      i_binding_track_callback(key, ASTERA_BINDING_KEY);
     }
 
     if (keyboard.curr_count == keyboard.capacity) {
@@ -294,7 +296,7 @@ void i_key_callback(int key, int scancode, int toggle) {
     ++keyboard.curr_count;
 
     if (i_contains((uint16_t)key, current_keys, current_key_count) &&
-        current_key_count < MAX_KEYS) {
+        current_key_count < ASTERA_MAX_KEYS) {
       return;
     }
 
@@ -354,7 +356,7 @@ int i_get_mouse_grab(GLFWwindow* window) {
 
 void i_mouse_button_callback(uint16_t button) {
   if (key_binding_track) {
-    i_binding_track_callback(button, BINDING_MB);
+    i_binding_track_callback(button, ASTERA_BINDING_MB);
   }
   mouse_b.curr[mouse_b.curr_count] = button;
   ++mouse_b.curr_count;
@@ -453,25 +455,20 @@ uint16_t i_key_released(uint16_t key) {
 void i_add_binding(const char* name, int value, int type) {
   if (key_binding_count > 0) {
     for (int i = 0; i < key_binding_count; ++i) {
-      int len = strlen(key_bindings[i].name);
-      len     = (len > 8) ? 8 : len;
-      if (strncmp(key_bindings[i].name, name, len) == 0) {
+      if (strncmp(key_bindings[i].name, name, ASTERA_KB_NAMELEN) == 0) {
         key_bindings[i].value = value;
         key_bindings[i].type  = type;
         return;
       }
     }
 
-    if (key_binding_count == MAX_KEY_BINDINGS) {
+    if (key_binding_count == ASTERA_MAX_KEY_BINDINGS) {
       DBG_E("Unable to add more key bindings.\n");
       return;
     }
   }
 
-  int len = strlen(name);
-  len     = (len > 8) ? 8 : len;
-
-  strncpy(key_bindings[key_binding_count].name, name, len);
+  strncpy(key_bindings[key_binding_count].name, name, ASTERA_KB_NAMELEN);
   key_bindings[key_binding_count].value = value;
   key_bindings[key_binding_count].type  = type;
   ++key_binding_count;
@@ -546,13 +543,13 @@ uint16_t i_binding_clicked(const char* key_binding) {
     if (!strncmp(key_bindings[i].name, key_binding, len)) {
       int val;
       switch (key_bindings[i].type) {
-      case BINDING_JOYB:
+      case ASTERA_BINDING_JOYB:
         val = i_joy_button_clicked(key_bindings[i].value);
         break;
-      case BINDING_KEY:
+      case ASTERA_BINDING_KEY:
         val = i_key_clicked(key_bindings[i].value);
         break;
-      case BINDING_MB:
+      case ASTERA_BINDING_MB:
         val = i_mouse_clicked(key_bindings[i].value);
         break;
       }
@@ -562,13 +559,13 @@ uint16_t i_binding_clicked(const char* key_binding) {
       }
 
       switch (key_bindings[i].alt_type) {
-      case BINDING_JOYB:
+      case ASTERA_BINDING_JOYB:
         val = i_joy_button_clicked(key_bindings[i].alt);
         break;
-      case BINDING_KEY:
+      case ASTERA_BINDING_KEY:
         val = i_key_clicked(key_bindings[i].alt);
         break;
-      case BINDING_MB:
+      case ASTERA_BINDING_MB:
         val = i_mouse_clicked(key_bindings[i].alt);
         break;
       }
@@ -585,19 +582,19 @@ uint16_t i_binding_released(const char* key_binding) {
     int len = strlen(key_bindings[i].name);
     len     = (len > 8) ? 8 : len;
     if (!strncmp(key_bindings[i].name, key_binding, len)) {
-      if (key_bindings[i].type == BINDING_JOYA) {
+      if (key_bindings[i].type == ASTERA_BINDING_JOYA) {
         return 0;
       }
 
       int val;
       switch (key_bindings[i].type) {
-      case BINDING_JOYB:
+      case ASTERA_BINDING_JOYB:
         val = i_joy_button_released(key_bindings[i].value);
         break;
-      case BINDING_KEY:
+      case ASTERA_BINDING_KEY:
         val = i_key_released(key_bindings[i].value);
         break;
-      case BINDING_MB:
+      case ASTERA_BINDING_MB:
         val = i_mouse_released(key_bindings[i].value);
         break;
       }
@@ -607,13 +604,13 @@ uint16_t i_binding_released(const char* key_binding) {
       }
 
       switch (key_bindings[i].alt_type) {
-      case BINDING_JOYB:
+      case ASTERA_BINDING_JOYB:
         val = i_joy_button_released(key_bindings[i].alt);
         break;
-      case BINDING_KEY:
+      case ASTERA_BINDING_KEY:
         val = i_key_released(key_bindings[i].alt);
         break;
-      case BINDING_MB:
+      case ASTERA_BINDING_MB:
         val = i_mouse_released(key_bindings[i].alt);
         break;
       }
@@ -630,22 +627,22 @@ uint16_t i_binding_down(const char* key_binding) {
     int len = strlen(key_bindings[i].name);
     len     = (len > 8) ? 8 : len;
     if (!strncmp(key_bindings[i].name, key_binding, len)) {
-      if (key_bindings[i].type == BINDING_JOYA) {
+      if (key_bindings[i].type == ASTERA_BINDING_JOYA) {
         return 0;
       }
 
       int val;
       switch (key_bindings[i].type) {
-      case BINDING_JOYB:
+      case ASTERA_BINDING_JOYB:
         val = i_joy_button_down(key_bindings[i].value);
         break;
-      case BINDING_KEY:
+      case ASTERA_BINDING_KEY:
         val = i_key_down(key_bindings[i].value);
         break;
-      case BINDING_MB:
+      case ASTERA_BINDING_MB:
         val = i_mouse_down(key_bindings[i].value);
         break;
-      case BINDING_JOYA:
+      case ASTERA_BINDING_JOYA:
         val = (i_joy_axis(key_bindings[i].value) < 0.f) ? 1 : 0;
         break;
       }
@@ -654,16 +651,16 @@ uint16_t i_binding_down(const char* key_binding) {
       }
 
       switch (key_bindings[i].alt_type) {
-      case BINDING_JOYB:
+      case ASTERA_BINDING_JOYB:
         val = i_joy_button_down(key_bindings[i].alt);
         break;
-      case BINDING_KEY:
+      case ASTERA_BINDING_KEY:
         val = i_key_down(key_bindings[i].alt);
         break;
-      case BINDING_MB:
+      case ASTERA_BINDING_MB:
         val = i_mouse_down(key_bindings[i].alt);
         break;
-      case BINDING_JOYA:
+      case ASTERA_BINDING_JOYA:
         val = (i_joy_axis(key_bindings[i].alt) < 0.f) ? 1 : 0;
         break;
       }
@@ -683,16 +680,16 @@ uint16_t i_binding_up(const char* key_binding) {
       int val;
 
       switch (key_bindings[i].type) {
-      case BINDING_JOYB:
+      case ASTERA_BINDING_JOYB:
         val = i_joy_button_up(key_bindings[i].value);
         break;
-      case BINDING_MB:
+      case ASTERA_BINDING_MB:
         val = i_mouse_up(key_bindings[i].value);
         break;
-      case BINDING_KEY:
+      case ASTERA_BINDING_KEY:
         val = i_key_up(key_bindings[i].value);
         break;
-      case BINDING_JOYA:
+      case ASTERA_BINDING_JOYA:
         val = (i_joy_axis(key_bindings[i].value) > 0.f) ? 1 : 0;
         break;
       }
@@ -702,16 +699,16 @@ uint16_t i_binding_up(const char* key_binding) {
       }
 
       switch (key_bindings[i].alt_type) {
-      case BINDING_JOYB:
+      case ASTERA_BINDING_JOYB:
         val = i_joy_button_up(key_bindings[i].alt);
         break;
-      case BINDING_MB:
+      case ASTERA_BINDING_MB:
         val = i_mouse_up(key_bindings[i].alt);
         break;
-      case BINDING_KEY:
+      case ASTERA_BINDING_KEY:
         val = i_key_up(key_bindings[i].alt);
         break;
-      case BINDING_JOYA:
+      case ASTERA_BINDING_JOYA:
         val = (i_joy_axis(key_bindings[i].value) > 0.f) ? 1 : 0;
         break;
       }
@@ -729,16 +726,16 @@ float i_binding_val(const char* key_binding) {
     if (!strncmp(key_bindings[i].name, key_binding, len)) {
       float val;
       switch (key_bindings[i].type) {
-      case BINDING_MB:
+      case ASTERA_BINDING_MB:
         val = (i_mouse_down(key_bindings[i].value)) ? 1.0f : 0.0f;
         break;
-      case BINDING_KEY:
+      case ASTERA_BINDING_KEY:
         val = (i_key_down(key_bindings[i].value)) ? 1.0f : 0.0f;
         break;
-      case BINDING_JOYA:
+      case ASTERA_BINDING_JOYA:
         val = i_joy_axis(key_bindings[i].value);
         break;
-      case BINDING_JOYB:
+      case ASTERA_BINDING_JOYB:
         val = (i_joy_button_down(key_bindings[i].value)) ? 1.0f : 0.0f;
         break;
       }
@@ -748,16 +745,16 @@ float i_binding_val(const char* key_binding) {
       }
 
       switch (key_bindings[i].alt_type) {
-      case BINDING_MB:
+      case ASTERA_BINDING_MB:
         val = (i_mouse_down(key_bindings[i].alt)) ? 1.0f : 0.0f;
         break;
-      case BINDING_KEY:
+      case ASTERA_BINDING_KEY:
         val = (i_key_down(key_bindings[i].alt)) ? 1.0f : 0.0f;
         break;
-      case BINDING_JOYA:
+      case ASTERA_BINDING_JOYA:
         val = i_joy_axis(key_bindings[i].alt);
         break;
-      case BINDING_JOYB:
+      case ASTERA_BINDING_JOYB:
         val = (i_joy_button_down(key_bindings[i].alt)) ? 1.0f : 0.0f;
         break;
       }
@@ -844,7 +841,7 @@ void i_update(void) {
 
     for (int i = 0; i < joy_a.capacity; ++i) {
       if (joy_a.curr[i] != 0.f) {
-        i_binding_track_callback(i, BINDING_JOYA);
+        i_binding_track_callback(i, ASTERA_BINDING_JOYA);
       }
     }
 
@@ -866,7 +863,7 @@ void i_update(void) {
 
       if (buttons[i] == GLFW_PRESS || buttons[i] == GLFW_REPEAT) {
         if (key_binding_track) {
-          i_binding_track_callback(i, BINDING_JOYB);
+          i_binding_track_callback(i, ASTERA_BINDING_JOYB);
         }
 
         joy_b.curr[i] = 1;

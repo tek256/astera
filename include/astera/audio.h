@@ -14,7 +14,6 @@ extern "C" {
 #include <astera/export.h>
 #include <astera/linmath.h>
 
-#include <AL/al.h>
 #include <AL/alc.h>
 
 #include <stdint.h>
@@ -22,7 +21,6 @@ extern "C" {
 #define STB_VORBIS_HEADER_ONLY
 #include <stb_vorbis.c>
 
-#include <astera/asset.h>
 #include <astera/sys.h>
 
 #if !defined(AUDIO_FRAME_SIZE)
@@ -393,7 +391,7 @@ ASTERA_API int8_t a_layer_add_music(uint32_t id, a_music* music);
 ASTERA_API int8_t a_layer_add_sfx(uint32_t id, a_sfx* sfx);
 
 // well, I need to convert this bit too lol, refactoring can be a bitch
-ASTERA_API a_buf a_buf_create(asset_t* asset);
+ASTERA_API a_buf a_buf_create(unsigned char* data, int data_length);
 ASTERA_API a_buf* a_buf_get(const char* name);
 ASTERA_API void   a_buf_destroy(a_buf buffer);
 
@@ -406,7 +404,8 @@ ASTERA_API a_req a_req_create(uint16_t layer, vec2 pos, float gain,
 ASTERA_API int  a_ctx_create(const char* device_name);
 ASTERA_API void a_destroy_context(void);
 
-ASTERA_API a_music* a_music_create(asset_t* asset, a_meta* meta, a_req* req);
+ASTERA_API a_music* a_music_create(unsigned char* data, int data_length,
+                                   a_meta* meta, a_req* req);
 ASTERA_API void     a_music_reset(a_music* music);
 ASTERA_API void     a_music_destroy(a_music* music);
 

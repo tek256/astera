@@ -83,7 +83,7 @@ static void glfw_key_cb(GLFWwindow* window, int key, int scancode, int action,
   if (action == GLFW_PRESS || action == GLFW_REPEAT) {
     i_key_callback(key, scancode, 1);
     if (i_key_binding_track()) {
-      i_binding_track_callback(key, BINDING_KEY);
+      i_binding_track_callback(key, ASTERA_BINDING_KEY);
     }
   } else if (action == GLFW_RELEASE) {
     i_key_callback(key, scancode, 0);
@@ -105,7 +105,7 @@ static void glfw_mouse_button_cb(GLFWwindow* window, int button, int action,
   if (action == GLFW_PRESS || action == GLFW_REPEAT) {
     i_mouse_button_callback(button);
     if (i_key_binding_track()) {
-      i_binding_track_callback(button, BINDING_MB);
+      i_binding_track_callback(button, ASTERA_BINDING_MB);
     }
   }
 }
