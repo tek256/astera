@@ -48,13 +48,6 @@ Here are the target platforms for this library:
 - Mac OSX (versions supporting OpenGL 3.3+)
 - BSD (Free, Net, Open)
 ```  
-These are some potential future target platforms:  
-```
-- Raspberry Pi (0+)
-- Nintendo Switch
-- Android
-- iOS
-```
 
 ### Changelog
 ```

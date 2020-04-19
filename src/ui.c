@@ -1226,6 +1226,20 @@ void ui_im_text_draw(vec2 pos, float font_size, ui_font font, char* text) {
   nvgText(g_ui_ctx.nvg, pos[0], pos[1], text, 0);
 }
 
+ASTERA_API void ui_im_box_draw(vec2 pos, vec2 size, vec4 color) {
+  nvgBeginPath(g_ui_ctx.nvg);
+  nvgFillColor(g_ui_ctx.nvg, ui_vec4_color(color));
+  nvgRect(g_ui_ctx.nvg, pos[0], pos[1], size[0], size[1]);
+  nvgFill(g_ui_ctx.nvg);
+}
+
+ASTERA_API void ui_im_circle_draw(vec2 pos, float radius, vec4 color) {
+  nvgBeginPath(g_ui_ctx.nvg);
+  nvgFillColor(g_ui_ctx.nvg, ui_vec4_color(color));
+  nvgCircle(g_ui_ctx.nvg, pos[0], pos[1], radius);
+  nvgFill(g_ui_ctx.nvg);
+}
+
 static int ui_text_fits(ui_text text, float size, vec2 scaled_pos, vec2 bounds,
                         int allow_reveal) {
   nvgFontSize(g_ui_ctx.nvg, size);

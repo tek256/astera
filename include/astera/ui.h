@@ -335,6 +335,8 @@ ASTERA_API void ui_image_draw(ui_img* img);
 
 ASTERA_API void ui_im_text_draw(vec2 pos, float font_size, ui_font font,
                                 char* text);
+ASTERA_API void ui_im_box_draw(vec2 pos, vec2 size, vec4 color);
+ASTERA_API void ui_im_circle_draw(vec2 pos, float radius, vec4 color);
 
 ASTERA_API float ui_text_max_size(ui_text text, vec2 bounds, int allow_reveal);
 ASTERA_API float ui_dropdown_max_font_size(ui_dropdown dropdown);

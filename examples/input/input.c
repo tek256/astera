@@ -4,6 +4,7 @@
 #include <astera/debug.h>
 
 #include <astera/asset.h>
+#include <astera/col.h>
 #include <astera/input.h>
 #include <astera/render.h>
 #include <astera/sys.h>
@@ -26,10 +27,21 @@ ui_img      img;
 
 uint32_t box_uid, button_uid, dropdown_uid;
 
+float move_speed;
+
 float text_time, text_rate;
 int   text_count;
 
 int option_a, option_b, option_c, option_d, option_e;
+
+c_aabb   aabb, aabb2;
+c_circle circle, circle2;
+
+vec4 aabb_color, aabb2_color;
+vec2 aabb_size, aabb2_size;
+vec4 circ_color, circ2_color;
+
+vec2 cam_offset;
 
 void init_ui() {
   ui_init(window_size, 1.f, 1);
@@ -196,6 +208,47 @@ void init_ui() {
   // ui_tree_add(&tree, &img, UI_IMAGE, 0);
 }
 
+void init_col() {
+  move_speed = 100.f;
+
+  vec2  aabb_pos;
+  vec2  aabb2_pos;
+  vec2  circ_pos, circ2_pos;
+  float circ_rad = 5.f, circ2_rad = 25.f;
+
+  aabb_pos[0] = 10.f;
+  aabb_pos[1] = 10.f;
+
+  aabb_size[0] = 25.f;
+  aabb_size[1] = 25.f;
+
+  aabb2_pos[0] = 200.f;
+  aabb2_pos[1] = 200.f;
+
+  aabb2_size[0] = 100.f;
+  aabb2_size[1] = 100.f;
+
+  aabb = c_aabb_get(aabb_pos, (vec2){aabb_size[0] * 0.5f, aabb_size[1] * 0.5f});
+  aabb2 =
+      c_aabb_get(aabb2_pos, (vec2){aabb2_size[0] * 0.5f, aabb2_size[1] * 0.5f});
+
+  circ_pos[0] = 100.f;
+  circ_pos[0] = 100.f;
+
+  circ2_pos[0] = 300.f;
+  circ2_pos[0] = 100.f;
+
+  circle  = c_circ_get(circ_pos, circ_rad);
+  circle2 = c_circ_get(circ2_pos, circ2_rad);
+
+  ui_get_color(circ_color, "EEE");
+  printf("%.2f %.2f %.2f %.2f\n", circ_color[0], circ_color[1], circ_color[2],
+         circ_color[3]);
+  ui_get_color(circ2_color, "666");
+  ui_get_color(aabb_color, "333");
+  ui_get_color(aabb2_color, "F8671A");
+}
+
 void init() {
   r_window_info window_info;
   window_info.width        = 1280;
@@ -223,6 +276,8 @@ void init() {
 
   init_ui();
 
+  init_col();
+
   running = 1;
 }
 
@@ -230,7 +285,31 @@ void render(time_s delta) {
   r_window_clear();
 
   ui_frame_start();
-  ui_tree_draw(tree);
+  // ui_tree_draw(tree);
+
+  vec2 a_c, a2_c, c_c, c2_c;
+  vec2_dup(a_c, aabb.center);
+  vec2_dup(a2_c, aabb2.center);
+  vec2_dup(c_c, circle.center);
+  vec2_dup(c2_c, circle2.center);
+
+  a_c[1] *= -1.f;
+  a2_c[1] *= -1.f;
+  c_c[1] *= -1.f;
+  c2_c[1] *= -1.f;
+
+  vec2_add(a_c, a_c, cam_offset);
+  vec2_add(a2_c, a2_c, cam_offset);
+  vec2_add(c_c, c_c, cam_offset);
+  vec2_add(c2_c, c2_c, cam_offset);
+
+  ui_im_box_draw(a_c, aabb_size, aabb_color);
+  ui_im_box_draw(a2_c, aabb2_size, aabb2_color);
+
+  ui_im_circle_draw(c_c, circle.radius, circ_color);
+  ui_im_circle_draw(c2_c, circle2.radius, circ2_color);
+
+  // whatever, 2nd circle isn't drawing. YOLO
   ui_frame_end();
 
   r_window_swap_buffers();
@@ -293,6 +372,10 @@ void input(time_s delta) {
     ui_tree_select(&tree, 1, 0);
   }
 
+  if (i_key_clicked('F')) {
+    printf("%.2f %.2f\n", aabb.center[0], aabb.center[1]);
+  }
+
   if (i_mouse_clicked(0)) {
     ui_tree_select(&tree, 1, 1);
   }
@@ -300,10 +383,48 @@ void input(time_s delta) {
   if (i_key_clicked(KEY_ESCAPE) || r_window_should_close()) {
     running = 0;
   }
+
+  // now that I think about it, everything is currently being rendered mirrored
+  // vertically.
+  double norm_delta = delta / MS_TO_SEC;
+  if (i_key_down('W')) {
+    aabb.center[1] += move_speed * norm_delta;
+  } else if (i_key_down('S')) {
+    aabb.center[1] -= move_speed * norm_delta;
+  }
+
+  if (i_key_down('D')) {
+    aabb.center[0] += move_speed * norm_delta;
+  } else if (i_key_down('A')) {
+    aabb.center[0] -= move_speed * norm_delta;
+  }
+
+  if (i_key_down(KEY_RIGHT)) {
+    cam_offset[0] += move_speed * norm_delta;
+  } else if (i_key_down(KEY_LEFT)) {
+    cam_offset[0] -= move_speed * norm_delta;
+  }
+
+  if (i_key_down(KEY_UP)) {
+    cam_offset[1] += move_speed * norm_delta;
+  } else if (i_key_down(KEY_DOWN)) {
+    cam_offset[1] -= move_speed * norm_delta;
+  }
 }
 
 void update(time_s delta) {
   uint32_t active = ui_tree_check(&tree);
+
+  c_man manifold;
+  if (c_aabb_vs_aabb(&manifold, aabb, aabb2)) {
+    ui_get_color(aabb_color, "1F85DE");
+  } else if (c_aabb_vs_circ(&manifold, aabb, circle)) {
+    ui_get_color(aabb_color, "1FDE46");
+  } else if (c_aabb_vs_circ(&manifold, aabb, circle2)) {
+    ui_get_color(aabb_color, "DE831F");
+  } else {
+    ui_get_color(aabb_color, "555");
+  }
 }
 
 int main(void) {
