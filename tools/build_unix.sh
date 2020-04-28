@@ -71,6 +71,12 @@ while getopts ":hrcxqq" opt; do
   esac
 done
 
+# Starting directory
+STARTING_DIR="${PWD}"
+
+# Back out of the tools/ directory to the root directory
+cd ../
+
 # Get the directory above tools
 ROOT_DIR="${PWD}"
 
@@ -127,6 +133,8 @@ fi
 if [ -z "$REALLY_QUET" ]; then
   echo "BUILD INFO: Build complete"
 fi
+
+cd "$STARTING_DIR"
 
 # Exit the script successfully
 exit 0

@@ -1,3 +1,10 @@
+/* USAGE: 
+ * For all the positions passed into ui should be normalized for screen space, i.e 0 -> 1, 
+ * you can use the functions ui_px_to_scale and inversely ui_scale_to_px in order to translate between them.
+ * Scale is set within the ui_ctx struct, you can modify & get a copy of it from both ui_ctx_scale_set and ui_ctx_scale_get
+ * NOTE: Scale is the term used to denote normalized size
+ */
+
 // TODO: Clipping / Scissor effects
 // TODO: Finish Dropdown Scrolling
 
@@ -253,6 +260,12 @@ ASTERA_API void ui_scale_to_px(vec2 dst, vec2 scale);
 // Function to calculate new scale from pixel size within 'screen' size
 ASTERA_API void ui_px_from_scale(vec2 dst, vec2 px, vec2 screen);
 
+// Set the UI's screensize (px)
+ASTERA_API void ui_ctx_scale_set(vec2 size_px);
+
+// Get the UI's screensize (px)
+ASTERA_API void ui_ctx_scale_get(vec2 dst_px);
+
 // Check if value (int) contains 1 or 0 at offset of alignment (binary)
 ASTERA_API int8_t ui_is_align(int value, ui_align alignment);
 // Check if value contains bitflag of type
@@ -263,7 +276,6 @@ ASTERA_API void ui_frame_start();
 // End the NanoVG Frame
 ASTERA_API void ui_frame_end();
 
-// Set Attributes
 ASTERA_API void ui_attrib_set(ui_attrib attrib, void* value,
                               ui_attrib_type type);
 ASTERA_API void ui_attrib_set3f(ui_attrib attrib, float x, float y, float z);
@@ -285,18 +297,15 @@ ASTERA_API void              ui_attrib_get4f(ui_attrib attrib, vec4 dst);
 
 ASTERA_API int8_t ui_attrib_exists(ui_attrib attrib);
 
-// Get the font ID by name
 ASTERA_API ui_font ui_font_get(const char* font_name);
-// Create a font to use
 ASTERA_API ui_font ui_font_create(unsigned char* data, int data_length,
                                   const char* name);
 
-// Create a UI Text field
 ASTERA_API ui_text ui_text_create(vec2 pos, char* string, float font_size,
                                   ui_font font_id, int alignment);
-// Create a UI Button
 ASTERA_API ui_button   ui_button_create(vec2 pos, vec2 size, char* text,
                                         int32_t text_alignment, float font_size);
+
 ASTERA_API ui_line     ui_line_create(vec2 start, vec2 end, vec4 color,
                                       float thickness);
 ASTERA_API ui_dropdown ui_dropdown_create(vec2 pos, vec2 size, char** options,

@@ -1,6 +1,6 @@
 <div id="header">
     <p align="center">
-      <img width="64px" height="64px" style="border-radius: 6px;" src="docs/icon.png"><br>
+      <img width="64px" height="64px" style="border-radius: 6px;" src="docs/images/icon.png"><br>
       <b>astera</b><br>
 	  <span font-size="16px">a cross platform game library</span><br>
       <span font-size="12px">Made by <a href="http://tek256.com">Devon</a> with love.</span><br><br>
@@ -9,7 +9,7 @@
 </div>
 
 ### About
-Astera is a game library focused on performance, portability, and maintainability. The goal is to show how to make games and game engines work with lower level languages. Astera aims to rely on as few dependencies as possible.  
+Astera is a game library focused on performance, portability, and maintainability. Astera aims to rely on as few dependencies as possible.  
 
 #### Latest Release: 0.01
 
@@ -23,6 +23,9 @@ Usage build_unix.sh && build_win.bat [-hrcxqq]
 -x  Don't build examples
 -q  Quiet output
 -qq Silence all output
+Windows Only:
+-m  Force use MinGW (gcc/g++)
+-l  Force use LLVM (clang/clang++)
 ```
 
 Example script usage:
@@ -35,7 +38,7 @@ Example CMake usage:
 cmake -Bbuilld -S. -DASTERA_BUILD_EXAMPLES=OFF -DCMAKE_BUILD_TYPE=Release
 ```
 
-For more information see the relevant [wiki page](https://github.com/tek256/astera/wiki/Setup) or the `docs/setup.md` file.
+For more information see the relevant [wiki page](https://github.com/tek256/astera/wiki/Building) or the `docs/building.md` file.
 
 ### Libraries Used
 [GLFW](https://github.com/glfw/glfw), [OpenAL-Soft](https://github.com/kcat/openal-soft), [GLAD](https://github.com/Dav1dde/glad), [STB](https://github.com/nothings/stb/) Image & Vorbis, [nanovg](https://github.com/memononen/nanovg), and [ZIP](https://github.com/kuba--/zip).
@@ -46,7 +49,7 @@ Here are the target platforms for this library:
 - Windows
 - Linux
 - Mac OSX (versions supporting OpenGL 3.3+)
-- BSD (Free, Net, Open)
+- BSD
 ```  
 
 ### Changelog

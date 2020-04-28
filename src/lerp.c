@@ -9,7 +9,7 @@ static double _clampd(double value, double min, double max) {
 }
 
 inline float l_lerp(float start, float end, float percent) {
-  return start + percentage * (end - start);
+  return start + percent * (end - start);
 }
 
 void l_lerpv2(vec2 res, vec2 start, vec2 end, float percent) {
@@ -32,17 +32,17 @@ void l_lerpv4(vec4 res, vec4 start, vec4 end, float percent) {
 
 void l_nlerpv2(vec2 res, vec2 start, vec2 end, float percent) {
   l_lerpv2(res, start, end, percent);
-  vec2_norm(res);
+  vec2_norm(res, res);
 }
 
 void l_nlerpv3(vec3 res, vec3 start, vec3 end, float percent) {
   l_lerpv3(res, start, end, percent);
-  vec3_norm(res);
+  vec3_norm(res, res);
 }
 
 void l_nlerpv4(vec4 res, vec4 start, vec4 end, float percent) {
   l_lerpv4(res, start, end, percent);
-  vec4_norm(res);
+  vec4_norm(res, res);
 }
 
 float smoothstepf(float min, float max, float value) {

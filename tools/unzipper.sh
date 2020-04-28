@@ -1,5 +1,4 @@
 #!/bin/bash
-
 # NOTE: This script requires the library `unzip`
 
 # Create list of files from user arguments

@@ -83,40 +83,36 @@ uint8_t ui_init(vec2 size, float pixel_scale, int use_mouse) {
 }
 
 void ui_update(vec2 mouse_pos) {
-  if (g_ui_ctx.use_mouse) {
-    vec2_dup(g_ui_ctx.mouse_pos, mouse_pos);
-  }
+  if (g_ui_ctx.use_mouse) { vec2_dup(g_ui_ctx.mouse_pos, mouse_pos); }
 }
 
-void ui_destroy() {
-  nvgDeleteGL3(g_ui_ctx.nvg);
-}
+void ui_destroy() { nvgDeleteGL3(g_ui_ctx.nvg); }
 
 static int ui_hex_number(const char v) {
   if (v >= '0' && v <= '9') {
     return v - 0x30;
   } else {
     switch (v) {
-    case 'A':
-    case 'a':
-      return 10;
-    case 'B':
-    case 'b':
-      return 11;
-    case 'C':
-    case 'c':
-      return 12;
-    case 'D':
-    case 'd':
-      return 13;
-    case 'E':
-    case 'e':
-      return 14;
-    case 'F':
-    case 'f':
-      return 15;
-    default:
-      return 0;
+      case 'A':
+      case 'a':
+        return 10;
+      case 'B':
+      case 'b':
+        return 11;
+      case 'C':
+      case 'c':
+        return 12;
+      case 'D':
+      case 'd':
+        return 13;
+      case 'E':
+      case 'e':
+        return 14;
+      case 'F':
+      case 'f':
+        return 15;
+      default:
+        return 0;
     }
   }
 }
@@ -177,33 +173,33 @@ void ui_px_from_scale(vec2 dst, vec2 px, vec2 screen) {
   vec2_dup(dst, tmp);
 }
 
+void ui_ctx_scale_set(vec2 size_px) { vec2_dup(g_ui_ctx.size, size_px); }
+
+void ui_ctx_scale_get(vec2 dst_px) { vec2_dup(dst_px, g_ui_ctx.size); }
+
 void ui_frame_start() {
   nvgBeginFrame(g_ui_ctx.nvg, g_ui_ctx.size[0], g_ui_ctx.size[1],
                 g_ui_ctx.pixel_scale);
 }
 
-int8_t ui_is_type(int value, int type) {
-  return ((value) & (type)) == type;
-}
+int8_t ui_is_type(int value, int type) { return ((value) & (type)) == type; }
 
-void ui_frame_end() {
-  nvgEndFrame(g_ui_ctx.nvg);
-}
+void ui_frame_end() { nvgEndFrame(g_ui_ctx.nvg); }
 
 static int16_t ui_attrib_size(ui_attrib_type type) {
   switch (type) {
-  case UI_INT:
-    return sizeof(int32_t);
-  case UI_FLOAT:
-    return sizeof(float);
-  case UI_VEC2:
-    return sizeof(vec2);
-  case UI_VEC3:
-    return sizeof(vec3);
-  case UI_VEC4:
-    return sizeof(vec4);
-  default:
-    return sizeof(char);
+    case UI_INT:
+      return sizeof(int32_t);
+    case UI_FLOAT:
+      return sizeof(float);
+    case UI_VEC2:
+      return sizeof(vec2);
+    case UI_VEC3:
+      return sizeof(vec3);
+    case UI_VEC4:
+      return sizeof(vec4);
+    default:
+      return sizeof(char);
   }
 }
 
@@ -218,13 +214,9 @@ void ui_attrib_set(ui_attrib attrib, void* value, ui_attrib_type type) {
     }
   }
 
-  if (map.count == map.capacity - 1) {
-    return;
-  }
+  if (map.count == map.capacity - 1) { return; }
 
-  if (map.attribs[map.count].data) {
-    free(map.attribs[map.count].data);
-  }
+  if (map.attribs[map.count].data) { free(map.attribs[map.count].data); }
 
   void* new_data = malloc(size);
   memcpy(new_data, value, size);
@@ -248,13 +240,9 @@ void ui_attrib_set3f(ui_attrib attrib, float x, float y, float z) {
     }
   }
 
-  if (map.count == map.capacity - 1) {
-    return;
-  }
+  if (map.count == map.capacity - 1) { return; }
 
-  if (map.attribs[map.count].data) {
-    free(map.attribs[map.count].data);
-  }
+  if (map.attribs[map.count].data) { free(map.attribs[map.count].data); }
 
   void* new_data   = malloc(sizeof(vec3));
   vec3* data_value = ((vec3*)map.attribs[map.count].data);
@@ -279,13 +267,9 @@ void ui_attrib_set3fv(ui_attrib attrib, vec3 value) {
     }
   }
 
-  if (map.count == map.capacity - 1) {
-    return;
-  }
+  if (map.count == map.capacity - 1) { return; }
 
-  if (map.attribs[map.count].data) {
-    free(map.attribs[map.count].data);
-  }
+  if (map.attribs[map.count].data) { free(map.attribs[map.count].data); }
 
   void* new_data   = malloc(sizeof(vec3));
   vec3* data_value = (vec3*)map.attribs[map.count].data;
@@ -311,13 +295,9 @@ void ui_attrib_set4f(ui_attrib attrib, float x, float y, float z, float w) {
     }
   }
 
-  if (map.count == map.capacity - 1) {
-    return;
-  }
+  if (map.count == map.capacity - 1) { return; }
 
-  if (map.attribs[map.count].data) {
-    free(map.attribs[map.count].data);
-  }
+  if (map.attribs[map.count].data) { free(map.attribs[map.count].data); }
 
   void* new_data   = malloc(sizeof(vec4));
   vec4* data_value = ((vec4*)map.attribs[map.count].data);
@@ -343,13 +323,9 @@ void ui_attrib_set4fv(ui_attrib attrib, vec4 value) {
     }
   }
 
-  if (map.count == map.capacity - 1) {
-    return;
-  }
+  if (map.count == map.capacity - 1) { return; }
 
-  if (map.attribs[map.count].data) {
-    free(map.attribs[map.count].data);
-  }
+  if (map.attribs[map.count].data) { free(map.attribs[map.count].data); }
 
   void* new_data   = malloc(sizeof(vec4));
   vec4* data_value = (vec4*)new_data;
@@ -373,13 +349,9 @@ void ui_attrib_set2f(ui_attrib attrib, float x, float y) {
     }
   }
 
-  if (map.count == map.capacity - 1) {
-    return;
-  }
+  if (map.count == map.capacity - 1) { return; }
 
-  if (map.attribs[map.count].data) {
-    free(map.attribs[map.count].data);
-  }
+  if (map.attribs[map.count].data) { free(map.attribs[map.count].data); }
 
   void* new_data   = malloc(sizeof(vec2));
   vec2* data_value = (vec2*)new_data;
@@ -403,13 +375,9 @@ void ui_attrib_set2fv(ui_attrib attrib, vec2 value) {
     }
   }
 
-  if (map.count == map.capacity - 1) {
-    return;
-  }
+  if (map.count == map.capacity - 1) { return; }
 
-  if (map.attribs[map.count].data) {
-    free(map.attribs[map.count].data);
-  }
+  if (map.attribs[map.count].data) { free(map.attribs[map.count].data); }
 
   void* new_data   = malloc(sizeof(vec2));
   vec2* data_value = (vec2*)new_data;
@@ -432,13 +400,9 @@ void ui_attrib_setf(ui_attrib attrib, float value) {
     }
   }
 
-  if (map.count == map.capacity - 1) {
-    return;
-  }
+  if (map.count == map.capacity - 1) { return; }
 
-  if (map.attribs[map.count].data) {
-    free(map.attribs[map.count].data);
-  }
+  if (map.attribs[map.count].data) { free(map.attribs[map.count].data); }
 
   void*  new_data   = malloc(sizeof(float));
   float* data_value = (float*)new_data;
@@ -461,13 +425,9 @@ void ui_attrib_seti(ui_attrib attrib, int32_t value) {
     }
   }
 
-  if (map.count == map.capacity - 1) {
-    return;
-  }
+  if (map.count == map.capacity - 1) { return; }
 
-  if (map.attribs[map.count].data) {
-    free(map.attribs[map.count].data);
-  }
+  if (map.attribs[map.count].data) { free(map.attribs[map.count].data); }
 
   void*    new_data   = malloc(sizeof(int32_t));
   int32_t* data_value = (int32_t*)new_data;
@@ -481,9 +441,7 @@ void ui_attrib_seti(ui_attrib attrib, int32_t value) {
 
 int8_t ui_attrib_exists(ui_attrib attrib) {
   for (int i = 0; i < g_ui_ctx.attribs.count; ++i) {
-    if (g_ui_ctx.attribs.attribs[i].attrib == attrib) {
-      return 1;
-    }
+    if (g_ui_ctx.attribs.attribs[i].attrib == attrib) { return 1; }
   }
   return 0;
 }
@@ -491,26 +449,20 @@ int8_t ui_attrib_exists(ui_attrib attrib) {
 ui_attrib_storage ui_attrib_get(ui_attrib attrib) {
   ui_attrib_map map = g_ui_ctx.attribs;
   for (int i = 0; i < map.count; ++i) {
-    if (map.attribs[i].attrib == attrib) {
-      return map.attribs[i];
-    }
+    if (map.attribs[i].attrib == attrib) { return map.attribs[i]; }
   }
   return (ui_attrib_storage){.type = UI_NONE};
 }
 
 int ui_attrib_geti(ui_attrib attrib) {
   ui_attrib_storage storage = ui_attrib_get(attrib);
-  if (storage.type != UI_INT) {
-    return -1;
-  }
+  if (storage.type != UI_INT) { return -1; }
   return *((int*)storage.data);
 }
 
 float ui_attrib_getf(ui_attrib attrib) {
   ui_attrib_storage storage = ui_attrib_get(attrib);
-  if (storage.type != UI_FLOAT) {
-    return -1.f;
-  }
+  if (storage.type != UI_FLOAT) { return -1.f; }
   return *((float*)storage.data);
 }
 
@@ -561,159 +513,156 @@ ui_tree ui_tree_create(uint16_t capacity) {
 
 int16_t ui_element_contains(ui_element element, vec2 point) {
   switch (element.type) {
-  case UI_BOX: {
-    ui_box* box = (ui_box*)element.data;
-    vec2    box_position, box_size;
+    case UI_BOX: {
+      ui_box* box = (ui_box*)element.data;
+      vec2    box_position, box_size;
 
-    ui_scale_to_px(box_position, box->position);
-    ui_scale_to_px(box_size, box->size);
+      ui_scale_to_px(box_position, box->position);
+      ui_scale_to_px(box_size, box->size);
 
-    if (point[0] > box_position[0] &&
-        point[0] < box_position[0] + box_size[0]) {
-      if (point[1] > box_position[1] &&
-          point[1] < box_position[1] + box_size[1]) {
-        return 1;
-      }
-    }
-  }
-    return -1;
-  case UI_DROPDOWN: {
-    ui_dropdown* dropdown = (ui_dropdown*)element.data;
-    vec2         dropdown_position, dropdown_size;
-    ui_scale_to_px(dropdown_position, dropdown->position);
-    ui_scale_to_px(dropdown_size, dropdown->size);
-
-    float option_height = dropdown_size[1];
-
-    if (dropdown->showing) {
-      dropdown_size[1] *= dropdown->option_display;
-    }
-
-    vec2 adjusted;
-    vec2_sub(adjusted, dropdown_position, dropdown_size);
-
-    if (point[0] > dropdown_position[0] &&
-        point[0] < dropdown_position[0] + dropdown_size[0]) {
-      if (point[1] > dropdown_position[1] &&
-          point[1] < dropdown_position[1] + dropdown_size[1]) {
-        if (dropdown->showing) {
-          int8_t selection;
-          float  y = point[1] - dropdown_position[1];
-          y /= option_height;
-          selection = (int8_t)y;
-          return selection + 1;
-        } else {
-          return 0;
-        }
-      }
-    }
-  }
-    return -1;
-  case UI_OPTION: {
-    ui_option* option = (ui_option*)element.data;
-
-    vec2 option_position, option_size;
-    ui_scale_to_px(option_position, option->position);
-    ui_scale_to_px(option_size, option->size);
-
-    if (option->use_img) {
-      vec2 opt_img_size, opt_img_offset;
-      ui_scale_to_px(opt_img_size, option->img_size);
-      ui_scale_to_px(opt_img_offset, option->img_offset);
-
-      vec2 img_pos = {opt_img_offset[0] + option_position[0],
-                      opt_img_offset[1] + option_position[1]};
-      if (point[0] > img_pos[0] && point[0] < img_pos[0] + opt_img_size[0]) {
-        if (point[1] > img_pos[1] && point[1] < img_pos[1] + opt_img_size[1]) {
+      if (point[0] > box_position[0] &&
+          point[0] < box_position[0] + box_size[0]) {
+        if (point[1] > box_position[1] &&
+            point[1] < box_position[1] + box_size[1]) {
           return 1;
         }
       }
     }
+      return -1;
+    case UI_DROPDOWN: {
+      ui_dropdown* dropdown = (ui_dropdown*)element.data;
+      vec2         dropdown_position, dropdown_size;
+      ui_scale_to_px(dropdown_position, dropdown->position);
+      ui_scale_to_px(dropdown_size, dropdown->size);
 
-    if (option->use_text) {
-      nvgFontFaceId(g_ui_ctx.nvg, option->font);
-      nvgFontSize(g_ui_ctx.nvg, option->font_size);
-      nvgTextAlign(g_ui_ctx.nvg, option->align);
+      float option_height = dropdown_size[1];
 
-      vec4 opt_text_bounds;
-      nvgTextBounds(g_ui_ctx.nvg, option_position[0], option_position[1],
-                    option->text, 0, opt_text_bounds);
+      if (dropdown->showing) { dropdown_size[1] *= dropdown->option_display; }
 
-      if (point[0] > opt_text_bounds[0] && point[0] < opt_text_bounds[2]) {
-        if (point[1] > opt_text_bounds[1] && point[1] < opt_text_bounds[3]) {
+      vec2 adjusted;
+      vec2_sub(adjusted, dropdown_position, dropdown_size);
+
+      if (point[0] > dropdown_position[0] &&
+          point[0] < dropdown_position[0] + dropdown_size[0]) {
+        if (point[1] > dropdown_position[1] &&
+            point[1] < dropdown_position[1] + dropdown_size[1]) {
+          if (dropdown->showing) {
+            int8_t selection;
+            float  y = point[1] - dropdown_position[1];
+            y /= option_height;
+            selection = (int8_t)y;
+            return selection + 1;
+          } else {
+            return 0;
+          }
+        }
+      }
+    }
+      return -1;
+    case UI_OPTION: {
+      ui_option* option = (ui_option*)element.data;
+
+      vec2 option_position, option_size;
+      ui_scale_to_px(option_position, option->position);
+      ui_scale_to_px(option_size, option->size);
+
+      if (option->use_img) {
+        vec2 opt_img_size, opt_img_offset;
+        ui_scale_to_px(opt_img_size, option->img_size);
+        ui_scale_to_px(opt_img_offset, option->img_offset);
+
+        vec2 img_pos = {opt_img_offset[0] + option_position[0],
+                        opt_img_offset[1] + option_position[1]};
+        if (point[0] > img_pos[0] && point[0] < img_pos[0] + opt_img_size[0]) {
+          if (point[1] > img_pos[1] &&
+              point[1] < img_pos[1] + opt_img_size[1]) {
+            return 1;
+          }
+        }
+      }
+
+      if (option->use_text) {
+        nvgFontFaceId(g_ui_ctx.nvg, option->font);
+        nvgFontSize(g_ui_ctx.nvg, option->font_size);
+        nvgTextAlign(g_ui_ctx.nvg, option->align);
+
+        vec4 opt_text_bounds;
+        nvgTextBounds(g_ui_ctx.nvg, option_position[0], option_position[1],
+                      option->text, 0, opt_text_bounds);
+
+        if (point[0] > opt_text_bounds[0] && point[0] < opt_text_bounds[2]) {
+          if (point[1] > opt_text_bounds[1] && point[1] < opt_text_bounds[3]) {
+            return 1;
+          }
+        }
+      }
+    }
+      return -1;
+    case UI_BUTTON: {
+      ui_button* button = (ui_button*)element.data;
+      vec2       button_position, button_size;
+      ui_scale_to_px(button_position, button->position);
+      ui_scale_to_px(button_size, button->size);
+
+      if (point[0] > button_position[0] &&
+          point[0] < button_position[0] + button_size[0]) {
+        if (point[1] > button_position[1] &&
+            point[1] < button_position[1] + button_size[1]) {
           return 1;
         }
       }
     }
-  }
-    return -1;
-  case UI_BUTTON: {
-    ui_button* button = (ui_button*)element.data;
-    vec2       button_position, button_size;
-    ui_scale_to_px(button_position, button->position);
-    ui_scale_to_px(button_size, button->size);
+      return -1;
+    case UI_TEXT: {
+      ui_text* text = (ui_text*)element.data;
+      nvgFontFaceId(g_ui_ctx.nvg, text->font);
+      nvgFontSize(g_ui_ctx.nvg, text->size);
+      nvgTextAlign(g_ui_ctx.nvg, text->align);
 
-    if (point[0] > button_position[0] &&
-        point[0] < button_position[0] + button_size[0]) {
-      if (point[1] > button_position[1] &&
-          point[1] < button_position[1] + button_size[1]) {
-        return 1;
+      vec4 text_bounds;
+      vec2 text_position, text_internal_bounds;
+      ui_scale_to_px(text_position, text->position);
+      ui_scale_to_px(text_internal_bounds, text->bounds);
+
+      if (text->use_box) {
+        nvgTextBoxBounds(g_ui_ctx.nvg, text_position[0], text_position[1],
+                         text_internal_bounds[0], text->text,
+                         (text->use_reveal) ? text->reveal : 0, text_bounds);
+      } else {
+        nvgTextBounds(g_ui_ctx.nvg, text_position[0], text_position[1],
+                      text->text, (text->use_reveal) ? text->reveal : 0,
+                      text_bounds);
+      }
+
+      if (point[0] > text_bounds[0] && point[0] < text_bounds[2]) {
+        if (point[1] > text_bounds[1] && point[1] < text_bounds[3]) {
+          return 1;
+        }
       }
     }
-  }
-    return -1;
-  case UI_TEXT: {
-    ui_text* text = (ui_text*)element.data;
-    nvgFontFaceId(g_ui_ctx.nvg, text->font);
-    nvgFontSize(g_ui_ctx.nvg, text->size);
-    nvgTextAlign(g_ui_ctx.nvg, text->align);
+      return -1;
+    case UI_IMAGE: {
+      ui_img* img = (ui_img*)element.data;
+      vec2    img_position, img_size;
+      ui_scale_to_px(img_position, img->position);
+      ui_scale_to_px(img_size, img->size);
 
-    vec4 text_bounds;
-    vec2 text_position, text_internal_bounds;
-    ui_scale_to_px(text_position, text->position);
-    ui_scale_to_px(text_internal_bounds, text->bounds);
-
-    if (text->use_box) {
-      nvgTextBoxBounds(g_ui_ctx.nvg, text_position[0], text_position[1],
-                       text_internal_bounds[0], text->text,
-                       (text->use_reveal) ? text->reveal : 0, text_bounds);
-    } else {
-      nvgTextBounds(g_ui_ctx.nvg, text_position[0], text_position[1],
-                    text->text, (text->use_reveal) ? text->reveal : 0,
-                    text_bounds);
-    }
-
-    if (point[0] > text_bounds[0] && point[0] < text_bounds[2]) {
-      if (point[1] > text_bounds[1] && point[1] < text_bounds[3]) {
-        return 1;
+      if (point[0] > img_position[0] &&
+          point[0] < img_position[0] + img_size[0]) {
+        if (point[1] > img_position[1] &&
+            point[1] < img_position[1] + img_size[1]) {
+          return 1;
+        }
       }
     }
-  }
-    return -1;
-  case UI_IMAGE: {
-    ui_img* img = (ui_img*)element.data;
-    vec2    img_position, img_size;
-    ui_scale_to_px(img_position, img->position);
-    ui_scale_to_px(img_size, img->size);
-
-    if (point[0] > img_position[0] &&
-        point[0] < img_position[0] + img_size[0]) {
-      if (point[1] > img_position[1] &&
-          point[1] < img_position[1] + img_size[1]) {
-        return 1;
-      }
-    }
-  }
-    return -1;
-  default:
-    return -1;
+      return -1;
+    default:
+      return -1;
   }
 }
 
 uint32_t ui_tree_check(ui_tree* tree) {
-  if (!g_ui_ctx.use_mouse) {
-    return 0;
-  }
+  if (!g_ui_ctx.use_mouse) { return 0; }
 
   vec2 mouse_pos;
   vec2_dup(mouse_pos, g_ui_ctx.mouse_pos);
@@ -940,9 +889,7 @@ float ui_dropdown_max_font_size(ui_dropdown dropdown) {
     }
   }
 
-  if (longest_option == -1) {
-    longest_option = 0;
-  }
+  if (longest_option == -1) { longest_option = 0; }
 
   float current_size = dropdown.font_size;
 
@@ -981,9 +928,7 @@ void ui_dropdown_draw(ui_dropdown* dropdown, int8_t focused) {
   ui_scale_to_px(dropdown_position, dropdown->position);
   ui_scale_to_px(option_size, dropdown->size);
 
-  if (dropdown->showing) {
-    dropdown_size[1] *= dropdown->option_display;
-  }
+  if (dropdown->showing) { dropdown_size[1] *= dropdown->option_display; }
 
   if (dropdown->use_border) {
     if (dropdown->border_size != 0.f) {
@@ -1140,9 +1085,7 @@ void ui_dropdown_draw(ui_dropdown* dropdown, int8_t focused) {
 }
 
 void ui_line_draw(ui_line* line) {
-  if (!line) {
-    return;
-  }
+  if (!line) { return; }
 
   vec2 line_start, line_end;
   ui_scale_to_px(line_start, line->start);
@@ -1157,9 +1100,7 @@ void ui_line_draw(ui_line* line) {
 }
 
 void ui_option_draw(ui_option* option, int8_t focused) {
-  if (!option) {
-    return;
-  }
+  if (!option) { return; }
 
   if (option->use_img) {
     nvgBeginPath(g_ui_ctx.nvg);
@@ -1199,9 +1140,7 @@ void ui_option_draw(ui_option* option, int8_t focused) {
 }
 
 void ui_image_draw(ui_img* img) {
-  if (!img) {
-    return;
-  }
+  if (!img) { return; }
 
   vec2 img_position, img_size;
   ui_scale_to_px(img_position, img->position);
@@ -1258,13 +1197,9 @@ static int ui_text_fits(ui_text text, float size, vec2 scaled_pos, vec2 bounds,
   float width  = text_bounds[2] - text_bounds[0];
   float height = text_bounds[3] - text_bounds[1];
 
-  if (width >= bounds[0]) {
-    return 0;
-  }
+  if (width >= bounds[0]) { return 0; }
 
-  if (height >= bounds[1]) {
-    return 0;
-  }
+  if (height >= bounds[1]) { return 0; }
 
   return 1;
 }
@@ -1305,12 +1240,12 @@ void ui_tree_destroy(ui_tree* tree) {
   while (cursor) {
     if (cursor->element.data) {
       switch (cursor->element.type) {
-      case UI_IMAGE:
-        ui_image_destroy((ui_img*)cursor->element.data);
-        break;
-      default:
-        // These types don't need freeing
-        break;
+        case UI_IMAGE:
+          ui_image_destroy((ui_img*)cursor->element.data);
+          break;
+        default:
+          // These types don't need freeing
+          break;
       }
     }
     cursor = cursor->next;
@@ -1320,9 +1255,7 @@ void ui_tree_destroy(ui_tree* tree) {
 
 uint32_t ui_tree_add(ui_tree* tree, void* data, ui_element_type type,
                      int8_t selectable) {
-  if (!data || !tree) {
-    return 0;
-  }
+  if (!data || !tree) { return 0; }
 
   if (tree->count == tree->capacity - 1) {
     DBG_E("No free space in tree.\n");
@@ -1348,13 +1281,9 @@ uint32_t ui_tree_add(ui_tree* tree, void* data, ui_element_type type,
   element->data       = data;
   element->type       = type;
 
-  if (!tree->cursor) {
-    tree->cursor = leaf_ptr;
-  }
+  if (!tree->cursor) { tree->cursor = leaf_ptr; }
 
-  if (!tree->start) {
-    tree->start = leaf_ptr;
-  }
+  if (!tree->start) { tree->start = leaf_ptr; }
 
   if (!tree->end) {
     tree->end      = leaf_ptr;
@@ -1385,30 +1314,30 @@ void ui_tree_print(ui_tree* tree) {
   } else {
     while (cursor) {
       switch (cursor->element.type) {
-      case UI_TEXT:
-        DBG_E("Text");
-        break;
-      case UI_BOX:
-        DBG_E("Box");
-        break;
-      case UI_OPTION:
-        DBG_E("Option");
-        break;
-      case UI_BUTTON:
-        DBG_E("Button");
-        break;
-      case UI_DROPDOWN:
-        DBG_E("Dropdown");
-        break;
-      case UI_LINE:
-        DBG_E("Line");
-        break;
-      case UI_IMAGE:
-        DBG_E("Image");
-        break;
-      default:
-        DBG_E("Unk");
-        break;
+        case UI_TEXT:
+          DBG_E("Text");
+          break;
+        case UI_BOX:
+          DBG_E("Box");
+          break;
+        case UI_OPTION:
+          DBG_E("Option");
+          break;
+        case UI_BUTTON:
+          DBG_E("Button");
+          break;
+        case UI_DROPDOWN:
+          DBG_E("Dropdown");
+          break;
+        case UI_LINE:
+          DBG_E("Line");
+          break;
+        case UI_IMAGE:
+          DBG_E("Image");
+          break;
+        default:
+          DBG_E("Unk");
+          break;
       }
 
       if (cursor->next) {
@@ -1423,9 +1352,7 @@ void ui_tree_print(ui_tree* tree) {
 }
 
 int32_t ui_element_event(ui_tree* tree, uint32_t uid) {
-  if (!tree || !tree->start) {
-    return 0;
-  }
+  if (!tree || !tree->start) { return 0; }
 
   ui_leaf* cursor = tree->start;
   while (cursor) {
@@ -1445,9 +1372,7 @@ int32_t ui_element_event(ui_tree* tree, uint32_t uid) {
   return 0;
 }
 
-uint32_t ui_tree_get_cursor_id(ui_tree* tree) {
-  return tree->cursor->uid;
-}
+uint32_t ui_tree_get_cursor_id(ui_tree* tree) { return tree->cursor->uid; }
 
 void ui_tree_draw(ui_tree tree) {
   if (!tree.start) {
@@ -1473,26 +1398,26 @@ void ui_tree_draw(ui_tree tree) {
       ui_element element = cursor->element;
 
       switch (element.type) {
-      case UI_TEXT:
-        ui_text_draw((ui_text*)element.data);
-        break;
-      case UI_IMAGE:
-        ui_image_draw((ui_img*)element.data);
-      case UI_BOX:
-        ui_box_draw((ui_box*)element.data, focused);
-        break;
-      case UI_BUTTON:
-        ui_button_draw((ui_button*)element.data, focused);
-        break;
-      case UI_LINE:
-        ui_line_draw((ui_line*)element.data);
-        break;
-      case UI_DROPDOWN:
-        ui_dropdown_draw((ui_dropdown*)element.data, focused);
-        break;
-      case UI_OPTION:
-        ui_option_draw((ui_option*)element.data, focused);
-        break;
+        case UI_TEXT:
+          ui_text_draw((ui_text*)element.data);
+          break;
+        case UI_IMAGE:
+          ui_image_draw((ui_img*)element.data);
+        case UI_BOX:
+          ui_box_draw((ui_box*)element.data, focused);
+          break;
+        case UI_BUTTON:
+          ui_button_draw((ui_button*)element.data, focused);
+          break;
+        case UI_LINE:
+          ui_line_draw((ui_line*)element.data);
+          break;
+        case UI_DROPDOWN:
+          ui_dropdown_draw((ui_dropdown*)element.data, focused);
+          break;
+        case UI_OPTION:
+          ui_option_draw((ui_option*)element.data, focused);
+          break;
       }
     }
 
@@ -1562,9 +1487,7 @@ ui_text ui_text_create(vec2 pos, char* string, float font_size, ui_font font_id,
   if (shadow[0] >= 0.f) {
     vec4_dup(text.shadow, shadow);
 
-    if (shadow_size == -1.f) {
-      text.shadow_size = 3.f;
-    }
+    if (shadow_size == -1.f) { text.shadow_size = 3.f; }
 
     text.use_shadow = 1;
   }
@@ -1951,26 +1874,20 @@ uint16_t ui_dropdown_add_option(ui_dropdown* dropdown, const char* option) {
 void ui_text_next(ui_text* text) {
   assert(text);
   if (text->use_reveal) {
-    if (text->reveal < text->text + text->text_length) {
-      ++text->reveal;
-    }
+    if (text->reveal < text->text + text->text_length) { ++text->reveal; }
   }
 }
 
 void ui_text_prev(ui_text* text) {
   assert(text);
   if (text->use_reveal) {
-    if (text->reveal > text->text) {
-      --text->reveal;
-    }
+    if (text->reveal > text->text) { --text->reveal; }
   }
 }
 
 // TODO Mouse Scrolling w/ Click / Hover
 void ui_dropdown_next(ui_dropdown* dropdown) {
-  if (dropdown->cursor < dropdown->option_count - 1) {
-    dropdown->cursor += 1;
-  }
+  if (dropdown->cursor < dropdown->option_count - 1) { dropdown->cursor += 1; }
 
   int cursor_rel =
       dropdown->option_display - (dropdown->cursor - dropdown->start);
@@ -1985,9 +1902,7 @@ void ui_dropdown_next(ui_dropdown* dropdown) {
 }
 
 void ui_dropdown_prev(ui_dropdown* dropdown) {
-  if (dropdown->cursor > 0) {
-    dropdown->cursor--;
-  }
+  if (dropdown->cursor > 0) { dropdown->cursor--; }
 
   int cursor_rel = dropdown->cursor - dropdown->start;
 
@@ -2003,9 +1918,7 @@ void ui_dropdown_prev(ui_dropdown* dropdown) {
 }
 
 void ui_dropdown_set_to_cursor(ui_dropdown* dropdown) {
-  if (dropdown->selected != dropdown->cursor) {
-    dropdown->has_change = 1;
-  }
+  if (dropdown->selected != dropdown->cursor) { dropdown->has_change = 1; }
 
   dropdown->selected = dropdown->cursor;
 
@@ -2021,9 +1934,7 @@ void ui_dropdown_set_to_cursor(ui_dropdown* dropdown) {
 
 void ui_dropdown_set(ui_dropdown* dropdown, uint16_t select) {
   if (select < dropdown->option_count - 1 && select >= 0) {
-    if (select != dropdown->selected) {
-      dropdown->has_change = 1;
-    }
+    if (select != dropdown->selected) { dropdown->has_change = 1; }
     dropdown->selected = select;
 
     dropdown->start = dropdown->selected - dropdown->option_display / 2;
@@ -2119,14 +2030,10 @@ uint32_t ui_tree_select(ui_tree* tree, int32_t event_type, int is_mouse) {
 
 int8_t ui_tree_is_active(ui_tree* tree, uint32_t id) {
   if (g_ui_ctx.use_mouse) {
-    if (tree->mouse_hover->uid == id) {
-      return 1;
-    }
+    if (tree->mouse_hover->uid == id) { return 1; }
   }
 
-  if (tree->cursor->uid == id) {
-    return 1;
-  }
+  if (tree->cursor->uid == id) { return 1; }
 
   return 0;
 }
@@ -2137,9 +2044,7 @@ uint32_t ui_tree_next(ui_tree* tree) {
     return 0;
   }
 
-  if (!tree->cursor) {
-    tree->cursor = tree->start;
-  }
+  if (!tree->cursor) { tree->cursor = tree->start; }
 
   if (tree->cursor) {
     if (tree->cursor->element.type == UI_DROPDOWN) {
@@ -2184,9 +2089,7 @@ uint32_t ui_tree_prev(ui_tree* tree) {
     return 0;
   }
 
-  if (!tree->cursor) {
-    tree->cursor = tree->end;
-  }
+  if (!tree->cursor) { tree->cursor = tree->end; }
 
   if (tree->cursor) {
     if (tree->cursor->element.type == UI_DROPDOWN) {

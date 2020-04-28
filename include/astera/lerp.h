@@ -2,6 +2,7 @@
 #define ASTERA_LERP_H
 
 #include <astera/export.h>
+#include <astera/linmath.h>
 
 ASTERA_API inline float l_lerp(float start, float end, float percent);
 
