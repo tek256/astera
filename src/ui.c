@@ -1,16 +1,19 @@
+// TODO: Refactor ui_image functions to ui_img
+
 #include <astera/ui.h>
 
-/* Debug Output Macro*/
-#if defined  ASTERA_DEBUG_INCLUDED
-#if defined  ASTERA_DEBUG_OUTPUT
 #if !defined DBG_E
+#if defined  ASTERA_DEBUG_OUTPUT
+#if defined  ASTERA_DEBUG_INCLUDED
+#warning "ASTERA: Standard debug output"
 #define DBG_E(fmt, ...) _l(fmt, ##__VA_ARGS_)
-#endif
-#elif !defined DBG_E
-#define DBG_E(fmt, ...)
+#else
+#warning "ASTERA: stdio debug output"
+#include <stdio.h>
+#define DBG_E(fmt, ...) printf(fmt, ##__VA_ARGS_)
 #endif
 #else
-#if !defined DBG_E
+#warning "ASTERA: NO DEBUG OUTPUT"
 #define DBG_E(fmt, ...)
 #endif
 #endif
@@ -57,15 +60,8 @@ uint32_t ui_element_get_uid(ui_element element) {
 }
 
 uint8_t ui_init(vec2 size, float pixel_scale, int use_mouse) {
-#ifdef ASTERA_DEBUG_OUTPUT
-#ifdef ASTERA_DEBUG_INCLUDED
-  _l("ASTERA DEBUG ENABLED\n");
-#else
-  printf("Astera debug enabled.\n");
-#endif
-#else
-  printf("No debug output.\n");
-#endif
+  DBG_E("%s\n", "TEST OUTPUT");
+
   g_ui_ctx = (ui_ctx){0};
 
   vec2_dup(g_ui_ctx.size, size);
@@ -83,7 +79,9 @@ uint8_t ui_init(vec2 size, float pixel_scale, int use_mouse) {
 }
 
 void ui_update(vec2 mouse_pos) {
-  if (g_ui_ctx.use_mouse) { vec2_dup(g_ui_ctx.mouse_pos, mouse_pos); }
+  if (g_ui_ctx.use_mouse) {
+    vec2_dup(g_ui_ctx.mouse_pos, mouse_pos);
+  }
 }
 
 void ui_destroy() { nvgDeleteGL3(g_ui_ctx.nvg); }
@@ -173,6 +171,18 @@ void ui_px_from_scale(vec2 dst, vec2 px, vec2 screen) {
   vec2_dup(dst, tmp);
 }
 
+void ui_scale_move_px(vec2 dst, vec2 scale, vec2 px) {
+  vec2 tmp;
+  ui_px_to_scale(tmp, px);
+  vec2_add(dst, tmp, scale);
+}
+
+void ui_px_move_scale(vec2 dst, vec2 px, vec2 scale) {
+  vec2 tmp;
+  ui_scale_to_px(tmp, scale);
+  vec2_add(dst, tmp, px);
+}
+
 void ui_ctx_scale_set(vec2 size_px) { vec2_dup(g_ui_ctx.size, size_px); }
 
 void ui_ctx_scale_get(vec2 dst_px) { vec2_dup(dst_px, g_ui_ctx.size); }
@@ -214,9 +224,13 @@ void ui_attrib_set(ui_attrib attrib, void* value, ui_attrib_type type) {
     }
   }
 
-  if (map.count == map.capacity - 1) { return; }
+  if (map.count == map.capacity - 1) {
+    return;
+  }
 
-  if (map.attribs[map.count].data) { free(map.attribs[map.count].data); }
+  if (map.attribs[map.count].data) {
+    free(map.attribs[map.count].data);
+  }
 
   void* new_data = malloc(size);
   memcpy(new_data, value, size);
@@ -240,9 +254,13 @@ void ui_attrib_set3f(ui_attrib attrib, float x, float y, float z) {
     }
   }
 
-  if (map.count == map.capacity - 1) { return; }
+  if (map.count == map.capacity - 1) {
+    return;
+  }
 
-  if (map.attribs[map.count].data) { free(map.attribs[map.count].data); }
+  if (map.attribs[map.count].data) {
+    free(map.attribs[map.count].data);
+  }
 
   void* new_data   = malloc(sizeof(vec3));
   vec3* data_value = ((vec3*)map.attribs[map.count].data);
@@ -267,9 +285,13 @@ void ui_attrib_set3fv(ui_attrib attrib, vec3 value) {
     }
   }
 
-  if (map.count == map.capacity - 1) { return; }
+  if (map.count == map.capacity - 1) {
+    return;
+  }
 
-  if (map.attribs[map.count].data) { free(map.attribs[map.count].data); }
+  if (map.attribs[map.count].data) {
+    free(map.attribs[map.count].data);
+  }
 
   void* new_data   = malloc(sizeof(vec3));
   vec3* data_value = (vec3*)map.attribs[map.count].data;
@@ -295,9 +317,13 @@ void ui_attrib_set4f(ui_attrib attrib, float x, float y, float z, float w) {
     }
   }
 
-  if (map.count == map.capacity - 1) { return; }
+  if (map.count == map.capacity - 1) {
+    return;
+  }
 
-  if (map.attribs[map.count].data) { free(map.attribs[map.count].data); }
+  if (map.attribs[map.count].data) {
+    free(map.attribs[map.count].data);
+  }
 
   void* new_data   = malloc(sizeof(vec4));
   vec4* data_value = ((vec4*)map.attribs[map.count].data);
@@ -323,9 +349,13 @@ void ui_attrib_set4fv(ui_attrib attrib, vec4 value) {
     }
   }
 
-  if (map.count == map.capacity - 1) { return; }
+  if (map.count == map.capacity - 1) {
+    return;
+  }
 
-  if (map.attribs[map.count].data) { free(map.attribs[map.count].data); }
+  if (map.attribs[map.count].data) {
+    free(map.attribs[map.count].data);
+  }
 
   void* new_data   = malloc(sizeof(vec4));
   vec4* data_value = (vec4*)new_data;
@@ -349,9 +379,13 @@ void ui_attrib_set2f(ui_attrib attrib, float x, float y) {
     }
   }
 
-  if (map.count == map.capacity - 1) { return; }
+  if (map.count == map.capacity - 1) {
+    return;
+  }
 
-  if (map.attribs[map.count].data) { free(map.attribs[map.count].data); }
+  if (map.attribs[map.count].data) {
+    free(map.attribs[map.count].data);
+  }
 
   void* new_data   = malloc(sizeof(vec2));
   vec2* data_value = (vec2*)new_data;
@@ -375,9 +409,13 @@ void ui_attrib_set2fv(ui_attrib attrib, vec2 value) {
     }
   }
 
-  if (map.count == map.capacity - 1) { return; }
+  if (map.count == map.capacity - 1) {
+    return;
+  }
 
-  if (map.attribs[map.count].data) { free(map.attribs[map.count].data); }
+  if (map.attribs[map.count].data) {
+    free(map.attribs[map.count].data);
+  }
 
   void* new_data   = malloc(sizeof(vec2));
   vec2* data_value = (vec2*)new_data;
@@ -400,9 +438,13 @@ void ui_attrib_setf(ui_attrib attrib, float value) {
     }
   }
 
-  if (map.count == map.capacity - 1) { return; }
+  if (map.count == map.capacity - 1) {
+    return;
+  }
 
-  if (map.attribs[map.count].data) { free(map.attribs[map.count].data); }
+  if (map.attribs[map.count].data) {
+    free(map.attribs[map.count].data);
+  }
 
   void*  new_data   = malloc(sizeof(float));
   float* data_value = (float*)new_data;
@@ -425,9 +467,13 @@ void ui_attrib_seti(ui_attrib attrib, int32_t value) {
     }
   }
 
-  if (map.count == map.capacity - 1) { return; }
+  if (map.count == map.capacity - 1) {
+    return;
+  }
 
-  if (map.attribs[map.count].data) { free(map.attribs[map.count].data); }
+  if (map.attribs[map.count].data) {
+    free(map.attribs[map.count].data);
+  }
 
   void*    new_data   = malloc(sizeof(int32_t));
   int32_t* data_value = (int32_t*)new_data;
@@ -441,7 +487,9 @@ void ui_attrib_seti(ui_attrib attrib, int32_t value) {
 
 int8_t ui_attrib_exists(ui_attrib attrib) {
   for (int i = 0; i < g_ui_ctx.attribs.count; ++i) {
-    if (g_ui_ctx.attribs.attribs[i].attrib == attrib) { return 1; }
+    if (g_ui_ctx.attribs.attribs[i].attrib == attrib) {
+      return 1;
+    }
   }
   return 0;
 }
@@ -449,20 +497,26 @@ int8_t ui_attrib_exists(ui_attrib attrib) {
 ui_attrib_storage ui_attrib_get(ui_attrib attrib) {
   ui_attrib_map map = g_ui_ctx.attribs;
   for (int i = 0; i < map.count; ++i) {
-    if (map.attribs[i].attrib == attrib) { return map.attribs[i]; }
+    if (map.attribs[i].attrib == attrib) {
+      return map.attribs[i];
+    }
   }
   return (ui_attrib_storage){.type = UI_NONE};
 }
 
 int ui_attrib_geti(ui_attrib attrib) {
   ui_attrib_storage storage = ui_attrib_get(attrib);
-  if (storage.type != UI_INT) { return -1; }
+  if (storage.type != UI_INT) {
+    return -1;
+  }
   return *((int*)storage.data);
 }
 
 float ui_attrib_getf(ui_attrib attrib) {
   ui_attrib_storage storage = ui_attrib_get(attrib);
-  if (storage.type != UI_FLOAT) { return -1.f; }
+  if (storage.type != UI_FLOAT) {
+    return -1.f;
+  }
   return *((float*)storage.data);
 }
 
@@ -491,6 +545,84 @@ void ui_attrib_get4f(ui_attrib attrib, vec4 dst) {
     return;
   }
   vec4_dup(dst, *(vec4*)storage.data);
+}
+
+ui_element ui_element_get(void* data, int type) {
+  return (ui_element){data, type};
+}
+
+void ui_element_center_to(ui_element element, vec2 point) {
+  vec2 center;
+  vec2_dup(center, point);
+
+  switch (element.type) {
+    case UI_BOX: {
+      ui_box* box = (ui_box*)element.data;
+      center[0] -= box->size[0] * 0.5f;
+      center[1] -= box->size[1] * 0.5f;
+      vec2_dup(box->position, center);
+    } break;
+    case UI_TEXT: {
+      ui_text* text = (ui_text*)element.data;
+
+      if (ui_is_type(text->align, UI_ALIGN_CENTER) ||
+          ui_is_type(text->align, UI_ALIGN_MIDDLE)) {
+        vec2_dup(text->position, point);
+      } else {
+        if (ui_is_type(text->align, UI_ALIGN_LEFT)) {
+          text->position[0] = center[0] + (text->bounds[0] * 0.5f);
+        } else if (ui_is_type(text->align, UI_ALIGN_RIGHT)) {
+          text->position[0] = center[0] - (text->bounds[0] * 0.5f);
+        }
+
+        if (ui_is_type(text->align, UI_ALIGN_BOTTOM)) {
+          text->position[1] = center[1] + (text->bounds[1] * 0.5f);
+        } else if (ui_is_type(text->align, UI_ALIGN_TOP)) {
+          text->position[1] = center[1] - (text->bounds[1] * 0.5f);
+        }
+      }
+    } break;
+    case UI_BUTTON: {
+      ui_button* button = (ui_button*)element.data;
+      center[0] -= button->size[0] * 0.5f;
+      center[1] -= button->size[1] * 0.5f;
+      vec2_dup(button->position, center);
+    } break;
+    case UI_LINE: {
+      ui_line* line = (ui_line*)element.data;
+
+      vec2 delta;
+      delta[0] = line->end[0] - line->start[0];
+      delta[1] = line->end[1] - line->start[1];
+
+      center[0] -= (delta[0] * 0.5f);
+      center[1] -= (delta[1] * 0.5f);
+
+      line->start[0] = center[0];
+      line->start[1] = center[1];
+
+      line->end[0] = center[0] + delta[0];
+      line->end[1] = center[1] + delta[1];
+    } break;
+    case UI_DROPDOWN: {
+      ui_dropdown* dropdown = (ui_dropdown*)element.data;
+      center[0] -= dropdown->size[0] * 0.5f;
+      center[1] -= dropdown->size[1] * 0.5f;
+      vec2_dup(dropdown->position, center);
+    } break;
+    case UI_OPTION: {
+      ui_option* option = (ui_option*)element.data;
+      center[0] -= option->size[0] * 0.5f;
+      center[1] -= option->size[1] * 0.5f;
+      vec2_dup(option->position, center);
+    } break;
+    case UI_IMAGE: {
+      ui_img* image = (ui_img*)element.data;
+      center[0] -= image->size[0] * 0.5f;
+      center[1] -= image->size[1] * 0.5f;
+      vec2_dup(image->position, center);
+    } break;
+  }
 }
 
 ui_tree ui_tree_create(uint16_t capacity) {
@@ -537,7 +669,9 @@ int16_t ui_element_contains(ui_element element, vec2 point) {
 
       float option_height = dropdown_size[1];
 
-      if (dropdown->showing) { dropdown_size[1] *= dropdown->option_display; }
+      if (dropdown->showing) {
+        dropdown_size[1] *= dropdown->option_display;
+      }
 
       vec2 adjusted;
       vec2_sub(adjusted, dropdown_position, dropdown_size);
@@ -662,7 +796,9 @@ int16_t ui_element_contains(ui_element element, vec2 point) {
 }
 
 uint32_t ui_tree_check(ui_tree* tree) {
-  if (!g_ui_ctx.use_mouse) { return 0; }
+  if (!g_ui_ctx.use_mouse) {
+    return 0;
+  }
 
   vec2 mouse_pos;
   vec2_dup(mouse_pos, g_ui_ctx.mouse_pos);
@@ -671,22 +807,29 @@ uint32_t ui_tree_check(ui_tree* tree) {
   assert(tree->start);
   ui_leaf* cursor = tree->start;
 
+  int      hover_priority = -1;
+  ui_leaf* potential      = 0;
+
   while (cursor) {
+    int current_priority = cursor->priority;
+
     if (cursor->selectable) {
       int16_t hovered = ui_element_contains(cursor->element, mouse_pos);
+      int8_t  current_priority = cursor->priority;
 
       if (cursor->element.type == UI_DROPDOWN && hovered > -1) {
         ui_dropdown* dropdown = (ui_dropdown*)cursor->element.data;
         if (dropdown->showing) {
           dropdown->cursor = dropdown->start + hovered - 1;
+          current_priority += 1;
         } else {
           hovered += 1;
         }
       }
 
-      if (hovered > -1) {
-        tree->mouse_hover = cursor;
-        return cursor->uid;
+      if (hovered > -1 && current_priority > hover_priority) {
+        potential      = cursor;
+        hover_priority = current_priority;
       }
     }
 
@@ -696,6 +839,12 @@ uint32_t ui_tree_check(ui_tree* tree) {
       break;
     }
   }
+
+  if (potential) {
+    tree->mouse_hover = potential;
+    return potential->uid;
+  }
+  // this should fix it, I just had it in the wrong scope
 
   tree->mouse_hover = 0;
   return 0;
@@ -882,6 +1031,9 @@ float ui_dropdown_max_font_size(ui_dropdown dropdown) {
   uint32_t longest_option_len = 0;
   int32_t  longest_option     = -1;
   for (uint32_t i = 0; i < dropdown.option_count; ++i) {
+    if (!dropdown.options[i])
+      continue;
+
     int32_t option_len = strlen(dropdown.options[i]);
     if (option_len > longest_option_len) {
       longest_option     = (uint32_t)i;
@@ -889,7 +1041,9 @@ float ui_dropdown_max_font_size(ui_dropdown dropdown) {
     }
   }
 
-  if (longest_option == -1) { longest_option = 0; }
+  if (longest_option == -1) {
+    longest_option = 0;
+  }
 
   float current_size = dropdown.font_size;
 
@@ -928,7 +1082,9 @@ void ui_dropdown_draw(ui_dropdown* dropdown, int8_t focused) {
   ui_scale_to_px(dropdown_position, dropdown->position);
   ui_scale_to_px(option_size, dropdown->size);
 
-  if (dropdown->showing) { dropdown_size[1] *= dropdown->option_display; }
+  if (dropdown->showing) {
+    dropdown_size[1] *= dropdown->option_display;
+  }
 
   if (dropdown->use_border) {
     if (dropdown->border_size != 0.f) {
@@ -1085,7 +1241,9 @@ void ui_dropdown_draw(ui_dropdown* dropdown, int8_t focused) {
 }
 
 void ui_line_draw(ui_line* line) {
-  if (!line) { return; }
+  if (!line) {
+    return;
+  }
 
   vec2 line_start, line_end;
   ui_scale_to_px(line_start, line->start);
@@ -1100,7 +1258,9 @@ void ui_line_draw(ui_line* line) {
 }
 
 void ui_option_draw(ui_option* option, int8_t focused) {
-  if (!option) { return; }
+  if (!option) {
+    return;
+  }
 
   if (option->use_img) {
     nvgBeginPath(g_ui_ctx.nvg);
@@ -1114,11 +1274,11 @@ void ui_option_draw(ui_option* option, int8_t focused) {
     nvgFill(g_ui_ctx.nvg);
   }
 
-  if (option->bg) {
+  if (option->use_color) {
     if (focused) {
-      nvgFillColor(g_ui_ctx.nvg, ui_vec4_color(option->hover_bg_color));
+      nvgFillColor(g_ui_ctx.nvg, ui_vec4_color(option->hover_bg));
     } else {
-      nvgFillColor(g_ui_ctx.nvg, ui_vec4_color(option->bg_color));
+      nvgFillColor(g_ui_ctx.nvg, ui_vec4_color(option->bg));
     }
   }
 
@@ -1139,8 +1299,10 @@ void ui_option_draw(ui_option* option, int8_t focused) {
   }
 }
 
-void ui_image_draw(ui_img* img) {
-  if (!img) { return; }
+void ui_image_draw(ui_img* img, int8_t focused) {
+  if (!img) {
+    return;
+  }
 
   vec2 img_position, img_size;
   ui_scale_to_px(img_position, img->position);
@@ -1148,10 +1310,28 @@ void ui_image_draw(ui_img* img) {
 
   NVGpaint img_paint =
       nvgImagePattern(g_ui_ctx.nvg, img_position[0], img_position[1],
-                      img_size[0], img_size[1], 0.f, img->handle, 1.0);
+                      img_size[0], img_size[1], 0.f, img->handle, 1.0f);
   nvgBeginPath(g_ui_ctx.nvg);
-  nvgRect(g_ui_ctx.nvg, img_position[0], img_position[1], img_size[0],
-          img_size[1]);
+
+  if (img->border_size != 0.f) {
+    if (focused) {
+      nvgStrokeColor(g_ui_ctx.nvg, ui_vec4_color(img->hover_border_color));
+    } else {
+      nvgStrokeColor(g_ui_ctx.nvg, ui_vec4_color(img->border_color));
+    }
+
+    nvgStrokeWidth(g_ui_ctx.nvg, img->border_size);
+    nvgStroke(g_ui_ctx.nvg);
+  }
+
+  if (img->border_radius != 0.f) {
+    nvgRoundedRect(g_ui_ctx.nvg, img_position[0], img_position[1], img_size[0],
+                   img_size[1], img->border_radius);
+  } else {
+    nvgRect(g_ui_ctx.nvg, img_position[0], img_position[1], img_size[0],
+            img_size[1]);
+  }
+
   nvgFillPaint(g_ui_ctx.nvg, img_paint);
   nvgFill(g_ui_ctx.nvg);
 }
@@ -1197,9 +1377,13 @@ static int ui_text_fits(ui_text text, float size, vec2 scaled_pos, vec2 bounds,
   float width  = text_bounds[2] - text_bounds[0];
   float height = text_bounds[3] - text_bounds[1];
 
-  if (width >= bounds[0]) { return 0; }
+  if (width >= bounds[0]) {
+    return 0;
+  }
 
-  if (height >= bounds[1]) { return 0; }
+  if (height >= bounds[1]) {
+    return 0;
+  }
 
   return 1;
 }
@@ -1254,8 +1438,10 @@ void ui_tree_destroy(ui_tree* tree) {
 }
 
 uint32_t ui_tree_add(ui_tree* tree, void* data, ui_element_type type,
-                     int8_t selectable) {
-  if (!data || !tree) { return 0; }
+                     int8_t priority, int8_t selectable) {
+  if (!data || !tree) {
+    return 0;
+  }
 
   if (tree->count == tree->capacity - 1) {
     DBG_E("No free space in tree.\n");
@@ -1276,14 +1462,19 @@ uint32_t ui_tree_add(ui_tree* tree, void* data, ui_element_type type,
   *element_uid          = uid;
 
   leaf_ptr->selectable = selectable;
+  leaf_ptr->priority   = (priority >= 127) ? 126 : priority;
 
   ui_element* element = &leaf_ptr->element;
   element->data       = data;
   element->type       = type;
 
-  if (!tree->cursor) { tree->cursor = leaf_ptr; }
+  if (!tree->cursor) {
+    tree->cursor = leaf_ptr;
+  }
 
-  if (!tree->start) { tree->start = leaf_ptr; }
+  if (!tree->start) {
+    tree->start = leaf_ptr;
+  }
 
   if (!tree->end) {
     tree->end      = leaf_ptr;
@@ -1352,7 +1543,9 @@ void ui_tree_print(ui_tree* tree) {
 }
 
 int32_t ui_element_event(ui_tree* tree, uint32_t uid) {
-  if (!tree || !tree->start) { return 0; }
+  if (!tree || !tree->start) {
+    return 0;
+  }
 
   ui_leaf* cursor = tree->start;
   while (cursor) {
@@ -1402,7 +1595,7 @@ void ui_tree_draw(ui_tree tree) {
           ui_text_draw((ui_text*)element.data);
           break;
         case UI_IMAGE:
-          ui_image_draw((ui_img*)element.data);
+          ui_image_draw((ui_img*)element.data, focused);
         case UI_BOX:
           ui_box_draw((ui_box*)element.data, focused);
           break;
@@ -1487,7 +1680,9 @@ ui_text ui_text_create(vec2 pos, char* string, float font_size, ui_font font_id,
   if (shadow[0] >= 0.f) {
     vec4_dup(text.shadow, shadow);
 
-    if (shadow_size == -1.f) { text.shadow_size = 3.f; }
+    if (shadow_size == -1.f) {
+      text.shadow_size = 3.f;
+    }
 
     text.use_shadow = 1;
   }
@@ -1605,12 +1800,26 @@ ui_line ui_line_create(vec2 start, vec2 end, vec4 color, float thickness) {
 
 ui_dropdown ui_dropdown_create(vec2 pos, vec2 size, char** options,
                                int option_count) {
-  ui_dropdown dropdown;
+  ui_dropdown dropdown = (ui_dropdown){0};
 
   if (option_count > 0) {
-    dropdown.options         = (const char**)options;
+    char** _options = (char**)malloc(sizeof(char*) * (option_count + 1));
+    for (int i = 0; i < option_count; ++i) {
+      int str_len = strlen(options[i]);
+
+      _options[i] = (char*)malloc(sizeof(char) * (str_len + 1));
+      memcpy(_options[i], options[i], sizeof(char) * (str_len + 1));
+
+      _options[i][str_len] = 0;
+    }
+
+    _options[option_count] = 0;
+
+    // we'll do our modifications before assignment then just cast it so it's
+    // not read only
+    dropdown.options         = (const char**)_options;
     dropdown.option_count    = option_count;
-    dropdown.option_capacity = option_count;
+    dropdown.option_capacity = option_count + 1;
   } else {
     dropdown.options         = (const char**)malloc(sizeof(char*) * 8);
     dropdown.option_count    = 0;
@@ -1746,12 +1955,10 @@ ui_dropdown ui_dropdown_create(vec2 pos, vec2 size, char** options,
     vec4_clear(dropdown.hover_color);
   }
 
-  dropdown.use_border    = 0;
-  dropdown.border_size   = 0.f;
-  dropdown.border_radius = 0.f;
-
-  // If showing options expanded
   dropdown.showing = 0;
+
+  dropdown.bottom_scroll_pad = 1;
+  dropdown.top_scroll_pad    = 1;
 
   return dropdown;
 }
@@ -1799,13 +2006,13 @@ ui_option ui_option_create(const char* text, float font_size,
   vec2_dup(option.position, pos);
   vec2_dup(option.size, size);
 
-  vec4_clear(option.bg_color);
-  vec4_clear(option.hover_bg_color);
+  vec4_clear(option.bg);
+  vec4_clear(option.hover_bg);
   vec4_clear(option.color);
   vec4_clear(option.hover_color);
 
-  option.state = 0;
-  option.bg    = 0;
+  option.state     = 0;
+  option.use_color = 0;
 
   return option;
 }
@@ -1853,6 +2060,165 @@ ui_img ui_image_create(unsigned char* data, int data_length, ui_img_flags flags,
   return img;
 }
 
+// TODO Refactor color names within structs to bg/fg
+void ui_dropdown_set_colors(ui_dropdown* dropdown, vec4 bg, vec4 hover_bg,
+                            vec4 fg, vec4 hover_fg, vec4 border_color,
+                            vec4 hover_border_color, vec4 select_bg,
+                            vec4 select_fg, vec4 hover_select_bg,
+                            vec4 hover_select_fg) {
+  if (bg) {
+    vec4_dup(dropdown->bg, bg);
+  }
+
+  if (hover_bg) {
+    vec4_dup(dropdown->hover_bg, hover_bg);
+  }
+
+  if (fg) {
+    vec4_dup(dropdown->color, fg);
+  }
+
+  if (hover_fg) {
+    vec4_dup(dropdown->hover_color, hover_fg);
+  }
+
+  if (border_color) {
+    vec4_dup(dropdown->border_color, border_color);
+  }
+
+  if (hover_border_color) {
+    vec4_dup(dropdown->hover_border_color, hover_border_color);
+  }
+
+  if (select_bg) {
+    vec4_dup(dropdown->select_bg, select_bg);
+  }
+
+  if (hover_select_bg) {
+    vec4_dup(dropdown->hover_select_bg, hover_select_bg);
+  }
+
+  if (select_fg) {
+    vec4_dup(dropdown->select_color, select_fg);
+  }
+
+  if (hover_select_fg) {
+    vec4_dup(dropdown->hover_select_color, hover_select_fg);
+  }
+}
+
+void ui_box_set_colors(ui_box* box, vec4 bg, vec4 hover_bg, vec4 border_color,
+                       vec4 hover_border_color) {
+  if (bg) {
+    vec4_dup(box->bg, bg);
+  }
+
+  if (hover_bg) {
+    vec4_dup(box->hover_bg, hover_bg);
+  }
+
+  if (border_color) {
+    vec4_dup(box->border_color, border_color);
+  }
+
+  if (hover_border_color) {
+    vec4_dup(box->hover_border_color, hover_border_color);
+  }
+}
+
+void ui_text_set_colors(ui_text* text, vec4 color, vec4 shadow) {
+  if (color) {
+    vec4_dup(text->color, color);
+  }
+
+  if (shadow) {
+    vec4_dup(text->shadow, shadow);
+  }
+}
+
+void ui_button_set_colors(ui_button* button, vec4 bg, vec4 hover_bg, vec4 fg,
+                          vec4 hover_fg, vec4 border_color,
+                          vec4 hover_border_color) {
+  if (bg) {
+    vec4_dup(button->bg, bg);
+  }
+
+  if (hover_bg) {
+    vec4_dup(button->hover_bg, hover_bg);
+  }
+
+  if (fg) {
+    vec4_dup(button->color, fg);
+  }
+
+  if (hover_fg) {
+    vec4_dup(button->hover_color, hover_fg);
+  }
+
+  if (border_color) {
+    vec4_dup(button->border_color, border_color);
+  }
+
+  if (hover_border_color) {
+    vec4_dup(button->hover_border_color, hover_border_color);
+  }
+}
+
+void ui_line_set_colors(ui_line* line, vec4 color) {
+  if (color) {
+    vec4_dup(line->color, color);
+  }
+}
+
+void ui_option_set_colors(ui_option* option, vec4 bg, vec4 hover_bg, vec4 fg,
+                          vec4 hover_fg) {
+  if (bg) {
+    vec4_dup(option->bg, bg);
+  }
+
+  if (hover_bg) {
+    vec4_dup(option->hover_bg, hover_bg);
+  }
+
+  if (fg) {
+    vec4_dup(option->color, fg);
+  }
+
+  if (hover_fg) {
+    vec4_dup(option->hover_color, hover_fg);
+  }
+}
+
+void ui_img_set_colors(ui_img* img, vec4 border_color,
+                       vec4 hover_border_color) {
+  if (border_color) {
+    vec4_dup(img->border_color, border_color);
+  }
+
+  if (hover_border_color) {
+    vec4_dup(img->hover_border_color, hover_border_color);
+  }
+}
+
+void ui_img_set_border_radius(ui_img* img, float radius) {
+  img->border_radius = radius;
+}
+
+void ui_button_set_border_radius(ui_button* button, float radius) {
+  button->border_radius = radius;
+  button->use_border    = 1;
+}
+
+void ui_box_set_border_radius(ui_box* box, float radius) {
+  box->border_radius = radius;
+  box->use_border    = 1;
+}
+
+void ui_dropdown_set_border_radius(ui_dropdown* dropdown, float radius) {
+  dropdown->border_radius = radius;
+  dropdown->use_border    = 1;
+}
+
 uint16_t ui_dropdown_add_option(ui_dropdown* dropdown, const char* option) {
   if (dropdown->option_count == dropdown->option_capacity) {
     dropdown->options =
@@ -1874,24 +2240,29 @@ uint16_t ui_dropdown_add_option(ui_dropdown* dropdown, const char* option) {
 void ui_text_next(ui_text* text) {
   assert(text);
   if (text->use_reveal) {
-    if (text->reveal < text->text + text->text_length) { ++text->reveal; }
+    if (text->reveal < text->text + text->text_length) {
+      ++text->reveal;
+    }
   }
 }
 
 void ui_text_prev(ui_text* text) {
   assert(text);
   if (text->use_reveal) {
-    if (text->reveal > text->text) { --text->reveal; }
+    if (text->reveal > text->text) {
+      --text->reveal;
+    }
   }
 }
 
 // TODO Mouse Scrolling w/ Click / Hover
 void ui_dropdown_next(ui_dropdown* dropdown) {
-  if (dropdown->cursor < dropdown->option_count - 1) { dropdown->cursor += 1; }
+  if (dropdown->cursor < dropdown->option_count - 1) {
+    dropdown->cursor += 1;
+  }
 
   int cursor_rel =
       dropdown->option_display - (dropdown->cursor - dropdown->start);
-  printf("rel: %i\n", cursor_rel);
   if (cursor_rel < dropdown->bottom_scroll_pad) {
     if (dropdown->start < dropdown->option_count - dropdown->option_display) {
       dropdown->start += 1;
@@ -1902,11 +2273,13 @@ void ui_dropdown_next(ui_dropdown* dropdown) {
 }
 
 void ui_dropdown_prev(ui_dropdown* dropdown) {
-  if (dropdown->cursor > 0) { dropdown->cursor--; }
+  if (dropdown->cursor > 0) {
+    dropdown->cursor--;
+  }
 
   int cursor_rel = dropdown->cursor - dropdown->start;
 
-  printf("rel: %i\n", cursor_rel);
+  // printf("rel: %i\n", cursor_rel);
   if (cursor_rel < dropdown->top_scroll_pad) {
     if (dropdown->start > 0) {
       dropdown->start--;
@@ -1918,7 +2291,9 @@ void ui_dropdown_prev(ui_dropdown* dropdown) {
 }
 
 void ui_dropdown_set_to_cursor(ui_dropdown* dropdown) {
-  if (dropdown->selected != dropdown->cursor) { dropdown->has_change = 1; }
+  if (dropdown->selected != dropdown->cursor) {
+    dropdown->has_change = 1;
+  }
 
   dropdown->selected = dropdown->cursor;
 
@@ -1934,7 +2309,9 @@ void ui_dropdown_set_to_cursor(ui_dropdown* dropdown) {
 
 void ui_dropdown_set(ui_dropdown* dropdown, uint16_t select) {
   if (select < dropdown->option_count - 1 && select >= 0) {
-    if (select != dropdown->selected) { dropdown->has_change = 1; }
+    if (select != dropdown->selected) {
+      dropdown->has_change = 1;
+    }
     dropdown->selected = select;
 
     dropdown->start = dropdown->selected - dropdown->option_display / 2;
@@ -2030,10 +2407,14 @@ uint32_t ui_tree_select(ui_tree* tree, int32_t event_type, int is_mouse) {
 
 int8_t ui_tree_is_active(ui_tree* tree, uint32_t id) {
   if (g_ui_ctx.use_mouse) {
-    if (tree->mouse_hover->uid == id) { return 1; }
+    if (tree->mouse_hover->uid == id) {
+      return 1;
+    }
   }
 
-  if (tree->cursor->uid == id) { return 1; }
+  if (tree->cursor->uid == id) {
+    return 1;
+  }
 
   return 0;
 }
@@ -2044,7 +2425,9 @@ uint32_t ui_tree_next(ui_tree* tree) {
     return 0;
   }
 
-  if (!tree->cursor) { tree->cursor = tree->start; }
+  if (!tree->cursor) {
+    tree->cursor = tree->start;
+  }
 
   if (tree->cursor) {
     if (tree->cursor->element.type == UI_DROPDOWN) {
@@ -2089,7 +2472,9 @@ uint32_t ui_tree_prev(ui_tree* tree) {
     return 0;
   }
 
-  if (!tree->cursor) { tree->cursor = tree->end; }
+  if (!tree->cursor) {
+    tree->cursor = tree->end;
+  }
 
   if (tree->cursor) {
     if (tree->cursor->element.type == UI_DROPDOWN) {

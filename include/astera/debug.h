@@ -1,3 +1,5 @@
+// TODO: Refactor DBG_E to ASTERA_DBG_E
+
 #ifndef ASTERA_DEBUG_HEADER
 #define ASTERA_DEBUG_HEADER
 

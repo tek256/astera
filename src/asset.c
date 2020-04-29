@@ -1,23 +1,9 @@
 // TODO: Combine pak_t & asset_map_t
 /*
  * NOTE: The PAK System is inspired by the r-lyeh/sdarc.c implementation
+ * oh, this one will be a fun one lol
  */
 #include <astera/asset.h>
-
-/* Debug Output Macro*/
-#if defined(ASTERA_DEBUG_INCLUDED)
-#if defined(ASTERA_DEBUG_OUTPUT)
-#if !defined(DBG_E)
-#define DBG_E(fmt, ...) _l(fmt, ##__VA_ARGS_)
-#endif
-#elif !defined(DBG_E)
-#define DBG_E(fmt, ...)
-#endif
-#else
-#if !defined(DBG_E)
-#define DBG_E(fmt, ...)
-#endif
-#endif
 
 #if !defined(ASTERA_NO_ZIP)
 #include <zip.h>
@@ -448,7 +434,6 @@ pak_t* pak_close(pak_t* pak) {
 int32_t pak_find(pak_t* pak, const char* filename) {
 #if !defined(ASTERA_PAK_NO_FILE)
   if ((pak->file_mode && pak->in) || (!pak->file_mode && pak->data_ptr)) {
-
     for (uint32_t i = 0; i < pak->count; ++i) {
       if (!strcmp(pak->entries[i].name, filename)) {
         return i;
@@ -544,9 +529,7 @@ void asset_map_free(asset_map_t* map) {
 }
 
 // TODO
-asset_t* asset_map_get(asset_map_t* map, const char* file) {
-  return 0;
-}
+asset_t* asset_map_get(asset_map_t* map, const char* file) { return 0; }
 
 // NOTE: Local System
 asset_t* asset_get(const char* file) {
@@ -652,100 +635,101 @@ asset_t* asset_map_find(asset_map_t* map, const char* name, int allow_fetch) {
   if (allow_fetch) {
     asset_t* new_asset;
     switch (map->type) {
-    case MAP_FS: {
-      new_asset = asset_get(name);
-      if (!new_asset) {
-        DBG_E("asset_map_find: unable to open file from filesystem: %s\n",
-              name);
-        return 0;
+      case MAP_FS: {
+        new_asset = asset_get(name);
+        if (!new_asset) {
+          DBG_E("asset_map_find: unable to open file from filesystem: %s\n",
+                name);
+          return 0;
+        }
       }
-    }
-      return new_asset;
-    case MAP_PAK: {
-      new_asset        = (asset_t*)malloc(sizeof(asset_t));
-      int      f_index = pak_find(map->pak, name);
-      uint32_t f_size;
+        return new_asset;
+      case MAP_PAK: {
+        new_asset        = (asset_t*)malloc(sizeof(asset_t));
+        int      f_index = pak_find(map->pak, name);
+        uint32_t f_size;
 
-      if (f_index) {
-        f_size = pak_size(map->pak, f_index);
+        if (f_index) {
+          f_size = pak_size(map->pak, f_index);
 
-        unsigned char* data = pak_extract(map->pak, f_index);
+          unsigned char* data = pak_extract(map->pak, f_index);
 
-        if (!data) {
-          DBG_E("asset_map_find: unable to extra file from pak: %s\n", name);
+          if (!data) {
+            DBG_E("asset_map_find: unable to extra file from pak: %s\n", name);
+            free(new_asset);
+            return 0;
+          }
+
+          new_asset->data        = data;
+          new_asset->data_length = f_size;
+          new_asset->filled      = 1;
+          new_asset->name        = name;
+
+          return new_asset;
+
+        } else {
+          DBG_E("asset_map_find: unable to fetch file from pak: %s\n", name);
           free(new_asset);
           return 0;
         }
 
+      } break;
+      case MAP_ZIP: {
+        new_asset = (asset_t*)malloc(sizeof(asset_t));
+
+        if (!new_asset) {
+          DBG_E("asset_map_find: unable to allocate space for new asset "
+                "struct.\n");
+          return 0;
+        }
+
+        struct zip_t* zip = zip_open(map->filename, ASTERA_ZIP_LEVEL, 'r');
+        if (!zip) {
+          DBG_E("asset_map_find: unable to open zip file.\n", map->filename);
+          free(new_asset);
+          return 0;
+        }
+
+        if (zip_entry_open(zip, name)) {
+          DBG_E("asset_map_find: unable to open zip entry: %s\n", name);
+          free(new_asset);
+          zip_close(zip);
+          return 0;
+        }
+
+        long           entry_size = zip_entry_size(zip);
+        unsigned char* data =
+            (unsigned char*)malloc(sizeof(unsigned char) * (entry_size + 1));
+
+        if (!data) {
+          DBG_E(
+              "asset_map_find: unable to alloc space for zip entry [%i]: %s\n",
+              entry_size + 1, name);
+          zip_close(zip);
+          free(new_asset);
+          return 0;
+        }
+
+        if (!zip_entry_noallocread(zip, data, entry_size + 1)) {
+          DBG_E("asset_map_find: unable to read zip data for entry: %s\n",
+                entry_size);
+          zip_close(zip);
+          free(data);
+          free(new_asset);
+          return 0;
+        }
+
+        data[entry_size] = 0;
+
         new_asset->data        = data;
-        new_asset->data_length = f_size;
+        new_asset->data_length = entry_size + 1;
         new_asset->filled      = 1;
         new_asset->name        = name;
 
+        zip_close(zip);
+
         return new_asset;
-
-      } else {
-        DBG_E("asset_map_find: unable to fetch file from pak: %s\n", name);
-        free(new_asset);
-        return 0;
-      }
-
-    } break;
-    case MAP_ZIP: {
-      new_asset = (asset_t*)malloc(sizeof(asset_t));
-
-      if (!new_asset) {
-        DBG_E(
-            "asset_map_find: unable to allocate space for new asset struct.\n");
-        return 0;
-      }
-
-      struct zip_t* zip = zip_open(map->filename, ASTERA_ZIP_LEVEL, 'r');
-      if (!zip) {
-        DBG_E("asset_map_find: unable to open zip file.\n", map->filename);
-        free(new_asset);
-        return 0;
-      }
-
-      if (zip_entry_open(zip, name)) {
-        DBG_E("asset_map_find: unable to open zip entry: %s\n", name);
-        free(new_asset);
-        zip_close(zip);
-        return 0;
-      }
-
-      long           entry_size = zip_entry_size(zip);
-      unsigned char* data =
-          (unsigned char*)malloc(sizeof(unsigned char) * (entry_size + 1));
-
-      if (!data) {
-        DBG_E("asset_map_find: unable to alloc space for zip entry [%i]: %s\n",
-              entry_size + 1, name);
-        zip_close(zip);
-        free(new_asset);
-        return 0;
-      }
-
-      if (!zip_entry_noallocread(zip, data, entry_size + 1)) {
-        DBG_E("asset_map_find: unable to read zip data for entry: %s\n",
-              entry_size);
-        zip_close(zip);
-        free(data);
-        free(new_asset);
-        return 0;
-      }
-
-      data[entry_size] = 0;
-
-      new_asset->data        = data;
-      new_asset->data_length = entry_size + 1;
-      new_asset->filled      = 1;
-      new_asset->name        = name;
-
-      zip_close(zip);
-
-      return new_asset;
-    } break;
+      } break;
     }
   } else {
     return 0;

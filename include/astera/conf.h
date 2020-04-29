@@ -1,9 +1,23 @@
 // TODO write_pref
+// TODO refactor to user.h (naming collision with col.h)
 #ifndef ASTERA_CONF_HEADER
 #define ASTERA_CONF_HEADER
 
 #ifdef __cplusplus
 extern "C" {
+#endif
+
+#if !defined DBG_E
+#if defined  ASTERA_DEBUG_OUTPUT
+#if defined  ASTERA_DEBUG_INCLUDED
+#define DBG_E(fmt, ...) _l(fmt, ##__VA_ARGS_)
+#else
+#include <stdio.h>
+#define DBG_E(fmt, ...) printf(fmt, ##__VA_ARGS_)
+#endif
+#else
+#define DBG_E(fmt, ...)
+#endif
 #endif
 
 #include <astera/export.h>

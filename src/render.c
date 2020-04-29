@@ -5,31 +5,6 @@
 #include <math.h>
 #include <string.h>
 
-/* Debug Output Macro*/
-#if defined(ASTERA_DEBUG_INCLUDED)
-#if defined(ASTERA_DEBUG_OUTPUT)
-#if !defined(DBG_E)
-#define DBG_E(fmt, ...) _l(fmt, ##__VA_ARGS_)
-#endif
-#elif !defined(DBG_E)
-#define DBG_E(fmt, ...)
-#endif
-#else
-#if !defined(DBG_E)
-#define DBG_E(fmt, ...)
-#endif
-#endif
-
-#if !defined(ASTERA_MORE_IMG_SUPPORT)
-#define STBI_NO_BMP
-#define STBI_NO_TGA
-#define STBI_NO_JPEG
-#define STBI_NO_PSD
-#define STBI_NO_PIC
-#define STBI_NO_PNM
-#define STBI_NO_HDR
-#endif
-
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
@@ -125,9 +100,7 @@ static void glfw_joy_cb(int joystick, int action) {
 
 #endif
 
-int8_t r_check_error(void) {
-  return glGetError();
-}
+int8_t r_check_error(void) { return glGetError(); }
 
 int8_t r_check_error_loc(const char* loc) {
   int8_t error = glGetError();
@@ -233,9 +206,7 @@ int r_init(r_window_info info) {
   return 1;
 }
 
-void r_update(void) {
-  r_cam_update();
-}
+void r_update(void) { r_cam_update(); }
 
 void r_end(void) {
   for (int i = 0; i < g_shader_map.batch_capacity; ++i) {
@@ -632,23 +603,23 @@ float r_keyframe_get_value(r_keyframes frames, float point) {
   }
 
   switch (frames.list[start_index].curve) {
-  case CURVE_LINEAR: {
-    float point_dist =
-        frames.list[start_index + 1].point - frames.list[start_index].point;
-    float value_dist =
-        frames.list[start_index + 1].value - frames.list[start_index].value;
-    float avg = (point - frames.list[start_index].point) / point_dist;
-    return frames.list[start_index].value + (value_dist * avg);
-  }
-    // TODO Easing
-  case CURVE_EASE_IN:
-    return frames.list[start_index].value;
-  case CURVE_EASE_EASE:
-    return frames.list[start_index].value;
-  case CURVE_EASE_OUT:
-    return frames.list[start_index].value;
-  default:
-    return frames.list[start_index].value;
+    case CURVE_LINEAR: {
+      float point_dist =
+          frames.list[start_index + 1].point - frames.list[start_index].point;
+      float value_dist =
+          frames.list[start_index + 1].value - frames.list[start_index].value;
+      float avg = (point - frames.list[start_index].point) / point_dist;
+      return frames.list[start_index].value + (value_dist * avg);
+    }
+      // TODO Easing
+    case CURVE_EASE_IN:
+      return frames.list[start_index].value;
+    case CURVE_EASE_EASE:
+      return frames.list[start_index].value;
+    case CURVE_EASE_OUT:
+      return frames.list[start_index].value;
+    default:
+      return frames.list[start_index].value;
   }
 }
 
@@ -753,17 +724,17 @@ void r_particles_update(r_particles* system, double delta) {
       vec2 position;
       vec2_dup(position, system->position);
       switch (system->spawn_type) {
-      case SPAWN_POINT:
-        // Just do nothing
-        break;
-      case SPAWN_CIRCLE:
-        position[0] += (float)fmod(rand(), system->size[0]);
-        position[1] += (float)fmod(rand(), system->size[0]);
-        break;
-      case SPAWN_BOX:
-        position[0] += (float)fmod(rand(), system->size[0]);
-        position[1] += (float)fmod(rand(), system->size[1]);
-        break;
+        case SPAWN_POINT:
+          // Just do nothing
+          break;
+        case SPAWN_CIRCLE:
+          position[0] += (float)fmod(rand(), system->size[0]);
+          position[1] += (float)fmod(rand(), system->size[0]);
+          break;
+        case SPAWN_BOX:
+          position[0] += (float)fmod(rand(), system->size[0]);
+          position[1] += (float)fmod(rand(), system->size[1]);
+          break;
       }
 
       vec2_dup(particle->position, position);
@@ -869,24 +840,24 @@ void r_particles_destroy(r_particles* particles) {
   if (particles->array_count) {
     for (int i = 0; i < particles->array_count; ++i) {
       switch (particles->arrays[i].type) {
-      case r_int:
-        free(particles->arrays[i].data.int_ptr);
-        break;
-      case r_float:
-        free(particles->arrays[i].data.float_ptr);
-        break;
-      case r_mat:
-        free(particles->arrays[i].data.mat_ptr);
-        break;
-      case r_vec2:
-        free(particles->arrays[i].data.vec2_ptr);
-        break;
-      case r_vec3:
-        free(particles->arrays[i].data.vec3_ptr);
-        break;
-      case r_vec4:
-        free(particles->arrays[i].data.vec4_ptr);
-        break;
+        case r_int:
+          free(particles->arrays[i].data.int_ptr);
+          break;
+        case r_float:
+          free(particles->arrays[i].data.float_ptr);
+          break;
+        case r_mat:
+          free(particles->arrays[i].data.mat_ptr);
+          break;
+        case r_vec2:
+          free(particles->arrays[i].data.vec2_ptr);
+          break;
+        case r_vec3:
+          free(particles->arrays[i].data.vec3_ptr);
+          break;
+        case r_vec4:
+          free(particles->arrays[i].data.vec4_ptr);
+          break;
       }
     }
     free(particles->arrays);
@@ -920,27 +891,27 @@ static r_uniform_array r_create_uniform_array(const char* name, int type,
   array.count    = 0;
 
   switch (type) {
-  case r_float:
-    array.data.float_ptr = malloc(sizeof(float) * capacity);
-    break;
-  case r_int:
-    array.data.int_ptr = malloc(sizeof(int) * capacity);
-    break;
-  case r_vec2:
-    array.data.vec2_ptr = malloc(sizeof(vec2) * capacity);
-    break;
-  case r_vec3:
-    array.data.vec3_ptr = malloc(sizeof(vec3) * capacity);
-    break;
-  case r_vec4:
-    array.data.vec4_ptr = malloc(sizeof(vec4) * capacity);
-    break;
-  case r_mat:
-    array.data.mat_ptr = malloc(sizeof(mat4x4) * capacity);
-    break;
-  default:
-    DBG_E("Unsupported data type: %i\n", type);
-    break;
+    case r_float:
+      array.data.float_ptr = malloc(sizeof(float) * capacity);
+      break;
+    case r_int:
+      array.data.int_ptr = malloc(sizeof(int) * capacity);
+      break;
+    case r_vec2:
+      array.data.vec2_ptr = malloc(sizeof(vec2) * capacity);
+      break;
+    case r_vec3:
+      array.data.vec3_ptr = malloc(sizeof(vec3) * capacity);
+      break;
+    case r_vec4:
+      array.data.vec4_ptr = malloc(sizeof(vec4) * capacity);
+      break;
+    case r_mat:
+      array.data.mat_ptr = malloc(sizeof(mat4x4) * capacity);
+      break;
+    default:
+      DBG_E("Unsupported data type: %i\n", type);
+      break;
   }
 
   return array;
@@ -953,24 +924,24 @@ void r_particles_draw(r_particles* particles, r_shader shader) {
     if (particles->array_count != 0) {
       for (int i = 0; i < particles->array_count; ++i) {
         switch (particles->arrays[i].type) {
-        case r_int:
-          free(particles->arrays[i].data.int_ptr);
-          break;
-        case r_float:
-          free(particles->arrays[i].data.float_ptr);
-          break;
-        case r_mat:
-          free(particles->arrays[i].data.mat_ptr);
-          break;
-        case r_vec2:
-          free(particles->arrays[i].data.vec2_ptr);
-          break;
-        case r_vec3:
-          free(particles->arrays[i].data.vec3_ptr);
-          break;
-        case r_vec4:
-          free(particles->arrays[i].data.vec4_ptr);
-          break;
+          case r_int:
+            free(particles->arrays[i].data.int_ptr);
+            break;
+          case r_float:
+            free(particles->arrays[i].data.float_ptr);
+            break;
+          case r_mat:
+            free(particles->arrays[i].data.mat_ptr);
+            break;
+          case r_vec2:
+            free(particles->arrays[i].data.vec2_ptr);
+            break;
+          case r_vec3:
+            free(particles->arrays[i].data.vec3_ptr);
+            break;
+          case r_vec4:
+            free(particles->arrays[i].data.vec4_ptr);
+            break;
         }
       }
       free(particles->arrays);
@@ -1226,27 +1197,27 @@ void r_batch_clear(r_shader_batch* batch) {
 }
 void r_shader_clear_array(r_uniform_array* array) {
   switch (array->type) {
-  case r_vec2: {
-    memset(array->data.vec2_ptr, 0, sizeof(vec2) * array->capacity);
-  } break;
-  case r_vec3: {
-    memset(array->data.vec3_ptr, 0, sizeof(vec3) * array->capacity);
-  } break;
-  case r_vec4: {
-    memset(array->data.vec4_ptr, 0, sizeof(vec4) * array->capacity);
-  } break;
-  case r_mat: {
-    memset(array->data.vec4_ptr, 0, sizeof(vec4) * array->capacity);
-  } break;
-  case r_float: {
-    memset(array->data.float_ptr, 0, sizeof(float) * array->capacity);
-  } break;
-  case r_int: {
-    memset(array->data.int_ptr, 0, sizeof(int) * array->capacity);
-  } break;
-  default:
-    DBG_E("Unsupported data type: array_clear\n");
-    break;
+    case r_vec2: {
+      memset(array->data.vec2_ptr, 0, sizeof(vec2) * array->capacity);
+    } break;
+    case r_vec3: {
+      memset(array->data.vec3_ptr, 0, sizeof(vec3) * array->capacity);
+    } break;
+    case r_vec4: {
+      memset(array->data.vec4_ptr, 0, sizeof(vec4) * array->capacity);
+    } break;
+    case r_mat: {
+      memset(array->data.vec4_ptr, 0, sizeof(vec4) * array->capacity);
+    } break;
+    case r_float: {
+      memset(array->data.float_ptr, 0, sizeof(float) * array->capacity);
+    } break;
+    case r_int: {
+      memset(array->data.int_ptr, 0, sizeof(int) * array->capacity);
+    } break;
+    default:
+      DBG_E("Unsupported data type: array_clear\n");
+      break;
   }
   array->count = 0;
 }
@@ -1371,26 +1342,26 @@ void r_batch_set_arrays(r_shader_batch* batch) {
   for (unsigned int i = 0; i < batch->uniform_array_count; ++i) {
     r_uniform_array* array = &batch->uniform_arrays[i];
     switch (array->type) {
-    case r_vec2:
-      r_set_v2x(shader, array->count, array->name, array->data.vec2_ptr);
-      break;
-    case r_vec3:
-      r_set_v3x(shader, array->count, array->name, array->data.vec3_ptr);
-      break;
-    case r_vec4:
-      r_set_v4x(shader, array->count, array->name, array->data.vec4_ptr);
-      break;
-    case r_float:
-      r_set_fx(shader, array->count, array->name, array->data.float_ptr);
-      break;
-    case r_int:
-      r_set_ix(shader, array->count, array->name, array->data.int_ptr);
-      break;
-    case r_mat:
-      r_set_m4x(shader, array->count, array->name, array->data.mat_ptr);
-      break;
-    default:
-      break;
+      case r_vec2:
+        r_set_v2x(shader, array->count, array->name, array->data.vec2_ptr);
+        break;
+      case r_vec3:
+        r_set_v3x(shader, array->count, array->name, array->data.vec3_ptr);
+        break;
+      case r_vec4:
+        r_set_v4x(shader, array->count, array->name, array->data.vec4_ptr);
+        break;
+      case r_float:
+        r_set_fx(shader, array->count, array->name, array->data.float_ptr);
+        break;
+      case r_int:
+        r_set_ix(shader, array->count, array->name, array->data.int_ptr);
+        break;
+      case r_mat:
+        r_set_m4x(shader, array->count, array->name, array->data.mat_ptr);
+        break;
+      default:
+        break;
     }
 
     r_shader_clear_array(array);
@@ -1402,24 +1373,24 @@ void r_batch_destroy(r_shader shader, r_sheet sheet) {
 
   for (unsigned int i = 0; i < batch->uniform_array_count; ++i) {
     switch (batch->uniform_arrays[i].type) {
-    case r_int:
-      free(batch->uniform_arrays[i].data.int_ptr);
-      break;
-    case r_float:
-      free(batch->uniform_arrays[i].data.float_ptr);
-      break;
-    case r_mat:
-      free(batch->uniform_arrays[i].data.mat_ptr);
-      break;
-    case r_vec2:
-      free(batch->uniform_arrays[i].data.vec2_ptr);
-      break;
-    case r_vec3:
-      free(batch->uniform_arrays[i].data.vec3_ptr);
-      break;
-    case r_vec4:
-      free(batch->uniform_arrays[i].data.vec4_ptr);
-      break;
+      case r_int:
+        free(batch->uniform_arrays[i].data.int_ptr);
+        break;
+      case r_float:
+        free(batch->uniform_arrays[i].data.float_ptr);
+        break;
+      case r_mat:
+        free(batch->uniform_arrays[i].data.mat_ptr);
+        break;
+      case r_vec2:
+        free(batch->uniform_arrays[i].data.vec2_ptr);
+        break;
+      case r_vec3:
+        free(batch->uniform_arrays[i].data.vec3_ptr);
+        break;
+      case r_vec4:
+        free(batch->uniform_arrays[i].data.vec4_ptr);
+        break;
     }
   }
 
@@ -1434,24 +1405,24 @@ void r_batch_destroy_all(r_shader shader) {
     if (batch->shader == shader) {
       for (uint32_t i = 0; i < batch->uniform_array_count; ++i) {
         switch (batch->uniform_arrays[i].type) {
-        case r_int:
-          free(batch->uniform_arrays[i].data.int_ptr);
-          break;
-        case r_float:
-          free(batch->uniform_arrays[i].data.float_ptr);
-          break;
-        case r_mat:
-          free(batch->uniform_arrays[i].data.mat_ptr);
-          break;
-        case r_vec2:
-          free(batch->uniform_arrays[i].data.vec2_ptr);
-          break;
-        case r_vec3:
-          free(batch->uniform_arrays[i].data.vec3_ptr);
-          break;
-        case r_vec4:
-          free(batch->uniform_arrays[i].data.vec4_ptr);
-          break;
+          case r_int:
+            free(batch->uniform_arrays[i].data.int_ptr);
+            break;
+          case r_float:
+            free(batch->uniform_arrays[i].data.float_ptr);
+            break;
+          case r_mat:
+            free(batch->uniform_arrays[i].data.mat_ptr);
+            break;
+          case r_vec2:
+            free(batch->uniform_arrays[i].data.vec2_ptr);
+            break;
+          case r_vec3:
+            free(batch->uniform_arrays[i].data.vec3_ptr);
+            break;
+          case r_vec4:
+            free(batch->uniform_arrays[i].data.vec4_ptr);
+            break;
         }
       }
 
@@ -1511,24 +1482,24 @@ r_shader_batch* r_batch_create(r_shader shader, r_sheet sheet) {
     array.capacity = uniform_map->capacities[i];
 
     switch (array.type) {
-    case r_int:
-      array.data.int_ptr = malloc(array.capacity * sizeof(int));
-      break;
-    case r_float:
-      array.data.float_ptr = malloc(array.capacity * sizeof(float));
-      break;
-    case r_mat:
-      array.data.mat_ptr = malloc(array.capacity * sizeof(mat4x4));
-      break;
-    case r_vec2:
-      array.data.vec2_ptr = malloc(array.capacity * sizeof(vec2));
-      break;
-    case r_vec3:
-      array.data.vec3_ptr = malloc(array.capacity * sizeof(vec3));
-      break;
-    case r_vec4:
-      array.data.vec4_ptr = malloc(array.capacity * sizeof(vec4));
-      break;
+      case r_int:
+        array.data.int_ptr = malloc(array.capacity * sizeof(int));
+        break;
+      case r_float:
+        array.data.float_ptr = malloc(array.capacity * sizeof(float));
+        break;
+      case r_mat:
+        array.data.mat_ptr = malloc(array.capacity * sizeof(mat4x4));
+        break;
+      case r_vec2:
+        array.data.vec2_ptr = malloc(array.capacity * sizeof(vec2));
+        break;
+      case r_vec3:
+        array.data.vec3_ptr = malloc(array.capacity * sizeof(vec3));
+        break;
+      case r_vec4:
+        array.data.vec4_ptr = malloc(array.capacity * sizeof(vec4));
+        break;
     }
 
     if (array.capacity > max_capacity)
@@ -1551,35 +1522,33 @@ void r_shader_destroy(r_shader shader) {
   glDeleteProgram(shader);
 }
 
-void r_shader_bind(r_shader shader) {
-  glUseProgram(shader);
-}
+void r_shader_bind(r_shader shader) { glUseProgram(shader); }
 
 static int r_hex_number(const char v) {
   if (v >= '0' && v <= '9') {
     return v - 0x30;
   } else {
     switch (v) {
-    case 'A':
-    case 'a':
-      return 10;
-    case 'B':
-    case 'b':
-      return 11;
-    case 'C':
-    case 'c':
-      return 12;
-    case 'D':
-    case 'd':
-      return 13;
-    case 'E':
-    case 'e':
-      return 14;
-    case 'F':
-    case 'f':
-      return 15;
-    default:
-      return 0;
+      case 'A':
+      case 'a':
+        return 10;
+      case 'B':
+      case 'b':
+        return 11;
+      case 'C':
+      case 'c':
+        return 12;
+      case 'D':
+      case 'd':
+        return 13;
+      case 'E':
+      case 'e':
+        return 14;
+      case 'F':
+      case 'f':
+        return 15;
+      default:
+        return 0;
     }
   }
 }
@@ -1932,51 +1901,51 @@ void r_shader_uniform(r_shader shader, r_sheet sheet, const char* name,
   }
 
   switch (array->type) {
-  case r_vec2: {
-    vec2* data_ptr = (vec2*)data;
-    for (int i = 0; i < count; ++i) {
-      vec2_dup(array->data.vec2_ptr[array->count], data_ptr[i]);
-      ++array->count;
-    }
-  } break;
-  case r_vec3: {
-    vec3* data_ptr = (vec3*)data;
-    for (int i = 0; i < count; ++i) {
-      vec3_dup(array->data.vec3_ptr[array->count], data_ptr[i]);
-      ++array->count;
-    }
-  } break;
-  case r_vec4: {
-    vec4* data_ptr = (vec4*)data;
-    for (int i = 0; i < count; ++i) {
-      vec4_dup(array->data.vec4_ptr[array->count], data_ptr[i]);
-      ++array->count;
-    }
-  } break;
-  case r_int: {
-    int* data_ptr = (int*)data;
-    for (int i = 0; i < count; ++i) {
-      array->data.int_ptr[array->count] = data_ptr[i];
-      ++array->count;
-    }
-  } break;
-  case r_mat: {
-    mat4x4* data_ptr = (mat4x4*)data;
-    for (int i = 0; i < count; ++i) {
-      mat4x4_dup(array->data.mat_ptr[array->count], data_ptr[i]);
-      ++array->count;
-    }
-  } break;
-  case r_float: {
-    float* data_ptr = (float*)data;
-    for (int i = 0; i < count; ++i) {
-      array->data.float_ptr[array->count] = data_ptr[i];
-      ++array->count;
-    }
-  } break;
-  default:
-    DBG_E("Unsupported data type.\n");
-    return;
+    case r_vec2: {
+      vec2* data_ptr = (vec2*)data;
+      for (int i = 0; i < count; ++i) {
+        vec2_dup(array->data.vec2_ptr[array->count], data_ptr[i]);
+        ++array->count;
+      }
+    } break;
+    case r_vec3: {
+      vec3* data_ptr = (vec3*)data;
+      for (int i = 0; i < count; ++i) {
+        vec3_dup(array->data.vec3_ptr[array->count], data_ptr[i]);
+        ++array->count;
+      }
+    } break;
+    case r_vec4: {
+      vec4* data_ptr = (vec4*)data;
+      for (int i = 0; i < count; ++i) {
+        vec4_dup(array->data.vec4_ptr[array->count], data_ptr[i]);
+        ++array->count;
+      }
+    } break;
+    case r_int: {
+      int* data_ptr = (int*)data;
+      for (int i = 0; i < count; ++i) {
+        array->data.int_ptr[array->count] = data_ptr[i];
+        ++array->count;
+      }
+    } break;
+    case r_mat: {
+      mat4x4* data_ptr = (mat4x4*)data;
+      for (int i = 0; i < count; ++i) {
+        mat4x4_dup(array->data.mat_ptr[array->count], data_ptr[i]);
+        ++array->count;
+      }
+    } break;
+    case r_float: {
+      float* data_ptr = (float*)data;
+      for (int i = 0; i < count; ++i) {
+        array->data.float_ptr[array->count] = data_ptr[i];
+        ++array->count;
+      }
+    } break;
+    default:
+      DBG_E("Unsupported data type.\n");
+      return;
   }
 }
 
@@ -1994,51 +1963,51 @@ void r_shader_uniformi(r_shader shader, r_sheet sheet, int uid, void* data,
   }
 
   switch (array->type) {
-  case r_vec2: {
-    vec2* data_ptr = (vec2*)data;
-    for (int i = 0; i < count; ++i) {
-      vec2_dup(array->data.vec2_ptr[array->count], data_ptr[i]);
-      ++array->count;
-    }
-  } break;
-  case r_vec3: {
-    vec3* data_ptr = (vec3*)data;
-    for (int i = 0; i < count; ++i) {
-      vec3_dup(array->data.vec3_ptr[array->count], data_ptr[i]);
-      ++array->count;
-    }
-  } break;
-  case r_vec4: {
-    vec4* data_ptr = (vec4*)data;
-    for (int i = 0; i < count; ++i) {
-      vec4_dup(array->data.vec4_ptr[array->count], data_ptr[i]);
-      ++array->count;
-    }
-  } break;
-  case r_int: {
-    int* data_ptr = (int*)data;
-    for (int i = 0; i < count; ++i) {
-      array->data.int_ptr[array->count] = data_ptr[i];
-      ++array->count;
-    }
-  } break;
-  case r_mat: {
-    mat4x4* data_ptr = (mat4x4*)data;
-    for (int i = 0; i < count; ++i) {
-      mat4x4_dup(array->data.mat_ptr[array->count], data_ptr[i]);
-      ++array->count;
-    }
-  } break;
-  case r_float: {
-    float* data_ptr = (float*)data;
-    for (int i = 0; i < count; ++i) {
-      array->data.float_ptr[array->count] = data_ptr[i];
-      ++array->count;
-    }
-  } break;
-  default:
-    DBG_E("Unsupported data type.\n");
-    return;
+    case r_vec2: {
+      vec2* data_ptr = (vec2*)data;
+      for (int i = 0; i < count; ++i) {
+        vec2_dup(array->data.vec2_ptr[array->count], data_ptr[i]);
+        ++array->count;
+      }
+    } break;
+    case r_vec3: {
+      vec3* data_ptr = (vec3*)data;
+      for (int i = 0; i < count; ++i) {
+        vec3_dup(array->data.vec3_ptr[array->count], data_ptr[i]);
+        ++array->count;
+      }
+    } break;
+    case r_vec4: {
+      vec4* data_ptr = (vec4*)data;
+      for (int i = 0; i < count; ++i) {
+        vec4_dup(array->data.vec4_ptr[array->count], data_ptr[i]);
+        ++array->count;
+      }
+    } break;
+    case r_int: {
+      int* data_ptr = (int*)data;
+      for (int i = 0; i < count; ++i) {
+        array->data.int_ptr[array->count] = data_ptr[i];
+        ++array->count;
+      }
+    } break;
+    case r_mat: {
+      mat4x4* data_ptr = (mat4x4*)data;
+      for (int i = 0; i < count; ++i) {
+        mat4x4_dup(array->data.mat_ptr[array->count], data_ptr[i]);
+        ++array->count;
+      }
+    } break;
+    case r_float: {
+      float* data_ptr = (float*)data;
+      for (int i = 0; i < count; ++i) {
+        array->data.float_ptr[array->count] = data_ptr[i];
+        ++array->count;
+      }
+    } break;
+    default:
+      DBG_E("Unsupported data type.\n");
+      return;
   }
 }
 
@@ -2056,29 +2025,29 @@ void r_shader_sprite_uniform(r_sprite sprite, int uid, void* data) {
   }
 
   switch (array->type) {
-  case r_vec2: {
-    vec2_dup(array->data.vec2_ptr[array->count], *((vec2*)data));
-  } break;
-  case r_vec3: {
-    vec3_dup(array->data.vec3_ptr[array->count], *((vec3*)data));
-  } break;
-  case r_vec4: {
-    vec4_dup(array->data.vec4_ptr[array->count], *((vec4*)data));
-  } break;
-  case r_int: {
-    int* src                          = data;
-    array->data.int_ptr[array->count] = *src;
-  } break;
-  case r_mat: {
-    mat4x4_dup(array->data.mat_ptr[array->count], *(mat4x4*)data);
-  } break;
-  case r_float: {
-    float* src                          = data;
-    array->data.float_ptr[array->count] = *src;
-  } break;
-  default:
-    DBG_E("Unsupported data type.\n");
-    return;
+    case r_vec2: {
+      vec2_dup(array->data.vec2_ptr[array->count], *((vec2*)data));
+    } break;
+    case r_vec3: {
+      vec3_dup(array->data.vec3_ptr[array->count], *((vec3*)data));
+    } break;
+    case r_vec4: {
+      vec4_dup(array->data.vec4_ptr[array->count], *((vec4*)data));
+    } break;
+    case r_int: {
+      int* src                          = data;
+      array->data.int_ptr[array->count] = *src;
+    } break;
+    case r_mat: {
+      mat4x4_dup(array->data.mat_ptr[array->count], *(mat4x4*)data);
+    } break;
+    case r_float: {
+      float* src                          = data;
+      array->data.float_ptr[array->count] = *src;
+    } break;
+    default:
+      DBG_E("Unsupported data type.\n");
+      return;
   }
   ++array->count;
 }
@@ -2087,17 +2056,13 @@ inline void r_set_uniformf(r_shader shader, const char* name, float value) {
   glUniform1f(glGetUniformLocation(shader, name), value);
 }
 
-inline void r_set_uniformfi(int loc, float value) {
-  glUniform1f(loc, value);
-}
+inline void r_set_uniformfi(int loc, float value) { glUniform1f(loc, value); }
 
 inline void r_set_uniformi(r_shader shader, const char* name, int value) {
   glUniform1i(glGetUniformLocation(shader, name), value);
 }
 
-inline void r_set_uniformii(int loc, int val) {
-  glUniform1i(loc, val);
-}
+inline void r_set_uniformii(int loc, int val) { glUniform1i(loc, val); }
 
 inline void r_set_v4(r_shader shader, const char* name, vec4 value) {
   glUniform4f(glGetUniformLocation(shader, name), value[0], value[1], value[2],
@@ -2120,9 +2085,7 @@ inline void r_set_v2(r_shader shader, const char* name, vec2 value) {
   glUniform2f(glGetUniformLocation(shader, name), value[0], value[1]);
 }
 
-inline void r_set_v2i(int loc, vec2 val) {
-  glUniform2f(loc, val[0], val[1]);
-}
+inline void r_set_v2i(int loc, vec2 val) { glUniform2f(loc, val[0], val[1]); }
 
 inline void r_set_m4(r_shader shader, const char* name, mat4x4 value) {
   glUniformMatrix4fv(glGetUniformLocation(shader, name), 1, GL_FALSE,
@@ -2264,29 +2227,17 @@ void r_select_mode(int index, int fullscreen, int vsync, int borderless) {
   flags.allowed = 1;
 }
 
-int r_get_vidmode_count(void) {
-  return flags.video_mode_count;
-}
+int r_get_vidmode_count(void) { return flags.video_mode_count; }
 
-int r_allow_render(void) {
-  return flags.allowed;
-}
+int r_allow_render(void) { return flags.allowed; }
 
-int r_is_vsync(void) {
-  return g_window.vsync;
-}
+int r_is_vsync(void) { return g_window.vsync; }
 
-int r_is_fullscreen(void) {
-  return g_window.fullscreen;
-}
+int r_is_fullscreen(void) { return g_window.fullscreen; }
 
-int r_is_borderless(void) {
-  return g_window.borderless;
-}
+int r_is_borderless(void) { return g_window.borderless; }
 
-void r_poll_events(void) {
-  glfwPollEvents();
-}
+void r_poll_events(void) { glfwPollEvents(); }
 
 static void r_window_get_modes(void) {
   if (r_default_monitor == NULL) {
@@ -2516,9 +2467,7 @@ void r_window_center(void) {
   }
 }
 
-void r_window_set_pos(int x, int y) {
-  glfwSetWindowPos(g_window.glfw, x, y);
-}
+void r_window_set_pos(int x, int y) { glfwSetWindowPos(g_window.glfw, x, y); }
 
 int r_window_set_icon(unsigned char* data, int length) {
   if (data) {
@@ -2550,17 +2499,11 @@ void r_window_destroy(void) {
   g_window.vsync        = 0;
 }
 
-void r_window_request_close(void) {
-  g_window.close_requested = 1;
-}
+void r_window_request_close(void) { g_window.close_requested = 1; }
 
-int r_window_should_close(void) {
-  return g_window.close_requested;
-}
+int r_window_should_close(void) { return g_window.close_requested; }
 
-void r_window_swap_buffers(void) {
-  glfwSwapBuffers(g_window.glfw);
-}
+void r_window_swap_buffers(void) { glfwSwapBuffers(g_window.glfw); }
 
 void r_window_clear(void) {
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -2595,6 +2538,4 @@ r_window_info r_window_info_create(int width, int height, const char* name,
   };
 }
 
-int r_get_refresh_rate(void) {
-  return g_window.refresh_rate;
-}
+int r_get_refresh_rate(void) { return g_window.refresh_rate; }

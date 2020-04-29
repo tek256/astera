@@ -5,6 +5,19 @@
 extern "C" {
 #endif
 
+#if !defined DBG_E
+#if defined  ASTERA_DEBUG_OUTPUT
+#if defined  ASTERA_DEBUG_INCLUDED
+#define DBG_E(fmt, ...) _l(fmt, ##__VA_ARGS_)
+#else
+#include <stdio.h>
+#define DBG_E(fmt, ...) printf(fmt, ##__VA_ARGS_)
+#endif
+#else
+#define DBG_E(fmt, ...)
+#endif
+#endif
+
 #include <stdint.h>
 
 #if !defined ASTERA_KB_NAMELEN
@@ -219,8 +232,11 @@ ASTERA_API uint16_t i_key_binding_track(void);
 
 ASTERA_API void i_set_screensize(uint32_t width, uint32_t height);
 ASTERA_API void i_set_char_tracking(int tracking);
+ASTERA_API int  i_get_char_tracking();
 ASTERA_API void i_char_callback(uint32_t c);
-ASTERA_API void i_get_chars(char* dst, uint16_t count);
+ASTERA_API int  i_get_chars(char* dst, uint16_t count);
+ASTERA_API int  i_get_char_count();
+ASTERA_API void i_clear_chars();
 
 ASTERA_API void i_set_mouse_grab(GLFWwindow* window, int grabbed);
 ASTERA_API int  i_get_mouse_grab(GLFWwindow* window);

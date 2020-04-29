@@ -5,8 +5,19 @@
 extern "C" {
 #endif
 
-//#define ASSET_NO_SYS_MAP -- this one is a tricky one, it'll break _everything_
-// but I don't know that I want to have to require system map
+/* Debug Output Macro*/
+#if defined ASTERA_DEBUG_OUTPUT
+#if defined ASTERA_DEBUG_INCLUDED
+#define DBG_E(fmt, ...) _l(fmt, ##__VA_ARGS_)
+#else
+#include <stdio.h>
+#define DBG_E(fmt, ...) printf(fmt, ##__VA_ARGS_)
+#endif
+#else
+#if !defined DBG_E
+#define DBG_E(fmt, ...)
+#endif
+#endif
 
 #include <astera/export.h>
 #include <stdint.h>
