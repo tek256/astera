@@ -22,7 +22,7 @@ extern "C" {
 #include <stdint.h>
 
 #define UI_IS_ALIGN(value, offset) ((value) & (1 << (offset)))
-#define UI_IS_TYPE(value, type) (((value & (type)) == type)
+#define UI_IS_TYPE(value, type) (((value & (type)) == type))
 
 typedef enum {
   UI_ALIGN_LEFT   = 1 << 0,

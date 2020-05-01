@@ -73,6 +73,7 @@ target_include_directories(${PROJECT_NAME}
     $<INSTALL_INTERFACE:${CMAKE_INCLUDE_INSTALLDIR}>)
 target_compile_definitions(${PROJECT_NAME}
   PRIVATE
+  $<$<CONFIG:Debug>:ASTERA_DEBUG_OUTPUT>
     $<$<PLATFORM_ID:FreeBSD>:FreeBSD>
     $<$<PLATFORM_ID:OpenBSD>:OpenBSD>
     $<$<PLATFORM_ID:NetBSD>:NetBSD>
@@ -94,8 +95,7 @@ endif()
 generate_export_header(astera 
   EXPORT_MACRO_NAME "ASTERA_API"
   EXPORT_FILE_NAME "include/astera/export.h"
-  CUSTOM_CONTENT_FROM_VARIABLE al-libtype-static
-  )
+  CUSTOM_CONTENT_FROM_VARIABLE al-libtype-static)
 
 if(ASTERA_BUILD_EXAMPLES)
   add_subdirectory(examples)

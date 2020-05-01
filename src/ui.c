@@ -3,19 +3,19 @@
 #include <astera/ui.h>
 
 #if !defined DBG_E
-#if defined  ASTERA_DEBUG_OUTPUT
-#if defined  ASTERA_DEBUG_INCLUDED
-#warning "ASTERA: Standard debug output"
-#define DBG_E(fmt, ...) _l(fmt, ##__VA_ARGS_)
-#else
-#warning "ASTERA: stdio debug output"
-#include <stdio.h>
-#define DBG_E(fmt, ...) printf(fmt, ##__VA_ARGS_)
-#endif
-#else
-#warning "ASTERA: NO DEBUG OUTPUT"
-#define DBG_E(fmt, ...)
-#endif
+  #if defined  ASTERA_DEBUG_OUTPUT
+    #if defined  ASTERA_DEBUG_INCLUDED
+      #pragma message "ASTERA: Standard debug output"
+      #define DBG_E(fmt, ...) _l(fmt, __VA_ARGS__)
+    #else
+      #pragma message "ASTERA: stdio debug output"
+      #include <stdio.h>
+      #define DBG_E(fmt, ...) printf(fmt, __VA_ARGS__)
+    #endif
+  #else
+    #pragma message "ASTERA: NO DEBUG OUTPUT"
+    #define DBG_E(fmt, ...)
+  #endif
 #endif
 
 #include <glad/glad.h>

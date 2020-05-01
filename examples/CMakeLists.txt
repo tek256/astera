@@ -29,7 +29,7 @@ add_custom_target(${PROJECT_NAME}-examples-resources ALL
 foreach(directory IN LISTS directories)
   file(GLOB sources CONFIGURE_DEPENDS "${directory}/*.c") 
   get_filename_component(name "${directory}" NAME)
-  add_executable(${name} WIN32)
+  add_executable(${name})
   target_sources(${name} PRIVATE ${sources})
   target_compile_definitions(${name} 
     PRIVATE
