@@ -2,21 +2,6 @@
 
 #include <getopt.h>
 
-/* Debug Output Macro*/
-#if defined(ASTERA_DEBUG_INCLUDED)
-#if defined(ASTERA_DEBUG_OUTPUT)
-#if !defined(DBG_E)
-#define DBG_E(fmt, ...) _l(fmt, ##__VA_ARGS_)
-#endif
-#elif !defined(DBG_E)
-#define DBG_E(fmt, ...)
-#endif
-#else
-#if !defined(DBG_E)
-#define DBG_E(fmt, ...)
-#endif
-#endif
-
 #if defined(__linux__) || defined(__unix__) || defined(__FreeBSD__) || \
     defined(__APPLE__)
 #include <unistd.h>
@@ -48,28 +33,28 @@ void c_parse_args(int argc, char** argv) {
     }
 
     switch (c) {
-    case 's':
-      _flags.verbose = -1;
-      break;
-    case 'r':
-      _flags.render = 0;
-      break;
-    case 'a':
-      _flags.audio = 0;
-      break;
-    case 'v':
-      _flags.verbose = 1;
-      break;
-    case 'd':
-      _flags.debug = 1;
-      break;
-    case 'c': {
-      char max_conf[64];
-      snprintf(max_conf, 63, "%s", optarg);
-      int opt_len  = strlen(max_conf);
-      _flags.prefs = malloc(sizeof(char) * opt_len);
-      strcpy(_flags.prefs, max_conf);
-    } break;
+      case 's':
+        _flags.verbose = -1;
+        break;
+      case 'r':
+        _flags.render = 0;
+        break;
+      case 'a':
+        _flags.audio = 0;
+        break;
+      case 'v':
+        _flags.verbose = 1;
+        break;
+      case 'd':
+        _flags.debug = 1;
+        break;
+      case 'c': {
+        char max_conf[64];
+        snprintf(max_conf, 63, "%s", optarg);
+        int opt_len  = strlen(max_conf);
+        _flags.prefs = malloc(sizeof(char) * opt_len);
+        strcpy(_flags.prefs, max_conf);
+      } break;
     }
   }
 }
@@ -154,8 +139,7 @@ c_conf c_parse_table(c_table table) {
   return out_conf;
 }
 
-void c_write_pref(const char* fp, const char* key, const char* value) {
-}
+void c_write_pref(const char* fp, const char* key, const char* value) {}
 
 void c_table_free(c_table table) {
   if (table.keys)
@@ -264,30 +248,16 @@ c_table c_get_table(unsigned char* data, int length) {
   return (c_table){keys, values, line_count};
 }
 
-int c_has_prefs() {
-  return _flags.prefs != 0;
-}
+int c_has_prefs() { return _flags.prefs != 0; }
 
-char* c_get_pref_p() {
-  return _flags.prefs;
-}
+char* c_get_pref_p() { return _flags.prefs; }
 
-int c_is_debug() {
-  return _flags.debug;
-}
+int c_is_debug() { return _flags.debug; }
 
-int c_allow_render() {
-  return _flags.render;
-}
+int c_allow_render() { return _flags.render; }
 
-int c_allow_audio() {
-  return _flags.audio;
-}
+int c_allow_audio() { return _flags.audio; }
 
-int c_is_silent() {
-  return _flags.verbose == -1;
-}
+int c_is_silent() { return _flags.verbose == -1; }
 
-int c_is_verbose() {
-  return _flags.verbose;
-}
+int c_is_verbose() { return _flags.verbose; }

@@ -5,6 +5,19 @@
 extern "C" {
 #endif
 
+#if !defined DBG_E
+#if defined  ASTERA_DEBUG_OUTPUT
+#if defined  ASTERA_DEBUG_INCLUDED
+#define DBG_E(fmt, ...) _l(fmt, ##__VA_ARGS_)
+#else
+#include <stdio.h>
+#define DBG_E(fmt, ...) printf(fmt, ##__VA_ARGS_)
+#endif
+#else
+#define DBG_E(fmt, ...)
+#endif
+#endif
+
 #include <GLFW/glfw3.h>
 
 #include <astera/export.h>
@@ -14,6 +27,16 @@ extern "C" {
 
 #if !defined(ASTERA_RENDER_LAYER_MOD)
 #define ASTERA_RENDER_LAYER_MOD 0.001
+#endif
+
+#if !defined(ASTERA_MORE_IMG_SUPPORT)
+#define STBI_NO_BMP
+#define STBI_NO_TGA
+#define STBI_NO_JPEG
+#define STBI_NO_PSD
+#define STBI_NO_PIC
+#define STBI_NO_PNM
+#define STBI_NO_HDR
 #endif
 
 typedef struct {

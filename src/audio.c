@@ -1,18 +1,4 @@
-/*#ifndef ALC_ENUMERATE_ALL_EXT
-#define ALC_DEFAULT_ALL_DEVICES_SPECIFIER 0x1012
-#define ALC_ALL_DEVICES_SPECIFIER         0x1013
-#endif*/
-
 #include <astera/audio.h>
-
-/* Debug Output Macro*/
-#if defined(ASTERA_DEBUG_OUTPUT)
-#if !defined(DBG_E)
-#define DBG_E(fmt, ...) DBGDBG_E(fmt, ##__VA_ARGS_)
-#endif
-#else
-#define DBG_E(fmt, ...)
-#endif
 
 #if !defined(ASTERA_AL_DISTANCE_MODEL)
 #define ASTERA_AL_DISTANCE_MODEL AL_INVERSE_DISTANCE
@@ -207,40 +193,40 @@ void a_fx_update(a_fx fx) {
   }
 
   switch (fx.type) {
-  case EQ: {
-    a_fx_eq* eq = (a_fx_eq*)fx.data;
-    alEffectf(fx.id, AL_EQUALIZER_LOW_GAIN, eq->low_gain);
-    alEffectf(fx.id, AL_EQUALIZER_LOW_CUTOFF, eq->low_cutoff);
-    alEffectf(fx.id, AL_EQUALIZER_MID1_GAIN, eq->mid1_gain);
-    alEffectf(fx.id, AL_EQUALIZER_MID1_CENTER, eq->mid1_center);
-    alEffectf(fx.id, AL_EQUALIZER_MID1_WIDTH, eq->mid1_width);
-    alEffectf(fx.id, AL_EQUALIZER_MID2_GAIN, eq->mid2_gain);
-    alEffectf(fx.id, AL_EQUALIZER_MID2_CENTER, eq->mid2_center);
-    alEffectf(fx.id, AL_EQUALIZER_MID2_WIDTH, eq->mid2_width);
-    alEffectf(fx.id, AL_EQUALIZER_HIGH_GAIN, eq->high_gain);
-    alEffectf(fx.id, AL_EQUALIZER_HIGH_CUTOFF, eq->high_cutoff);
-  } break;
-  case REVERB: {
-    a_fx_reverb* rv = (a_fx_reverb*)fx.data;
+    case EQ: {
+      a_fx_eq* eq = (a_fx_eq*)fx.data;
+      alEffectf(fx.id, AL_EQUALIZER_LOW_GAIN, eq->low_gain);
+      alEffectf(fx.id, AL_EQUALIZER_LOW_CUTOFF, eq->low_cutoff);
+      alEffectf(fx.id, AL_EQUALIZER_MID1_GAIN, eq->mid1_gain);
+      alEffectf(fx.id, AL_EQUALIZER_MID1_CENTER, eq->mid1_center);
+      alEffectf(fx.id, AL_EQUALIZER_MID1_WIDTH, eq->mid1_width);
+      alEffectf(fx.id, AL_EQUALIZER_MID2_GAIN, eq->mid2_gain);
+      alEffectf(fx.id, AL_EQUALIZER_MID2_CENTER, eq->mid2_center);
+      alEffectf(fx.id, AL_EQUALIZER_MID2_WIDTH, eq->mid2_width);
+      alEffectf(fx.id, AL_EQUALIZER_HIGH_GAIN, eq->high_gain);
+      alEffectf(fx.id, AL_EQUALIZER_HIGH_CUTOFF, eq->high_cutoff);
+    } break;
+    case REVERB: {
+      a_fx_reverb* rv = (a_fx_reverb*)fx.data;
 
-    alEffectf(fx.id, AL_REVERB_DENSITY, rv->decay);
-    alEffectf(fx.id, AL_REVERB_DIFFUSION, rv->diffusion);
-    alEffectf(fx.id, AL_REVERB_GAIN, rv->gain);
-    alEffectf(fx.id, AL_REVERB_GAINHF, rv->gainhf);
-    alEffectf(fx.id, AL_REVERB_DECAY_TIME, rv->decay);
-    alEffectf(fx.id, AL_REVERB_DECAY_HFRATIO, rv->decay_hfratio);
-    alEffectf(fx.id, AL_REVERB_REFLECTIONS_GAIN, rv->refl_gain);
-    alEffectf(fx.id, AL_REVERB_REFLECTIONS_DELAY, rv->refl_delay);
-    alEffectf(fx.id, AL_REVERB_LATE_REVERB_GAIN, rv->late_gain);
-    alEffectf(fx.id, AL_REVERB_LATE_REVERB_DELAY, rv->late_delay);
-    alEffectf(fx.id, AL_REVERB_AIR_ABSORPTION_GAINHF,
-              rv->air_absorption_gainhf);
-    alEffectf(fx.id, AL_REVERB_ROOM_ROLLOFF_FACTOR, rv->room_rolloff_factor);
-    alEffecti(fx.id, AL_REVERB_DECAY_HFLIMIT, rv->decay_hflimit);
+      alEffectf(fx.id, AL_REVERB_DENSITY, rv->decay);
+      alEffectf(fx.id, AL_REVERB_DIFFUSION, rv->diffusion);
+      alEffectf(fx.id, AL_REVERB_GAIN, rv->gain);
+      alEffectf(fx.id, AL_REVERB_GAINHF, rv->gainhf);
+      alEffectf(fx.id, AL_REVERB_DECAY_TIME, rv->decay);
+      alEffectf(fx.id, AL_REVERB_DECAY_HFRATIO, rv->decay_hfratio);
+      alEffectf(fx.id, AL_REVERB_REFLECTIONS_GAIN, rv->refl_gain);
+      alEffectf(fx.id, AL_REVERB_REFLECTIONS_DELAY, rv->refl_delay);
+      alEffectf(fx.id, AL_REVERB_LATE_REVERB_GAIN, rv->late_gain);
+      alEffectf(fx.id, AL_REVERB_LATE_REVERB_DELAY, rv->late_delay);
+      alEffectf(fx.id, AL_REVERB_AIR_ABSORPTION_GAINHF,
+                rv->air_absorption_gainhf);
+      alEffectf(fx.id, AL_REVERB_ROOM_ROLLOFF_FACTOR, rv->room_rolloff_factor);
+      alEffecti(fx.id, AL_REVERB_DECAY_HFLIMIT, rv->decay_hflimit);
 
-  } break;
-  default:
-    break;
+    } break;
+    default:
+      break;
   }
 }
 
@@ -253,100 +239,98 @@ a_fx a_fx_create(a_fx_type type, void* data) {
   }
 
   switch (type) {
-  case EQ:
-    alGenEffects(1, &fx.id);
-    alEffecti(fx.id, AL_EFFECT_TYPE, AL_EFFECT_EQUALIZER);
-    fx.data = data;
-    fx.type = type;
+    case EQ:
+      alGenEffects(1, &fx.id);
+      alEffecti(fx.id, AL_EFFECT_TYPE, AL_EFFECT_EQUALIZER);
+      fx.data = data;
+      fx.type = type;
 
-    a_fx_eq* eq = (a_fx_eq*)fx.data;
-    alEffectf(fx.id, AL_EQUALIZER_LOW_GAIN, eq->low_gain);
-    alEffectf(fx.id, AL_EQUALIZER_LOW_CUTOFF, eq->low_cutoff);
-    alEffectf(fx.id, AL_EQUALIZER_MID1_GAIN, eq->mid1_gain);
-    alEffectf(fx.id, AL_EQUALIZER_MID1_CENTER, eq->mid1_center);
-    alEffectf(fx.id, AL_EQUALIZER_MID1_WIDTH, eq->mid1_width);
-    alEffectf(fx.id, AL_EQUALIZER_MID2_GAIN, eq->mid2_gain);
-    alEffectf(fx.id, AL_EQUALIZER_MID2_CENTER, eq->mid2_center);
-    alEffectf(fx.id, AL_EQUALIZER_MID2_WIDTH, eq->mid2_width);
-    alEffectf(fx.id, AL_EQUALIZER_HIGH_GAIN, eq->high_gain);
-    alEffectf(fx.id, AL_EQUALIZER_HIGH_CUTOFF, eq->high_cutoff);
+      a_fx_eq* eq = (a_fx_eq*)fx.data;
+      alEffectf(fx.id, AL_EQUALIZER_LOW_GAIN, eq->low_gain);
+      alEffectf(fx.id, AL_EQUALIZER_LOW_CUTOFF, eq->low_cutoff);
+      alEffectf(fx.id, AL_EQUALIZER_MID1_GAIN, eq->mid1_gain);
+      alEffectf(fx.id, AL_EQUALIZER_MID1_CENTER, eq->mid1_center);
+      alEffectf(fx.id, AL_EQUALIZER_MID1_WIDTH, eq->mid1_width);
+      alEffectf(fx.id, AL_EQUALIZER_MID2_GAIN, eq->mid2_gain);
+      alEffectf(fx.id, AL_EQUALIZER_MID2_CENTER, eq->mid2_center);
+      alEffectf(fx.id, AL_EQUALIZER_MID2_WIDTH, eq->mid2_width);
+      alEffectf(fx.id, AL_EQUALIZER_HIGH_GAIN, eq->high_gain);
+      alEffectf(fx.id, AL_EQUALIZER_HIGH_CUTOFF, eq->high_cutoff);
 
-    break;
-  case REVERB:
-    alGenEffects(1, &fx.id);
+      break;
+    case REVERB:
+      alGenEffects(1, &fx.id);
 
-    alEffecti(fx.id, AL_EFFECT_TYPE, AL_EFFECT_REVERB);
-    fx.data = data;
-    fx.type = type;
+      alEffecti(fx.id, AL_EFFECT_TYPE, AL_EFFECT_REVERB);
+      fx.data = data;
+      fx.type = type;
 
-    a_fx_reverb* rv = (a_fx_reverb*)fx.data;
+      a_fx_reverb* rv = (a_fx_reverb*)fx.data;
 
-    alEffectf(fx.id, AL_REVERB_DENSITY, (ALfloat)rv->density);
-    alEffectf(fx.id, AL_REVERB_DIFFUSION, (ALfloat)rv->diffusion);
-    alEffectf(fx.id, AL_REVERB_GAIN, AL_REVERB_DEFAULT_GAIN);
-    alEffectf(fx.id, AL_REVERB_GAINHF, AL_REVERB_DEFAULT_GAINHF);
-    alEffectf(fx.id, AL_REVERB_DECAY_TIME, rv->decay);
-    alEffectf(fx.id, AL_REVERB_DECAY_HFRATIO, rv->decay_hfratio);
-    alEffectf(fx.id, AL_REVERB_REFLECTIONS_GAIN, rv->refl_gain);
-    alEffectf(fx.id, AL_REVERB_REFLECTIONS_DELAY, rv->refl_delay);
-    alEffectf(fx.id, AL_REVERB_LATE_REVERB_GAIN, rv->late_gain);
-    alEffectf(fx.id, AL_REVERB_LATE_REVERB_DELAY, rv->late_delay);
-    alEffectf(fx.id, AL_REVERB_AIR_ABSORPTION_GAINHF,
-              rv->air_absorption_gainhf);
-    alEffectf(fx.id, AL_REVERB_ROOM_ROLLOFF_FACTOR, rv->room_rolloff_factor);
-    alEffecti(fx.id, AL_REVERB_DECAY_HFLIMIT, rv->decay_hflimit);
+      alEffectf(fx.id, AL_REVERB_DENSITY, (ALfloat)rv->density);
+      alEffectf(fx.id, AL_REVERB_DIFFUSION, (ALfloat)rv->diffusion);
+      alEffectf(fx.id, AL_REVERB_GAIN, AL_REVERB_DEFAULT_GAIN);
+      alEffectf(fx.id, AL_REVERB_GAINHF, AL_REVERB_DEFAULT_GAINHF);
+      alEffectf(fx.id, AL_REVERB_DECAY_TIME, rv->decay);
+      alEffectf(fx.id, AL_REVERB_DECAY_HFRATIO, rv->decay_hfratio);
+      alEffectf(fx.id, AL_REVERB_REFLECTIONS_GAIN, rv->refl_gain);
+      alEffectf(fx.id, AL_REVERB_REFLECTIONS_DELAY, rv->refl_delay);
+      alEffectf(fx.id, AL_REVERB_LATE_REVERB_GAIN, rv->late_gain);
+      alEffectf(fx.id, AL_REVERB_LATE_REVERB_DELAY, rv->late_delay);
+      alEffectf(fx.id, AL_REVERB_AIR_ABSORPTION_GAINHF,
+                rv->air_absorption_gainhf);
+      alEffectf(fx.id, AL_REVERB_ROOM_ROLLOFF_FACTOR, rv->room_rolloff_factor);
+      alEffecti(fx.id, AL_REVERB_DECAY_HFLIMIT, rv->decay_hflimit);
 
-    break;
-  default:
-    return fx;
-    break;
+      break;
+    default:
+      return fx;
+      break;
   }
   return fx;
 }
 
-void a_fx_destroy(a_fx fx) {
-  alDeleteEffects(1, &fx.id);
-}
+void a_fx_destroy(a_fx fx) { alDeleteEffects(1, &fx.id); }
 
 a_filter a_filter_create(a_filter_type type, float gain, float hf, float lf) {
   a_filter fl = (a_filter){0};
   switch (type) {
-  case LOW:
-    alGenFilters(1, &fl.id);
-    alFilteri(fl.id, AL_FILTER_TYPE, AL_FILTER_LOWPASS);
+    case LOW:
+      alGenFilters(1, &fl.id);
+      alFilteri(fl.id, AL_FILTER_TYPE, AL_FILTER_LOWPASS);
 
-    fl.data.low.gain   = _a_clamp(gain, 0.f, 1.f, 1.f);
-    fl.data.low.gainhf = _a_clamp(hf, 0.f, 1.f, 1.f);
+      fl.data.low.gain   = _a_clamp(gain, 0.f, 1.f, 1.f);
+      fl.data.low.gainhf = _a_clamp(hf, 0.f, 1.f, 1.f);
 
-    alFilterf(fl.id, AL_LOWPASS_GAIN, fl.data.low.gain);
-    alFilterf(fl.id, AL_LOWPASS_GAINHF, fl.data.low.gainhf);
+      alFilterf(fl.id, AL_LOWPASS_GAIN, fl.data.low.gain);
+      alFilterf(fl.id, AL_LOWPASS_GAINHF, fl.data.low.gainhf);
 
-    break;
-  case HIGH:
-    alGenFilters(1, &fl.id);
-    alFilteri(fl.id, AL_FILTER_TYPE, AL_FILTER_HIGHPASS);
+      break;
+    case HIGH:
+      alGenFilters(1, &fl.id);
+      alFilteri(fl.id, AL_FILTER_TYPE, AL_FILTER_HIGHPASS);
 
-    fl.data.high.gain   = _a_clamp(gain, 0.f, 1.f, 1.f);
-    fl.data.high.gainlf = _a_clamp(lf, 0.f, 1.f, 1.f);
+      fl.data.high.gain   = _a_clamp(gain, 0.f, 1.f, 1.f);
+      fl.data.high.gainlf = _a_clamp(lf, 0.f, 1.f, 1.f);
 
-    alFilterf(fl.id, AL_HIGHPASS_GAIN, fl.data.high.gain);
-    alFilterf(fl.id, AL_HIGHPASS_GAINLF, fl.data.high.gainlf);
+      alFilterf(fl.id, AL_HIGHPASS_GAIN, fl.data.high.gain);
+      alFilterf(fl.id, AL_HIGHPASS_GAINLF, fl.data.high.gainlf);
 
-    break;
-  case BAND:
-    alGenFilters(1, &fl.id);
-    alFilteri(fl.id, AL_FILTER_TYPE, AL_FILTER_BANDPASS);
+      break;
+    case BAND:
+      alGenFilters(1, &fl.id);
+      alFilteri(fl.id, AL_FILTER_TYPE, AL_FILTER_BANDPASS);
 
-    fl.data.band.gain   = _a_clamp(gain, 0.f, 1.f, 1.f);
-    fl.data.band.gainlf = _a_clamp(lf, 0.f, 1.f, 1.f);
-    fl.data.band.gainhf = _a_clamp(hf, 0.f, 1.f, 1.f);
+      fl.data.band.gain   = _a_clamp(gain, 0.f, 1.f, 1.f);
+      fl.data.band.gainlf = _a_clamp(lf, 0.f, 1.f, 1.f);
+      fl.data.band.gainhf = _a_clamp(hf, 0.f, 1.f, 1.f);
 
-    alFilterf(fl.id, AL_BANDPASS_GAIN, fl.data.band.gain);
-    alFilterf(fl.id, AL_BANDPASS_GAINLF, fl.data.band.gainlf);
-    alFilterf(fl.id, AL_BANDPASS_GAINHF, fl.data.band.gainhf);
-    break;
-  default:
-    return fl;
+      alFilterf(fl.id, AL_BANDPASS_GAIN, fl.data.band.gain);
+      alFilterf(fl.id, AL_BANDPASS_GAINLF, fl.data.band.gainlf);
+      alFilterf(fl.id, AL_BANDPASS_GAINHF, fl.data.band.gainhf);
+      break;
+    default:
+      return fl;
   }
 
   fl.type = type;
@@ -356,33 +340,29 @@ a_filter a_filter_create(a_filter_type type, float gain, float hf, float lf) {
 
 void a_filter_update(a_filter fl) {
   switch (fl.type) {
-  case LOW:
-    alFilterf(fl.id, AL_LOWPASS_GAIN, fl.data.low.gain);
-    alFilterf(fl.id, AL_LOWPASS_GAINHF, fl.data.low.gainhf);
-    break;
-  case HIGH:
-    alFilterf(fl.id, AL_HIGHPASS_GAIN, fl.data.high.gain);
-    alFilterf(fl.id, AL_HIGHPASS_GAINLF, fl.data.high.gainlf);
+    case LOW:
+      alFilterf(fl.id, AL_LOWPASS_GAIN, fl.data.low.gain);
+      alFilterf(fl.id, AL_LOWPASS_GAINHF, fl.data.low.gainhf);
+      break;
+    case HIGH:
+      alFilterf(fl.id, AL_HIGHPASS_GAIN, fl.data.high.gain);
+      alFilterf(fl.id, AL_HIGHPASS_GAINLF, fl.data.high.gainlf);
 
-    break;
-  case BAND:
-    alFilterf(fl.id, AL_BANDPASS_GAIN, fl.data.band.gain);
-    alFilterf(fl.id, AL_BANDPASS_GAINLF, fl.data.band.gainlf);
-    alFilterf(fl.id, AL_BANDPASS_GAINHF, fl.data.band.gainhf);
-    break;
-  default:
-    DBG_E("a_filter_update: invalid filter type passed.\n");
-    break;
+      break;
+    case BAND:
+      alFilterf(fl.id, AL_BANDPASS_GAIN, fl.data.band.gain);
+      alFilterf(fl.id, AL_BANDPASS_GAINLF, fl.data.band.gainlf);
+      alFilterf(fl.id, AL_BANDPASS_GAINHF, fl.data.band.gainhf);
+      break;
+    default:
+      DBG_E("a_filter_update: invalid filter type passed.\n");
+      break;
   }
 }
 
-void a_filter_destroy(a_filter filter) {
-  alDeleteFilters(1, &filter.id);
-}
+void a_filter_destroy(a_filter filter) { alDeleteFilters(1, &filter.id); }
 
-int a_can_play(void) {
-  return g_a_ctx.allow;
-}
+int a_can_play(void) { return g_a_ctx.allow; }
 
 int a_init(const char* device, uint32_t master, uint32_t sfx, uint32_t music) {
   if (!a_ctx_create(device)) {
@@ -630,9 +610,7 @@ void a_set_vol_music(uint32_t music) {
 #endif
 }
 
-float a_get_vol_master(void) {
-  return g_listener.gain;
-}
+float a_get_vol_master(void) { return g_listener.gain; }
 
 float a_get_vol_sfx(void) {
 #ifdef AUDIO_SFX_LAYER
@@ -1481,9 +1459,7 @@ void a_music_reset(a_music* music) {
   }
 }
 
-void a_music_destroy(a_music* music) {
-  stb_vorbis_close(music->vorbis);
-}
+void a_music_destroy(a_music* music) { stb_vorbis_close(music->vorbis); }
 
 time_s a_music_time(a_music* music) {
   uint32_t samples = music->total_samples - music->samples_left;
@@ -1494,9 +1470,7 @@ time_s a_music_len(a_music* music) {
   return (time_s)(music->total_samples / music->sample_rate);
 }
 
-void a_music_play(a_music* music) {
-  alSourcePlay(music->source);
-}
+void a_music_play(a_music* music) { alSourcePlay(music->source); }
 
 void a_music_stop(a_music* music) {
   alSourceStop(music->source);
@@ -1512,6 +1486,4 @@ void a_resume_music(a_music* music) {
   }
 }
 
-void a_music_pause(a_music* music) {
-  alSourcePause(music->source);
-}
+void a_music_pause(a_music* music) { alSourcePause(music->source); }
