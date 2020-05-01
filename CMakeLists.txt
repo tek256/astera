@@ -87,9 +87,15 @@ target_link_libraries(${PROJECT_NAME}
 set_property(TARGET astera PROPERTY C_VISIBILITY_PRESET "hidden")
 set_property(TARGET astera PROPERTY VERSION ${PROJECT_VERSION})
 
+if (WIN32)
+  set(al-libtype-static "#define AL_LIBTYPE_STATIC")
+endif()
+
 generate_export_header(astera 
   EXPORT_MACRO_NAME "ASTERA_API"
-  EXPORT_FILE_NAME "include/astera/export.h")
+  EXPORT_FILE_NAME "include/astera/export.h"
+  CUSTOM_CONTENT_FROM_VARIABLE al-libtype-static
+  )
 
 if(ASTERA_BUILD_EXAMPLES)
   add_subdirectory(examples)
