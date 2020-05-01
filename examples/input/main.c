@@ -228,6 +228,11 @@ void init() {
   window_info.width        = 1280;
   window_info.height       = 720;
   window_info.refresh_rate = 60;
+  window_info.resizable    = 1;
+  window_info.max_width    = 1920;
+  window_info.max_height   = 1080;
+  window_info.min_width    = 720;
+  window_info.min_height   = 480;
   window_info.vsync        = 1;
   window_info.fullscreen   = 0;
   window_info.borderless   = 0;
@@ -257,7 +262,7 @@ void render(time_s delta) {
   r_window_clear();
 
   ui_frame_start();
-  ui_tree_draw(tree);
+  ui_tree_draw(&tree);
 
   ui_frame_end();
 

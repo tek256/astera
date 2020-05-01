@@ -5,19 +5,6 @@
 extern "C" {
 #endif
 
-#if !defined DBG_E
-#if defined  ASTERA_DEBUG_OUTPUT
-#if defined  ASTERA_DEBUG_INCLUDED
-#define DBG_E(fmt, ...) _l(fmt, ##__VA_ARGS_)
-#else
-#include <stdio.h>
-#define DBG_E(fmt, ...) printf(fmt, ##__VA_ARGS_)
-#endif
-#else
-#define DBG_E(fmt, ...)
-#endif
-#endif
-
 #include <GLFW/glfw3.h>
 
 #include <astera/export.h>
@@ -47,8 +34,11 @@ typedef struct {
 
 typedef struct {
   int         width, height;
+  int         max_width, max_height;
+  int         min_width, min_height;
   int         fullscreen, vsync, borderless;
   int         refresh_rate;
+  int         resizable;
   float       gamma;
   const char* title;
   char*       icon;
@@ -56,7 +46,10 @@ typedef struct {
 
 typedef struct {
   int         width, height;
+  int         max_width, max_height;
+  int         min_width, min_height;
   int         x, y;
+  int         resizable;
   int         fullscreen, vsync, borderless;
   int         close_requested;
   int         refresh_rate;
@@ -490,8 +483,28 @@ ASTERA_API void r_window_swap_buffers(void);
 ASTERA_API void r_window_clear(void);
 ASTERA_API void r_window_clear_color(const char* str);
 
+ASTERA_API int r_window_is_resizable(void);
+
+ASTERA_API int  r_window_get_max_width(void);
+ASTERA_API int  r_window_get_max_height(void);
+ASTERA_API void r_window_get_max_bounds(int* width, int* height);
+ASTERA_API void r_window_set_max_bounds(int width, int height);
+
+ASTERA_API int  r_window_get_min_width(void);
+ASTERA_API int  r_window_get_min_height(void);
+ASTERA_API void r_window_get_min_bounds(int* width, int* height);
+ASTERA_API void r_window_set_min_bounds(int width, int height);
+
+ASTERA_API void r_window_set_size_bounds(int min_width, int min_height,
+                                         int max_width, int max_height);
+
+ASTERA_API void r_window_request_attention(void);
+ASTERA_API int  r_window_is_focused(void);
+
 ASTERA_API r_window_info r_window_info_create(int width, int height,
-                                              const char* name,
+                                              int max_width, int max_height,
+                                              int min_width, int min_height,
+                                              int resizable, const char* name,
                                               int refresh_rate, int vsync,
                                               int fullscreen, int borderless);
 

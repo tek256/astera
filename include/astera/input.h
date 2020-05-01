@@ -5,19 +5,6 @@
 extern "C" {
 #endif
 
-#if !defined DBG_E
-#if defined  ASTERA_DEBUG_OUTPUT
-#if defined  ASTERA_DEBUG_INCLUDED
-#define DBG_E(fmt, ...) _l(fmt, ##__VA_ARGS_)
-#else
-#include <stdio.h>
-#define DBG_E(fmt, ...) printf(fmt, ##__VA_ARGS_)
-#endif
-#else
-#define DBG_E(fmt, ...)
-#endif
-#endif
-
 #include <stdint.h>
 
 #if !defined ASTERA_KB_NAMELEN
@@ -261,6 +248,8 @@ ASTERA_API double i_get_mouse_y(void);
 ASTERA_API void   i_get_moues_delta(double* x, double* y);
 ASTERA_API double i_get_delta_x(void);
 ASTERA_API double i_get_delta_y(void);
+
+ASTERA_API int i_any_event(void);
 
 ASTERA_API void     i_add_binding(const char* name, int value, int type);
 ASTERA_API void     i_enable_binding_track(const char* key_binding);

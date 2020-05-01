@@ -10,6 +10,22 @@
 
 #include <astera/sys.h>
 
+#if !defined DBG_E
+#if defined  ASTERA_DEBUG_OUTPUT
+#if defined  ASTERA_DEBUG_INCLUDED
+#pragma message "ASTERA: Standard debug output"
+#define DBG_E(fmt, ...) _l(fmt, __VA_ARGS__)
+#else
+#pragma message "ASTERA: stdio debug output"
+#include <stdio.h>
+#define DBG_E(fmt, ...) printf(fmt, __VA_ARGS__)
+#endif
+#else
+#pragma message "ASTERA: NO DEBUG OUTPUT"
+#define DBG_E(fmt, ...)
+#endif
+#endif
+
 static r_flags flags;
 
 static GLFWmonitor*       r_default_monitor;
@@ -2307,6 +2323,9 @@ int r_window_create(r_window_info info) {
     return 0;
   }
 
+  // NOTE: Test this with tiled levels to check for pixel perfect glitches
+  glfwWindowHint(GLFW_SAMPLES, 0);
+
   glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
@@ -2332,7 +2351,7 @@ int r_window_create(r_window_info info) {
     glfwWindowHint(GLFW_RED_BITS, selected_mode->redBits);
     glfwWindowHint(GLFW_GREEN_BITS, selected_mode->greenBits);
     glfwWindowHint(GLFW_BLUE_BITS, selected_mode->blueBits);
-    glfwWindowHint(GLFW_REFRESH_RATE, selected_mode->refreshRate);
+    // glfwWindowHint(GLFW_REFRESH_RATE, selected_mode->refreshRate);
 
     r_default_monitor = glfwGetPrimaryMonitor();
 
@@ -2346,7 +2365,11 @@ int r_window_create(r_window_info info) {
     window = glfwCreateWindow(selected_mode->width, selected_mode->height,
                               info.title, r_default_monitor, NULL);
   } else {
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+    if (info.resizable) {
+      glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
+    } else {
+      glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+    }
     glfwWindowHint(GLFW_DECORATED,
                    (info.borderless == 0) ? GLFW_TRUE : GLFW_FALSE);
     g_window.borderless = info.borderless;
@@ -2380,6 +2403,13 @@ int r_window_create(r_window_info info) {
     DBG_E("Error: Unable to create GLFW window.\n");
     glfwTerminate();
     return 0;
+  }
+
+  if (info.resizable) {
+    if (info.max_width > 1 && info.max_height > 1) {
+      glfwSetWindowSizeLimits(window, info.min_width, info.min_height,
+                              info.max_width, info.max_height);
+    }
   }
 
   g_window.glfw = window;
@@ -2514,21 +2544,88 @@ void r_window_clear_color(const char* str) {
   r_get_color(color, str);
   glClearColor(color[0], color[1], color[2], 1.0f);
 }
-/*typedef struct {
-  int   width, height;
-  int   fullscreen, vsync, borderless;
-  int   refreshRate;
-  float gamma;
-  char* title;
-  char* icon;
-} r_window_info;
- */
-r_window_info r_window_info_create(int width, int height, const char* name,
-                                   int refresh_rate, int vsync, int fullscreen,
-                                   int borderless) {
+
+int r_window_is_resizable(void) { return g_window.resizable; }
+
+int r_window_max_width(void) { return g_window.max_width; }
+
+int r_window_max_height(void) { return g_window.max_height; }
+
+int r_window_min_width(void) { return g_window.min_width; };
+
+int r_window_min_height(void) { return g_window.min_height; };
+
+void r_window_max_bounds(int* width, int* height) {
+  if (width) {
+    *width = g_window.max_width;
+  }
+
+  if (height) {
+    *height = g_window.max_height;
+  }
+}
+
+void r_window_min_bounds(int* width, int* height) {
+  if (width) {
+    *width = g_window.min_width;
+  }
+
+  if (height) {
+    *height = g_window.min_height;
+  }
+}
+
+void r_window_set_size_bounds(int min_width, int min_height, int max_width,
+                              int max_height) {
+  g_window.max_width  = max_width;
+  g_window.max_height = max_height;
+  g_window.min_width  = min_width;
+  g_window.min_height = min_height;
+
+  glfwSetWindowSizeLimits(g_window.glfw, g_window.min_width,
+                          g_window.min_height, g_window.max_width,
+                          g_window.max_height);
+}
+
+void r_window_set_min_bounds(int width, int height) {
+  g_window.min_width  = width;
+  g_window.min_height = height;
+
+  glfwSetWindowSizeLimits(g_window.glfw, g_window.min_width,
+                          g_window.min_height, g_window.max_width,
+                          g_window.max_height);
+}
+
+void r_window_set_max_bounds(int width, int height) {
+  g_window.max_width  = width;
+  g_window.max_height = height;
+
+  glfwSetWindowSizeLimits(g_window.glfw, g_window.min_width,
+                          g_window.min_height, g_window.max_width,
+                          g_window.max_height);
+}
+
+void r_window_request_attention(void) {
+  glfwRequestWindowAttention(g_window.glfw);
+}
+
+int r_window_is_focused(void) {
+  return glfwGetWindowAttrib(g_window.glfw, GLFW_FOCUSED);
+}
+
+r_window_info r_window_info_create(int width, int height, int max_width,
+                                   int max_height, int min_width,
+                                   int min_height, int resizable,
+                                   const char* name, int refresh_rate,
+                                   int vsync, int fullscreen, int borderless) {
   return (r_window_info){
       .width        = width,
       .height       = height,
+      .min_width    = min_width,
+      .min_height   = min_height,
+      .max_width    = max_width,
+      .max_height   = max_height,
+      .resizable    = resizable,
       .title        = name,
       .refresh_rate = refresh_rate,
       .fullscreen   = fullscreen,

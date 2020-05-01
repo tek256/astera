@@ -3,19 +3,19 @@
 #include <astera/ui.h>
 
 #if !defined DBG_E
-  #if defined  ASTERA_DEBUG_OUTPUT
-    #if defined  ASTERA_DEBUG_INCLUDED
-      #pragma message "ASTERA: Standard debug output"
-      #define DBG_E(fmt, ...) _l(fmt, __VA_ARGS__)
-    #else
-      #pragma message "ASTERA: stdio debug output"
-      #include <stdio.h>
-      #define DBG_E(fmt, ...) printf(fmt, __VA_ARGS__)
-    #endif
-  #else
-    #pragma message "ASTERA: NO DEBUG OUTPUT"
-    #define DBG_E(fmt, ...)
-  #endif
+#if defined  ASTERA_DEBUG_OUTPUT
+#if defined  ASTERA_DEBUG_INCLUDED
+#pragma message "ASTERA: Standard debug output"
+#define DBG_E(fmt, ...) _l(fmt, __VA_ARGS__)
+#else
+#pragma message "ASTERA: stdio debug output"
+#include <stdio.h>
+#define DBG_E(fmt, ...) printf(fmt, __VA_ARGS__)
+#endif
+#else
+#pragma message "ASTERA: NO DEBUG OUTPUT"
+#define DBG_E(fmt, ...)
+#endif
 #endif
 
 #include <glad/glad.h>
@@ -1342,20 +1342,41 @@ void ui_im_text_draw(vec2 pos, float font_size, ui_font font, char* text) {
   vec4 im_text_color = {1.f, 1.f, 1.f, 1.f};
   nvgFillColor(g_ui_ctx.nvg, ui_vec4_color(im_text_color));
   nvgFontFaceId(g_ui_ctx.nvg, font);
+  nvgTextAlign(g_ui_ctx.nvg, UI_ALIGN_LEFT);
   nvgText(g_ui_ctx.nvg, pos[0], pos[1], text, 0);
 }
 
-ASTERA_API void ui_im_box_draw(vec2 pos, vec2 size, vec4 color) {
+void ui_im_text_draw_aligned(vec2 pos, float font_size, ui_font font, int align,
+                             char* text) {
+  vec2 text_pos;
+  ui_scale_to_px(text_pos, pos);
+
+  nvgBeginPath(g_ui_ctx.nvg);
+  nvgFontSize(g_ui_ctx.nvg, font_size);
+  vec4 im_text_color = {1.f, 1.f, 1.f, 1.f};
+  nvgFillColor(g_ui_ctx.nvg, ui_vec4_color(im_text_color));
+  nvgFontFaceId(g_ui_ctx.nvg, font);
+  nvgTextAlign(g_ui_ctx.nvg, align);
+  nvgText(g_ui_ctx.nvg, text_pos[0], text_pos[1], text, 0);
+}
+
+void ui_im_box_draw(vec2 pos, vec2 size, vec4 color) {
+  vec2 box_pos, box_size;
+  ui_scale_to_px(box_pos, pos);
+  ui_scale_to_px(box_size, size);
   nvgBeginPath(g_ui_ctx.nvg);
   nvgFillColor(g_ui_ctx.nvg, ui_vec4_color(color));
-  nvgRect(g_ui_ctx.nvg, pos[0], pos[1], size[0], size[1]);
+  nvgRect(g_ui_ctx.nvg, box_pos[0], box_pos[1], box_size[0], box_size[1]);
   nvgFill(g_ui_ctx.nvg);
 }
 
-ASTERA_API void ui_im_circle_draw(vec2 pos, float radius, vec4 color) {
+void ui_im_circle_draw(vec2 pos, float radius, vec4 color) {
+  vec2 circ_pos;
+  ui_scale_to_px(circ_pos, pos);
+
   nvgBeginPath(g_ui_ctx.nvg);
   nvgFillColor(g_ui_ctx.nvg, ui_vec4_color(color));
-  nvgCircle(g_ui_ctx.nvg, pos[0], pos[1], radius);
+  nvgCircle(g_ui_ctx.nvg, circ_pos[0], circ_pos[1], radius);
   nvgFill(g_ui_ctx.nvg);
 }
 
@@ -1567,16 +1588,22 @@ int32_t ui_element_event(ui_tree* tree, uint32_t uid) {
 
 uint32_t ui_tree_get_cursor_id(ui_tree* tree) { return tree->cursor->uid; }
 
-void ui_tree_draw(ui_tree tree) {
-  if (!tree.start) {
+void ui_tree_draw(ui_tree* tree) {
+  if (!tree->start) {
     DBG_E("No start in tree.\n");
     return;
   }
 
-  ui_leaf* cursor = tree.start;
+  ui_leaf* cursor = tree->start;
 
-  uint32_t tree_cursor_uid = (tree.cursor) ? tree.cursor->uid : 0;
-  uint32_t tree_hover_id   = (tree.mouse_hover) ? tree.mouse_hover->uid : 0;
+  uint32_t tree_cursor_uid = (tree->cursor) ? tree->cursor->uid : 0;
+
+  uint32_t tree_hover_id = 0;
+  if (g_ui_ctx.use_mouse) {
+    if (tree->mouse_hover) {
+      tree_hover_id = tree->mouse_hover->uid;
+    }
+  }
 
   while (cursor) {
     int8_t focused = 0;

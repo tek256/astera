@@ -22,7 +22,7 @@ extern "C" {
 #include <stdint.h>
 
 #define UI_IS_ALIGN(value, offset) ((value) & (1 << (offset)))
-#define UI_IS_TYPE(value, type) (((value & (type)) == type))
+#define UI_IS_TYPE(value, type)    (((value & (type)) == type))
 
 typedef enum {
   UI_ALIGN_LEFT   = 1 << 0,
@@ -376,6 +376,9 @@ ASTERA_API void ui_line_draw(ui_line* line);
 ASTERA_API void ui_option_draw(ui_option* option, int8_t focused);
 ASTERA_API void ui_image_draw(ui_img* img, int8_t focused);
 
+ASTERA_API void ui_im_text_draw_aligned(vec2 pos, float font_size, ui_font font,
+                                        int alignment, char* text);
+
 ASTERA_API void ui_im_text_draw(vec2 pos, float font_size, ui_font font,
                                 char* text);
 ASTERA_API void ui_im_box_draw(vec2 pos, vec2 size, vec4 color);
@@ -405,7 +408,7 @@ ASTERA_API uint32_t ui_tree_select(ui_tree* tree, int32_t event_type,
 ASTERA_API uint32_t ui_tree_next(ui_tree* tree);
 ASTERA_API uint32_t ui_tree_prev(ui_tree* tree);
 
-ASTERA_API void ui_tree_draw(ui_tree tree);
+ASTERA_API void ui_tree_draw(ui_tree* tree);
 
 #ifdef __cplusplus
 }

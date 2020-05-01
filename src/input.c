@@ -6,6 +6,22 @@
 #include <stdlib.h>
 #include <string.h>
 
+#if !defined DBG_E
+#if defined  ASTERA_DEBUG_OUTPUT
+#if defined  ASTERA_DEBUG_INCLUDED
+#pragma message "ASTERA: Standard debug output"
+#define DBG_E(fmt, ...) _l(fmt, __VA_ARGS__)
+#else
+#pragma message "ASTERA: stdio debug output"
+#include <stdio.h>
+#define DBG_E(fmt, ...) printf(fmt, __VA_ARGS__)
+#endif
+#else
+#pragma message "ASTERA: NO DEBUG OUTPUT"
+#define DBG_E(fmt, ...)
+#endif
+#endif
+
 static char     chars[ASTERA_MAX_CHARS];
 static uint16_t char_count = 0;
 static char     char_track = 0;
@@ -421,6 +437,28 @@ uint16_t i_key_clicked(uint16_t key) {
 
 uint16_t i_key_released(uint16_t key) {
   return i_key_up(key) && i_contains(key, keyboard.prev, keyboard.prev_count);
+}
+
+int i_any_event(void) {
+  for (int i = 0; i < keyboard.curr_count; ++i) {
+    if (keyboard.curr[i] != 0) {
+      return 1;
+    }
+  }
+
+  for (int i = 0; i < mouse_b.curr_count; ++i) {
+    if (mouse_b.curr[i] != 0) {
+      return 1;
+    }
+  }
+
+  if (joy_exists) {
+    for (int i = 0; i < joy_b.curr_count; ++i) {
+      if (joy_b.curr[i] != 0) {
+        return 1;
+      }
+    }
+  }
 }
 
 void i_add_binding(const char* name, int value, int type) {

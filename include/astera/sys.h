@@ -7,20 +7,6 @@ extern "C" {
 
 #include <astera/export.h>
 
-/* Debug Output Macro*/
-#if defined ASTERA_DEBUG_OUTPUT
-#if defined ASTERA_DEBUG_INCLUDED
-#define DBG_E(fmt, ...) _l(fmt, ##__VA_ARGS_)
-#else
-#include <stdio.h>
-#define DBG_E(fmt, ...) printf(fmt, ##__VA_ARGS_)
-#endif
-#else
-#if !defined DBG_E
-#define DBG_E(fmt, ...)
-#endif
-#endif
-
 #define SEC_TO_NS   1e-9
 #define SEC_TO_MCS  1e-6
 #define SEC_TO_MS   1e-6
