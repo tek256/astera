@@ -2330,6 +2330,12 @@ int r_window_create(r_window_info info) {
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+#if defined ASTERA_DEBUG_GL
+  DBG_E("RENDER: Debug GL Enabled.\n");
+  glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
+#endif
+
 #if defined(__APPLE__)
   glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
 #else
@@ -2351,7 +2357,7 @@ int r_window_create(r_window_info info) {
     glfwWindowHint(GLFW_RED_BITS, selected_mode->redBits);
     glfwWindowHint(GLFW_GREEN_BITS, selected_mode->greenBits);
     glfwWindowHint(GLFW_BLUE_BITS, selected_mode->blueBits);
-    // glfwWindowHint(GLFW_REFRESH_RATE, selected_mode->refreshRate);
+    glfwWindowHint(GLFW_REFRESH_RATE, selected_mode->refreshRate);
 
     r_default_monitor = glfwGetPrimaryMonitor();
 
@@ -2370,17 +2376,26 @@ int r_window_create(r_window_info info) {
     } else {
       glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
     }
+
+    g_window.resizable = info.resizable;
+
+    g_window.max_width  = info.max_width;
+    g_window.max_height = info.max_height;
+    g_window.min_width  = info.min_width;
+    g_window.min_height = info.min_height;
+
     glfwWindowHint(GLFW_DECORATED,
                    (info.borderless == 0) ? GLFW_TRUE : GLFW_FALSE);
+
     g_window.borderless = info.borderless;
 
-    if (info.refresh_rate > 0) {
+    /*if (info.refresh_rate > 0) {
       glfwWindowHint(GLFW_REFRESH_RATE, info.refresh_rate);
       g_window.refresh_rate = info.refresh_rate;
     } else {
       g_window.refresh_rate =
           glfwGetVideoMode(glfwGetPrimaryMonitor())->refreshRate;
-    }
+    }*/
 
     if (info.gamma < 0.1f) {
       g_window.gamma = 2.2f;

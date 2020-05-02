@@ -19,7 +19,7 @@
 #define DUNGEON_HEIGHT 128
 
 #include <stdio.h>
-
+#include <stdlib.h>
 #include <astera/debug.h>
 
 // for date()
@@ -74,8 +74,8 @@ typedef struct {
 } dungeon_t;
 
 typedef struct {
-  c_aabb* walls;
-  int     wall_count;
+  // c_aabb* walls;
+  int wall_count;
 } world_t;
 
 static int running = 0;
@@ -168,8 +168,9 @@ void init_ui() {
 void start_game() {
   // seed random with current timestamp (psuedo random)
   // calculate dungeon
-  srand(date(NULL));
+  srand(time(NULL));
 
+  /*
   int* tiles = (int*)malloc(sizeof(int) * DUNGEON_WIDTH * DUNGEON_HEIGHT);
   for (int x = 0; x < DUNGEON_WIDTH; ++x) {
     for (int y = 0; y < DUNGEON_HEIGHT; ++y) {
@@ -183,9 +184,9 @@ void start_game() {
         tiles[x + y * DUNGEON_WIDTH] = 1 + (rand() % TILE_STONE);
       }
     }
-  }
+  }*/
 
-  start = STATE_GAME;
+  state = STATE_GAME;
 }
 
 void init() {
@@ -299,7 +300,7 @@ void input(time_s delta) {
     if ((event_type = ui_element_event(&start_screen.tree,
                                        start_screen.start_button_id))) {
       printf("Hello from the start button!\n");
-      state = start_game();
+      start_game();
     }
 
     if ((event_type = ui_element_event(&start_screen.tree,
