@@ -1,29 +1,8 @@
 // NOTE: At this time the dropdown implementation is buggy
-
-// xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-// x s                                     x
-// x                                       x
-// x                                       x
-// x                                       x
-// x                                       x
-// x                                       x
-// x      x                                x
-// x      x                                x
-// x      x                                x
-// x      x                                x
-// x      x                                x
-// x      x                             e  x
-// xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-
-#define DUNGEON_WIDTH  128
-#define DUNGEON_HEIGHT 128
+// TODO: Debug Mouse usage in this example, for some reason it just segfaults
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <astera/debug.h>
-
-// for date()
-#include <time.h>
 
 #define ASTERA_DEBUG_OUTPUT
 #include <astera/asset.h>
@@ -34,6 +13,8 @@
 
 #include <string.h>
 #include <assert.h>
+
+#include "game.h"
 
 typedef struct {
   ui_button start_button;
@@ -48,48 +29,18 @@ typedef struct {
   ui_tree tree;
 } start_screen_t;
 
-typedef struct {
-  ui_box  pause_box;
-  ui_text pause_text;
-} in_game_t;
-
-typedef enum {
-  TILE_EMPTY = 0,
-  TILE_STONE,
-  TILE_START,
-  TILE_END,
-  TILE_WALL,
-} dungeon_tile;
-
-typedef enum {
-  STATE_START = 0,
-  STATE_GAME  = 1,
-  STATE_PAUSE = 2,
-} game_state;
-
-typedef struct {
-  int* tiles;
-  int  width, height;
-  long seed;
-} dungeon_t;
-
-typedef struct {
-  // c_aabb* walls;
-  int wall_count;
-} world_t;
-
 static int running = 0;
-static int state   = STATE_START;
 
 ui_font        font;
 start_screen_t start_screen;
-in_game_t      in_game;
 world_t        world;
-dungeon_t      dungeon;
 vec2           window_size;
 
 vec2 zero, one, center;
 vec4 pause_color;
+
+r_sheet env_sheet;
+// r_sheet anim_sheet;
 
 // TODO Debug Mouse Hover segfault ui.c:1582
 void init_ui() {
@@ -145,8 +96,9 @@ void init_ui() {
   button_center[1] = 0.65f;
   ui_element_center_to(end_ele, button_center);
 
-  start_screen.tree = ui_tree_create(64);
+  start_screen.tree = ui_tree_create(4);
 
+  ui_tree_add(&start_screen.tree, &start_screen.start_button, UI_BUTTON, 0, 0);
   start_screen.start_button_id = ui_tree_add(
       &start_screen.tree, &start_screen.start_button, UI_BUTTON, 1, 1);
   start_screen.exit_button_id = ui_tree_add(
@@ -163,30 +115,6 @@ void init_ui() {
 
   ui_get_color(pause_color, "0A0A0A");
   pause_color[3] = 0.5f;
-}
-
-void start_game() {
-  // seed random with current timestamp (psuedo random)
-  // calculate dungeon
-  srand(time(NULL));
-
-  /*
-  int* tiles = (int*)malloc(sizeof(int) * DUNGEON_WIDTH * DUNGEON_HEIGHT);
-  for (int x = 0; x < DUNGEON_WIDTH; ++x) {
-    for (int y = 0; y < DUNGEON_HEIGHT; ++y) {
-      // perimeter is walls
-      if (x == 0 || x == DUNGEON_WIDTH - 1 || y == 0 ||
-          y == DUNGEON_HEIGHT - 1) {
-        tiles[x + y * DUNGEON_WIDTH] = TILE_WALL;
-      } else {
-        // make sure tiles are non-empty (0)  within designated options (before
-        // start/end/wall)
-        tiles[x + y * DUNGEON_WIDTH] = 1 + (rand() % TILE_STONE);
-      }
-    }
-  }*/
-
-  state = STATE_GAME;
 }
 
 void init() {
@@ -228,7 +156,7 @@ void init() {
 void render(time_s delta) {
   r_window_clear();
 
-  if (state == STATE_START) {
+  if (game_state == GAME_START) {
     ui_frame_start();
 
     ui_tree* tree = &start_screen.tree;
@@ -240,7 +168,7 @@ void render(time_s delta) {
 
     ui_frame_end();
   } else {
-    if (state == STATE_PAUSE) {
+    if (game_state == GAME_PAUSE) {
       ui_frame_start();
       ui_im_box_draw(zero, one, pause_color);
       ui_im_text_draw_aligned(center, 16.f, font,
@@ -258,11 +186,11 @@ void input(time_s delta) {
   i_update();
   r_poll_events();
 
-  if (state == STATE_START) {
-    // Mouse Usage
-    vec2 mouse_pos = {i_get_mouse_x(), i_get_mouse_y()};
-    ui_update(mouse_pos);
+  // Mouse Usage
+  vec2 mouse_pos = {i_get_mouse_x(), i_get_mouse_y()};
+  ui_update(mouse_pos);
 
+  if (game_state == GAME_START) {
     if (i_mouse_clicked(0)) {
       ui_tree_select(&start_screen.tree, 1, 1);
     }
@@ -300,7 +228,7 @@ void input(time_s delta) {
     if ((event_type = ui_element_event(&start_screen.tree,
                                        start_screen.start_button_id))) {
       printf("Hello from the start button!\n");
-      start_game();
+      game_start();
     }
 
     if ((event_type = ui_element_event(&start_screen.tree,
@@ -309,17 +237,17 @@ void input(time_s delta) {
       running = 0;
     }
   } else {
-    if (state == STATE_PAUSE) {
+    if (game_state == GAME_PAUSE) {
       if (i_key_clicked(KEY_SPACE) || i_joy_button_clicked(XBOX_A) ||
           i_key_clicked(KEY_ESCAPE)) {
-        state = STATE_GAME;
+        game_state = GAME_GAME;
       }
     } else {
       // normal input state
       float horiz, vert;
 
       if (i_key_clicked(KEY_ESCAPE)) {
-        state = STATE_PAUSE;
+        game_state = GAME_PAUSE;
       }
     }
   }
@@ -328,7 +256,9 @@ void input(time_s delta) {
 void update(time_s delta) {
   uint32_t active = ui_tree_check(&start_screen.tree);
 
-  if (state == STATE_GAME) {}
+  if (game_state == GAME_GAME) {
+  } else {
+  }
 
   if (r_window_should_close()) {
     running = 0;

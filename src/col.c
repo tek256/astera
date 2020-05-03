@@ -3,19 +3,16 @@
 #include <math.h>
 
 #if !defined DBG_E
-  #if defined  ASTERA_DEBUG_OUTPUT
-    #if defined  ASTERA_DEBUG_INCLUDED
-      #pragma message "ASTERA: Standard debug output"
-      #define DBG_E(fmt, ...) _l(fmt, __VA_ARGS__)
-    #else
-      #pragma message "ASTERA: stdio debug output"
-      #include <stdio.h>
-      #define DBG_E(fmt, ...) printf(fmt, __VA_ARGS__)
-    #endif
-  #else
-    #pragma message "ASTERA: NO DEBUG OUTPUT"
-    #define DBG_E(fmt, ...)
-  #endif
+#if defined  ASTERA_DEBUG_OUTPUT
+#if defined  ASTERA_DEBUG_INCLUDED
+#define DBG_E(fmt, ...) _l(fmt, __VA_ARGS__)
+#else
+#include <stdio.h>
+#define DBG_E(fmt, ...) printf(fmt, __VA_ARGS__)
+#endif
+#else
+#define DBG_E(fmt, ...)
+#endif
 #endif
 
 #define _PI    3.141592654
@@ -26,13 +23,9 @@ static float distpow(vec2 a, vec2 b) {
   return ((a[0] - b[0]) * (a[0] - b[0])) + ((a[1] - b[1]) * (a[1] - b[1]));
 }
 
-static float distsqrt(vec2 a, vec2 b) {
-  return (float)(sqrt(distpow(a, b)));
-}
+static float distsqrt(vec2 a, vec2 b) { return (float)(sqrt(distpow(a, b))); }
 
-static inline float _fabsf(float val) {
-  return (val < 0) ? val * -1.f : val;
-}
+static inline float _fabsf(float val) { return (val < 0) ? val * -1.f : val; }
 
 static inline float fclamp(float value, float min, float max) {
   return (value < min) ? min : (value > max) ? max : value;

@@ -5,15 +5,12 @@
 #if !defined DBG_E
 #if defined  ASTERA_DEBUG_OUTPUT
 #if defined  ASTERA_DEBUG_INCLUDED
-#pragma message "ASTERA: Standard debug output"
 #define DBG_E(fmt, ...) _l(fmt, __VA_ARGS__)
 #else
-#pragma message "ASTERA: stdio debug output"
 #include <stdio.h>
 #define DBG_E(fmt, ...) printf(fmt, __VA_ARGS__)
 #endif
 #else
-#pragma message "ASTERA: NO DEBUG OUTPUT"
 #define DBG_E(fmt, ...)
 #endif
 #endif
@@ -1600,8 +1597,12 @@ void ui_tree_draw(ui_tree* tree) {
 
   uint32_t tree_hover_id = 0;
   if (g_ui_ctx.use_mouse) {
+    if (!tree) {
+      printf("WHAT\n");
+    }
     if (tree->mouse_hover) {
-      tree_hover_id = tree->mouse_hover->uid;
+      ui_leaf leaf  = *tree->mouse_hover;
+      tree_hover_id = leaf.uid;
     }
   }
 

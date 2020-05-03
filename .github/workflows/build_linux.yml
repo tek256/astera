@@ -1,4 +1,4 @@
-name: Build All [Linux]
+name: Build [Linux]
 
 on: [push, pull_request]
 
@@ -13,6 +13,6 @@ jobs:
       - name: Install Dependencies
         run: sudo apt-get install -y --no-install-recommends mesa-common-dev libx11-dev libxrandr-dev libxi-dev xorg-dev libgl1-mesa-dev libglu1-mesa-dev
       - name: Generate CMake Build
-        run: cmake -G "Unix Makefiles" -S. -Bbuild
+        run: cmake -S. -Bbuild
       - name: Run CMake Build
         run: cmake --build build

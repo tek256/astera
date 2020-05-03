@@ -15,26 +15,20 @@
 #endif
 
 #if !defined DBG_E
-  #if defined  ASTERA_DEBUG_OUTPUT
-    #if defined  ASTERA_DEBUG_INCLUDED
-      #pragma message "ASTERA: Standard debug output"
-      #define DBG_E(fmt, ...) _l(fmt, __VA_ARGS__)
-    #else
-      #pragma message "ASTERA: stdio debug output"
-      #include <stdio.h>
-      #define DBG_E(fmt, ...) printf(fmt, __VA_ARGS__)
-    #endif
-  #else
-    #pragma message "ASTERA: NO DEBUG OUTPUT"
-    #define DBG_E(fmt, ...)
-  #endif
+#if defined  ASTERA_DEBUG_OUTPUT
+#if defined  ASTERA_DEBUG_INCLUDED
+#define DBG_E(fmt, ...) _l(fmt, __VA_ARGS__)
+#else
+#include <stdio.h>
+#define DBG_E(fmt, ...) printf(fmt, __VA_ARGS__)
+#endif
+#else
+#define DBG_E(fmt, ...)
+#endif
 #endif
 
-
 /* Returns time in milliseconds */
-time_s s_get_time() {
-  return glfwGetTime() * MS_TO_SEC;
-}
+time_s s_get_time() { return glfwGetTime() * MS_TO_SEC; }
 
 time_s s_timer_update(s_timer* t) {
   time_s current = s_get_time();
@@ -43,9 +37,7 @@ time_s s_timer_update(s_timer* t) {
   return t->delta;
 }
 
-s_timer s_timer_create() {
-  return (s_timer){s_get_time(), 0};
-}
+s_timer s_timer_create() { return (s_timer){s_get_time(), 0}; }
 
 time_s s_sleep(time_s duration) {
 #if defined(_WIN32) || defined(_WIN64)

@@ -11,21 +11,17 @@
 #endif
 
 #if !defined DBG_E
-  #if defined  ASTERA_DEBUG_OUTPUT
-    #if defined  ASTERA_DEBUG_INCLUDED
-      #pragma message "ASTERA: Standard debug output"
-      #define DBG_E(fmt, ...) _l(fmt, __VA_ARGS__)
-    #else
-      #pragma message "ASTERA: stdio debug output"
-      #include <stdio.h>
-      #define DBG_E(fmt, ...) printf(fmt, __VA_ARGS__)
-    #endif
-  #else
-    #pragma message "ASTERA: NO DEBUG OUTPUT"
-    #define DBG_E(fmt, ...)
-  #endif
+#if defined  ASTERA_DEBUG_OUTPUT
+#if defined  ASTERA_DEBUG_INCLUDED
+#define DBG_E(fmt, ...) _l(fmt, __VA_ARGS__)
+#else
+#include <stdio.h>
+#define DBG_E(fmt, ...) printf(fmt, __VA_ARGS__)
 #endif
-
+#else
+#define DBG_E(fmt, ...)
+#endif
+#endif
 
 #define STR_BUFF_SIZE 128
 
@@ -37,17 +33,11 @@ static const char* log_fp;
 static char time_buff[64];
 static char strbuff[STR_BUFF_SIZE];
 
-void dbg_set_log_fp(const char* fp) {
-  log_fp = fp;
-}
+void dbg_set_log_fp(const char* fp) { log_fp = fp; }
 
-void dbg_set_timestamp(int enabled) {
-  timestamp = enabled;
-}
+void dbg_set_timestamp(int enabled) { timestamp = enabled; }
 
-int dbg_is_logging() {
-  return logging && log_fp;
-}
+int dbg_is_logging() { return logging && log_fp; }
 
 int dbg_cleanup() {
   if (log_fp) {

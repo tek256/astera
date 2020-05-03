@@ -1,15 +1,15 @@
-name: Build All [OSX]
+name: Build [Windows]
 
 on: [push, pull_request]
 
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: windows-latest
     steps:
       - name: Checkout
         uses: actions/checkout@master
       - name: Generate CMake Build
-        run: cmake -Bbuild -G "Unix Makefiles" -S.
+        run: cmake -Bbuild -S.
       - name: Run CMake Build
         run: cmake --build build
 
