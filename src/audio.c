@@ -425,7 +425,7 @@ int a_init(const char* device, uint32_t master, uint32_t sfx, uint32_t music) {
     g_a_map.fx_slots = (a_fx_slot*)malloc(sizeof(a_fx_slot) * MAX_FX);
 
     if (!g_a_map.fx_slots) {
-      DBG_E("a_init: unable to allocate %i fx slots\n", g_a_map.max_fx);
+      DBG_E("a_init: unable to allocate %i fx slots\n", g_a_ctx.max_fx);
       a_exit();
       return -1;
     }
