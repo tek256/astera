@@ -1,6 +1,7 @@
 #include <glad/glad_gl.c>
 
 #include <astera/render.h>
+#include <astera/debug.h>
 
 #include <math.h>
 #include <string.h>
@@ -9,19 +10,6 @@
 #include <stb_image.h>
 
 #include <astera/sys.h>
-
-#if !defined DBG_E
-#if defined  ASTERA_DEBUG_OUTPUT
-#if defined  ASTERA_DEBUG_INCLUDED
-#define DBG_E(fmt, ...) _l(fmt, __VA_ARGS__)
-#else
-#include <stdio.h>
-#define DBG_E(fmt, ...) printf(fmt, __VA_ARGS__)
-#endif
-#else
-#define DBG_E(fmt, ...)
-#endif
-#endif
 
 static r_flags flags;
 

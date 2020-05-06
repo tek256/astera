@@ -1,19 +1,7 @@
 #include <astera/col.h>
+#include <astera/debug.h>
 
 #include <math.h>
-
-#if !defined DBG_E
-#if defined  ASTERA_DEBUG_OUTPUT
-#if defined  ASTERA_DEBUG_INCLUDED
-#define DBG_E(fmt, ...) _l(fmt, __VA_ARGS__)
-#else
-#include <stdio.h>
-#define DBG_E(fmt, ...) printf(fmt, __VA_ARGS__)
-#endif
-#else
-#define DBG_E(fmt, ...)
-#endif
-#endif
 
 #define _PI    3.141592654
 #define RADPI  180 / _PI

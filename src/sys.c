@@ -1,4 +1,5 @@
 #include <astera/sys.h>
+#include <astera/debug.h>
 
 #include <GLFW/glfw3.h>
 #include <math.h>
@@ -12,19 +13,6 @@
 #include <windows.h>
 #else
 #include <time.h>
-#endif
-
-#if !defined DBG_E
-#if defined  ASTERA_DEBUG_OUTPUT
-#if defined  ASTERA_DEBUG_INCLUDED
-#define DBG_E(fmt, ...) _l(fmt, __VA_ARGS__)
-#else
-#include <stdio.h>
-#define DBG_E(fmt, ...) printf(fmt, __VA_ARGS__)
-#endif
-#else
-#define DBG_E(fmt, ...)
-#endif
 #endif
 
 /* Returns time in milliseconds */

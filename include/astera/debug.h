@@ -26,6 +26,19 @@ ASTERA_API void _fatal(const char* format, ...);
 ASTERA_API void _l(const char* format, ...);
 ASTERA_API void _e(const char* format, ...);
 
+#if !defined DBG_E
+  #if defined(ASTERA_DEBUG_OUTPUT) && !defined(_MSC_VER)
+    #if defined(ASTERA_DEBUG_INCLUDED)
+      #define DBG_E(fmt, ...) _l(fmt, ##__VA_ARGS__)
+    #else
+      #define DBG_E(fmt, ...) printf(fmt, ##__VA_ARGS__)
+    #endif
+  #else
+    #define DBG_E(fmt, ...)
+  #endif
+#endif
+
+
 #ifdef __cplusplus
 }
 #endif

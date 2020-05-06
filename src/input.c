@@ -2,22 +2,10 @@
 #define INPUT_C
 
 #include <astera/input.h>
+#include <astera/debug.h>
 
 #include <stdlib.h>
 #include <string.h>
-
-#if !defined DBG_E
-#if defined  ASTERA_DEBUG_OUTPUT
-#if defined  ASTERA_DEBUG_INCLUDED
-#define DBG_E(fmt, ...) _l(fmt, __VA_ARGS__)
-#else
-#include <stdio.h>
-#define DBG_E(fmt, ...) printf(fmt, __VA_ARGS__)
-#endif
-#else
-#define DBG_E(fmt, ...)
-#endif
-#endif
 
 static char     chars[ASTERA_MAX_CHARS];
 static uint16_t char_count = 0;

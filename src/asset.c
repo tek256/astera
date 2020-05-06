@@ -4,6 +4,7 @@
  * oh, this one will be a fun one lol
  */
 #include <astera/asset.h>
+#include <astera/debug.h>
 
 #if !defined(ASTERA_NO_ZIP)
 #include <zip.h>
@@ -16,19 +17,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-#if !defined DBG_E
-#if defined  ASTERA_DEBUG_OUTPUT
-#if defined  ASTERA_DEBUG_INCLUDED
-#define DBG_E(fmt, ...) _l(fmt, __VA_ARGS__)
-#else
-#include <stdio.h>
-#define DBG_E(fmt, ...) printf(fmt, __VA_ARGS__)
-#endif
-#else
-#define DBG_E(fmt, ...)
-#endif
-#endif
 
 #if !defined(alloca)
 #define alloca(x) __builtin_alloca(x)
@@ -52,8 +40,6 @@ static inline uint32_t pak_swap32(uint32_t t) {
 #define htol32(x) pak_swap32(x)
 #define ltoh32(x) pak_swap32(x)
 #endif
-
-#define ASTERA_DEBUG_OUTPUT
 
 #if !defined(ASTERA_NO_PAK_FILE)
 pak_t* pak_open(const char* file, const char* mode) {

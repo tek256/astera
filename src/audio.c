@@ -1,4 +1,5 @@
 #include <astera/audio.h>
+#include <astera/debug.h>
 
 #if !defined(ASTERA_AL_DISTANCE_MODEL)
 #define ASTERA_AL_DISTANCE_MODEL AL_INVERSE_DISTANCE
@@ -16,19 +17,6 @@
 #include <AL/al.h>
 #if !defined(ASTERA_AL_NO_EFX)
 #include <AL/efx.h>
-
-#if !defined DBG_E
-#if defined  ASTERA_DEBUG_OUTPUT
-#if defined  ASTERA_DEBUG_INCLUDED
-#define DBG_E(fmt, ...) _l(fmt, __VA_ARGS__)
-#else
-#include <stdio.h>
-#define DBG_E(fmt, ...) printf(fmt, __VA_ARGS__)
-#endif
-#else
-#define DBG_E(fmt, ...)
-#endif
-#endif
 
 static LPALGENEFFECTS    alGenEffects;
 static LPALGENFILTERS    alGenFilters;

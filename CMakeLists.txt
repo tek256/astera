@@ -17,28 +17,19 @@ include(CMakeDependentOption)
 include(GenerateExportHeader)
 
 find_package(OpenGL REQUIRED)
+find_package(Sphinx)
 
 cmake_dependent_option(ASTERA_BUILD_EXAMPLES 
-  "Build astera's examples" ON
-  "CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME" ON)
-
-cmake_dependent_option(ASTERA_BUILD_PEDANTIC
-  "Build astera with pedantic flags" ON
+  "Build astera's examples" OFF
   "CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME" ON)
 
 cmake_dependent_option(ASTERA_BUILD_DYNAMIC
   "Build astera dynamically instead of static" OFF
   "CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME" OFF)
 
-if(ASTERA_PEDANTIC)
-  if(MSVC)
-    add_compile_options(/W4 /WX)
-  else()
-    add_compile_options(-Wall -Wextra -pedantic -Werror)
-  endif()
-endif()
-
-
+cmake_dependent_option(ASTERA_BUILD_DOCS
+  "Build astera's documentation" OFF
+  "CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME;Sphinx_FOUND" ON)
 
 # TODO: put set(OPENAL_<option> values here)
 set(ALSOFT_DLOPEN ON)
@@ -98,6 +89,10 @@ target_compile_definitions(${PROJECT_NAME}
     $<$<PLATFORM_ID:NetBSD>:NetBSD>
     $<$<PLATFORM_ID:Darwin>:OSX>)
 target_compile_features(${PROJECT_NAME} PRIVATE c_std_99)
+target_compile_options(${PROJECT_NAME}
+  PRIVATE
+    $<$<NOT:$<C_COMPILER_ID:MSVC>>:-Wall -Wextra -pedantic>
+    $<$<C_COMPILER_ID:MSVC>:/WX /W4>)
 target_link_libraries(${PROJECT_NAME}
   PUBLIC
     OpenGL::GL
@@ -118,6 +113,19 @@ generate_export_header(astera
 
 if(ASTERA_BUILD_EXAMPLES)
   add_subdirectory(examples)
+endif()
+
+if (ASTERA_BUILD_DOCS)
+  file(GLOB sources CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/docs/*.rst")
+  add_custom_target(docs
+    COMMAND Sphinx::Build "${PROJECT_SOURCE_DIR}/docs" "${PROJECT_BINARY_DIR}/docs"
+    DEPENDS ${sources}
+    SOURCES ${sources}
+    COMMENT "Building Astera Documentation"
+    COMMAND_EXPAND_LISTS
+    USES_TERMINAL
+    VERBATIM)
+  set_property(DIRECTORY PROPERTY ADDITIONAL_CLEAN_FILES "${PROJECT_BINARY_DIR}/docs")
 endif()
 
 install(TARGETS astera OpenAL glfw
