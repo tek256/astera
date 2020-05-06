@@ -55,7 +55,7 @@ Here are the target platforms for this library:
 
 ### Changelog
 ```
-Apr X, 2020
+May 5, 2020
 - 0.01 Release!
 - Partial collision detection (AABB & Circle)
 - Moved to CMake for build system (special thanks to @slurps-mad-rips)

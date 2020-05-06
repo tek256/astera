@@ -6,6 +6,8 @@
 #define DUNGEON_MAX_ROOMS 6
 #define DUNGEON_MIN_ROOMS 3
 
+#define DUNGEON_TILE_SIZE 16.f
+
 #define ROOM_MAX_TRIES 16
 
 #include <astera/col.h>
@@ -15,9 +17,11 @@
 typedef enum {
   TILE_EMPTY = 0,
   TILE_STONE,
+  TILE_FLOOR,
   TILE_START,
   TILE_END,
   TILE_WALL,
+  TILE_PIT,
 } tile_type_t;
 
 typedef enum {
@@ -48,19 +52,31 @@ typedef struct {
   vec2  position;
   vec2  size;
   float timer;
+
+  r_sprite sprite;
 } enemy_t;
 
 typedef enum {
   ROOM_EMPTY  = 0,
-  ROOM_START  = 1,
-  ROOM_END    = 2,
-  ROOM_PIT    = 3,
-  ROOM_AMBUSH = 4
+  ROOM_PIT    = 1,
+  ROOM_AMBUSH = 2,
+  ROOM_START  = 3,
+  ROOM_END    = 4,
 } room_type_t;
 
 typedef struct {
   int x, y;
 } door_t;
+
+typedef struct {
+  vec2 position;
+  int  direction;
+  int  state;
+  int  type;
+
+  float health;
+  float movespeed;
+} enemy_t;
 
 typedef struct {
   int x, y, width, height;
@@ -76,6 +92,8 @@ typedef struct {
 } room_t;
 
 typedef struct {
+  // TODO refactor this out maybe, don't really need it for runtime, could just
+  // move smaller copies to each room for audio footstep check
   int* tiles;
   int  tile_count;
 
@@ -83,6 +101,11 @@ typedef struct {
 
   room_t* rooms;
   int     room_count;
+
+  enemy_t* enemies;
+  int      enemy_count;
+
+  r_baked_sheet bg;
 } level_t;
 
 typedef struct {
@@ -116,13 +139,20 @@ typedef enum {
 world_t g_world;
 int     game_state;
 
+int can_render_world;
+
+r_shader      game_shader;
+r_sheet       tile_sheet;
+r_sheet       sprite_sheet;
+r_baked_sheet bg_sheet;
+
 int rnd_except(int min, int max, int* except, int except_count);
 int rnd_range(int min, int max);
 
 void game_start();
 void game_exit();
 
-void level_exit();
+void level_exit(level_t* level);
 void level_new(long seed);
 
 void world_update(time_s delta);

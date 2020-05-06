@@ -383,7 +383,7 @@ int a_init(const char* device, uint32_t master, uint32_t sfx, uint32_t music) {
     return -1;
   }
 
-  g_a_map.layer_count = MAX_AUDIO_LAYERS;
+  g_a_map.layer_count = AUDIO_MAX_LAYERS;
 
 #if defined(ASTERA_AL_DISTANCE_MODEL)
   alDistanceModel(ASTERA_AL_DISTANCE_MODEL);
@@ -422,7 +422,7 @@ int a_init(const char* device, uint32_t master, uint32_t sfx, uint32_t music) {
     LOAD_PROC(LPALGETAUXILIARYEFFECTSLOTFV, alGetAuxiliaryEffectSlotfv);
 #undef LOAD_PROC
 
-    g_a_map.fx_slots = (a_fx_slot*)malloc(sizeof(a_fx_slot) * MAX_FX);
+    g_a_map.fx_slots = (a_fx_slot*)malloc(sizeof(a_fx_slot) * AUDIO_MAX_FX);
 
     if (!g_a_map.fx_slots) {
       DBG_E("a_init: unable to allocate %i fx slots\n", g_a_ctx.max_fx);
@@ -434,17 +434,17 @@ int a_init(const char* device, uint32_t master, uint32_t sfx, uint32_t music) {
       alGenAuxiliaryEffectSlots(1, &g_a_map.fx_slots[i].id);
     }
 
-    g_a_map.fx_capacity = MAX_FX;
+    g_a_map.fx_capacity = AUDIO_MAX_FX;
     g_a_map.fx_count    = 0;
   }
 #endif
 
   // Initialize cached audio subsystem
-  for (int i = 0; i < MAX_SFX; ++i) {
+  for (int i = 0; i < AUDIO_MAX_SFX; ++i) {
     memset(&g_a_map.sfx[i], 0, sizeof(a_sfx));
     alGenSources(1, &g_a_map.sfx[i].id);
 
-    g_a_map.sfx[i].range = DEFAULT_SFX_RANGE;
+    g_a_map.sfx[i].range = AUDIO_DEFAUT_SFX_RANGE;
     g_a_map.sfx[i].gain  = 1.f;
 
     alSourcef(g_a_map.sfx[i].id, AL_GAIN, 1.f);
@@ -459,15 +459,15 @@ int a_init(const char* device, uint32_t master, uint32_t sfx, uint32_t music) {
     g_a_map.sfx[i].has_req = 0;
   }
 
-  g_a_map.sfx_count = MAX_SFX;
+  g_a_map.sfx_count = AUDIO_MAX_SFX;
 
-  unsigned int sources[MAX_SONGS];
-  unsigned int buffers[MAX_SONGS * AUDIO_BUFFERS_PER_MUSIC];
+  unsigned int sources[AUDIO_MAX_SONGS];
+  unsigned int buffers[AUDIO_MAX_SONGS * AUDIO_BUFFERS_PER_MUSIC];
 
-  alGenSources(MAX_SONGS, sources);
-  alGenBuffers(MAX_SONGS * AUDIO_BUFFERS_PER_MUSIC, buffers);
+  alGenSources(AUDIO_MAX_SONGS, sources);
+  alGenBuffers(AUDIO_MAX_SONGS * AUDIO_BUFFERS_PER_MUSIC, buffers);
 
-  for (int i = 0; i < MAX_SONGS; ++i) {
+  for (int i = 0; i < AUDIO_MAX_SONGS; ++i) {
     g_a_map.songs[i].source = sources[i];
 
     for (int j = 0; j < AUDIO_BUFFERS_PER_MUSIC; ++j) {
@@ -479,7 +479,7 @@ int a_init(const char* device, uint32_t master, uint32_t sfx, uint32_t music) {
     g_a_map.songs[i].has_req            = 0;
   }
 
-  g_a_map.song_count = MAX_SONGS;
+  g_a_map.song_count = AUDIO_MAX_SONGS;
 
   float master_f  = master / 100.f;
   g_listener.gain = master_f;
@@ -487,7 +487,7 @@ int a_init(const char* device, uint32_t master, uint32_t sfx, uint32_t music) {
   a_set_pos(g_listener.pos);
   a_set_ori(g_listener.ori);
 
-  for (int i = 0; i < MAX_AUDIO_LAYERS; ++i) {
+  for (int i = 0; i < AUDIO_MAX_LAYERS; ++i) {
     g_a_map.layers[i].id   = i;
     g_a_map.layers[i].gain = 1.f;
   }
@@ -747,7 +747,7 @@ void a_update(time_s delta) {
       }
     }
 
-    for (int j = 0; j < MAX_LAYER_SONGS; ++j) {
+    for (int j = 0; j < AUDIO_LAYER_MAX_SONGS; ++j) {
       a_music* mus = layer->musics[j];
       if (mus) {
         if (mus->req) {
@@ -909,12 +909,12 @@ int8_t a_layer_add_music(uint32_t id, a_music* music) {
     return -1;
   }
 
-  if (layer->music_count == MAX_LAYER_SONGS) {
+  if (layer->music_count == AUDIO_LAYER_MAX_SONGS) {
     DBG_E("No space left in layer: %i\n", id);
     return -1;
   }
 
-  for (int i = 0; i < MAX_LAYER_SONGS; ++i) {
+  for (int i = 0; i < AUDIO_LAYER_MAX_SONGS; ++i) {
     if (!layer->musics[i]) {
       layer->musics[i] = music;
       ++layer->music_count;
@@ -938,11 +938,11 @@ int8_t a_layer_add_sfx(uint32_t id, a_sfx* sfx) {
     return -1;
   }
 
-  if (layer->sfx_count == MAX_LAYER_SFX) {
+  if (layer->sfx_count == AUDIO_LAYER_MAX_SFX) {
     return -1;
   }
 
-  for (int i = 0; i < MAX_LAYER_SFX; ++i) {
+  for (int i = 0; i < AUDIO_LAYER_MAX_SFX; ++i) {
     if (!layer->sources[i]) {
       layer->sources[i] = sfx;
       ++layer->sfx_count;
@@ -983,7 +983,7 @@ int a_ctx_create(const char* device_name) {
 
   ALint attribs[4] = {0};
 
-  g_a_ctx.max_fx = MAX_FX;
+  g_a_ctx.max_fx = AUDIO_MAX_FX;
 
   if (g_a_ctx.efx) {
     attribs[0] = ALC_MAX_AUXILIARY_SENDS;
@@ -1130,7 +1130,7 @@ a_sfx* a_play_sfxn(const char* name, a_req* req) {
   a_buf* buff = a_buf_get(name);
 
   int index = -1;
-  for (int i = 0; i < MAX_SFX; ++i) {
+  for (int i = 0; i < AUDIO_MAX_SFX; ++i) {
     if (!g_a_map.sfx[i].has_req) {
       index = i;
       break;
@@ -1197,7 +1197,7 @@ a_sfx* a_play_sfx(a_buf* buff, a_req* req) {
   }
 
   int index = -1;
-  for (int i = 0; i < MAX_SFX; ++i) {
+  for (int i = 0; i < AUDIO_MAX_SFX; ++i) {
     if (!g_a_map.sfx[i].has_req) {
       index = i;
       break;
@@ -1268,7 +1268,7 @@ a_music* a_music_create(unsigned char* data, int data_length, a_meta* meta,
 
   // Get the first free open song slot
   int index = -1;
-  for (int i = 0; i < MAX_SONGS; ++i) {
+  for (int i = 0; i < AUDIO_MAX_SONGS; ++i) {
     if (!g_a_map.songs[i].req && g_a_map.songs[i].source != 0) {
       index = i;
       break;

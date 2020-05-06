@@ -405,6 +405,10 @@ ASTERA_API uint32_t ui_tree_get_cursor_id(ui_tree* tree);
 ASTERA_API int8_t   ui_tree_is_active(ui_tree* tree, uint32_t id);
 ASTERA_API uint32_t ui_tree_select(ui_tree* tree, int32_t event_type,
                                    int is_mouse);
+
+ASTERA_API uint32_t ui_tree_select_id(ui_tree* tree, uint32_t id,
+                                      int32_t event_type);
+
 ASTERA_API uint32_t ui_tree_next(ui_tree* tree);
 ASTERA_API uint32_t ui_tree_prev(ui_tree* tree);
 

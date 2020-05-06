@@ -95,9 +95,6 @@ int c_aabb_vs_circ(c_man* man, c_aabb a, c_circle b) {
 
   int inside = 0;
 
-  // This is surprisingly written out, I just realized I can just fucking take
-  // _fabsf (my abs func)
-  // I'm smart, I swear.
   if (vec2_cmp(closest, n)) {
     inside = 1;
     if (_fabsf(n[0]) > _fabsf(n[1])) {

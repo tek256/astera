@@ -1,9 +1,9 @@
-Building Guide
+Build Guide
 ==============
 
 Foreword
 ^^^^^^^^
-In order to compile astera please make sure that you have a newer version of CMake (3.16+) installed.  
+In order to compile astera please make sure that you have a newer version of `CMake <https://cmake.org/download/>`_ (3.16+) installed.  
 
 Setup
 ^^^^^

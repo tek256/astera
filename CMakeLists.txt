@@ -20,7 +20,25 @@ find_package(OpenGL REQUIRED)
 
 cmake_dependent_option(ASTERA_BUILD_EXAMPLES 
   "Build astera's examples" ON
-    "CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME" ON)
+  "CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME" ON)
+
+cmake_dependent_option(ASTERA_BUILD_PEDANTIC
+  "Build astera with pedantic flags" ON
+  "CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME" ON)
+
+cmake_dependent_option(ASTERA_BUILD_DYNAMIC
+  "Build astera dynamically instead of static" OFF
+  "CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME" OFF)
+
+if(ASTERA_PEDANTIC)
+  if(MSVC)
+    add_compile_options(/W4 /WX)
+  else()
+    add_compile_options(-Wall -Wextra -pedantic -Werror)
+  endif()
+endif()
+
+
 
 # TODO: put set(OPENAL_<option> values here)
 set(ALSOFT_DLOPEN ON)
@@ -57,6 +75,7 @@ target_sources(${PROJECT_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/dep/nanovg/nanovg.c
 target_sources(${PROJECT_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/dep/getopt/getopt.c)
 target_sources(${PROJECT_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/dep/zip/zip.c)
 #target_sources(${PROJECT_NAME} PRIVATE $<TARGET_OBJECTS:OpenAL::AL> $<TARGET_OBJECTS:glfw>)
+
 
 target_include_directories(${PROJECT_NAME}
   PUBLIC

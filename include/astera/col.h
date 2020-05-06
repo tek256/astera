@@ -1,3 +1,4 @@
+// TODO: Redo all of this
 #if !defined ASTERA_COL_H
 #define ASTERA_COL_H
 

@@ -46,10 +46,10 @@ extern "C" {
 #define AUDIO_MUSIC_LAYER 1
 #define AUDIO_MISC_LAYER  2
 #define AUDIO_UI_LAYER    3
-#define MAX_AUDIO_LAYERS  4
+#define AUDIO_MAX_LAYERS  4
 
-#if !defined(MAX_AUDIO_LAYERS)
-#define MAX_AUDIO_LAYERS 4
+#if !defined(AUDIO_MAX_LAYERS)
+#define AUDIO_MAX_LAYERS 4
 #endif
 
 #if !defined(AUDIO_SFX_LAYER)
@@ -59,12 +59,9 @@ extern "C" {
 #define AUDIO_MUSIC_LAYER 1
 #endif
 
-#if !defined(MAX_AUDIO_LAYERS)
-#define MAX_AUDIO_LAYERS 2
+#if !defined(AUDIO_MAX_LAYERS)
+#define AUDIO_MAX_LAYERS 2
 #endif
-#endif
-
-#if defined(AUDIO_DEFAULT_LAYERS)
 #endif
 
 #if defined(AUDIO_SFX_LAYER) && !defined(AUDIO_SFX_GAIN)
@@ -80,37 +77,29 @@ extern "C" {
 #define AUDIO_UI_GAIN 0.8f
 #endif
 
-#if !defined(MAX_LAYER_SFX)
-#define MAX_LAYER_SFX 32
+#if !defined(AUDIO_LAYER_MAX_SFX)
+#define AUDIO_LAYER_MAX_SFX 32
 #endif
-#if !defined(MAX_LAYER_SONGS)
-#define MAX_LAYER_SONGS 4
+#if !defined(AUDIO_LAYER_MAX_SONGS)
+#define AUDIO_LAYER_MAX_SONGS 4
 #endif
-#if !defined(MAX_BUFFERS)
-#define MAX_BUFFERS 64
-#endif
-
-#define LAYER_STOPPED 1
-#define LAYER_PLAYING 2
-#define LAYER_PAUSED  3
-
-#if !defined(MAX_MUSIC_RUNTIME)
-#define MAX_MUSIC_RUNTIME 4096
+#if !defined(AUDIO_MAX_BUFFERS)
+#define AUDIO_MAX_BUFFERS 64
 #endif
 
-#if !defined(MAX_FX)
-#define MAX_FX 32
+#if !defined(AUDIO_MAX_FX)
+#define AUDIO_MAX_FX 32
 #endif
 
-#if !defined(MAX_SFX)
-#define MAX_SFX MAX_LAYER_SFX* MAX_AUDIO_LAYERS / 2
+#if !defined(AUDIO_MAX_SFX)
+#define AUDIO_MAX_SFX AUDIO_LAYER_MAX_SFX* AUDIO_MAX_LAYERS / 2
 #endif
-#if !defined(MAX_SONGS)
-#define MAX_SONGS MAX_LAYER_SONGS* MAX_AUDIO_LAYERS
+#if !defined(AUDIO_MAX_SONGS)
+#define AUDIO_MAX_SONGS AUDIO_LAYER_MAX_SONGS* AUDIO_MAX_LAYERS
 #endif
 
-#if !defined(DEFAULT_SFX_RANGE)
-#define DEFAULT_SFX_RANGE 20
+#if !defined(AUDIO_DEFAUT_SFX_RANGE)
+#define AUDIO_DEFAUT_SFX_RANGE 20
 #endif
 
 typedef struct {
@@ -294,8 +283,8 @@ typedef struct {
   uint32_t sfx_count;
   uint32_t music_count;
 
-  a_sfx*   sources[MAX_LAYER_SFX];
-  a_music* musics[MAX_LAYER_SONGS];
+  a_sfx*   sources[AUDIO_LAYER_MAX_SFX];
+  a_music* musics[AUDIO_LAYER_MAX_SONGS];
 
   uint32_t gain_change : 1;
 } a_layer;
@@ -303,19 +292,19 @@ typedef struct {
 typedef struct {
   uint16_t song_count;
   uint16_t song_capacity;
-  a_music  songs[MAX_SONGS];
+  a_music  songs[AUDIO_MAX_SONGS];
 
   uint16_t sfx_count;
   uint16_t sfx_capacity;
-  a_sfx    sfx[MAX_SFX];
+  a_sfx    sfx[AUDIO_MAX_SFX];
 
-  a_layer  layers[MAX_AUDIO_LAYERS];
+  a_layer  layers[AUDIO_MAX_LAYERS];
   uint16_t layer_count;
 
   uint16_t    buf_count;
   uint16_t    buf_capacity;
-  a_buf       bufs[MAX_BUFFERS];
-  const char* buf_names[MAX_BUFFERS];
+  a_buf       bufs[AUDIO_MAX_BUFFERS];
+  const char* buf_names[AUDIO_MAX_BUFFERS];
 
   uint16_t   fx_count;
   uint16_t   fx_capacity;

@@ -1,3 +1,4 @@
+// TODO animation loading from file
 #ifndef ASTERA_RENDER_HEADER
 #define ASTERA_RENDER_HEADER
 

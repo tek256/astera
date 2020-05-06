@@ -16,6 +16,7 @@ foreach (entry IN LISTS entries)
   endif()
 endforeach()
 list(REMOVE_ITEM directories "${CMAKE_CURRENT_SOURCE_DIR}/resources")
+list(REMOVE_ITEM directories "${CMAKE_CURRENT_SOURCE_DIR}/advanced_game")
 
 add_custom_target(${PROJECT_NAME}-examples-resources ALL
   COMMAND

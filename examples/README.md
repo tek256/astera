@@ -6,6 +6,7 @@ These examples are built by default with the library, for more info on building 
 
 | Example | Functions | Description |
 | ------- | --------- | ----------- |
+| Advanced Game | Rendering, Audio, UI | How to build a more advanced game with astera |
 | Audio | Audio | How to use astera to play sound effects |
 | Basic Game | Rendering, Audio, UI | How to build a basic game with astera |
 | Input | Input | How to use astera to get user input |

@@ -14,7 +14,7 @@ setlocal EnableExtensions
 
 :ARG_LOOP
 set ARG=%1
-if "!ARG!" == "" ( goto PREPARE )
+if "!ARG!" == "" ( goto BUILD_ASTERA )
 IF NOT "x!ARG!" == "x!ARG:h=!" (
   goto HELP
 )

@@ -2433,6 +2433,34 @@ uint32_t ui_tree_select(ui_tree* tree, int32_t event_type, int is_mouse) {
   return 0;
 }
 
+// NOTE: You're not gonna mouse click something with this function
+uint32_t ui_tree_select_id(ui_tree* tree, uint32_t id, int32_t event_type) {
+  if (!tree || !tree->start) {
+    DBG_E("ui_tree_select_id: unable to operate on null or invalid tree\n");
+    return 0;
+  }
+
+  ui_leaf* cursor = tree->start;
+  while (1) {
+    if (cursor) {
+      if (cursor->uid == id) {
+        break;
+      }
+
+      if (cursor == tree->end) {
+        break;
+      } else {
+        cursor = cursor->next;
+      }
+    } else {
+      break;
+    }
+  }
+
+  cursor->event = event_type;
+  return cursor->uid;
+}
+
 int8_t ui_tree_is_active(ui_tree* tree, uint32_t id) {
   if (g_ui_ctx.use_mouse) {
     if (tree->mouse_hover->uid == id) {
@@ -2467,24 +2495,18 @@ uint32_t ui_tree_next(ui_tree* tree) {
     }
   }
 
-  ui_leaf* cursor = tree->cursor;
-  ui_leaf* last   = 0;
-  while (cursor) {
-    if (cursor->next) {
-      if (cursor->next->selectable) {
-        tree->cursor = cursor->next;
-        return cursor->next->uid;
+  ui_leaf* cursor = tree->cursor->next;
+  while (1) {
+    if (cursor && cursor != tree->cursor) {
+      if (cursor->selectable) {
+        tree->cursor = cursor;
+        return cursor->uid;
       } else {
         cursor = cursor->next;
       }
     } else {
       if (tree->loop) {
-        if (!last) {
-          last   = cursor;
-          cursor = tree->start;
-        } else {
-          return 0;
-        }
+        cursor = tree->start;
       } else {
         return 0;
       }
@@ -2514,24 +2536,18 @@ uint32_t ui_tree_prev(ui_tree* tree) {
     }
   }
 
-  ui_leaf* cursor = tree->cursor;
-  ui_leaf* last   = 0;
-  while (cursor) {
-    if (cursor->prev) {
-      if (cursor->prev->selectable) {
-        tree->cursor = cursor->prev;
-        return cursor->prev->uid;
+  ui_leaf* cursor = tree->cursor->prev;
+  while (1) {
+    if (cursor && cursor != tree->cursor) {
+      if (cursor->selectable) {
+        tree->cursor = cursor;
+        return cursor->uid;
       } else {
         cursor = cursor->prev;
       }
     } else {
       if (tree->loop) {
-        if (!last) {
-          last   = cursor;
-          cursor = tree->end;
-        } else {
-          return 0;
-        }
+        cursor = tree->end;
       } else {
         return 0;
       }
