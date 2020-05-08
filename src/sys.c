@@ -1,5 +1,4 @@
 #include <astera/sys.h>
-#include <astera/debug.h>
 
 #include <GLFW/glfw3.h>
 #include <math.h>
@@ -18,6 +17,7 @@
 /* Returns time in milliseconds */
 time_s s_get_time() { return glfwGetTime() * MS_TO_SEC; }
 
+/* Update a timer with current time & calculate delta from last update */
 time_s s_timer_update(s_timer* t) {
   time_s current = s_get_time();
   t->delta       = current - t->last;
@@ -25,8 +25,10 @@ time_s s_timer_update(s_timer* t) {
   return t->delta;
 }
 
+/* Create the timer structure with current time */
 s_timer s_timer_create() { return (s_timer){s_get_time(), 0}; }
 
+/* Call the OS's sleep function for given milliseconds */
 time_s s_sleep(time_s duration) {
 #if defined(_WIN32) || defined(_WIN64)
   Sleep(duration * MS_TO_MCS);
@@ -42,6 +44,7 @@ time_s s_sleep(time_s duration) {
   return duration;
 }
 
+/* String reversal */
 static char* s_reverse(char* string, int length) {
   int start = 0;
   int end   = length - 1;
@@ -62,6 +65,7 @@ static char* s_reverse(char* string, int length) {
   return string;
 }
 
+/* Convert int to character */
 char* s_itoa(int value, char* string, int base) {
   int i        = 0;
   int negative = 0;

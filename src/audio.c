@@ -52,15 +52,15 @@ static LPALGETAUXILIARYEFFECTSLOTFV   alGetAuxiliaryEffectSlotfv;
 // TODO: Implement more info
 void a_efx_info(void) {
   if (alcIsExtensionPresent(g_a_ctx.device, "ALC_EXT_EFX") == AL_FALSE) {
-    DBG_E("No ALC_EXT_EFX.\n");
+    ASTERA_DBG("No ALC_EXT_EFX.\n");
   } else {
-    DBG_E("ALC_EXT_EFX Present.\n");
+    ASTERA_DBG("ALC_EXT_EFX Present.\n");
   }
 
-  DBG_E("MAX_AUXILIARY_SENDS: %i\n", ALC_MAX_AUXILIARY_SENDS);
+  ASTERA_DBG("MAX_AUXILIARY_SENDS: %i\n", ALC_MAX_AUXILIARY_SENDS);
   ALCint s_sends = 0;
   alcGetIntegerv(g_a_ctx.device, ALC_MAX_AUXILIARY_SENDS, 1, &s_sends);
-  DBG_E("MAX AUXILIARY SENDS PER SOURCE: %i\n", s_sends);
+  ASTERA_DBG("MAX AUXILIARY SENDS PER SOURCE: %i\n", s_sends);
 }
 
 static inline float _a_clamp(float value, float min, float max, float def) {
@@ -70,7 +70,7 @@ static inline float _a_clamp(float value, float min, float max, float def) {
 
 int16_t a_fx_slot_attach(a_fx* fx) {
   if (g_a_map.fx_capacity == g_a_map.fx_count || g_a_map.fx_capacity == 0) {
-    DBG_E("a_fx_slot_attach: incomplete fx passed.\n");
+    ASTERA_DBG("a_fx_slot_attach: incomplete fx passed.\n");
     return -1;
   }
 
@@ -78,7 +78,7 @@ int16_t a_fx_slot_attach(a_fx* fx) {
     if (!g_a_map.fx_slots[i].fx) {
       fx->slot               = &g_a_map.fx_slots[i];
       g_a_map.fx_slots[i].fx = fx;
-      DBG_E("Attaching effect %i to effect slot %i\n", fx->id, i);
+      ASTERA_DBG("Attaching effect %i to effect slot %i\n", fx->id, i);
       alAuxiliaryEffectSloti(g_a_map.fx_slots[i].id, AL_EFFECTSLOT_EFFECT,
                              fx->id);
       return i;
@@ -90,7 +90,7 @@ int16_t a_fx_slot_attach(a_fx* fx) {
 
 void a_fx_slot_detach(a_fx* fx) {
   if (!fx || !fx->slot) {
-    DBG_E("a_fx_slot_detach: incomplete fx struct passed.\n");
+    ASTERA_DBG("a_fx_slot_detach: incomplete fx struct passed.\n");
     return;
   }
 
@@ -101,7 +101,7 @@ void a_fx_slot_detach(a_fx* fx) {
 
 void a_fx_slot_update(a_fx_slot* slot) {
   if (!slot) {
-    DBG_E("a_fx_slot_update: no slot passed.\n");
+    ASTERA_DBG("a_fx_slot_update: no slot passed.\n");
     return;
   }
 
@@ -189,7 +189,7 @@ a_fx_eq a_fx_eq_create(float low_gain, float low_cutoff, float mid1_gain,
 
 void a_fx_update(a_fx fx) {
   if (!fx.data) {
-    DBG_E("a_fx_update: invalid fx passed.\n");
+    ASTERA_DBG("a_fx_update: invalid fx passed.\n");
     return;
   }
 
@@ -235,7 +235,7 @@ a_fx a_fx_create(a_fx_type type, void* data) {
   a_fx fx = (a_fx){0};
 
   if (!data) {
-    DBG_E("a_fx_create: no data passed.\n");
+    ASTERA_DBG("a_fx_create: no data passed.\n");
     return fx;
   }
 
@@ -356,7 +356,7 @@ void a_filter_update(a_filter fl) {
       alFilterf(fl.id, AL_BANDPASS_GAINHF, fl.data.band.gainhf);
       break;
     default:
-      DBG_E("a_filter_update: invalid filter type passed.\n");
+      ASTERA_DBG("a_filter_update: invalid filter type passed.\n");
       break;
   }
 }
@@ -367,7 +367,7 @@ int a_can_play(void) { return g_a_ctx.allow; }
 
 int a_init(const char* device, uint32_t master, uint32_t sfx, uint32_t music) {
   if (!a_ctx_create(device)) {
-    DBG_E("Unable to create audio context.\n");
+    ASTERA_DBG("Unable to create audio context.\n");
     return -1;
   }
 
@@ -413,7 +413,7 @@ int a_init(const char* device, uint32_t master, uint32_t sfx, uint32_t music) {
     g_a_map.fx_slots = (a_fx_slot*)malloc(sizeof(a_fx_slot) * AUDIO_MAX_FX);
 
     if (!g_a_map.fx_slots) {
-      DBG_E("a_init: unable to allocate %i fx slots\n", g_a_ctx.max_fx);
+      ASTERA_DBG("a_init: unable to allocate %i fx slots\n", g_a_ctx.max_fx);
       a_exit();
       return -1;
     }
@@ -484,32 +484,36 @@ int a_init(const char* device, uint32_t master, uint32_t sfx, uint32_t music) {
   if (g_a_map.layer_count > AUDIO_MUSIC_LAYER) {
     g_a_map.layers[AUDIO_MUSIC_LAYER].gain = (music / 100.f);
   } else {
-    DBG_E("Not enough layers generated to set volume for music layer on: %i\n",
-          AUDIO_MUSIC_LAYER);
+    ASTERA_DBG(
+        "Not enough layers generated to set volume for music layer on: %i\n",
+        AUDIO_MUSIC_LAYER);
   }
 #endif
 #ifdef AUDIO_SFX_LAYER
   if (g_a_map.layer_count > AUDIO_SFX_LAYER) {
     g_a_map.layers[AUDIO_SFX_LAYER].gain = (sfx / 100.f);
   } else {
-    DBG_E("Not enough layers generated to set volume for sfx layer on: %i\n",
-          AUDIO_SFX_LAYER);
+    ASTERA_DBG(
+        "Not enough layers generated to set volume for sfx layer on: %i\n",
+        AUDIO_SFX_LAYER);
   }
 #endif
 #ifdef AUDIO_MISC_LAYER
   if (g_a_map.layer_count > AUDIO_MISC_LAYER) {
     g_a_map.layers[AUDIO_MISC_LAYER].gain = AUDIO_MISC_GAIN;
   } else {
-    DBG_E("Not enough layers generated to set volume for misc layer on: %i\n",
-          AUDIO_MISC_LAYER);
+    ASTERA_DBG(
+        "Not enough layers generated to set volume for misc layer on: %i\n",
+        AUDIO_MISC_LAYER);
   }
 #endif
 #ifdef AUDIO_UI_LAYER
   if (g_a_map.layer_count > AUDIO_UI_LAYER) {
     g_a_map.layers[AUDIO_UI_LAYER].gain = AUDIO_UI_GAIN;
   } else {
-    DBG_E("Not enough layers generated to set volume for UI layer on: %i\n",
-          AUDIO_UI_LAYER);
+    ASTERA_DBG(
+        "Not enough layers generated to set volume for UI layer on: %i\n",
+        AUDIO_UI_LAYER);
   }
 #endif
   g_a_ctx.allow = 1;
@@ -590,8 +594,8 @@ void a_set_vol_sfx(uint32_t sfx) {
       g_a_map.layers[AUDIO_SFX_LAYER].gain_change = 1;
     }
   } else {
-    DBG_E("Unable to set SFX vol on layer out of bounds: %i\n",
-          AUDIO_SFX_LAYER);
+    ASTERA_DBG("Unable to set SFX vol on layer out of bounds: %i\n",
+               AUDIO_SFX_LAYER);
   }
 #endif
 }
@@ -605,8 +609,8 @@ void a_set_vol_music(uint32_t music) {
       g_a_map.layers[AUDIO_MUSIC_LAYER].gain_change = 1;
     }
   } else {
-    DBG_E("Unable to set music vol on layer out of bounds: %i\n",
-          AUDIO_MUSIC_LAYER);
+    ASTERA_DBG("Unable to set music vol on layer out of bounds: %i\n",
+               AUDIO_MUSIC_LAYER);
   }
 #endif
 }
@@ -618,8 +622,8 @@ float a_get_vol_sfx(void) {
   if (AUDIO_SFX_LAYER < g_a_map.layer_count) {
     return g_a_map.layers[AUDIO_SFX_LAYER].gain;
   } else {
-    DBG_E("Unable to get volume for SFX layer, [%i] out of bounds.\n",
-          AUDIO_SFX_LAYER);
+    ASTERA_DBG("Unable to get volume for SFX layer, [%i] out of bounds.\n",
+               AUDIO_SFX_LAYER);
     return 0.f;
   }
 #else
@@ -632,8 +636,8 @@ float a_get_vol_music(void) {
   if (AUDIO_MUSIC_LAYER < g_a_map.layer_count) {
     return g_a_map.layers[AUDIO_MUSIC_LAYER].gain;
   } else {
-    DBG_E("Unable to get volume for music layer, [%i] out of bounds.\n",
-          AUDIO_MUSIC_LAYER);
+    ASTERA_DBG("Unable to get volume for music layer, [%i] out of bounds.\n",
+               AUDIO_MUSIC_LAYER);
     return 0.f;
   }
 #else
@@ -819,8 +823,8 @@ void a_update(time_s delta) {
                     mus->vorbis, mus->data + mus->data_offset, frame_size,
                     &num_channels, &out, &num_samples);
                 if (!bytes_used) {
-                  DBG_E("Unable to load samples from [%i] bytes.\n",
-                        frame_size);
+                  ASTERA_DBG("Unable to load samples from [%i] bytes.\n",
+                             frame_size);
                   ++fail_counter;
                   continue;
                 }
@@ -832,7 +836,7 @@ void a_update(time_s delta) {
                   int pcm_length  = sizeof(short) * short_count;
                   pcm_total_length += pcm_length;
                   if (pcm_length + pcm_index > mus->pcm_length) {
-                    DBG_E("Uhhh.\n");
+                    ASTERA_DBG("Uhhh.\n");
                     break;
                   }
 
@@ -851,8 +855,9 @@ void a_update(time_s delta) {
               if ((al_err = alGetError()) != AL_INVALID_VALUE) {
                 alSourceQueueBuffers(mus->source, 1, &buffer);
               } else {
-                DBG_E("Unable to unqueue audio buffer for music err [%i]: %i\n",
-                      al_err, buffer);
+                ASTERA_DBG(
+                    "Unable to unqueue audio buffer for music err [%i]: %i\n",
+                    al_err, buffer);
               }
             }
 
@@ -893,12 +898,12 @@ int8_t a_layer_add_music(uint32_t id, a_music* music) {
   }
 
   if (!layer) {
-    DBG_E("Unable to find layer: %i\n", id);
+    ASTERA_DBG("Unable to find layer: %i\n", id);
     return -1;
   }
 
   if (layer->music_count == AUDIO_LAYER_MAX_SONGS) {
-    DBG_E("No space left in layer: %i\n", id);
+    ASTERA_DBG("No space left in layer: %i\n", id);
     return -1;
   }
 
@@ -984,7 +989,7 @@ int a_ctx_create(const char* device_name) {
 #endif
 
   if (!alcMakeContextCurrent(context)) {
-    DBG_E("Error creating OpenAL Context\n");
+    ASTERA_DBG("Error creating OpenAL Context\n");
     return 0;
   }
 
@@ -996,11 +1001,11 @@ int a_ctx_create(const char* device_name) {
                  &g_a_ctx.fx_per_source);
 
   if (g_a_ctx.fx_per_source == 0) {
-    DBG_E("a_ctx_create: 0 effects allowed per source.\n");
+    ASTERA_DBG("a_ctx_create: 0 effects allowed per source.\n");
   }
 #endif
 
-  DBG_E("a_ctx_create: context created.\n");
+  ASTERA_DBG("a_ctx_create: context created.\n");
 
   return 1;
 }
@@ -1015,7 +1020,7 @@ static int32_t a_load_int32(unsigned char* data, int offset) {
 
 a_buf a_buf_create(unsigned char* data, int data_length) {
   if (!data || !data_length) {
-    DBG_E("No asset passed to load into audio buffer.\n");
+    ASTERA_DBG("No asset passed to load into audio buffer.\n");
     return (a_buf){0};
   }
 
@@ -1047,7 +1052,7 @@ a_buf a_buf_create(unsigned char* data, int data_length) {
   }
 
   if (al_format == -1) {
-    DBG_E("Unsupported wave file format.\n");
+    ASTERA_DBG("Unsupported wave file format.\n");
     return (a_buf){0};
   }
 
@@ -1095,7 +1100,7 @@ void a_buf_destroy(a_buf buffer) {
 
 a_buf* a_buf_get(const char* name) {
   if (!name) {
-    DBG_E("Unable to get null name buffer.\n");
+    ASTERA_DBG("Unable to get null name buffer.\n");
     return 0;
   }
 
@@ -1105,13 +1110,13 @@ a_buf* a_buf_get(const char* name) {
     }
   }
 
-  DBG_E("No buffer found named: %s\n", name);
+  ASTERA_DBG("No buffer found named: %s\n", name);
   return 0;
 }
 
 a_sfx* a_play_sfxn(const char* name, a_req* req) {
   if (!name) {
-    DBG_E("No buffer name passed to play.\n");
+    ASTERA_DBG("No buffer name passed to play.\n");
     return 0;
   }
 
@@ -1180,7 +1185,7 @@ a_sfx* a_play_sfxn(const char* name, a_req* req) {
 
 a_sfx* a_play_sfx(a_buf* buff, a_req* req) {
   if (!buff) {
-    DBG_E("No buffer passed to play.\n");
+    ASTERA_DBG("No buffer passed to play.\n");
     return 0;
   }
 
@@ -1250,7 +1255,7 @@ a_sfx* a_play_sfx(a_buf* buff, a_req* req) {
 a_music* a_music_create(unsigned char* data, int data_length, a_meta* meta,
                         a_req* req) {
   if (!data || !data_length) {
-    DBG_E("No data passed to create music.\n");
+    ASTERA_DBG("No data passed to create music.\n");
     return 0;
   }
 
@@ -1264,7 +1269,7 @@ a_music* a_music_create(unsigned char* data, int data_length, a_meta* meta,
   }
 
   if (index == -1) {
-    DBG_E("No available music slots.\n");
+    ASTERA_DBG("No available music slots.\n");
     return 0;
   }
 
@@ -1280,7 +1285,7 @@ a_music* a_music_create(unsigned char* data, int data_length, a_meta* meta,
     music->data_length = 0;
     music->data        = 0;
     music->req         = 0;
-    DBG_E("Unable to load vorbis, that sucks.\n");
+    ASTERA_DBG("Unable to load vorbis, that sucks.\n");
     return 0;
   }
 
@@ -1291,7 +1296,7 @@ a_music* a_music_create(unsigned char* data, int data_length, a_meta* meta,
   music->sample_rate   = info.sample_rate;
 
   if (info.channels > 2) {
-    DBG_E("Invalid channel size for audio system: %i.\n", info.channels);
+    ASTERA_DBG("Invalid channel size for audio system: %i.\n", info.channels);
     music->data_length = 0;
     music->data        = 0;
     music->req         = 0;
@@ -1308,7 +1313,7 @@ a_music* a_music_create(unsigned char* data, int data_length, a_meta* meta,
     music->data_length = 0;
     music->data        = 0;
     music->req         = 0;
-    DBG_E("Unable to allocate %i shorts.\n", music->pcm_length);
+    ASTERA_DBG("Unable to allocate %i shorts.\n", music->pcm_length);
     return 0;
   }
 
@@ -1365,7 +1370,7 @@ a_music* a_music_create(unsigned char* data, int data_length, a_meta* meta,
           &num_channels, &out, &num_samples);
 
       if (bytes_used == 0) {
-        DBG_E("Unable to process samples from %i bytes.\n", frame_size);
+        ASTERA_DBG("Unable to process samples from %i bytes.\n", frame_size);
         break;
       }
 
@@ -1431,7 +1436,7 @@ void a_music_reset(a_music* music) {
           &num_channels, &out, &num_samples);
 
       if (bytes_used == 0) {
-        DBG_E("Unable to process samples from %i bytes.\n", frame_size);
+        ASTERA_DBG("Unable to process samples from %i bytes.\n", frame_size);
         break;
       }
 

@@ -4,7 +4,7 @@
       <b>astera</b><br>
 	  <span font-size="16px">a cross platform game library</span><br>
       <span font-size="12px">Made by <a href="http://tek256.com">Devon</a> with love.</span><br><br>
-      <span><a href="https://github.com/tek256/astera/wiki/Setup">Setup</a> | <a href="https://github.com/tek256/astera/tree/master/docs/examples/">Examples</a> | <a href="https://discordapp.com/invite/63GvpMh">Discord</a> | <a href="https://github.com/sponsors/tek256">Support</a></span><br><br>
+      <span><a href="https://github.com/tek256/astera/wiki/Setup">Setup</a> | <a href="https://github.com/tek256/astera/tree/master/examples/">Examples</a> | <a href="https://discordapp.com/invite/63GvpMh">Discord</a> | <a href="https://github.com/sponsors/tek256">Support</a></span><br><br>
       <span><img src="https://github.com/tek256/astera/workflows/Build%20Astera/badge.svg"></span>
     </p>
 </div>
@@ -55,7 +55,12 @@ Here are the target platforms for this library:
 
 ### Changelog
 ```
-May X, 2020
+May 8, 2020
+- Static building
+- Working on examples
+- Refactored UI to context based usage (non-global) 
+
+May X, 2020 (Mostly done, not official 0.01 yet)
 - 0.01 Release!
 - Partial collision detection (AABB & Circle)
 - Moved to CMake for build system (special thanks to @slurps-mad-rips)

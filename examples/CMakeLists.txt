@@ -1,5 +1,3 @@
-# TODO Everything, and consult izzy
-
 if(APPLE)
   message(WARNING "OpenGL is deprecated on macOs 10.14 (Mojave)!")
 endif()
@@ -16,7 +14,10 @@ foreach (entry IN LISTS entries)
   endif()
 endforeach()
 list(REMOVE_ITEM directories "${CMAKE_CURRENT_SOURCE_DIR}/resources")
+
+# Both of these examples are still under construction
 list(REMOVE_ITEM directories "${CMAKE_CURRENT_SOURCE_DIR}/advanced_game")
+list(REMOVE_ITEM directories "${CMAKE_CURRENT_SOURCE_DIR}/basic_game")
 
 add_custom_target(${PROJECT_NAME}-examples-resources ALL
   COMMAND
@@ -30,11 +31,15 @@ add_custom_target(${PROJECT_NAME}-examples-resources ALL
 foreach(directory IN LISTS directories)
   file(GLOB sources CONFIGURE_DEPENDS "${directory}/*.c") 
   get_filename_component(name "${directory}" NAME)
+
+  set(BUILD_SHARED_LIBS OFF)
+
   add_executable(${name})
   target_sources(${name} PRIVATE ${sources})
   target_compile_definitions(${name} 
     PRIVATE
     $<${opengl-deprecation}:GL_SILENCE_DEPRECATION>)
   target_link_libraries(${name} PRIVATE ${PROJECT_NAME})
-  set_property(TARGET ${name} PROPERTY BUILD_RPATH $<TARGET_FILE_DIR:astera>)
+  #set_property(TARGET ${name} PROPERTY BUILD_RPATH $<TARGET_FILE_DIR:astera>)
+  
 endforeach()

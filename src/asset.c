@@ -52,14 +52,14 @@ pak_t* pak_open(const char* file, const char* mode) {
 
   FILE* fp = fopen(file, mode[0] == 'w' ? "wb" : mode[0] == 'r' ? "rb" : "r+b");
   if (!fp) {
-    DBG_E("pak_open: unable to open pak file %s\n", file);
+    ASTERA_DBG("pak_open: unable to open pak file %s\n", file);
     return 0;
   }
 
   pak_t *pak = (pak_t*)malloc(sizeof(pak_t)), zero = {0};
 
   if (!pak) {
-    DBG_E("pak_open: unable to alloc pak_t.\n");
+    ASTERA_DBG("pak_open: unable to alloc pak_t.\n");
     fclose(fp);
     return 0;
   }
@@ -71,12 +71,12 @@ pak_t* pak_open(const char* file, const char* mode) {
     pak_header_t header = (pak_header_t){0};
 
     if (fread(&header, 1, sizeof(pak_header_t), fp) != sizeof(pak_header_t)) {
-      DBG_E("Pack File Read Error: %s\n", file);
+      ASTERA_DBG("Pack File Read Error: %s\n", file);
       return 0;
     }
 
     if (memcmp(header.id, "PACK", 4)) {
-      DBG_E("Not a valid pack file: %s\n", file);
+      ASTERA_DBG("Not a valid pack file: %s\n", file);
       return 0;
     }
 
@@ -86,7 +86,7 @@ pak_t* pak_open(const char* file, const char* mode) {
     uint32_t num_files = header.size / sizeof(pak_file_t);
 
     if (fseek(fp, header.offset, SEEK_SET) != 0) {
-      DBG_E("Read Error: %s\n", file);
+      ASTERA_DBG("Read Error: %s\n", file);
       free(pak);
       fclose(fp);
       return 0;
@@ -98,7 +98,7 @@ pak_t* pak_open(const char* file, const char* mode) {
 
     if (fread(pak->entries, num_files, sizeof(pak_file_t), fp) !=
         sizeof(pak_file_t)) {
-      DBG_E("Invalid Read of entries: %s\n", file);
+      ASTERA_DBG("Invalid Read of entries: %s\n", file);
       fclose(fp);
       free(pak->entries);
       free(pak);
@@ -137,7 +137,7 @@ pak_t* pak_open(const char* file, const char* mode) {
     pak->out        = fp;
     char header[12] = {0};
     if (fwrite(header, 1, 12, pak->out) != 12) {
-      DBG_E("Unable to write temporary header for file %s.\n", file);
+      ASTERA_DBG("Unable to write temporary header for file %s.\n", file);
       fclose(fp);
       return 0;
     }
@@ -151,12 +151,12 @@ pak_t* pak_open(const char* file, const char* mode) {
 int32_t pak_append(pak_t* pak, const char* filename, const unsigned char* data,
                    uint32_t data_length) {
   if (!data || !data_length) {
-    DBG_E("pak_append: invalid data pointer passed.\n");
+    ASTERA_DBG("pak_append: invalid data pointer passed.\n");
     return -1;
   }
 
   if (!pak->out || !pak->file_mode) {
-    DBG_E("pak_append: unable to append to read-only pak file.\n");
+    ASTERA_DBG("pak_append: unable to append to read-only pak file.\n");
     return -1;
   }
 
@@ -165,7 +165,7 @@ int32_t pak_append(pak_t* pak, const char* filename, const unsigned char* data,
     pak->entries   = realloc(pak->entries, pak->count * sizeof(pak_file_t));
 
     if (!pak->entries) {
-      DBG_E("pak_append: unable to reallocate entries.\n");
+      ASTERA_DBG("pak_append: unable to reallocate entries.\n");
       return -1;
     }
 
@@ -185,17 +185,17 @@ int32_t pak_append(pak_t* pak, const char* filename, const unsigned char* data,
 
 int32_t pak_append_file(pak_t* pak, const char* filename, FILE* in) {
   if (!pak) {
-    DBG_E("pak_append_file: no pak struct passed.\n");
+    ASTERA_DBG("pak_append_file: no pak struct passed.\n");
     return -1;
   }
 
   if (!filename) {
-    DBG_E("pak_append_file: no filename passed.\n");
+    ASTERA_DBG("pak_append_file: no filename passed.\n");
     return -1;
   }
 
   if (!in) {
-    DBG_E("pak_append_file: no in file passed.\n");
+    ASTERA_DBG("pak_append_file: no in file passed.\n");
     return -1;
   }
 
@@ -223,7 +223,7 @@ int32_t pak_append_file(pak_t* pak, const char* filename, FILE* in) {
 
 void pak_open_mem(pak_t* pak, unsigned char* data, uint32_t data_length) {
   if (!data || !data_length) {
-    DBG_E("pak_open_mem: invalid data arguments passed.\n");
+    ASTERA_DBG("pak_open_mem: invalid data arguments passed.\n");
     return;
   }
 
@@ -235,12 +235,12 @@ void pak_open_mem(pak_t* pak, unsigned char* data, uint32_t data_length) {
 
   pak_header_t* header = (pak_header_t*)data;
   if (!header) {
-    DBG_E("pak_open_mem: unable to obtain header pointer.\n");
+    ASTERA_DBG("pak_open_mem: unable to obtain header pointer.\n");
     return;
   }
 
   if (memcmp(header->id, "PACK", 4)) {
-    DBG_E("pak_open_mem: invalid pak file.\n");
+    ASTERA_DBG("pak_open_mem: invalid pak file.\n");
     return;
   }
 
@@ -251,7 +251,7 @@ void pak_open_mem(pak_t* pak, unsigned char* data, uint32_t data_length) {
 
   pak_file_t* start = (pak_file_t*)&data[header->offset];
   if (!start) {
-    DBG_E("pak_open_mem: unable to seek to start of data.\n");
+    ASTERA_DBG("pak_open_mem: unable to seek to start of data.\n");
     return;
   }
 
@@ -259,8 +259,8 @@ void pak_open_mem(pak_t* pak, unsigned char* data, uint32_t data_length) {
   pak->entries = (pak_file_t*)malloc(sizeof(pak_file_t) * num_files);
 
   if (!pak->entries) {
-    DBG_E("pak_open_mem: unable to malloc %i bytes.\n",
-          (sizeof(pak_file_t) * num_files));
+    ASTERA_DBG("pak_open_mem: unable to malloc %i bytes.\n",
+               (sizeof(pak_file_t) * num_files));
     return;
   }
 
@@ -271,7 +271,7 @@ void pak_open_mem(pak_t* pak, unsigned char* data, uint32_t data_length) {
     pak_file_t* pak_ptr   = (pak_file_t*)&pak->entries[i];
 
     if (!start_ptr || !pak_ptr) {
-      DBG_E("pak_open_mem: invalid read of entries.\n");
+      ASTERA_DBG("pak_open_mem: invalid read of entries.\n");
       free(pak->entries);
       return;
     }
@@ -288,18 +288,18 @@ unsigned char* pak_extract(pak_t* pak, uint32_t index) {
 #if !defined(ASTERA_PAK_NO_FILE)
     if (pak->file_mode && pak->in) {
       if (fseek(pak->in, file->offset, SEEK_SET) != 0) {
-        DBG_E("File read error: cannot seek to offset %i\n", file->offset);
+        ASTERA_DBG("File read error: cannot seek to offset %i\n", file->offset);
         return 0;
       }
 
       unsigned char* buffer = (unsigned char*)malloc(sizeof(char) * file->size);
       if (!buffer) {
-        DBG_E("File read error: cannot malloc %i bytes.\n", file->size);
+        ASTERA_DBG("File read error: cannot malloc %i bytes.\n", file->size);
         return 0;
       }
 
       if (fread(buffer, 1, file->size, pak->in) != file->size) {
-        DBG_E("File read error: invalid read size.\n");
+        ASTERA_DBG("File read error: invalid read size.\n");
         return 0;
       }
 
@@ -311,14 +311,16 @@ unsigned char* pak_extract(pak_t* pak, uint32_t index) {
       unsigned char* offset = &pak->data_ptr[file->offset];
 
       if (!offset) {
-        DBG_E("Memory read error: offset out of bounds: %i\n", file->offset);
+        ASTERA_DBG("Memory read error: offset out of bounds: %i\n",
+                   file->offset);
         return 0;
       }
 
       unsigned char* buffer = (unsigned char*)malloc(sizeof(char) * file->size);
 
       if (!buffer) {
-        DBG_E("Memory read error: unable to malloc %i bytes.\n", file->size);
+        ASTERA_DBG("Memory read error: unable to malloc %i bytes.\n",
+                   file->size);
         return 0;
       }
 
@@ -333,7 +335,7 @@ unsigned char* pak_extract(pak_t* pak, uint32_t index) {
 unsigned char* pak_extract_noalloc(pak_t* pak, uint32_t index,
                                    unsigned char* out, uint32_t out_cap) {
   if (!out || !out_cap) {
-    DBG_E("pak_extract_noalloc: invalid out buffer parameters passed.\n");
+    ASTERA_DBG("pak_extract_noalloc: invalid out buffer parameters passed.\n");
     return 0;
   }
 
@@ -341,20 +343,20 @@ unsigned char* pak_extract_noalloc(pak_t* pak, uint32_t index,
     pak_file_t* file = &pak->entries[index];
 
     if (file->size > out_cap) {
-      DBG_E("pak_extract_no_alloc: out_cap too small to hold %i bytes.\n",
-            file->size);
+      ASTERA_DBG("pak_extract_no_alloc: out_cap too small to hold %i bytes.\n",
+                 file->size);
       return 0;
     }
 
 #if !defined(ASTERA_PAK_NO_FILE)
     if (pak->file_mode && pak->in) {
       if (fseek(pak->in, file->offset, SEEK_SET) != 0) {
-        DBG_E("File read error: cannot seek to offset %i\n", file->offset);
+        ASTERA_DBG("File read error: cannot seek to offset %i\n", file->offset);
         return 0;
       }
 
       if (fread(out, 1, file->size, pak->in) != file->size) {
-        DBG_E("File read error: invalid read size.\n");
+        ASTERA_DBG("File read error: invalid read size.\n");
         return 0;
       }
 
@@ -366,7 +368,8 @@ unsigned char* pak_extract_noalloc(pak_t* pak, uint32_t index,
       unsigned char* offset = &pak->data_ptr[file->offset];
 
       if (!offset) {
-        DBG_E("Memory read error: offset out of bounds: %i\n", file->offset);
+        ASTERA_DBG("Memory read error: offset out of bounds: %i\n",
+                   file->offset);
         return 0;
       }
 
@@ -507,7 +510,7 @@ void asset_free(asset_t* asset) {
 
 void asset_map_free(asset_map_t* map) {
   if (!map) {
-    DBG_E("No map passed to free.\n");
+    ASTERA_DBG("No map passed to free.\n");
     return;
   }
 
@@ -532,7 +535,7 @@ asset_t* asset_map_get(asset_map_t* map, const char* file) { return 0; }
 // NOTE: Local System
 asset_t* asset_get(const char* file) {
   if (!file) {
-    DBG_E("asset_get: no file requested.\n");
+    ASTERA_DBG("asset_get: no file requested.\n");
     return 0;
   }
 
@@ -541,7 +544,7 @@ asset_t* asset_get(const char* file) {
   FILE* f = fopen(file, "r+b");
 
   if (!f) {
-    DBG_E("Unable to open system file: %s\n", file);
+    ASTERA_DBG("Unable to open system file: %s\n", file);
     return 0;
   }
 
@@ -553,7 +556,7 @@ asset_t* asset_get(const char* file) {
       (unsigned char*)malloc(sizeof(unsigned char) * (file_size + 1));
 
   if (!data) {
-    DBG_E("Unable to allocate %i bytes for file %s\n", file_size, file);
+    ASTERA_DBG("Unable to allocate %i bytes for file %s\n", file_size, file);
     free(asset);
     fclose(f);
     return 0;
@@ -562,7 +565,8 @@ asset_t* asset_get(const char* file) {
   uint32_t data_read = fread(data, sizeof(unsigned char), file_size, f);
 
   if (data_read != file_size) {
-    DBG_E("Incomplete read: %i expeceted, %i read.\n", file_size, data_read);
+    ASTERA_DBG("Incomplete read: %i expeceted, %i read.\n", file_size,
+               data_read);
     free(data);
     free(asset);
     return 0;
@@ -601,7 +605,7 @@ void asset_map_remove(asset_map_t* map, asset_t* asset) {
 
 void asset_map_removei(asset_map_t* map, uint32_t id) {
   if (!map->assets[id]) {
-    DBG_E("asset_map_removei: no asset at index %i on asset map.\n", id);
+    ASTERA_DBG("asset_map_removei: no asset at index %i on asset map.\n", id);
     return;
   }
 
@@ -611,12 +615,12 @@ void asset_map_removei(asset_map_t* map, uint32_t id) {
 
 asset_t* asset_map_find(asset_map_t* map, const char* name, int allow_fetch) {
   if (!map) {
-    DBG_E("asset_map_find: no map passed.\n");
+    ASTERA_DBG("asset_map_find: no map passed.\n");
     return 0;
   }
 
   if (!name) {
-    DBG_E("asset_map_find: no filename or name passed.\n");
+    ASTERA_DBG("asset_map_find: no filename or name passed.\n");
     return 0;
   }
 
@@ -636,8 +640,9 @@ asset_t* asset_map_find(asset_map_t* map, const char* name, int allow_fetch) {
       case MAP_FS: {
         new_asset = asset_get(name);
         if (!new_asset) {
-          DBG_E("asset_map_find: unable to open file from filesystem: %s\n",
-                name);
+          ASTERA_DBG(
+              "asset_map_find: unable to open file from filesystem: %s\n",
+              name);
           return 0;
         }
       }
@@ -653,7 +658,8 @@ asset_t* asset_map_find(asset_map_t* map, const char* name, int allow_fetch) {
           unsigned char* data = pak_extract(map->pak, f_index);
 
           if (!data) {
-            DBG_E("asset_map_find: unable to extra file from pak: %s\n", name);
+            ASTERA_DBG("asset_map_find: unable to extra file from pak: %s\n",
+                       name);
             free(new_asset);
             return 0;
           }
@@ -666,7 +672,8 @@ asset_t* asset_map_find(asset_map_t* map, const char* name, int allow_fetch) {
           return new_asset;
 
         } else {
-          DBG_E("asset_map_find: unable to fetch file from pak: %s\n", name);
+          ASTERA_DBG("asset_map_find: unable to fetch file from pak: %s\n",
+                     name);
           free(new_asset);
           return 0;
         }
@@ -676,20 +683,21 @@ asset_t* asset_map_find(asset_map_t* map, const char* name, int allow_fetch) {
         new_asset = (asset_t*)malloc(sizeof(asset_t));
 
         if (!new_asset) {
-          DBG_E("asset_map_find: unable to allocate space for new asset "
-                "struct.\n");
+          ASTERA_DBG("asset_map_find: unable to allocate space for new asset "
+                     "struct.\n");
           return 0;
         }
 
         struct zip_t* zip = zip_open(map->filename, ASTERA_ZIP_LEVEL, 'r');
         if (!zip) {
-          DBG_E("asset_map_find: unable to open zip file.\n", map->filename);
+          ASTERA_DBG("asset_map_find: unable to open zip file.\n",
+                     map->filename);
           free(new_asset);
           return 0;
         }
 
         if (zip_entry_open(zip, name)) {
-          DBG_E("asset_map_find: unable to open zip entry: %s\n", name);
+          ASTERA_DBG("asset_map_find: unable to open zip entry: %s\n", name);
           free(new_asset);
           zip_close(zip);
           return 0;
@@ -700,7 +708,7 @@ asset_t* asset_map_find(asset_map_t* map, const char* name, int allow_fetch) {
             (unsigned char*)malloc(sizeof(unsigned char) * (entry_size + 1));
 
         if (!data) {
-          DBG_E(
+          ASTERA_DBG(
               "asset_map_find: unable to alloc space for zip entry [%i]: %s\n",
               entry_size + 1, name);
           zip_close(zip);
@@ -709,8 +717,8 @@ asset_t* asset_map_find(asset_map_t* map, const char* name, int allow_fetch) {
         }
 
         if (!zip_entry_noallocread(zip, data, entry_size + 1)) {
-          DBG_E("asset_map_find: unable to read zip data for entry: %s\n",
-                entry_size);
+          ASTERA_DBG("asset_map_find: unable to read zip data for entry: %s\n",
+                     entry_size);
           zip_close(zip);
           free(data);
           free(new_asset);
@@ -747,7 +755,7 @@ void asset_map_update(asset_map_t* map) {
 asset_t* asset_get_chunk(const char* file, uint32_t chunk_start,
                          uint32_t chunk_length) {
   if (!file) {
-    DBG_E("No file requested\n");
+    ASTERA_DBG("No file requested\n");
     return 0;
   }
 
@@ -755,7 +763,7 @@ asset_t* asset_get_chunk(const char* file, uint32_t chunk_start,
   FILE*    f     = fopen(file, "r+b");
 
   if (!f) {
-    DBG_E("asset_get_chunk: Unable to open system file: %s\n", file);
+    ASTERA_DBG("asset_get_chunk: Unable to open system file: %s\n", file);
     free(asset);
     return 0;
   }
@@ -765,9 +773,10 @@ asset_t* asset_get_chunk(const char* file, uint32_t chunk_start,
   rewind(f);
 
   if (chunk_start > file_size) {
-    DBG_E("asset_get_chunk: Chunk requested starts out of bounds [%i] of the "
-          "file [%i].\n",
-          chunk_start, file_size);
+    ASTERA_DBG(
+        "asset_get_chunk: Chunk requested starts out of bounds [%i] of the "
+        "file [%i].\n",
+        chunk_start, file_size);
     asset->req   = 0;
     asset->chunk = 0;
     return 0;
@@ -783,8 +792,8 @@ asset_t* asset_get_chunk(const char* file, uint32_t chunk_start,
       (unsigned char*)malloc(sizeof(unsigned char) * (max_length + 1));
 
   if (!data) {
-    DBG_E("Unable to allocate [%i] bytes for file chunk %s\n", max_length,
-          file);
+    ASTERA_DBG("Unable to allocate [%i] bytes for file chunk %s\n", max_length,
+               file);
     free(asset);
     fclose(f);
     return 0;
@@ -793,7 +802,8 @@ asset_t* asset_get_chunk(const char* file, uint32_t chunk_start,
   uint32_t data_read = fread(data, sizeof(unsigned char), max_length, f);
 
   if (data_read != max_length) {
-    DBG_E("Incomplete read: %i expeceted, %i read.\n", max_length, data_read);
+    ASTERA_DBG("Incomplete read: %i expeceted, %i read.\n", max_length,
+               data_read);
     free(asset);
     free(data);
     return 0;
@@ -821,8 +831,8 @@ asset_map_t asset_map_create(const char* filename, const char* name,
                              asset_map_type type) {
 #if defined(ASTERA_NO_PAK)
   if (is_pak) {
-    DBG_E("asset_create_map: unable to create map using pak without pak "
-          "features included.\n");
+    ASTERA_DBG("asset_create_map: unable to create map using pak without pak "
+               "features included.\n");
     return 0;
   }
 #endif

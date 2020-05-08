@@ -26,7 +26,7 @@ static r_shader_map g_shader_map;
 #include <astera/input.h>
 
 static void glfw_err_cb(int error, const char* msg) {
-  DBG_E("ERROR: %i %s\n", error, msg);
+  ASTERA_DBG("ERROR: %i %s\n", error, msg);
 }
 
 static void glfw_window_pos_cb(GLFWwindow* window, int x, int y) {
@@ -107,7 +107,7 @@ int8_t r_check_error_loc(const char* loc) {
   int8_t error = glGetError();
 
   if (error != GL_NO_ERROR) {
-    DBG_E("GL Error: %i at location: %s\n", loc);
+    ASTERA_DBG("GL Error: %i at location: %s\n", loc);
   }
 
   return error;
@@ -119,7 +119,7 @@ void r_init_anim_map(int size) {
   anim_map.anims = (r_anim*)malloc(sizeof(r_anim) * size);
 
   if (!anim_map.anims) {
-    DBG_E("r_init_anim_map: Unable to malloc [%i] anims.\n", size);
+    ASTERA_DBG("r_init_anim_map: Unable to malloc [%i] anims.\n", size);
     return;
   }
 
@@ -127,8 +127,8 @@ void r_init_anim_map(int size) {
 
   if (!anim_map.names) {
     free(anim_map.anims);
-    DBG_E("r_init_anim_map: Unable to malloc char* array of size [%i].\n",
-          size);
+    ASTERA_DBG("r_init_anim_map: Unable to malloc char* array of size [%i].\n",
+               size);
     return;
   }
 
@@ -148,7 +148,7 @@ void r_init_shader_map(int size) {
   shader_map.capacity = size;
 
   if (!shader_map.shaders || !shader_map.names || !shader_map.uniform_maps) {
-    DBG_E("Unable to initialize shader map with size of %i.\n", size);
+    ASTERA_DBG("Unable to initialize shader map with size of %i.\n", size);
   } else {
     g_shader_map = shader_map;
   }
@@ -160,7 +160,7 @@ void r_init_batches(int size) {
   batches = (r_shader_batch*)malloc(sizeof(r_shader_batch) * size);
 
   if (!batches) {
-    DBG_E("Unable to initialize batches with a size of %i.\n", size);
+    ASTERA_DBG("Unable to initialize batches with a size of %i.\n", size);
   } else {
     for (int i = 0; i < size; ++i) {
       batches[i].used   = 0;
@@ -175,7 +175,7 @@ void r_init_batches(int size) {
 
 int r_init(r_window_info info) {
   if (!r_window_create(info)) {
-    DBG_E("Unable to create window.\n");
+    ASTERA_DBG("Unable to create window.\n");
     return 0;
   }
 
@@ -308,7 +308,7 @@ r_framebuffer r_framebuffer_create(uint32_t width, uint32_t height,
                             GL_RENDERBUFFER, fbo.rbo);
 
   if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-    DBG_E("Incomplete FBO: %i\n", fbo.fbo);
+    ASTERA_DBG("Incomplete FBO: %i\n", fbo.fbo);
 
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -429,7 +429,7 @@ r_baked_sheet r_baked_sheet_create(r_sheet sheet, r_baked_quad* quads,
                                    uint32_t quad_count, vec2 position,
                                    uint32_t layer) {
   if (!quads || !quad_count) {
-    DBG_E("r_baked_sheet_create: invalid quad parameters.\n");
+    ASTERA_DBG("r_baked_sheet_create: invalid quad parameters.\n");
     return (r_baked_sheet){0};
   }
 
@@ -643,7 +643,7 @@ void r_keyframes_destroy(r_keyframes* frames) {
 void r_keyframes_set(r_keyframes* frames, int frame, float point, float value,
                      r_keyframe_curve curve) {
   if (frame < 0 || frames->count < frame)
-    DBG_E("Invalid keyframe: %i in list.\n", frame);
+    ASTERA_DBG("Invalid keyframe: %i in list.\n", frame);
   frames->list[frame].point = point;
   frames->list[frame].value = value;
   frames->list[frame].curve = curve;
@@ -662,8 +662,8 @@ void r_particles_init(r_particles* system, unsigned int particle_capacity) {
   r_particle* particles =
       (r_particle*)malloc(sizeof(r_particle) * particle_capacity);
   if (!particles) {
-    DBG_E("Unable to allocate sizeof %i for a particle list.\n",
-          (sizeof(r_particle) * particle_capacity));
+    ASTERA_DBG("Unable to allocate sizeof %i for a particle list.\n",
+               (sizeof(r_particle) * particle_capacity));
     system->capacity = 0;
     system->list     = 0;
     return;
@@ -911,7 +911,7 @@ static r_uniform_array r_create_uniform_array(const char* name, int type,
       array.data.mat_ptr = malloc(sizeof(mat4x4) * capacity);
       break;
     default:
-      DBG_E("Unsupported data type: %i\n", type);
+      ASTERA_DBG("Unsupported data type: %i\n", type);
       break;
   }
 
@@ -1107,8 +1107,8 @@ void r_sprite_draw(r_sprite draw) {
   }
 
   if (!batch) {
-    DBG_E("Cache miss for shader ID [%i] and sheet ID [%i].\n", draw.shader,
-          r_sprite_get_sheet_id(draw));
+    ASTERA_DBG("Cache miss for shader ID [%i] and sheet ID [%i].\n",
+               draw.shader, r_sprite_get_sheet_id(draw));
     return;
   }
 
@@ -1175,7 +1175,7 @@ int r_batch_count(void) {
 
 void r_batch_info(void) {
   for (uint32_t i = 0; i < g_shader_map.batch_capacity; ++i) {
-    DBG_E("Shader: %i\n", g_shader_map.batches[i].shader);
+    ASTERA_DBG("Shader: %i\n", g_shader_map.batches[i].shader);
   }
 }
 
@@ -1217,7 +1217,7 @@ void r_shader_clear_array(r_uniform_array* array) {
       memset(array->data.int_ptr, 0, sizeof(int) * array->capacity);
     } break;
     default:
-      DBG_E("Unsupported data type: array_clear\n");
+      ASTERA_DBG("Unsupported data type: array_clear\n");
       break;
   }
   array->count = 0;
@@ -1241,8 +1241,8 @@ static GLuint r_shader_create_sub(unsigned char* data, int length, int type) {
     char* log = malloc(maxlen);
 
     glGetShaderInfoLog(id, maxlen, &len, log);
-    DBG_E("%s: %s\n", (type == GL_FRAGMENT_SHADER) ? "FRAGMENT" : "VERTEX",
-          log);
+    ASTERA_DBG("%s: %s\n", (type == GL_FRAGMENT_SHADER) ? "FRAGMENT" : "VERTEX",
+               log);
     free(log);
   }
 
@@ -1278,7 +1278,7 @@ r_shader r_shader_create(unsigned char* vert_data, int vert_length,
     glGetProgramiv(id, GL_INFO_LOG_LENGTH, &maxlen);
     char* log = malloc(maxlen);
     glGetProgramInfoLog(id, maxlen, &len, log);
-    DBG_E("%s\n", log);
+    ASTERA_DBG("%s\n", log);
     free(log);
   }
 
@@ -1287,20 +1287,20 @@ r_shader r_shader_create(unsigned char* vert_data, int vert_length,
 
 void r_shader_cache(r_shader shader, const char* name) {
   if (g_shader_map.capacity == 0) {
-    DBG_E("No shader cache available.\n");
+    ASTERA_DBG("No shader cache available.\n");
     return;
   }
 
   if (g_shader_map.capacity == g_shader_map.count) {
     // TODO implement cache overflow
-    DBG_E("No shader cache open to use.\n");
+    ASTERA_DBG("No shader cache open to use.\n");
     return;
   }
 
   for (unsigned int i = 0; i < g_shader_map.count; ++i) {
     if (g_shader_map.batches[i].shader == shader) {
-      DBG_E("Shader: %d already contained with alias of: %s\n", shader,
-            g_shader_map.names[i]);
+      ASTERA_DBG("Shader: %d already contained with alias of: %s\n", shader,
+                 g_shader_map.names[i]);
       return;
     }
   }
@@ -1444,20 +1444,21 @@ r_shader_batch* r_batch_create(r_shader shader, r_sheet sheet) {
   }
 
   if (!batch) {
-    DBG_E("Unable to find open spot for batch.\n");
+    ASTERA_DBG("Unable to find open spot for batch.\n");
     return 0;
   }
 
   r_uniform_map* uniform_map = r_shader_get_uniform_map(shader);
 
   if (!uniform_map) {
-    DBG_E("Unable to find uniform map when creating batch for shader %i.\n",
-          shader);
+    ASTERA_DBG(
+        "Unable to find uniform map when creating batch for shader %i.\n",
+        shader);
     return 0;
   }
 
   if (uniform_map->count == 0) {
-    DBG_E("No uniforms for this uniform map..\n");
+    ASTERA_DBG("No uniforms for this uniform map..\n");
   }
 
   batch->uniform_arrays =
@@ -1477,7 +1478,7 @@ r_shader_batch* r_batch_create(r_shader shader, r_sheet sheet) {
     array.name   = uniform_map->names[i];
 
     if (!uniform_map->names[i]) {
-      DBG_E("No name set at index: %i\n", i);
+      ASTERA_DBG("No name set at index: %i\n", i);
     }
 
     array.capacity = uniform_map->capacities[i];
@@ -1599,7 +1600,7 @@ void r_anim_destroy(int uid) {
 
 int r_anim_cache(r_anim anim, const char* name) {
   if (g_anim_map.count >= g_anim_map.capacity) {
-    DBG_E("Animation cache at capacity.\n");
+    ASTERA_DBG("Animation cache at capacity.\n");
     return -1;
   }
 
@@ -1641,7 +1642,7 @@ void r_anim_pause(r_anim* anim) {
 
 int r_anim_get_index(const char* name) {
   if (g_anim_map.count == 0) {
-    DBG_E("No animations in cache to check for.\n");
+    ASTERA_DBG("No animations in cache to check for.\n");
     return 0;
   }
 
@@ -1651,7 +1652,7 @@ int r_anim_get_index(const char* name) {
     }
   }
 
-  DBG_E("No animations matching: %s in cache.\n", name);
+  ASTERA_DBG("No animations matching: %s in cache.\n", name);
   return 0;
 }
 
@@ -1799,8 +1800,8 @@ int r_shader_get_array_index(r_shader shader, const char* name) {
 r_uniform_array* r_shader_get_arrayi(r_shader shader, r_sheet sheet, int uid) {
   r_shader_batch* batch = r_shader_get_batch(shader, sheet);
   if (!batch) {
-    DBG_E("Unable to get batch for shader %i and sheet %i.\n", shader,
-          sheet.id);
+    ASTERA_DBG("Unable to get batch for shader %i and sheet %i.\n", shader,
+               sheet.id);
     return 0;
   }
 
@@ -1830,7 +1831,7 @@ int r_shader_setup_array(r_shader shader, const char* name, int capacity,
   }
 
   if (!map) {
-    DBG_E("Unable to find shader uniform map for shader %i.\n", shader);
+    ASTERA_DBG("Unable to find shader uniform map for shader %i.\n", shader);
     return -1;
   }
 
@@ -1893,7 +1894,7 @@ void r_shader_uniform(r_shader shader, r_sheet sheet, const char* name,
   r_uniform_array* array = r_shader_get_array(shader, sheet, name);
 
   if (!array) {
-    DBG_E("Unable to find Shader Uniform array with UID: %i\n");
+    ASTERA_DBG("Unable to find Shader Uniform array with UID: %i\n");
     return;
   }
 
@@ -1945,7 +1946,7 @@ void r_shader_uniform(r_shader shader, r_sheet sheet, const char* name,
       }
     } break;
     default:
-      DBG_E("Unsupported data type.\n");
+      ASTERA_DBG("Unsupported data type.\n");
       return;
   }
 }
@@ -1955,7 +1956,7 @@ void r_shader_uniformi(r_shader shader, r_sheet sheet, int uid, void* data,
   r_uniform_array* array = r_shader_get_arrayi(shader, sheet, uid);
 
   if (!array) {
-    DBG_E("Unable to find Shader Uniform array with UID: %i\n");
+    ASTERA_DBG("Unable to find Shader Uniform array with UID: %i\n");
     return;
   }
 
@@ -2007,7 +2008,7 @@ void r_shader_uniformi(r_shader shader, r_sheet sheet, int uid, void* data,
       }
     } break;
     default:
-      DBG_E("Unsupported data type.\n");
+      ASTERA_DBG("Unsupported data type.\n");
       return;
   }
 }
@@ -2017,8 +2018,8 @@ void r_shader_sprite_uniform(r_sprite sprite, int uid, void* data) {
       r_shader_get_arrayi(sprite.shader, r_sprite_get_sheet(sprite), uid);
 
   if (!array) {
-    DBG_E("Unable to find array for shader %i and sheet %i.\n", sprite.shader,
-          r_sprite_get_sheet_id(sprite));
+    ASTERA_DBG("Unable to find array for shader %i and sheet %i.\n",
+               sprite.shader, r_sprite_get_sheet_id(sprite));
   }
 
   if (array->count == array->capacity) {
@@ -2047,7 +2048,7 @@ void r_shader_sprite_uniform(r_sprite sprite, int uid, void* data) {
       array->data.float_ptr[array->count] = *src;
     } break;
     default:
-      DBG_E("Unsupported data type.\n");
+      ASTERA_DBG("Unsupported data type.\n");
       return;
   }
   ++array->count;
@@ -2164,7 +2165,7 @@ int r_get_videomode_str(char* dst, int index) {
 
 void r_select_mode(int index, int fullscreen, int vsync, int borderless) {
   if (index > flags.video_mode_count) {
-    DBG_E("Invalid video mode index, not setting.\n");
+    ASTERA_DBG("Invalid video mode index, not setting.\n");
     return;
   }
 
@@ -2193,7 +2194,7 @@ void r_select_mode(int index, int fullscreen, int vsync, int borderless) {
       g_window.borderless = borderless;
       glfwSetWindowAttrib(g_window.glfw, GLFW_DECORATED,
                           (borderless == 0) ? GLFW_TRUE : GLFW_FALSE);
-      DBG_E("Setting borderless to: %i\n", borderless);
+      ASTERA_DBG("Setting borderless to: %i\n", borderless);
     }
 
     if (selected_mode->width != g_window.width ||
@@ -2298,13 +2299,13 @@ static const GLFWvidmode* r_find_best_mode(void) {
 
 int r_window_create(r_window_info info) {
 #if defined(INIT_DEBUG)
-  DBG_E("Creating window.\n");
+  ASTERA_DBG("Creating window.\n");
 #endif
 
   glfwSetErrorCallback(glfw_err_cb);
 
   if (!glfwInit()) {
-    DBG_E("Unable to initialize GLFW\n");
+    ASTERA_DBG("Unable to initialize GLFW\n");
     return 0;
   }
 
@@ -2317,7 +2318,7 @@ int r_window_create(r_window_info info) {
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
 #if defined ASTERA_DEBUG_GL
-  DBG_E("RENDER: Debug GL Enabled.\n");
+  ASTERA_DBG("RENDER: Debug GL Enabled.\n");
   glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
 #endif
 
@@ -2400,7 +2401,7 @@ int r_window_create(r_window_info info) {
   }
 
   if (!window) {
-    DBG_E("Error: Unable to create GLFW window.\n");
+    ASTERA_DBG("Error: Unable to create GLFW window.\n");
     glfwTerminate();
     return 0;
   }
@@ -2423,7 +2424,7 @@ int r_window_create(r_window_info info) {
   }
 
 #if defined(INIT_DEBUG)
-  DBG_E("Window context created successfully.\n");
+  ASTERA_DBG("Window context created successfully.\n");
 #endif
 
   flags.allowed = 1;
@@ -2439,7 +2440,7 @@ int r_window_create(r_window_info info) {
 
 #if !defined(CUSTOM_GLFW_CALLBACKS)
 #if defined(INIT_DEBUG)
-  DBG_E("Setting Callbacks.\n");
+  ASTERA_DBG("Setting Callbacks.\n");
 #endif
   glfwSetWindowPosCallback(g_window.glfw, glfw_window_pos_cb);
   glfwSetWindowSizeCallback(g_window.glfw, glfw_window_size_cb);
@@ -2455,7 +2456,7 @@ int r_window_create(r_window_info info) {
   r_window_get_modes();
 
 #if defined(INIT_DEBUG)
-  DBG_E("Setting default bindings.\n");
+  ASTERA_DBG("Setting default bindings.\n");
 #endif
 
   return 1;
@@ -2509,7 +2510,7 @@ int r_window_set_icon(unsigned char* data, int length) {
 
     free(img);
   } else {
-    DBG_E("No window icon passed to set.\n");
+    ASTERA_DBG("No window icon passed to set.\n");
     return 0;
   }
 

@@ -11,27 +11,31 @@ set(CMAKE_POLICY_DEFAULT_CMP0075 NEW)
 
 set(CMAKE_VISIBILITY_INLINES_HIDDEN ON)
 set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_C_STANDARD 99)
 set(CMAKE_FIND_FRAMEWORK FIRST)
 
 include(CMakeDependentOption)
 include(GenerateExportHeader)
 
 find_package(OpenGL REQUIRED)
-find_package(Sphinx)
 
 cmake_dependent_option(ASTERA_BUILD_EXAMPLES 
-  "Build astera's examples" OFF
+  "Build astera's examples" ON
   "CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME" ON)
 
-cmake_dependent_option(ASTERA_BUILD_DYNAMIC
-  "Build astera dynamically instead of static" OFF
-  "CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME" OFF)
+# If we want to add dynamic versions
+#cmake_dependent_option(ASTERA_BUILD_DYNAMIC
+#  "Build astera dynamically instead of static" OFF
+#  "CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME" OFF)
+
+cmake_dependent_option(ASTERA_BUILD_PEDANTIC
+  "Build astera with pedantic warning flags" OFF
+  "CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME" ON)
 
 cmake_dependent_option(ASTERA_BUILD_DOCS
   "Build astera's documentation" OFF
   "CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME;Sphinx_FOUND" ON)
 
-# TODO: put set(OPENAL_<option> values here)
 set(ALSOFT_DLOPEN ON)
 set(ALSOFT_WERROR OFF)
 set(ALSOFT_UTILS OFF)
@@ -41,7 +45,6 @@ set(ALSOFT_CONFIG OFF)
 set(ALSOFT_HRTF_DEFS OFF)
 set(ALSOFT_INSTALL OFF)
 
-# set(GLFW_<option>)
 set(BUILD_SHARED_LIBS OFF)
 set(GLFW_BUILD_EXAMPLES OFF)
 set(GLFW_BUILD_TESTS OFF)
@@ -60,13 +63,12 @@ if (NOT TARGET OpenAL::AL)
 endif()
 
 file(GLOB sources CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/src/*.c)
-add_library(${PROJECT_NAME} SHARED)
+add_library(${PROJECT_NAME} STATIC)
 target_sources(${PROJECT_NAME} PRIVATE ${sources})
 target_sources(${PROJECT_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/dep/nanovg/nanovg.c)
 target_sources(${PROJECT_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/dep/getopt/getopt.c)
 target_sources(${PROJECT_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/dep/zip/zip.c)
 #target_sources(${PROJECT_NAME} PRIVATE $<TARGET_OBJECTS:OpenAL::AL> $<TARGET_OBJECTS:glfw>)
-
 
 target_include_directories(${PROJECT_NAME}
   PUBLIC
@@ -89,16 +91,21 @@ target_compile_definitions(${PROJECT_NAME}
     $<$<PLATFORM_ID:NetBSD>:NetBSD>
     $<$<PLATFORM_ID:Darwin>:OSX>)
 target_compile_features(${PROJECT_NAME} PRIVATE c_std_99)
-target_compile_options(${PROJECT_NAME}
-  PRIVATE
-    $<$<NOT:$<C_COMPILER_ID:MSVC>>:-Wall -Wextra -pedantic>
-    $<$<C_COMPILER_ID:MSVC>:/WX /W4>)
+
+if(ASTERA_BUILD_PEDANTIC)
+  target_compile_options(${PROJECT_NAME}
+    PRIVATE
+      $<$<NOT:$<C_COMPILER_ID:MSVC>>:-Wall -Wextra -pedantic>
+      $<$<C_COMPILER_ID:MSVC>:/WX /W4>)
+endif()
+
 target_link_libraries(${PROJECT_NAME}
   PUBLIC
     OpenGL::GL
     OpenAL::AL
     $<$<NOT:$<PLATFORM_ID:Windows>>:m>
     glfw)
+
 set_property(TARGET astera PROPERTY C_VISIBILITY_PRESET "hidden")
 set_property(TARGET astera PROPERTY VERSION ${PROJECT_VERSION})
 
@@ -111,11 +118,8 @@ generate_export_header(astera
   EXPORT_FILE_NAME "include/astera/export.h"
   CUSTOM_CONTENT_FROM_VARIABLE al-libtype-static)
 
-if(ASTERA_BUILD_EXAMPLES)
-  add_subdirectory(examples)
-endif()
-
 if (ASTERA_BUILD_DOCS)
+  find_package(Sphinx REQUIRED)
   file(GLOB sources CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/docs/*.rst")
   add_custom_target(docs
     COMMAND Sphinx::Build "${PROJECT_SOURCE_DIR}/docs" "${PROJECT_BINARY_DIR}/docs"
@@ -137,3 +141,8 @@ install(EXPORT astera-targets
 install(DIRECTORY include/ "${PROJECT_BINARY_DIR}/include/"
   TYPE INCLUDE
   FILES_MATCHING PATTERN "*.h")
+
+if(ASTERA_BUILD_EXAMPLES)
+  add_subdirectory(examples)
+endif()
+

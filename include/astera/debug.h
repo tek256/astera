@@ -1,4 +1,4 @@
-// TODO: Refactor DBG_E to ASTERA_DBG_E
+// TODO: Refactor ASTERA_DBG to ASTERA_ASTERA_DBG
 
 #ifndef ASTERA_DEBUG_HEADER
 #define ASTERA_DEBUG_HEADER
@@ -13,7 +13,7 @@ extern "C" {
 
 int d_fatal;
 
-ASTERA_API void dbg_enable_log(int log, const char* fp);
+ASTERA_API void ASTERA_DBGnable_log(int log, const char* fp);
 ASTERA_API void dbg_set_log_fp(const char* fp);
 
 ASTERA_API void dbg_set_timestamp(int enabled);
@@ -26,18 +26,17 @@ ASTERA_API void _fatal(const char* format, ...);
 ASTERA_API void _l(const char* format, ...);
 ASTERA_API void _e(const char* format, ...);
 
-#if !defined DBG_E
-  #if defined(ASTERA_DEBUG_OUTPUT) && !defined(_MSC_VER)
-    #if defined(ASTERA_DEBUG_INCLUDED)
-      #define DBG_E(fmt, ...) _l(fmt, ##__VA_ARGS__)
-    #else
-      #define DBG_E(fmt, ...) printf(fmt, ##__VA_ARGS__)
-    #endif
-  #else
-    #define DBG_E(fmt, ...)
-  #endif
+#if !defined ASTERA_DBG
+#if defined(ASTERA_DEBUG_OUTPUT) && !defined(_MSC_VER)
+#if defined(ASTERA_DEBUG_INCLUDED)
+#define ASTERA_DBG(fmt, ...) _l(fmt, ##__VA_ARGS__)
+#else
+#define ASTERA_DBG(fmt, ...) printf(fmt, ##__VA_ARGS__)
 #endif
-
+#else
+#define ASTERA_DBG(fmt, ...)
+#endif
+#endif
 
 #ifdef __cplusplus
 }

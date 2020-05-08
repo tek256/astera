@@ -3,9 +3,9 @@
 
 #include <math.h>
 
-#define _PI    3.141592654
-#define RADPI  180 / _PI
-#define DEGRAD _PI / 180
+#define ASTERA_PI     3.141592654
+#define ASTERA_RADPI  180 / ASTERA_PI
+#define ASTERA_DEGRAD ASTERA_PI / 180
 
 static float distpow(vec2 a, vec2 b) {
   return ((a[0] - b[0]) * (a[0] - b[0])) + ((a[1] - b[1]) * (a[1] - b[1]));

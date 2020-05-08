@@ -1,3 +1,5 @@
+// Make it real ini support, grouping etc
+
 #include <astera/conf.h>
 #include <astera/debug.h>
 
@@ -151,7 +153,7 @@ void c_table_free(c_table table) {
 
 static char* c_cleaned_str(const char* str, int* size, char* str_end) {
   if (!str) {
-    DBG_E("Unable to clean null string.\n");
+    ASTERA_DBG("Unable to clean null string.\n");
     return 0;
   }
 
@@ -241,10 +243,6 @@ c_table c_get_table(unsigned char* data, int length) {
     ++line_count;
     line = strtok(NULL, "\n");
   }
-
-  /*for (int i = 0; i < line_count; ++i) {
-    _l("%s : %s\n", keys[i], values[i]);
-  }*/
 
   return (c_table){keys, values, line_count};
 }

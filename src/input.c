@@ -38,21 +38,21 @@ int          key_binding_count;
 uint16_t i_init(void) {
   mouse_b = i_create_s(ASTERA_MAX_MOUSE_BUTTONS);
   if (!mouse_b.curr || !mouse_b.prev) {
-    DBG_E("Unable to malloc space for mouse.\n");
+    ASTERA_DBG("Unable to malloc space for mouse.\n");
     i_exit();
     return 0;
   }
 
   keyboard = i_create_s(ASTERA_MAX_KEYS);
   if (!keyboard.curr || !keyboard.prev) {
-    DBG_E("Unable to malloc space for keyboard.\n");
+    ASTERA_DBG("Unable to malloc space for keyboard.\n");
     i_exit();
     return 0;
   }
 
   current_keys = malloc(sizeof(uint16_t) * ASTERA_MAX_KEYS);
   if (!current_keys) {
-    DBG_E("Unable to malloc space for keyboard.\n");
+    ASTERA_DBG("Unable to malloc space for keyboard.\n");
     i_exit();
     return 0;
   }
@@ -67,7 +67,7 @@ uint16_t i_init(void) {
   key_bindings        = malloc(sizeof(key_binding) * ASTERA_MAX_KEY_BINDINGS);
   memset(key_bindings, 0, sizeof(key_binding) * ASTERA_MAX_KEY_BINDINGS);
   if (!key_bindings) {
-    DBG_E("Unable to malloc space for key bindings.\n");
+    ASTERA_DBG("Unable to malloc space for key bindings.\n");
     i_exit();
     return 0;
   }
@@ -335,7 +335,7 @@ int i_get_mouse_grab(GLFWwindow* window) {
   } else if (value == GLFW_CURSOR_NORMAL) {
     return 0;
   } else {
-    DBG_E("Error: Invalid input mode for GLFW_CURSOR: %i\n", value);
+    ASTERA_DBG("Error: Invalid input mode for GLFW_CURSOR: %i\n", value);
     return 0;
   }
 }
@@ -459,7 +459,7 @@ void i_add_binding(const char* name, int value, int type) {
     }
 
     if (key_binding_count == ASTERA_MAX_KEY_BINDINGS) {
-      DBG_E("Unable to add more key bindings.\n");
+      ASTERA_DBG("Unable to add more key bindings.\n");
       return;
     }
   }
@@ -797,7 +797,7 @@ void i_update(void) {
     for (int i = 0; i < 16; ++i) {
       if (glfwJoystickPresent(i)) {
         i_create_joy(i);
-        DBG_E("Joystick [%i] found.\n", i);
+        ASTERA_DBG("Joystick [%i] found.\n", i);
         joy_exists = 1;
         break;
       }

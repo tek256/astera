@@ -1,7 +1,4 @@
 // NOTE: At this time the dropdown implementation is buggy
-// TODO: Debug Mouse usage in this example, for some reason it just segfaults
-//
-// NOTE: THIS IS NOT WORKING AT THIS TIME
 
 #include <stdio.h>
 #include <astera/debug.h>
@@ -16,8 +13,6 @@
 #include <string.h>
 #include <assert.h>
 
-#include "game.h"
-
 typedef struct {
   ui_button start_button;
   int       start_button_id;
@@ -30,6 +25,8 @@ typedef struct {
 
   ui_tree tree;
 } start_screen_t;
+
+typedef enum { GAME_START = 0, GAME_GAME, GAME_PAUSE } game_state_t;
 
 static int running = 0;
 
@@ -231,7 +228,6 @@ void input(time_s delta) {
     if ((event_type = ui_element_event(&start_screen.tree,
                                        start_screen.start_button_id))) {
       printf("Hello from the start button!\n");
-      game_start();
     }
 
     if ((event_type = ui_element_event(&start_screen.tree,
