@@ -1,20 +1,18 @@
+# Astera
+<span><img src="https://github.com/tek256/astera/workflows/Build%20Astera/badge.svg"></span>
+    </p>
+</div>
 <div id="header">
     <p align="center">
       <img width="64px" height="64px" style="border-radius: 6px;" src="docs/images/icon.png"><br>
       <b>astera</b><br>
 	  <span font-size="16px">a cross platform game library</span><br>
-      <span font-size="12px">Made by <a href="http://tek256.com">Devon</a> with love.</span><br><br>
+      <span font-size="12px">Made by <a href="http://tek256.com">Devon</a>, with love.</span><br><br>
       <span><a href="https://github.com/tek256/astera/wiki/Setup">Setup</a> | <a href="https://github.com/tek256/astera/tree/master/examples/">Examples</a> | <a href="https://discordapp.com/invite/63GvpMh">Discord</a> | <a href="https://github.com/sponsors/tek256">Support</a></span><br><br>
-      <span><img src="https://github.com/tek256/astera/workflows/Build%20Astera/badge.svg"></span>
-    </p>
-</div>
-
-### About
+      
 Astera is a game library focused on performance, portability, and maintainability. Astera aims to rely on as few dependencies as possible.  
 
-#### Latest Release: 0.01-PRE
-
-### Building
+## Building
 Astera and it's dependencies are built using CMake. You can run your own CMake command or try using one of the automated build scripts.
 ```
 Usage build_unix.sh && build_win.bat [-hrcxqq]
@@ -44,16 +42,16 @@ For more information see the relevant [wiki page](https://github.com/tek256/aste
 ### Libraries Used
 [GLFW](https://github.com/glfw/glfw), [OpenAL-Soft](https://github.com/kcat/openal-soft), [GLAD](https://github.com/Dav1dde/glad), [STB](https://github.com/nothings/stb/) Image & Vorbis, [nanovg](https://github.com/memononen/nanovg), and [ZIP](https://github.com/kuba--/zip).
 
-### Target Platforms
+## Target Platforms
 Here are the target platforms for this library:  
-```
-- Windows
 - Linux
+- Windows
 - Mac OSX (versions supporting OpenGL 3.3+)
 - BSD
-```  
 
-### Changelog
+
+## Changelog
+#### Latest Release: 0.01-PRE
 ```
 May 8, 2020
 - Static building
@@ -81,13 +79,13 @@ Mar 21, 2020
 For older changes see docs/changelog-archive.txt
 ```
 
-### Special Thanks
+## Special Thanks
 [Isabella Muerte](https://github.com/slurps-mad-rips) for being a patient friend and helping create the build system.  
 [Sharlock93](https://github.com/sharlock93) for helping diagnose issues.  
 [Dan Bechard](https://github.com/dbechrd) for helping test on Windows & discuss ideas with.  
 
-### License  
-The Unlicense 
+## License  
+<a href="http://unlicense.org">The Unlicense</a>
 ```
 This is free and unencumbered software released into the public domain.
 
