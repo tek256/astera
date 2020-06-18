@@ -1,45 +1,70 @@
-// TODO: Refactor ASTERA_DBG to ASTERA_ASTERA_DBG
-
 #ifndef ASTERA_DEBUG_HEADER
 #define ASTERA_DEBUG_HEADER
 
 #define ASTERA_DEBUG_INCLUDED
 
+/* Macro Options
+ * ASTERA_DEBUG_OUTPUT - Enable the debug output macro (configured with
+ *                       cmake build type) */
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include <astera/export.h>
+#include <stdint.h>
 
-int d_fatal;
+typedef struct {
+  uint8_t     silent, logging, timestamp;
+  const char* log_fp;
+  char        time_buff[16];
+} d_ctx;
 
-ASTERA_API void ASTERA_DBGnable_log(int log, const char* fp);
-ASTERA_API void dbg_set_log_fp(const char* fp);
+// Create the global context to use, and initialize it
+static d_ctx _d_ctx = (d_ctx){
+    .silent    = 0,
+    .logging   = 0,
+    .timestamp = 0,
+    .log_fp    = "debug.txt",
+};
 
-ASTERA_API void dbg_set_timestamp(int enabled);
-ASTERA_API int  dbg_is_logging();
-ASTERA_API int  dbg_post_to_err();
+/* Get a pointer to the debug context paramters
+ * returns: pointer to the debug context */
+d_ctx* d_ctx_get();
 
-ASTERA_API int dbg_cleanup();
+/* Disable / Enable & set usage of outputting the log to file
+ *  log - 1 = use log, 0 = don't
+ *  fp - the filepath (optional if disabling) */
+void d_set_log(uint8_t log, const char* fp);
 
-ASTERA_API void _fatal(const char* format, ...);
-ASTERA_API void _l(const char* format, ...);
-ASTERA_API void _e(const char* format, ...);
+/* Set the file to use for log output
+ * fp - the file path*/
+void d_set_log_fp(const char* fp);
 
-#if !defined ASTERA_DBG
+/* Enable / disable usage of the timestamp
+ * timestamp - use timestamp, 0 = don't */
+void d_use_timestamp(uint8_t timestamp);
+
+/* If we're outputting the log to file
+ * returns: logging = 1, not logging = 0 */
+uint8_t d_is_logging();
+
+/* Post the output file to a unique timestamped error file
+ * returns: success = 1, failure = 0 */
+uint8_t d_post_to_err();
+
+/* Remove any files created by runtime (except for error files)
+ * returns: success = 1, failure = 0 */
+uint8_t d_cleanup();
+
+void _l(const char* format, ...);
+void _e(const char* format, ...);
+
+// TODO fix this
 #if defined(ASTERA_DEBUG_OUTPUT) && !defined(_MSC_VER)
-#if defined(ASTERA_DEBUG_INCLUDED)
 #define ASTERA_DBG(fmt, ...) _l(fmt, ##__VA_ARGS__)
-#else
-#define ASTERA_DBG(fmt, ...) printf(fmt, ##__VA_ARGS__)
-#endif
 #else
 #define ASTERA_DBG(fmt, ...)
 #endif
-#endif
 
-#ifdef __cplusplus
-}
+// EOF
 #endif
-#endif
-

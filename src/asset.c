@@ -1,18 +1,11 @@
 // TODO: Combine pak_t & asset_map_t
 /*
  * NOTE: The PAK System is inspired by the r-lyeh/sdarc.c implementation
- * oh, this one will be a fun one lol
  */
 #include <astera/asset.h>
 #include <astera/debug.h>
 
-#if !defined(ASTERA_NO_ZIP)
 #include <zip.h>
-
-#if !defined(ASTERA_ZIP_LEVEL)
-#define ASTERA_ZIP_LEVEL 0
-#endif
-#endif
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,7 +15,6 @@
 #define alloca(x) __builtin_alloca(x)
 #endif
 
-#if !defined(ASTERA_NO_PAK)
 #include <sys/stat.h>
 
 static inline uint32_t pak_swap32(uint32_t t) {
@@ -41,7 +33,6 @@ static inline uint32_t pak_swap32(uint32_t t) {
 #define ltoh32(x) pak_swap32(x)
 #endif
 
-#if !defined(ASTERA_NO_PAK_FILE)
 pak_t* pak_open(const char* file, const char* mode) {
   struct stat _filestats;
   int         exists = (stat(file, &_filestats) == 0);
@@ -219,7 +210,6 @@ int32_t pak_append_file(pak_t* pak, const char* filename, FILE* in) {
 
   return !ferror(pak->out);
 }
-#endif
 
 void pak_open_mem(pak_t* pak, unsigned char* data, uint32_t data_length) {
   if (!data || !data_length) {
@@ -229,9 +219,7 @@ void pak_open_mem(pak_t* pak, unsigned char* data, uint32_t data_length) {
 
   memset(pak, 0, sizeof(pak_t));
 
-#if !defined(ASTERA_PAK_NO_FILE)
   pak->file_mode = 0;
-#endif
 
   pak_header_t* header = (pak_header_t*)data;
   if (!header) {
@@ -285,7 +273,6 @@ void pak_open_mem(pak_t* pak, unsigned char* data, uint32_t data_length) {
 unsigned char* pak_extract(pak_t* pak, uint32_t index) {
   if (index < pak->count) {
     pak_file_t* file = &pak->entries[index];
-#if !defined(ASTERA_PAK_NO_FILE)
     if (pak->file_mode && pak->in) {
       if (fseek(pak->in, file->offset, SEEK_SET) != 0) {
         ASTERA_DBG("File read error: cannot seek to offset %i\n", file->offset);
@@ -305,9 +292,6 @@ unsigned char* pak_extract(pak_t* pak, uint32_t index) {
 
       return buffer;
     } else if (!pak->file_mode && pak->data_ptr) {
-#else
-    if (pak->data_ptr) {
-#endif
       unsigned char* offset = &pak->data_ptr[file->offset];
 
       if (!offset) {
@@ -348,7 +332,6 @@ unsigned char* pak_extract_noalloc(pak_t* pak, uint32_t index,
       return 0;
     }
 
-#if !defined(ASTERA_PAK_NO_FILE)
     if (pak->file_mode && pak->in) {
       if (fseek(pak->in, file->offset, SEEK_SET) != 0) {
         ASTERA_DBG("File read error: cannot seek to offset %i\n", file->offset);
@@ -362,9 +345,6 @@ unsigned char* pak_extract_noalloc(pak_t* pak, uint32_t index,
 
       return out;
     } else if (!pak->file_mode && pak->data_ptr) {
-#else
-    if (pak->data_ptr) {
-#endif
       unsigned char* offset = &pak->data_ptr[file->offset];
 
       if (!offset) {
@@ -382,7 +362,6 @@ unsigned char* pak_extract_noalloc(pak_t* pak, uint32_t index,
 }
 
 pak_t* pak_close(pak_t* pak) {
-#if !defined(ASTERA_PAK_NO_FILE)
   if (pak->out) {
     uint32_t seek   = 12;
     uint32_t dirpos = (uint32_t)ftell(pak->out);
@@ -420,7 +399,7 @@ pak_t* pak_close(pak_t* pak) {
     fclose(pak->in);
   if (pak->out)
     fclose(pak->out);
-#endif
+
   if (pak->data_ptr) {
     free(pak->data_ptr);
   }
@@ -433,7 +412,6 @@ pak_t* pak_close(pak_t* pak) {
 }
 
 int32_t pak_find(pak_t* pak, const char* filename) {
-#if !defined(ASTERA_PAK_NO_FILE)
   if ((pak->file_mode && pak->in) || (!pak->file_mode && pak->data_ptr)) {
     for (uint32_t i = 0; i < pak->count; ++i) {
       if (!strcmp(pak->entries[i].name, filename)) {
@@ -441,65 +419,38 @@ int32_t pak_find(pak_t* pak, const char* filename) {
       }
     }
   }
-#else
-  if (pak->data_ptr) {
-    for (uint32_t i = pak->count; i > 0; --i) {
-      if (!strcmp(pak->entries[i].name, filename)) {
-        return i;
-      }
-    }
-  }
-#endif
   return -1;
 }
 
 uint32_t pak_count(pak_t* pak) {
   if (!pak)
     return 0;
-#if !defined(ASTERA_PAK_NO_FILE)
   return ((pak->in && pak->file_mode) || (pak->data_ptr && !pak->file_mode))
              ? pak->count
              : 0;
-#else
-  return pak->data_ptr ? pak->count : 0;
-#endif
 }
 
 uint32_t pak_offset(pak_t* pak, uint32_t index) {
-#if !defined(ASTERA_PAK_NO_FILE)
   return ((pak->in && pak->file_mode) || (pak->data_ptr && !pak->file_mode)) &&
                  index < pak->count
              ? pak->entries[index].offset
              : 0;
-#else
-  return pak->data_ptr && index < pak->count ? pak->entries[index].offset : 0;
-#endif
 }
 
 uint32_t pak_size(pak_t* pak, uint32_t index) {
-#if !defined(ASTERA_PAK_NO_FILE)
   return ((pak->in && pak->file_mode) || (pak->data_ptr && !pak->file_mode)) &&
                  index < pak->count
              ? pak->entries[index].size
              : 0;
-#else
-  return pak->data_ptr && index < pak->count ? pak->entries[index].size : 0;
-#endif
 }
 
 char* pak_name(pak_t* pak, uint32_t index) {
-#if !defined(ASTERA_PAK_NO_FILE)
   return (index < pak->count) && ((pak->file_mode && pak->in) ||
                                   (!pak->file_mode && pak->data_ptr))
              ? pak->entries[index].name
              : 0;
-#else
-  return pak->data_ptr && index < pak->count ? pak->entries[index].name : 0;
-#endif
   return 0;
 }
-
-#endif
 
 void asset_free(asset_t* asset) {
   asset->name   = 0;
@@ -529,8 +480,62 @@ void asset_map_free(asset_map_t* map) {
   map->filename = 0;
 }
 
-// TODO
-asset_t* asset_map_get(asset_map_t* map, const char* file) { return 0; }
+asset_t* asset_map_get(asset_map_t* map, const char* file) {
+  // First check if we have it already loaded
+  if (map->count > 0) {
+    for (uint32_t i = 0; i < map->capacity; ++i) {
+      if (map->assets[i]) {
+        if (map->assets[i]->name && map->assets[i]->data) {
+          if (strcmp(file, map->assets[i]->name) == 0) {
+            return map->assets[i];
+          }
+        }
+      }
+    }
+  }
+
+  if (map->type != MAP_FS) {
+    asset_t* asset = (asset_t*)malloc(sizeof(asset_t));
+    asset->name    = file;
+    ++map->uid_counter;
+    asset->uid      = map->uid_counter;
+    asset->req      = 0;
+    asset->req_free = 0;
+
+    if (map->type == MAP_PAK) {
+      int32_t asset_index = pak_find(map->pak, file);
+
+      if (asset_index == -1) {
+        free(asset);
+        return 0;
+      }
+
+      asset->data_length = pak_size(map->pak, asset_index);
+      asset->data        = pak_extract(map->pak, asset_index);
+    } else if (map->type == MAP_ZIP) {
+    }
+
+    asset->filled = 1;
+    return asset;
+  } else {
+    asset_t* asset = asset_get(file);
+    ++map->uid_counter;
+    asset->uid = map->uid_counter;
+
+    if (asset) {
+      int8_t isset = 0;
+      for (uint32_t i = 0; i < map->capacity; ++i) {
+        if (!map->assets[i]) {
+          map->assets[i] = asset;
+          ++map->count;
+          return asset;
+        }
+      }
+    }
+    asset->filled = 1;
+    return asset;
+  }
+}
 
 // NOTE: Local System
 asset_t* asset_get(const char* file) {
@@ -539,7 +544,7 @@ asset_t* asset_get(const char* file) {
     return 0;
   }
 
-  asset_t* asset = malloc(sizeof(asset_t));
+  asset_t* asset = (asset_t*)malloc(sizeof(asset_t));
 
   FILE* f = fopen(file, "r+b");
 
@@ -611,137 +616,6 @@ void asset_map_removei(asset_map_t* map, uint32_t id) {
 
   free(map->assets[id]->data);
   map->assets[id]->uid = 0;
-}
-
-asset_t* asset_map_find(asset_map_t* map, const char* name, int allow_fetch) {
-  if (!map) {
-    ASTERA_DBG("asset_map_find: no map passed.\n");
-    return 0;
-  }
-
-  if (!name) {
-    ASTERA_DBG("asset_map_find: no filename or name passed.\n");
-    return 0;
-  }
-
-  for (uint32_t i = 0; i < map->capacity; ++i) {
-    if (map->assets[i]->filled) {
-      if (map->assets[i]->name) {
-        if (!strcmp(map->assets[i]->name, name)) {
-          return map->assets[i];
-        }
-      }
-    }
-  }
-
-  if (allow_fetch) {
-    asset_t* new_asset;
-    switch (map->type) {
-      case MAP_FS: {
-        new_asset = asset_get(name);
-        if (!new_asset) {
-          ASTERA_DBG(
-              "asset_map_find: unable to open file from filesystem: %s\n",
-              name);
-          return 0;
-        }
-      }
-        return new_asset;
-      case MAP_PAK: {
-        new_asset        = (asset_t*)malloc(sizeof(asset_t));
-        int      f_index = pak_find(map->pak, name);
-        uint32_t f_size;
-
-        if (f_index) {
-          f_size = pak_size(map->pak, f_index);
-
-          unsigned char* data = pak_extract(map->pak, f_index);
-
-          if (!data) {
-            ASTERA_DBG("asset_map_find: unable to extra file from pak: %s\n",
-                       name);
-            free(new_asset);
-            return 0;
-          }
-
-          new_asset->data        = data;
-          new_asset->data_length = f_size;
-          new_asset->filled      = 1;
-          new_asset->name        = name;
-
-          return new_asset;
-
-        } else {
-          ASTERA_DBG("asset_map_find: unable to fetch file from pak: %s\n",
-                     name);
-          free(new_asset);
-          return 0;
-        }
-
-      } break;
-      case MAP_ZIP: {
-        new_asset = (asset_t*)malloc(sizeof(asset_t));
-
-        if (!new_asset) {
-          ASTERA_DBG("asset_map_find: unable to allocate space for new asset "
-                     "struct.\n");
-          return 0;
-        }
-
-        struct zip_t* zip = zip_open(map->filename, ASTERA_ZIP_LEVEL, 'r');
-        if (!zip) {
-          ASTERA_DBG("asset_map_find: unable to open zip file.\n",
-                     map->filename);
-          free(new_asset);
-          return 0;
-        }
-
-        if (zip_entry_open(zip, name)) {
-          ASTERA_DBG("asset_map_find: unable to open zip entry: %s\n", name);
-          free(new_asset);
-          zip_close(zip);
-          return 0;
-        }
-
-        long           entry_size = zip_entry_size(zip);
-        unsigned char* data =
-            (unsigned char*)malloc(sizeof(unsigned char) * (entry_size + 1));
-
-        if (!data) {
-          ASTERA_DBG(
-              "asset_map_find: unable to alloc space for zip entry [%i]: %s\n",
-              entry_size + 1, name);
-          zip_close(zip);
-          free(new_asset);
-          return 0;
-        }
-
-        if (!zip_entry_noallocread(zip, data, entry_size + 1)) {
-          ASTERA_DBG("asset_map_find: unable to read zip data for entry: %s\n",
-                     entry_size);
-          zip_close(zip);
-          free(data);
-          free(new_asset);
-          return 0;
-        }
-
-        data[entry_size] = 0;
-
-        new_asset->data        = data;
-        new_asset->data_length = entry_size + 1;
-        new_asset->filled      = 1;
-        new_asset->name        = name;
-
-        zip_close(zip);
-
-        return new_asset;
-      } break;
-    }
-  } else {
-    return 0;
-  }
-
-  return 0;
 }
 
 void asset_map_update(asset_map_t* map) {
@@ -829,14 +703,6 @@ asset_t* asset_get_chunk(const char* file, uint32_t chunk_start,
 asset_map_t asset_map_create(const char* filename, const char* name,
                              uint32_t capacity, uint8_t compression_level,
                              asset_map_type type) {
-#if defined(ASTERA_NO_PAK)
-  if (is_pak) {
-    ASTERA_DBG("asset_create_map: unable to create map using pak without pak "
-               "features included.\n");
-    return 0;
-  }
-#endif
-
   asset_map_t map =
       (asset_map_t){.assets   = (asset_t**)malloc(sizeof(asset_t*) * capacity),
                     .count    = 0,
@@ -849,3 +715,21 @@ asset_map_t asset_map_create(const char* filename, const char* name,
   return map;
 }
 
+/* Write data to the file system */
+int8_t asset_write(const char* file_path, void* data, uint32_t data_length) {
+  FILE* f = fopen(file_path, "wb");
+
+  if (!f) {
+    return -1;
+  }
+
+  uint32_t write_length = fwrite(data, data_length, 1, f);
+
+  if (write_length != data_length) {
+    ASTERA_DBG("asset_write: mismatched write & data sizes [data_length: %i, "
+               "write_length: %i].\n",
+               data_length, write_length);
+  }
+
+  fclose(f);
+}

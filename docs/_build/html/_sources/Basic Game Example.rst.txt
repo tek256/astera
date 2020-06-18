@@ -1,2 +1,0 @@
-Basic Game Example
-==================

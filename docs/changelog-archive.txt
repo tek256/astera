@@ -1,3 +1,10 @@
+Mar 21, 2020
+- Updated OpenAL-Soft to 1.20.1
+- AABB & Circle Collision detection working
+- Audio Effects completed
+- Audio Distance Calculations done
+- In progress: Quad trees & level system
+
 Mar 18, 2020
 - Build Script (Unix only for now, Windows in the works)
 - Recreated useful tools
@@ -9,25 +16,30 @@ Mar 18, 2020
 - Rendering Bug Fixes
 - Probably missed a lot of things here
 - Added GitHub Workflows (CI) Support
+
 Feb 5, 2020
 - Largely Documentation
 - Converted Documentation to Markdown & Legible formatting
 - Moved `examples/` into `docs/`
 - Updated scripts in `tool` for usability & legibility
+
 Feb 3, 2020
 - 0.01 PRE-Release
 - Asset Streaming changes
 - Wave file playing
 - Pedantic cleaning
 - UI Finished
+
 Jan 16, 2020
 - Prepping for 0.01 Release
 - Rendering changes
 - Audio refactor
 - UI System in progress
+
 Dec 14, 2019 - 2
 - Audio music working
 - Updated vorbis to 1.17
+
 Dec 14, 2019
 - Subsprite bugfix
 - Working on audio update
@@ -35,6 +47,7 @@ Dec 14, 2019
 - Updated a few `tool` programs
 - Removing unused timer implementation, potentially replaced in the future
 - Updated all time implementations to be decimal milliseconds
+
 Nov 22, 2019
 - Refactoring for release candidate 0.01
 - Refactoring towards Library Style build
@@ -54,19 +67,23 @@ Nov 22, 2019
 - Batched animations added
 - Texture Particles added
 - Color Particles added
+
 Nov 9, 2019
 - Changed rendering to use less cache
 - Made r_sprite live on the stack vs heap
 - Lots of other changes, see git diff
+
 Nov 2, 2019
 - Removed TODO to Projects page on GitHub
 - Added CI Implemation for GitHub Actions
 - Updated README for legibility
+
 Oct 25, 2019
 - Cleaning up dependencies
 - Updated Makefile to reflect dependency changes
 - Updated README to be a bit more useful
 - Removed phys.c/h to be re-added when completed
+
 Oct 24, 2019
 - Removing level.c/h until functional
 - Updating to comply with pedantic compilation
@@ -75,9 +92,11 @@ Oct 24, 2019
 - Really wanting chicken strips
 - Moving to C11 for anonymous union support
 - Working on CI Support in other repository
+
 Oct 21, 2019
 - Working on render cache
 - UI implementation work
+
 Oct 10, 2019
 - Update ZIP Dependency
 - Refactoring into more legible code
@@ -87,6 +106,7 @@ Oct 10, 2019
 - Writing include options / toggles
 - Documenting parts of the engine in the wiki
 - Transitioning to clang/LLVM workflow
+
 Sept 24, 2019
 - Added ZIP Functionality
 - Moved CONTRIBUTING.md & LICENSE into README.md

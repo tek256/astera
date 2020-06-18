@@ -15,10 +15,6 @@ foreach (entry IN LISTS entries)
 endforeach()
 list(REMOVE_ITEM directories "${CMAKE_CURRENT_SOURCE_DIR}/resources")
 
-# Both of these examples are still under construction
-list(REMOVE_ITEM directories "${CMAKE_CURRENT_SOURCE_DIR}/advanced_game")
-list(REMOVE_ITEM directories "${CMAKE_CURRENT_SOURCE_DIR}/basic_game")
-
 add_custom_target(${PROJECT_NAME}-examples-resources ALL
   COMMAND
     ${CMAKE_COMMAND} -E copy_directory

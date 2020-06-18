@@ -1,6 +1,6 @@
-// TODO: Refactor ui_image functions to ui_img
-
 #include <astera/ui.h>
+
+// Include the debugging definitions
 #include <astera/debug.h>
 
 #include <glad/glad.h>
@@ -45,8 +45,8 @@ uint32_t ui_element_get_uid(ui_element element) {
   }
 }
 
-ui_ctx* ui_ctx_create(vec2 screen_size, float pixel_scale, int use_mouse,
-                      int antialias) {
+ui_ctx* ui_ctx_create(vec2 screen_size, float pixel_scale, int8_t use_mouse,
+                      int8_t antialias) {
   ui_ctx* ctx = (ui_ctx*)malloc(sizeof(ui_ctx));
 
   memset(ctx, 0, sizeof(ui_ctx));
@@ -72,8 +72,14 @@ ui_ctx* ui_ctx_create(vec2 screen_size, float pixel_scale, int use_mouse,
   return ctx;
 }
 
+uint8_t ui_ctx_is_mouse(ui_ctx* ctx) { return ctx->use_mouse; }
+
+uint8_t ui_ctx_is_antialias(ui_ctx* ctx) { return ctx->antialias; }
+
+void ui_ctx_set_mouse(ui_ctx* ctx, uint8_t mouse) { ctx->use_mouse = mouse; }
+
 void ui_ctx_update(ui_ctx* ctx, vec2 mouse_pos) {
-  if (ctx->use_mouse) {
+  if (ctx->use_mouse && mouse_pos) {
     vec2_dup(ctx->mouse_pos, mouse_pos);
   }
 }
@@ -155,6 +161,20 @@ void ui_scale_to_px(ui_ctx* ctx, vec2 dst, vec2 scale) {
   tmp[1] = scale[1] * ctx->size[1];
 
   vec2_dup(dst, tmp);
+}
+
+void ui_px_to_scale4f(ui_ctx* ctx, vec4 dst, vec4 px) {
+  dst[0] = px[0] / ctx->size[0];
+  dst[1] = px[1] / ctx->size[1];
+  dst[2] = px[0] / ctx->size[0];
+  dst[3] = px[1] / ctx->size[1];
+}
+
+void ui_scale_to_px4f(ui_ctx* ctx, vec4 dst, vec4 scale) {
+  dst[0] = scale[0] * ctx->size[0];
+  dst[1] = scale[1] * ctx->size[1];
+  dst[2] = scale[0] * ctx->size[0];
+  dst[3] = scale[1] * ctx->size[1];
 }
 
 void ui_px_from_scale(vec2 dst, vec2 px, vec2 screen) {
@@ -585,6 +605,18 @@ void ui_element_center_to(ui_element element, vec2 point) {
       center[1] -= button->size[1] * 0.5f;
       vec2_dup(button->position, center);
     } break;
+    case UI_PROGRESS: {
+      ui_progress* progress = (ui_progress*)element.data;
+      center[0] -= progress->size[0] * 0.5f;
+      center[1] -= progress->size[1] * 0.5f;
+      vec2_dup(progress->position, center);
+    } break;
+    case UI_SLIDER: {
+      ui_slider* slider = (ui_slider*)element.data;
+      center[0] -= slider->size[0] * 0.5f;
+      center[1] -= slider->size[1] * 0.5f;
+      vec2_dup(slider->position, center);
+    } break;
     case UI_LINE: {
       ui_line* line = (ui_line*)element.data;
 
@@ -613,7 +645,7 @@ void ui_element_center_to(ui_element element, vec2 point) {
       center[1] -= option->size[1] * 0.5f;
       vec2_dup(option->position, center);
     } break;
-    case UI_IMAGE: {
+    case UI_IMG: {
       ui_img* image = (ui_img*)element.data;
       center[0] -= image->size[0] * 0.5f;
       center[1] -= image->size[1] * 0.5f;
@@ -624,15 +656,21 @@ void ui_element_center_to(ui_element element, vec2 point) {
 
 ui_tree ui_tree_create(uint16_t capacity) {
   ui_tree  tree;
-  ui_leaf* raw = malloc(sizeof(ui_leaf) * capacity);
-  memset(raw, 0, sizeof(ui_leaf) * capacity);
+  ui_leaf* raw = malloc(sizeof(ui_leaf) * (capacity + 1));
+  memset(raw, 0, sizeof(ui_leaf) * (capacity + 1));
   tree.raw = raw;
 
+  tree.draw_order = (ui_leaf**)malloc(sizeof(ui_leaf*) * (capacity + 1));
+  memset(raw, 0, sizeof(ui_leaf*) * (capacity + 1));
+
+  // TODO add memory safety check
   assert(raw != 0);
 
-  tree.start  = 0;
-  tree.end    = 0;
-  tree.cursor = 0;
+  tree.cursor_id      = 0;
+  tree.mouse_hover_id = 0;
+
+  tree.cursor_index      = 0;
+  tree.mouse_hover_index = 0;
 
   tree.count    = 0;
   tree.capacity = capacity;
@@ -745,6 +783,116 @@ int16_t ui_element_contains(ui_ctx* ctx, ui_element element, vec2 point) {
       }
     }
       return -1;
+    case UI_SLIDER: {
+      ui_slider* slider = (ui_slider*)element.data;
+      vec2       slider_pos, slider_size;
+      vec2       button_pos, button_size;
+
+      ui_scale_to_px(ctx, slider_pos, slider->position);
+      ui_scale_to_px(ctx, slider_size, slider->size);
+
+      vec2_dup(button_pos, slider_pos);
+      ui_scale_to_px(ctx, button_size, slider->button_size);
+      button_pos[0] += slider->progress * slider_size[0];
+
+      if (slider->holding) {
+        if (slider->vertical_fill) {
+          if (slider->flip) {
+            slider->holding_progress =
+                ((slider_pos[1] + slider_size[1]) - point[1]) / slider_size[1];
+          } else {
+            slider->holding_progress =
+                (point[1] - slider_pos[1]) / slider_size[1];
+          }
+        } else {
+          if (slider->flip) {
+            slider->holding_progress =
+                ((slider_pos[0] + slider_size[0]) - point[0]) / slider_size[0];
+          } else {
+            slider->holding_progress =
+                (point[0] - slider_pos[0]) / slider_size[0];
+          }
+        }
+
+        if (slider->holding_progress > 1.f)
+          slider->holding_progress = 1.f;
+        if (slider->holding_progress < 0.f)
+          slider->holding_progress = 0.f;
+        return 1;
+      }
+
+      // button hovering
+      if (point[0] > button_pos[0] &&
+          point[0] < button_pos[0] + button_size[0]) {
+        if (point[1] > button_pos[1] &&
+            point[1] < button_pos[1] + button_size[1]) {
+          if (slider->vertical_fill) {
+            if (slider->flip) {
+              slider->holding_progress =
+                  ((slider_pos[1] + slider_size[1]) - point[1]) /
+                  slider_size[1];
+            } else {
+              slider->holding_progress =
+                  (point[1] - slider_pos[1]) / slider_size[1];
+            }
+          } else {
+            if (slider->flip) {
+              slider->holding_progress =
+                  ((slider_pos[0] + slider_size[0]) - point[0]) /
+                  slider_size[0];
+            } else {
+              slider->holding_progress =
+                  (point[0] - slider_pos[0]) / slider_size[0];
+            }
+          }
+
+          if (slider->holding_progress > 1.f)
+            slider->holding_progress = 1.f;
+          if (slider->holding_progress < 0.f)
+            slider->holding_progress = 0.f;
+
+          slider->button_hover = 1;
+          return 1;
+        }
+      }
+
+      // bar hovering
+      if (point[0] > slider_pos[0] &&
+          point[0] < slider_pos[0] + slider_size[0]) {
+        if (point[1] > slider_pos[1] &&
+            point[1] < slider_pos[1] + slider_size[1]) {
+          if (slider->vertical_fill) {
+            if (slider->flip) {
+              slider->holding_progress =
+                  ((slider_pos[1] + slider_size[1]) - point[1]) /
+                  slider_size[1];
+            } else {
+              slider->holding_progress =
+                  (point[1] - slider_pos[1]) / slider_size[1];
+            }
+          } else {
+            if (slider->flip) {
+              slider->holding_progress =
+                  ((slider_pos[0] + slider_size[0]) - point[0]) /
+                  slider_size[0];
+            } else {
+              slider->holding_progress =
+                  (point[0] - slider_pos[0]) / slider_size[0];
+            }
+          }
+
+          if (slider->holding_progress > 1.f)
+            slider->holding_progress = 1.f;
+          if (slider->holding_progress < 0.f)
+            slider->holding_progress = 0.f;
+
+          return 1;
+        }
+      }
+
+      slider->button_hover = 0;
+    }
+      return -1;
     case UI_TEXT: {
       ui_text* text = (ui_text*)element.data;
       nvgFontFaceId(ctx->nvg, text->font);
@@ -772,7 +920,7 @@ int16_t ui_element_contains(ui_ctx* ctx, ui_element element, vec2 point) {
       }
     }
       return -1;
-    case UI_IMAGE: {
+    case UI_IMG: {
       ui_img* img = (ui_img*)element.data;
       vec2    img_position, img_size;
       ui_scale_to_px(ctx, img_position, img->position);
@@ -792,6 +940,7 @@ int16_t ui_element_contains(ui_ctx* ctx, ui_element element, vec2 point) {
   }
 }
 
+/* Run a check over mouse / cursor usage (mouse only) */
 uint32_t ui_tree_check(ui_ctx* ctx, ui_tree* tree) {
   if (!ctx->use_mouse) {
     return 0;
@@ -800,19 +949,18 @@ uint32_t ui_tree_check(ui_ctx* ctx, ui_tree* tree) {
   vec2 mouse_pos;
   vec2_dup(mouse_pos, ctx->mouse_pos);
 
-  assert(tree);
-  assert(tree->start);
-  ui_leaf* cursor = tree->start;
+  int hover_priority = -1;
 
-  int      hover_priority = -1;
-  ui_leaf* potential      = 0;
+  int potential_index = -1;
+  int potential_uid   = -1;
 
-  while (cursor) {
-    int current_priority = cursor->priority;
+  for (uint32_t i = 0; i < tree->count; ++i) {
+    ui_leaf* cursor = &tree->raw[i];
 
     if (cursor->selectable) {
-      int16_t hovered = ui_element_contains(ctx, cursor->element, mouse_pos);
-      int8_t  current_priority = cursor->priority;
+      int16_t hovered =
+          ui_element_contains(ctx, cursor->element, ctx->mouse_pos);
+      int8_t current_priority = cursor->priority;
 
       if (cursor->element.type == UI_DROPDOWN && hovered > -1) {
         ui_dropdown* dropdown = (ui_dropdown*)cursor->element.data;
@@ -825,25 +973,21 @@ uint32_t ui_tree_check(ui_ctx* ctx, ui_tree* tree) {
       }
 
       if (hovered > -1 && current_priority > hover_priority) {
-        potential      = cursor;
-        hover_priority = current_priority;
+        potential_index = i;
+        potential_uid   = cursor->uid;
+        hover_priority  = current_priority;
       }
     }
-
-    if (cursor->next) {
-      cursor = cursor->next;
-    } else {
-      break;
-    }
   }
 
-  if (potential) {
-    tree->mouse_hover = potential;
-    return potential->uid;
+  if (potential_index != -1) {
+    tree->mouse_hover_id    = potential_uid;
+    tree->mouse_hover_index = potential_index;
+    return tree->mouse_hover_id;
   }
-  // this should fix it, I just had it in the wrong scope
 
-  tree->mouse_hover = 0;
+  tree->mouse_hover_id    = 0;
+  tree->mouse_hover_index = 0;
   return 0;
 }
 
@@ -936,17 +1080,28 @@ void ui_button_draw(ui_ctx* ctx, ui_button* button, int8_t focused) {
   nvgBeginPath(ctx->nvg);
 
   vec2 button_position, button_size;
+  vec4 button_padding, button_padded_size;
 
   ui_scale_to_px(ctx, button_position, button->position);
   ui_scale_to_px(ctx, button_size, button->size);
+  ui_scale_to_px4f(ctx, button_padding, button->padding);
+
+  button_padded_size[0] =
+      button_padding[0] + button_padding[2] + button_size[0];
+
+  button_padded_size[1] =
+      button_padding[1] + button_padding[3] + button_size[1];
 
   if (button->use_border) {
     if (button->border_radius != 0.f) {
-      nvgRoundedRect(ctx->nvg, button_position[0], button_position[1],
-                     button_size[0], button_size[1], button->border_radius);
+      nvgRoundedRect(ctx->nvg, button_position[0] - button_padding[0],
+                     button_position[1] - button_padding[1],
+                     button_padded_size[0], button_padded_size[1],
+                     button->border_radius);
     } else {
-      nvgRect(ctx->nvg, button_position[0], button_position[1], button_size[0],
-              button_size[1]);
+      nvgRect(ctx->nvg, button_position[0] - button_padding[0],
+              button_position[1] - button_padding[1], button_padded_size[0],
+              button_padded_size[1]);
     }
 
     if (button->border_size > 0.f) {
@@ -975,8 +1130,9 @@ void ui_button_draw(ui_ctx* ctx, ui_button* button, int8_t focused) {
       nvgFillColor(ctx->nvg, ui_vec4_color(button->bg));
     }
 
-    nvgRect(ctx->nvg, button_position[0], button_position[1], button_size[0],
-            button_size[1]);
+    nvgRect(ctx->nvg, button_position[0] - button_padding[0],
+            button_position[1] - button_padding[1], button_padded_size[0],
+            button_padded_size[1]);
     nvgFill(ctx->nvg);
   }
 
@@ -1017,6 +1173,396 @@ void ui_button_draw(ui_ctx* ctx, ui_button* button, int8_t focused) {
 
     nvgText(ctx->nvg, button_position[0] + offset[0],
             button_position[1] + offset[1], button->text, 0);
+  }
+}
+
+void ui_progress_draw(ui_ctx* ctx, ui_progress* progress, int8_t focused) {
+  vec2 progress_pos, progress_size, fill_size;
+
+  ui_scale_to_px(ctx, progress_pos, progress->position);
+  ui_scale_to_px(ctx, progress_size, progress->size);
+
+  vec2_dup(fill_size, progress_size);
+  if (progress->vertical_fill) {
+    fill_size[0] = progress_size[0];
+    fill_size[1] = progress_size[1] * progress->progress;
+  } else {
+    fill_size[0] = progress_size[0] * progress->progress;
+    fill_size[1] = progress_size[1];
+  }
+
+  nvgBeginPath(ctx->nvg);
+
+  // border
+  if (progress->border_size != 0.f) {
+    if (progress->border_radius != 0.f) {
+      nvgRoundedRect(ctx->nvg, progress_pos[0], progress_pos[1],
+                     progress_size[0], progress_size[1],
+                     progress->border_radius);
+
+    } else {
+      nvgRect(ctx->nvg, progress_pos[0], progress_pos[1], progress_size[0],
+              progress_size[1]);
+    }
+
+    if (focused || progress->active) {
+      nvgStrokeColor(ctx->nvg, ui_vec4_color(progress->active_border_color));
+    } else {
+      nvgStrokeColor(ctx->nvg, ui_vec4_color(progress->border_color));
+    }
+
+    nvgStrokeWidth(ctx->nvg, progress->border_size);
+    nvgStroke(ctx->nvg);
+  }
+
+  // background bar
+  if (progress->border_radius != 0.f) {
+    nvgRoundedRect(ctx->nvg, progress_pos[0], progress_pos[1], progress_size[0],
+                   progress_size[1], progress->border_radius);
+
+  } else {
+    nvgRect(ctx->nvg, progress_pos[0], progress_pos[1], progress_size[0],
+            progress_size[1]);
+  }
+
+  if (focused || progress->active) {
+    nvgFillColor(ctx->nvg, ui_vec4_color(progress->active_bg));
+  } else {
+    nvgFillColor(ctx->nvg, ui_vec4_color(progress->bg));
+  }
+
+  nvgFill(ctx->nvg);
+
+  if (progress->progress > 0.01f) {
+    nvgBeginPath(ctx->nvg);
+    // internal bar
+    if (progress->border_radius != 0.f) {
+      if (progress->flip) {
+        nvgRoundedRect(ctx->nvg,
+                       progress_pos[0] + progress_size[0] - fill_size[0] +
+                           progress->fill_padding,
+                       progress_pos[1] + progress_size[1] - fill_size[1] +
+                           progress->fill_padding,
+                       fill_size[0] - (progress->fill_padding * 2),
+                       fill_size[1] - (progress->fill_padding * 2),
+                       progress->border_radius);
+      } else {
+        nvgRoundedRect(ctx->nvg, progress_pos[0] + progress->fill_padding,
+                       progress_pos[1] + progress->fill_padding,
+                       fill_size[0] - (progress->fill_padding * 2),
+                       fill_size[1] - (progress->fill_padding * 2),
+                       progress->border_radius);
+      }
+    } else {
+      if (progress->flip) {
+        nvgRect(ctx->nvg,
+                progress_pos[0] + progress_size[0] + progress->fill_padding -
+                    fill_size[0],
+                progress_pos[1] + progress_size[1] + progress->fill_padding -
+                    fill_size[1],
+                fill_size[0] - (progress->fill_padding * 2),
+                fill_size[1] - (progress->fill_padding * 2));
+      } else {
+        nvgRect(ctx->nvg, progress_pos[0] + progress->fill_padding,
+                progress_pos[1] + progress->fill_padding,
+                fill_size[0] - (progress->fill_padding * 2),
+                fill_size[1] - (progress->fill_padding * 2));
+      }
+    }
+
+    if (focused || progress->active) {
+      nvgFillColor(ctx->nvg, ui_vec4_color(progress->active_fg));
+    } else {
+      nvgFillColor(ctx->nvg, ui_vec4_color(progress->fg));
+    }
+
+    nvgFill(ctx->nvg);
+  }
+}
+
+void ui_slider_draw(ui_ctx* ctx, ui_slider* slider, int8_t focused) {
+  // Update the slider
+  float progress = slider->holding_progress;
+  if (slider->holding) {
+    // slider stepping
+    if (slider->steps > 0) {
+      float step_perc = 1.f / slider->steps;
+      int   step      = (int)(progress / step_perc);
+      float rem       = progress - (step * step_perc);
+      if (rem >= (step_perc * 0.5f)) {
+        step += 1;
+      }
+
+      float next = step_perc * step;
+
+      if (slider->progress != next) {
+        slider->has_change = 1;
+
+        slider->progress = next;
+        if (slider->progress > 1.f) {
+          slider->progress = 1.f;
+        } else if (slider->progress < 0.f) {
+          slider->progress = 0.f;
+        }
+
+        slider->value =
+            slider->min_value +
+            ((slider->progress) * (slider->max_value - slider->min_value));
+      }
+    } else {
+      slider->progress = slider->holding_progress;
+      slider->value =
+          ((slider->max_value - slider->min_value) * slider->progress) +
+          slider->min_value;
+    }
+  }
+
+  vec2 slider_pos, slider_size, slider_button_size, fill_size, button_offset;
+  ui_scale_to_px(ctx, slider_pos, slider->position);
+  ui_scale_to_px(ctx, slider_size, slider->size);
+  ui_scale_to_px(ctx, slider_button_size, slider->button_size);
+
+  int8_t draw_button = !slider->always_hide_button;
+
+  if (draw_button && slider->auto_hide_button) {
+    if (slider->active || slider->holding || focused) {
+      draw_button = 1;
+    } else {
+      draw_button = 0;
+    }
+  }
+
+  vec2_dup(fill_size, slider_size);
+  if (slider->vertical_fill) {
+    fill_size[0] = slider_size[0] - (slider->fill_padding * 2.f);
+    fill_size[1] = (slider_size[1] * slider->progress);
+
+    if (fill_size[1] >= (slider_size[1] - slider->fill_padding * 2)) {
+      fill_size[1] = slider->size[1] - slider->fill_padding * 2.f;
+    }
+
+    if (draw_button) {
+      if (slider->button_circle) {
+        button_offset[0] = slider_size[1];
+        if (button_offset[1] < (slider_button_size[1])) {
+          button_offset[1] = slider_button_size[1];
+        } else if (button_offset[1] >
+                   (slider_size[1] - (slider_button_size[1]))) {
+          button_offset[1] = slider_size[1] - (slider_button_size[1]);
+        }
+
+      } else {
+        button_offset[0] = slider_size[0] * 0.5f;
+        if (button_offset[1] < (slider_button_size[1] * 0.5f)) {
+          button_offset[1] = slider_button_size[1] * 0.5f;
+        } else if (button_offset[1] >
+                   (slider_size[1] - (slider_button_size[1] * 0.5f))) {
+          button_offset[1] = slider_size[1] - (slider_button_size[1] * 0.5f);
+        }
+      }
+
+      button_offset[1] =
+          slider->fill_padding +
+          ((slider_size[1] - (slider->fill_padding * 2)) * slider->progress);
+    }
+  } else {
+    fill_size[0] = (slider_size[0] * slider->progress);
+    fill_size[1] = slider_size[1] - (slider->fill_padding * 2.f);
+
+    if (fill_size[0] >= slider_size[0] - (slider->fill_padding * 2)) {
+      fill_size[0] = slider_size[0] - (slider->fill_padding * 2);
+    }
+
+    if (draw_button) {
+      button_offset[0] = slider->fill_padding +
+                         (((slider_size[0] - (slider->fill_padding * 2)) +
+                           (slider_button_size[0] * 0.5f)) *
+                          slider->progress);
+
+      if (slider->button_circle) {
+        button_offset[1] = slider_size[1];
+
+        if (button_offset[0] < slider_button_size[0]) {
+          button_offset[0] = slider_button_size[0];
+        } else if (button_offset[0] >
+                   (slider_size[0] - (slider_button_size[0] * 0.5f))) {
+          button_offset[0] = slider_size[0];
+        }
+      } else {
+        button_offset[1] = slider_size[1] * 0.5f;
+
+        if (button_offset[0] < (slider_button_size[0]) * 0.5f) {
+          button_offset[0] = slider_button_size[0] * 0.5f;
+        } else if (button_offset[0] >
+                   (slider_size[0] - (slider_button_size[0] * 0.5f))) {
+          button_offset[0] = slider_size[0] - (slider_button_size[0] * 0.5f);
+        }
+      }
+    }
+  }
+
+  nvgBeginPath(ctx->nvg);
+
+  // border
+  if (slider->border_size != 0.f) {
+    if (slider->border_radius != 0.f) {
+      nvgRoundedRect(ctx->nvg, slider_pos[0], slider_pos[1], slider_size[0],
+                     slider_size[1], slider->border_radius);
+    } else {
+      nvgRect(ctx->nvg, slider_pos[0], slider_pos[1], slider_size[0],
+              slider_size[1]);
+    }
+
+    if (focused || slider->active && slider->active_border_color) {
+      nvgStrokeColor(ctx->nvg, ui_vec4_color(slider->active_border_color));
+    } else {
+      nvgStrokeColor(ctx->nvg, ui_vec4_color(slider->border_color));
+    }
+
+    nvgStrokeWidth(ctx->nvg, slider->border_size);
+    nvgStroke(ctx->nvg);
+  }
+
+  // background bar
+  if (slider->border_radius != 0.f) {
+    nvgRoundedRect(ctx->nvg, slider_pos[0], slider_pos[1], slider_size[0],
+                   slider_size[1], slider->border_radius);
+
+  } else {
+    nvgRect(ctx->nvg, slider_pos[0], slider_pos[1], slider_size[0],
+            slider_size[1]);
+  }
+
+  if (focused || slider->active) {
+    nvgFillColor(ctx->nvg, ui_vec4_color(slider->active_bg));
+  } else {
+    nvgFillColor(ctx->nvg, ui_vec4_color(slider->bg));
+  }
+
+  nvgFill(ctx->nvg);
+
+  // internal bar
+  if (slider->progress > 0.01f && fill_size[0] > 0.f && fill_size[1] > 0.f) {
+    nvgBeginPath(ctx->nvg);
+    if (slider->border_radius != 0.f) {
+      if (slider->flip) {
+        nvgRoundedRect(ctx->nvg,
+                       slider_pos[0] + slider_size[0] - fill_size[0] +
+                           slider->fill_padding,
+                       slider_pos[1] + slider_size[1] - fill_size[1] +
+                           slider->fill_padding,
+                       fill_size[0], fill_size[1],
+                       // fill_size[0] - (slider->fill_padding * 2),
+                       // fill_size[1] - (slider->fill_padding * 2),
+                       slider->border_radius);
+      } else {
+        nvgRoundedRect(ctx->nvg, slider_pos[0] + slider->fill_padding,
+                       slider_pos[1] + slider->fill_padding, fill_size[0],
+                       fill_size[1],
+                       // fill_size[0] - (slider->fill_padding * 2),
+                       // fill_size[1] - (slider->fill_padding * 2),
+                       slider->border_radius);
+      }
+    } else {
+      if (slider->flip) {
+        nvgRect(ctx->nvg,
+                slider_pos[0] + slider_size[0] + slider->fill_padding -
+                    fill_size[0],
+                slider_pos[1] + slider_size[1] + slider->fill_padding -
+                    fill_size[1],
+                fill_size[0], fill_size[1]);
+        // fill_size[0] - (slider->fill_padding * 2),
+        // fill_size[1] - (slider->fill_padding * 2));
+      } else {
+        nvgRect(ctx->nvg, slider_pos[0] + slider->fill_padding,
+                slider_pos[1] + slider->fill_padding, fill_size[0],
+                fill_size[1]);
+        // fill_size[0] - (slider->fill_padding * 2),
+        // fill_size[1] - (slider->fill_padding * 2));
+      }
+    }
+
+    if (focused || slider->active) {
+      nvgFillColor(ctx->nvg, ui_vec4_color(slider->active_fg));
+    } else {
+      nvgFillColor(ctx->nvg, ui_vec4_color(slider->fg));
+    }
+
+    nvgFill(ctx->nvg);
+  }
+
+  // button
+  if (draw_button) {
+    // button border
+    if (slider->button_border_size != 0.f) {
+      nvgBeginPath(ctx->nvg);
+
+      if (slider->button_circle) {
+        nvgCircle(
+            ctx->nvg,
+            slider_pos[0] + button_offset[0] - (slider_button_size[0] * 0.5f),
+            slider_pos[1] + button_offset[1] - (slider_button_size[1] * 0.5f),
+            slider_button_size[1] * 0.5f);
+      } else {
+        if (slider->button_border_radius != 0.f) {
+          nvgRoundedRect(
+              ctx->nvg,
+              slider_pos[0] + button_offset[0] - (slider_button_size[0] * 0.5f),
+              slider_pos[1] + button_offset[1] - (slider_button_size[1] * 0.5f),
+              slider_button_size[0], slider_button_size[1],
+              slider->button_border_radius);
+        } else {
+          nvgRect(
+              ctx->nvg,
+              slider_pos[0] + button_offset[0] - (slider_button_size[0] * 0.5f),
+              slider_pos[1] + button_offset[1] - (slider_button_size[1] * 0.5f),
+              slider_button_size[0], slider_button_size[1]);
+        }
+      }
+
+      nvgStrokeWidth(ctx->nvg, slider->button_border_size);
+      if (focused || slider->button_hover) {
+        nvgStrokeColor(ctx->nvg,
+                       ui_vec4_color(slider->active_button_border_color));
+      } else {
+        nvgStrokeColor(ctx->nvg, ui_vec4_color(slider->button_border_color));
+      }
+      nvgStroke(ctx->nvg);
+    }
+
+    // button background
+    nvgBeginPath(ctx->nvg);
+
+    if (slider->button_circle) {
+      nvgCircle(
+          ctx->nvg,
+          slider_pos[0] + button_offset[0] - (slider_button_size[0] * 0.5f),
+          slider_pos[1] + button_offset[1] - (slider_button_size[1] * 0.5f),
+          slider_button_size[1] * 0.5f);
+    } else {
+      if (slider->button_border_radius != 0.f) {
+        nvgRoundedRect(
+            ctx->nvg,
+            slider_pos[0] + button_offset[0] - (slider_button_size[0] * 0.5f),
+            slider_pos[1] + button_offset[1] - (slider_button_size[1] * 0.5f),
+            slider_button_size[0], slider_button_size[1],
+            slider->button_border_radius);
+      } else {
+        nvgRect(
+            ctx->nvg,
+            slider_pos[0] + button_offset[0] - (slider_button_size[0] * 0.5f),
+            slider_pos[1] + button_offset[1] - (slider_button_size[1] * 0.5f),
+            slider_button_size[0], slider_button_size[1]);
+      }
+    }
+
+    if (focused || slider->button_hover) {
+      nvgFillColor(ctx->nvg, ui_vec4_color(slider->active_button_color));
+    } else {
+      nvgFillColor(ctx->nvg, ui_vec4_color(slider->button_color));
+    }
+
+    nvgFill(ctx->nvg);
   }
 }
 
@@ -1296,7 +1842,7 @@ void ui_option_draw(ui_ctx* ctx, ui_option* option, int8_t focused) {
   }
 }
 
-void ui_image_draw(ui_ctx* ctx, ui_img* img, int8_t focused) {
+void ui_img_draw(ui_ctx* ctx, ui_img* img, int8_t focused) {
   if (!img) {
     return;
   }
@@ -1305,12 +1851,9 @@ void ui_image_draw(ui_ctx* ctx, ui_img* img, int8_t focused) {
   ui_scale_to_px(ctx, img_position, img->position);
   ui_scale_to_px(ctx, img_size, img->size);
 
-  NVGpaint img_paint =
-      nvgImagePattern(ctx->nvg, img_position[0], img_position[1], img_size[0],
-                      img_size[1], 0.f, img->handle, 1.0f);
-  nvgBeginPath(ctx->nvg);
-
+  // Draw border
   if (img->border_size != 0.f) {
+    nvgBeginPath(ctx->nvg);
     if (focused) {
       nvgStrokeColor(ctx->nvg, ui_vec4_color(img->hover_border_color));
     } else {
@@ -1320,6 +1863,12 @@ void ui_image_draw(ui_ctx* ctx, ui_img* img, int8_t focused) {
     nvgStrokeWidth(ctx->nvg, img->border_size);
     nvgStroke(ctx->nvg);
   }
+
+  // Draw picture
+  nvgBeginPath(ctx->nvg);
+  NVGpaint img_paint =
+      nvgImagePattern(ctx->nvg, img_position[0], img_position[1], img_size[0],
+                      img_size[1], 0.f, img->handle, 1.0f);
 
   if (img->border_radius != 0.f) {
     nvgRoundedRect(ctx->nvg, img_position[0], img_position[1], img_size[0],
@@ -1441,12 +1990,12 @@ float ui_text_max_size(ui_ctx* ctx, ui_text text, vec2 bounds,
 }
 
 void ui_tree_destroy(ui_ctx* ctx, ui_tree* tree) {
-  ui_leaf* cursor = tree->start;
-  while (cursor) {
+  for (uint32_t i = 0; i < tree->count; ++i) {
+    ui_leaf* cursor = &tree->raw[i];
     if (cursor->element.data) {
       switch (cursor->element.type) {
-        case UI_IMAGE:
-          ui_image_destroy(ctx, (ui_img*)cursor->element.data);
+        case UI_IMG:
+          ui_img_destroy(ctx, (ui_img*)cursor->element.data);
           break;
         case UI_DROPDOWN:
           ui_dropdown_destroy(ctx, (ui_dropdown*)cursor->element.data);
@@ -1464,13 +2013,14 @@ void ui_tree_destroy(ui_ctx* ctx, ui_tree* tree) {
           break;
       }
     }
-    cursor = cursor->next;
   }
+
   free(tree->raw);
 }
 
 uint32_t ui_tree_add(ui_ctx* ctx, ui_tree* tree, void* data,
-                     ui_element_type type, int8_t priority, int8_t selectable) {
+                     ui_element_type type, int8_t priority, int8_t selectable,
+                     int16_t layer) {
   if (!data || !tree) {
     return 0;
   }
@@ -1487,40 +2037,79 @@ uint32_t ui_tree_add(ui_ctx* ctx, ui_tree* tree, void* data,
   }
 
   ++ctx->global_id;
-  uint32_t uid  = ctx->global_id;
-  leaf_ptr->uid = uid;
+  uint32_t uid    = ctx->global_id;
+  leaf_ptr->uid   = uid;
+  leaf_ptr->index = tree->count;
+  leaf_ptr->layer = layer;
 
-  uint32_t* element_uid = (uint32_t*)data;
-  *element_uid          = uid;
+  switch (type) {
+    case UI_TEXT: {
+      ui_text* text = (ui_text*)data;
+      text->id      = uid;
+    } break;
+    case UI_BOX: {
+      ui_box* box = (ui_box*)data;
+      box->id     = uid;
+    } break;
+    case UI_BUTTON: {
+      ui_button* button = (ui_button*)data;
+      button->id        = uid;
+    } break;
+    case UI_SLIDER: {
+      ui_slider* slider = (ui_slider*)data;
+      slider->id        = uid;
+    } break;
+    case UI_PROGRESS: {
+      ui_progress* progress = (ui_progress*)data;
+      progress->id          = uid;
+    } break;
+    case UI_LINE: {
+      ui_line* line = (ui_line*)data;
+      line->id      = uid;
+    } break;
+    case UI_DROPDOWN: {
+      ui_dropdown* dropdown = (ui_dropdown*)data;
+      dropdown->id          = uid;
+    } break;
+    case UI_OPTION: {
+      ui_option* option = (ui_option*)data;
+      option->id        = uid;
+    } break;
+    case UI_IMG: {
+      ui_img* img = (ui_img*)data;
+      img->id     = uid;
+    } break;
+  }
+
+  // Automatically add the first selectable as cursor
+  if (!tree->cursor_id && selectable) {
+    // tree->cursor_id    = uid;
+    // tree->cursor_index = tree->count;
+  }
 
   leaf_ptr->selectable = selectable;
   leaf_ptr->priority   = (priority >= 127) ? 126 : priority;
 
-  ui_element* element = &leaf_ptr->element;
-  element->data       = data;
-  element->type       = type;
-
-  if (!tree->cursor) {
-    tree->cursor = leaf_ptr;
-  }
-
-  if (!tree->start) {
-    tree->start = leaf_ptr;
-  }
-
-  if (!tree->end) {
-    tree->end      = leaf_ptr;
-    leaf_ptr->prev = 0;
-  } else {
-    leaf_ptr->prev  = tree->end;
-    tree->end->next = leaf_ptr;
-    tree->end       = leaf_ptr;
-  }
-
-  leaf_ptr->next = 0;
+  leaf_ptr->element.data = data;
+  leaf_ptr->element.type = type;
 
   ++tree->count;
   return uid;
+}
+
+void ui_tree_set_cursor_to(ui_tree* tree, uint32_t id) {
+  if (!tree) {
+    ASTERA_DBG("ui_tree_set_cursor_to: no tree passed.\n");
+    return;
+  }
+
+  for (uint32_t i = 0; i < tree->count; ++i) {
+    if (tree->raw[i].uid == id && tree->raw[i].selectable) {
+      tree->cursor_index = i;
+      tree->cursor_id    = id;
+      break;
+    }
+  }
 }
 
 void ui_tree_print(ui_tree* tree) {
@@ -1529,104 +2118,121 @@ void ui_tree_print(ui_tree* tree) {
     return;
   }
 
-  ui_leaf* cursor = tree->start;
   ASTERA_DBG("Tree: ");
 
-  if (!cursor) {
-    ASTERA_DBG("None\n");
-  } else {
-    while (cursor) {
-      switch (cursor->element.type) {
-        case UI_TEXT:
-          ASTERA_DBG("Text");
-          break;
-        case UI_BOX:
-          ASTERA_DBG("Box");
-          break;
-        case UI_OPTION:
-          ASTERA_DBG("Option");
-          break;
-        case UI_BUTTON:
-          ASTERA_DBG("Button");
-          break;
-        case UI_DROPDOWN:
-          ASTERA_DBG("Dropdown");
-          break;
-        case UI_LINE:
-          ASTERA_DBG("Line");
-          break;
-        case UI_IMAGE:
-          ASTERA_DBG("Image");
-          break;
-        default:
-          ASTERA_DBG("Unk");
-          break;
-      }
-
-      if (cursor->next) {
-        ASTERA_DBG(" -> ");
-        cursor = cursor->next;
-      } else {
-        break;
-      }
-    }
-    ASTERA_DBG("\n");
+  if (tree->count == 0) {
+    ASTERA_DBG("Empty");
   }
+
+  for (uint32_t i = 0; i < tree->count; ++i) {
+    ui_leaf* cursor = &tree->raw[i];
+
+    ASTERA_DBG("[%i]", cursor->index);
+
+    switch (cursor->element.type) {
+      case UI_TEXT:
+        ASTERA_DBG("Text");
+        break;
+      case UI_BOX:
+        ASTERA_DBG("Box");
+        break;
+      case UI_OPTION:
+        ASTERA_DBG("Option");
+        break;
+      case UI_BUTTON:
+        ASTERA_DBG("Button");
+        break;
+      case UI_SLIDER:
+        ASTERA_DBG("Slider");
+        break;
+      case UI_PROGRESS:
+        ASTERA_DBG("Progress");
+        break;
+      case UI_DROPDOWN:
+        ASTERA_DBG("Dropdown");
+        break;
+      case UI_LINE:
+        ASTERA_DBG("Line");
+        break;
+      case UI_IMG:
+        ASTERA_DBG("Image");
+        break;
+      default:
+        ASTERA_DBG("Unk");
+        break;
+    }
+
+    if (i < tree->count - 1) {
+      ASTERA_DBG(" -> ");
+    }
+  }
+
+  ASTERA_DBG("\n");
 }
 
-int32_t ui_element_event(ui_tree* tree, uint32_t uid) {
-  if (!tree || !tree->start) {
+/* Returns -1 if no element with uid found */
+int32_t ui_tree_check_event(ui_tree* tree, uint32_t uid) {
+  if (!tree) {
+    ASTERA_DBG("ui_element_event: invalid tree passed.\n");
     return 0;
   }
 
-  ui_leaf* cursor = tree->start;
-  while (cursor) {
+  for (uint32_t i = 0; i < tree->count; ++i) {
+    ui_leaf* cursor = &tree->raw[i];
     if (cursor->uid == uid) {
       int32_t event_type = cursor->event;
       cursor->event      = 0;
       return event_type;
     }
-
-    if (!cursor->next) {
-      return 0;
-    } else {
-      cursor = cursor->next;
-    }
   }
 
-  return 0;
+  return -1;
 }
 
-uint32_t ui_tree_get_cursor_id(ui_tree* tree) { return tree->cursor->uid; }
+uint32_t ui_tree_get_cursor_id(ui_tree* tree) { return tree->cursor_id; }
+
+static int compare_leaf(const void* a, const void* b) {
+  ui_leaf** leaf_a = (ui_leaf**)a;
+  ui_leaf** leaf_b = (ui_leaf**)b;
+
+  ui_leaf* l_a = *leaf_a;
+  ui_leaf* l_b = *leaf_b;
+
+  if (l_a->layer == l_b->layer)
+    return 0;
+  else if (l_a->layer < l_b->layer)
+    return -1;
+  else
+    return 1;
+}
 
 void ui_tree_draw(ui_ctx* ctx, ui_tree* tree) {
-  if (!tree->start) {
-    ASTERA_DBG("No start in tree.\n");
+  if (!tree || !ctx) {
+    ASTERA_DBG("ui_tree_draw: Invalid context or tree passed.\n");
     return;
   }
 
-  ui_leaf* cursor = tree->start;
-
-  uint32_t tree_cursor_uid = (tree->cursor) ? tree->cursor->uid : 0;
-
-  uint32_t tree_hover_id = 0;
-  if (ctx->use_mouse) {
-    if (!tree) {
-      printf("WHAT\n");
-    }
-    if (tree->mouse_hover) {
-      ui_leaf leaf  = *tree->mouse_hover;
-      tree_hover_id = leaf.uid;
-    }
+  for (uint32_t i = 0; i < tree->count; ++i) {
+    tree->draw_order[i] = &tree->raw[i];
   }
 
-  while (cursor) {
-    int8_t focused = 0;
+  qsort(tree->draw_order, tree->count, sizeof(ui_leaf*), compare_leaf);
+
+  uint32_t cursor_id      = tree->cursor_id;
+  uint32_t mouse_hover_id = 0;
+
+  if (ctx->use_mouse) {
+    mouse_hover_id = tree->mouse_hover_id;
+  }
+
+  for (uint32_t i = 0; i < tree->count; ++i) {
+    ui_leaf* cursor  = tree->draw_order[i];
+    int8_t   focused = 0;
 
     if (ctx->use_mouse) {
-      focused = cursor->uid == tree_cursor_uid || cursor->uid == tree_hover_id;
+      focused = cursor->uid == cursor_id || cursor->uid == mouse_hover_id;
     } else {
-      focused = cursor->uid == tree_cursor_uid;
+      focused = cursor->uid == cursor_id;
     }
 
     if (cursor->element.data) {
@@ -1636,13 +2242,19 @@ void ui_tree_draw(ui_ctx* ctx, ui_tree* tree) {
         case UI_TEXT:
           ui_text_draw(ctx, (ui_text*)element.data);
           break;
-        case UI_IMAGE:
-          ui_image_draw(ctx, (ui_img*)element.data, focused);
+        case UI_IMG:
+          ui_img_draw(ctx, (ui_img*)element.data, focused);
         case UI_BOX:
           ui_box_draw(ctx, (ui_box*)element.data, focused);
           break;
+        case UI_PROGRESS:
+          ui_progress_draw(ctx, (ui_progress*)element.data, focused);
+          break;
         case UI_BUTTON:
           ui_button_draw(ctx, (ui_button*)element.data, focused);
+          break;
+        case UI_SLIDER:
+          ui_slider_draw(ctx, (ui_slider*)element.data, focused);
           break;
         case UI_LINE:
           ui_line_draw(ctx, (ui_line*)element.data);
@@ -1655,23 +2267,7 @@ void ui_tree_draw(ui_ctx* ctx, ui_tree* tree) {
           break;
       }
     }
-
-    if (cursor->next) {
-      cursor = cursor->next;
-    } else {
-      break;
-    }
   }
-}
-
-uint16_t ui_select_next(ui_tree* tree) {
-  if (tree->cursor->next) {
-    tree->cursor = tree->cursor->next;
-  } else {
-    tree->cursor = tree->start;
-  }
-
-  return tree->cursor->uid;
 }
 
 ui_text ui_text_create(ui_ctx* ctx, vec2 pos, char* string, float font_size,
@@ -1752,7 +2348,7 @@ ui_text ui_text_create(ui_ctx* ctx, vec2 pos, char* string, float font_size,
 
 ui_button ui_button_create(ui_ctx* ctx, vec2 pos, vec2 size, char* text,
                            int text_alignment, float font_size) {
-  ui_button button;
+  ui_button button = (ui_button){0};
   vec2_dup(button.position, pos);
   vec2_dup(button.size, size);
 
@@ -1826,6 +2422,43 @@ ui_button ui_button_create(ui_ctx* ctx, vec2 pos, vec2 size, char* text,
   }
 
   return button;
+}
+
+ui_progress ui_progress_create(ui_ctx* ctx, vec2 pos, vec2 size, float progress,
+                               int vertical) {
+  ui_progress _progress = (ui_progress){0};
+
+  vec2_dup(_progress.position, pos);
+  vec2_dup(_progress.size, size);
+
+  _progress.progress      = progress;
+  _progress.vertical_fill = vertical;
+  _progress.active        = 0;
+
+  return _progress;
+}
+
+ui_slider ui_slider_create(ui_ctx* ctx, vec2 pos, vec2 size, vec2 button_size,
+                           int round_button, float value, float min, float max,
+                           int steps) {
+  ui_slider slider = (ui_slider){0};
+
+  slider.steps         = steps;
+  slider.button_circle = round_button;
+  slider.min_value     = min;
+  slider.max_value     = max;
+  slider.value         = value;
+
+  slider.always_hide_button = 0;
+  slider.auto_hide_button   = 0;
+
+  slider.progress = (value - min) / (max - min);
+
+  vec2_dup(slider.button_size, button_size);
+  vec2_dup(slider.position, pos);
+  vec2_dup(slider.size, size);
+
+  return slider;
 }
 
 ui_line ui_line_create(ui_ctx* ctx, vec2 start, vec2 end, vec4 color,
@@ -2058,24 +2691,13 @@ ui_option ui_option_create(ui_ctx* ctx, const char* text, float font_size,
   return option;
 }
 
-ui_box ui_box_create(ui_ctx* ctx, vec2 pos, vec2 size, vec4 color,
-                     vec4 hover_color) {
+ui_box ui_box_create(ui_ctx* ctx, vec2 pos, vec2 size) {
   ui_box box;
   vec2_dup(box.position, pos);
   vec2_dup(box.size, size);
 
-  if (color) {
-    vec4_dup(box.bg, color);
-  } else {
-    vec4_clear(box.bg);
-  }
-
-  if (hover_color) {
-    vec4_dup(box.hover_bg, hover_color);
-  } else {
-    vec4_clear(box.hover_bg);
-  }
-
+  vec4_clear(box.bg);
+  vec4_clear(box.hover_bg);
   vec4_clear(box.border_color);
   vec4_clear(box.hover_border_color);
 
@@ -2086,22 +2708,20 @@ ui_box ui_box_create(ui_ctx* ctx, vec2 pos, vec2 size, vec4 color,
   return box;
 }
 
-ui_img ui_image_create(ui_ctx* ctx, unsigned char* data, int data_length,
-                       ui_img_flags flags, vec2 pos, vec2 size) {
+ui_img ui_img_create(ui_ctx* ctx, unsigned char* data, int data_length,
+                     ui_img_flags flags, vec2 pos, vec2 size) {
   if (!data || !data_length) {
     ASTERA_DBG("No data passed.\n");
     return (ui_img){0};
   }
 
   int32_t image_handle = nvgCreateImageMem(ctx->nvg, flags, data, data_length);
-  ui_img  img;
-  img.handle = image_handle;
+  ui_img  img          = (ui_img){.handle = image_handle};
   vec2_dup(img.position, pos);
   vec2_dup(img.size, size);
   return img;
 }
 
-// TODO Refactor color names within structs to bg/fg
 void ui_dropdown_set_colors(ui_dropdown* dropdown, vec4 bg, vec4 hover_bg,
                             vec4 fg, vec4 hover_fg, vec4 border_color,
                             vec4 hover_border_color, vec4 select_bg,
@@ -2202,6 +2822,89 @@ void ui_button_set_colors(ui_button* button, vec4 bg, vec4 hover_bg, vec4 fg,
 
   if (hover_border_color) {
     vec4_dup(button->hover_border_color, hover_border_color);
+  }
+}
+
+void ui_progress_set_colors(ui_progress* progress, vec4 bg, vec4 active_bg,
+                            vec4 fg, vec4 active_fg, vec4 border_color,
+                            vec4 active_border_color) {
+  if (!progress) {
+    ASTERA_DBG("ui_progress_set_colors: no progress passed.\n");
+    return;
+  }
+
+  if (bg) {
+    vec4_dup(progress->bg, bg);
+  }
+
+  if (active_bg) {
+    vec4_dup(progress->active_bg, active_bg);
+  }
+
+  if (fg) {
+    vec4_dup(progress->fg, fg);
+  }
+
+  if (active_fg) {
+    vec4_dup(progress->active_fg, active_fg);
+  }
+
+  if (border_color) {
+    vec4_dup(progress->border_color, border_color);
+  }
+
+  if (active_border_color) {
+    vec4_dup(progress->active_border_color, active_border_color);
+  }
+}
+
+void ui_slider_set_colors(ui_slider* slider, vec4 bg, vec4 active_bg, vec4 fg,
+                          vec4 active_fg, vec4 border_color,
+                          vec4 active_border_color, vec4 button_color,
+                          vec4 active_button_color, vec4 button_border_color,
+                          vec4 active_button_border_color) {
+  if (!slider) {
+    return;
+  }
+
+  if (bg) {
+    vec4_dup(slider->bg, bg);
+  }
+
+  if (active_bg) {
+    vec4_dup(slider->active_bg, active_bg);
+  }
+
+  if (fg) {
+    vec4_dup(slider->fg, fg);
+  }
+
+  if (active_fg) {
+    vec4_dup(slider->active_fg, fg);
+  }
+
+  if (border_color) {
+    vec4_dup(slider->border_color, border_color);
+  }
+
+  if (active_border_color) {
+    vec4_dup(slider->active_border_color, active_border_color);
+  }
+
+  if (button_color) {
+    vec4_dup(slider->button_color, button_color);
+  }
+
+  if (active_button_color) {
+    vec4_dup(slider->active_button_color, active_button_color);
+  }
+
+  if (button_border_color) {
+    vec4_dup(slider->button_border_color, button_border_color);
+  }
+
+  if (active_button_border_color) {
+    vec4_dup(slider->active_button_border_color, active_button_border_color);
   }
 }
 
@@ -2323,7 +3026,6 @@ void ui_dropdown_prev(ui_dropdown* dropdown) {
   if (cursor_rel < dropdown->top_scroll_pad) {
     if (dropdown->start > 0) {
       dropdown->start--;
-      printf("Dropdown down.\n");
     } else {
       dropdown->start = 0;
     }
@@ -2371,6 +3073,50 @@ int8_t ui_dropdown_has_change(ui_dropdown* dropdown) {
   return dropdown_change;
 }
 
+float ui_slider_next_step(ui_slider* slider) {
+  if (slider->progress >= 1.f) {
+    slider->progress = 1.f;
+    return slider->max_value;
+  }
+
+  if (slider->steps) {
+    float step_amount = 1.f / slider->steps;
+    slider->progress += step_amount;
+    float remainder = slider->progress - (slider->progress / step_amount);
+    slider->progress -= remainder;
+  } else {
+    slider->progress += 0.05f;
+  }
+
+  if (slider->progress > 1.f)
+    slider->progress = 1.f;
+
+  return (slider->progress * (slider->max_value - slider->min_value)) +
+         slider->min_value;
+}
+
+float ui_slider_prev_step(ui_slider* slider) {
+  if (slider->progress <= 0.f) {
+    slider->progress = 0.f;
+    return slider->min_value;
+  }
+
+  if (slider->steps) {
+    float step_amount = 1.f / slider->steps;
+    slider->progress -= step_amount;
+    float remainder = slider->progress - (slider->progress / step_amount);
+    slider->progress += remainder;
+  } else {
+    slider->progress -= 0.05f;
+  }
+
+  if (slider->progress < 0.f)
+    slider->progress = 0.f;
+
+  return (slider->progress * (slider->max_value - slider->min_value)) +
+         slider->min_value;
+}
+
 ui_font ui_font_get(ui_ctx* ctx, const char* font_name) {
   // Find the font via NanoVG
   return nvgFindFont(ctx->nvg, font_name);
@@ -2383,27 +3129,51 @@ ui_font ui_font_create(ui_ctx* ctx, unsigned char* data, int data_length,
 }
 
 void ui_tree_remove_id(ui_tree* tree, uint32_t id) {
-  ui_leaf* current = tree->start;
-  while (current) {
-    if (current->uid == id) {
-      ui_leaf* prev = current->prev;
-      ui_leaf* next = current->next;
-
-      if (current == tree->end) {
-        tree->end = prev;
-      } else if (current == tree->start) {
-        tree->start = next;
-      }
-
-      prev->next = next;
-      next->prev = prev;
+  int32_t remove_index = -1;
+  for (uint32_t i = 0; i < tree->count; ++i) {
+    if (tree->raw[i].uid == id) {
+      remove_index = (int32_t)i;
       break;
     }
-    current = current->next;
+  }
+
+  if (remove_index) {
+    uint32_t cursor_id      = tree->cursor_id;
+    uint32_t mouse_hover_id = tree->mouse_hover_id;
+
+    for (int32_t i = remove_index; i < tree->count - 1; ++i) {
+      tree->raw[i] = tree->raw[i + 1];
+
+      ui_leaf* leaf = &tree->raw[i];
+      leaf->index   = i;
+    }
+
+    tree->raw[tree->count - 1] = (ui_leaf){0};
+    --tree->count;
+
+    if (cursor_id == id) {
+      tree->cursor_id = 0;
+      cursor_id       = 0;
+    }
+
+    if (mouse_hover_id == id) {
+      tree->mouse_hover_id = 0;
+      mouse_hover_id       = 0;
+    }
+
+    for (uint32_t i = 0; i < tree->count; ++i) {
+      if (tree->raw[i].uid == cursor_id) {
+        tree->cursor_index = i;
+      }
+
+      if (tree->raw[i].uid == mouse_hover_id) {
+        tree->mouse_hover_index = i;
+      }
+    }
   }
 }
 
-void ui_image_destroy(ui_ctx* ctx, ui_img* img) {
+void ui_img_destroy(ui_ctx* ctx, ui_img* img) {
   nvgDeleteImage(ctx->nvg, img->handle);
 }
 
@@ -2446,16 +3216,18 @@ void ui_text_bounds(ui_ctx* ctx, ui_text* text, vec4 bounds) {
   }
 }
 
+/* Return 0 if no cursor set for respective type (mouse / non-mouse)*/
 uint32_t ui_tree_select(ui_ctx* ctx, ui_tree* tree, int32_t event_type,
                         int is_mouse) {
   if (ctx->use_mouse && is_mouse) {
-    if (tree->mouse_hover) {
-      tree->mouse_hover->event = event_type;
+    if (tree->mouse_hover_id) {
+      tree->raw[tree->mouse_hover_index].event = event_type;
 
-      if (tree->mouse_hover->element.type == UI_DROPDOWN) {
-        ui_dropdown* dropdown = (ui_dropdown*)tree->mouse_hover->element.data;
-        int16_t selection = ui_element_contains(ctx, tree->mouse_hover->element,
-                                                ctx->mouse_pos);
+      if (tree->raw[tree->mouse_hover_index].element.type == UI_DROPDOWN) {
+        ui_dropdown* dropdown =
+            (ui_dropdown*)tree->raw[tree->mouse_hover_index].element.data;
+        int16_t selection = ui_element_contains(
+            ctx, tree->raw[tree->mouse_hover_index].element, ctx->mouse_pos);
 
         if (selection > 0 && dropdown->showing) {
           ui_dropdown_set(dropdown, selection);
@@ -2464,95 +3236,116 @@ uint32_t ui_tree_select(ui_ctx* ctx, ui_tree* tree, int32_t event_type,
         }
       }
 
-      return tree->mouse_hover->uid;
-    }
-  }
+      if (tree->raw[tree->mouse_hover_index].element.type == UI_SLIDER) {
+        ui_slider* slider =
+            (ui_slider*)tree->raw[tree->mouse_hover_index].element.data;
+        if (event_type == 1) {
+          slider->holding = 1;
+        } else if (event_type == 0) {
+          slider->holding = 0;
+        }
+      }
 
-  if (tree->cursor && !is_mouse) {
-    tree->cursor->event = event_type;
-    return tree->cursor->uid;
+      return tree->mouse_hover_id;
+    }
+  } else if (tree->cursor_id != -1 && tree->cursor_id != 0) {
+    tree->raw[tree->cursor_index].event = event_type;
+    return tree->cursor_id;
   }
 
   return 0;
 }
 
 // NOTE: You're not gonna mouse click something with this function
+/* Return 0 if no eleemnt with `id` found */
 uint32_t ui_tree_select_id(ui_tree* tree, uint32_t id, int32_t event_type) {
-  if (!tree || !tree->start) {
+  if (!tree) {
     ASTERA_DBG(
         "ui_tree_select_id: unable to operate on null or invalid tree\n");
     return 0;
   }
 
-  ui_leaf* cursor = tree->start;
-  while (1) {
-    if (cursor) {
-      if (cursor->uid == id) {
-        break;
-      }
+  for (uint32_t i = 0; i < tree->count; ++i) {
+    ui_leaf* cursor = &tree->raw[i];
 
-      if (cursor == tree->end) {
-        break;
-      } else {
-        cursor = cursor->next;
-      }
-    } else {
-      break;
+    if (cursor->uid == id) {
+      cursor->event = event_type;
+      return cursor->uid;
     }
   }
 
-  cursor->event = event_type;
-  return cursor->uid;
+  return 0;
 }
 
 int8_t ui_tree_is_active(ui_ctx* ctx, ui_tree* tree, uint32_t id) {
   if (ctx->use_mouse) {
-    if (tree->mouse_hover->uid == id) {
+    if (tree->mouse_hover_id == id) {
       return 1;
     }
   }
 
-  if (tree->cursor->uid == id) {
+  if (tree->cursor_id == id) {
     return 1;
   }
 
   return 0;
 }
 
+/* Return 0 if invalid operation (all ui id's are non-zero)*/
 uint32_t ui_tree_next(ui_tree* tree) {
-  if (!tree || !tree->start) {
-    // NOTE: all UI Element IDs are non-zero
+  if (!tree || tree->count < 2) {
+    ASTERA_DBG("ui_tree_next: no or empty tree passed.\n");
     return 0;
   }
 
-  if (!tree->cursor) {
-    tree->cursor = tree->start;
-  }
+  // check for unset cursor
+  if (tree->cursor_index == -1) {
+    for (uint32_t i = 0; i < tree->count; ++i) {
+      if (tree->raw[i].selectable) {
+        tree->cursor_index = i;
+        tree->cursor_id    = tree->raw[i].uid;
 
-  if (tree->cursor) {
-    if (tree->cursor->element.type == UI_DROPDOWN) {
-      ui_dropdown* dropdown = (ui_dropdown*)tree->cursor->element.data;
-      if (dropdown->showing) {
-        ui_dropdown_next(dropdown);
-        return dropdown->id;
+        return tree->cursor_id;
       }
     }
   }
 
-  ui_leaf* cursor = tree->cursor->next;
-  while (1) {
-    if (cursor && cursor != tree->cursor) {
-      if (cursor->selectable) {
-        tree->cursor = cursor;
+  ui_leaf* cursor = &tree->raw[tree->cursor_index];
+
+  if (!cursor) {
+    ASTERA_DBG("ui_tree_next: unable to get cursor from array.\n");
+    return 0;
+  }
+
+  if (cursor->element.type == UI_DROPDOWN) {
+    ui_dropdown* dropdown = (ui_dropdown*)cursor->element.data;
+    if (dropdown->showing) {
+      ui_dropdown_next(dropdown);
+      return dropdown->id;
+    }
+  }
+
+  uint32_t start_index = tree->cursor_index + 1;
+  if (start_index >= tree->count && tree->loop) {
+    start_index = 0;
+  }
+
+  for (uint32_t i = start_index; i < tree->count; ++i) {
+    ui_leaf* current = &tree->raw[i];
+    if (current->selectable) {
+      tree->cursor_id    = current->uid;
+      tree->cursor_index = i;
+      return cursor->uid;
+    }
+  }
+
+  if (tree->loop) {
+    for (uint32_t i = 0; i < start_index; ++i) {
+      ui_leaf* current = &tree->raw[i];
+      if (current->selectable) {
+        tree->cursor_id    = current->uid;
+        tree->cursor_index = i;
         return cursor->uid;
-      } else {
-        cursor = cursor->next;
-      }
-    } else {
-      if (tree->loop) {
-        cursor = tree->start;
-      } else {
-        return 0;
       }
     }
   }
@@ -2560,41 +3353,63 @@ uint32_t ui_tree_next(ui_tree* tree) {
   return 0;
 }
 
+/* Return 0 if unable to find a valid target (all uid's are non-zero)*/
 uint32_t ui_tree_prev(ui_tree* tree) {
-  if (!tree || !tree->start) {
-    // NOTE: all UI Element IDs are non-zero
+  if (!tree || tree->count < 2) {
+    ASTERA_DBG("ui_tree_prev: no or empty tree passed.\n");
     return 0;
   }
 
-  if (!tree->cursor) {
-    tree->cursor = tree->end;
-  }
+  // check for unset cursor
+  if (tree->cursor_index == -1) {
+    for (uint32_t i = 0; i < tree->count; ++i) {
+      if (tree->raw[i].selectable) {
+        tree->cursor_index = i;
+        tree->cursor_id    = tree->raw[i].uid;
 
-  if (tree->cursor) {
-    if (tree->cursor->element.type == UI_DROPDOWN) {
-      ui_dropdown* dropdown = (ui_dropdown*)tree->cursor->element.data;
-      if (dropdown->showing) {
-        ui_dropdown_prev(dropdown);
-        return dropdown->id;
+        return tree->cursor_id;
       }
     }
   }
 
-  ui_leaf* cursor = tree->cursor->prev;
-  while (1) {
-    if (cursor && cursor != tree->cursor) {
-      if (cursor->selectable) {
-        tree->cursor = cursor;
-        return cursor->uid;
-      } else {
-        cursor = cursor->prev;
+  ui_leaf* cursor = &tree->raw[tree->cursor_index];
+  if (!cursor) {
+    ASTERA_DBG("ui_tree_prev: Unable to get cursor from array.\n");
+    return 0;
+  }
+
+  if (cursor->element.type == UI_DROPDOWN) {
+    ui_dropdown* dropdown = (ui_dropdown*)cursor->element.data;
+    if (dropdown->showing) {
+      ui_dropdown_prev(dropdown);
+      return dropdown->id;
+    }
+  }
+
+  int32_t closest = -1;
+  for (uint32_t i = 0; i < tree->cursor_index; ++i) {
+    if (tree->raw[i].selectable) {
+      closest = i;
+    }
+  }
+
+  if (closest != -1) {
+    tree->cursor_id    = tree->raw[closest].uid;
+    tree->cursor_index = closest;
+    return tree->cursor_id;
+  }
+
+  if (tree->loop) {
+    for (uint32_t i = tree->cursor_index + 1; i < tree->count; ++i) {
+      if (tree->raw[i].selectable) {
+        closest = i;
       }
-    } else {
-      if (tree->loop) {
-        cursor = tree->end;
-      } else {
-        return 0;
-      }
+    }
+
+    if (closest) {
+      tree->cursor_id    = tree->raw[closest].uid;
+      tree->cursor_index = closest;
+      return tree->cursor_id;
     }
   }
 

@@ -1,2 +1,10 @@
 /build/
 .DS_Store
+
+CMakeCache.txt
+.swp
+
+.a
+.o
+.dll
+

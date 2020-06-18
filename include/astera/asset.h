@@ -1,3 +1,5 @@
+// TODO file writing methods (general fs, pak, zip)
+
 #ifndef ASTERA_ASSET_HEADER
 #define ASTERA_ASSET_HEADER
 
@@ -5,13 +7,13 @@
 extern "C" {
 #endif
 
-#include <astera/export.h>
 #include <stdint.h>
+#include <stdio.h>
 
 typedef struct {
-  unsigned int   uid;
+  uint32_t       uid;
   unsigned char* data;
-  unsigned int   data_length;
+  uint32_t       data_length;
   const char*    name;
 
   int32_t chunk_start, chunk_length;
@@ -22,8 +24,6 @@ typedef struct {
   int chunk : 1;
 } asset_t;
 
-#if !defined(ASTERA_NO_PAK)
-#include <stdio.h>
 typedef struct {
   char     id[4];
   uint32_t offset;
@@ -40,38 +40,12 @@ typedef struct {
   unsigned char* data_ptr;
   uint32_t       data_size;
 
-#if !defined(ASTERA_PAK_NO_FILE)
   FILE *in, *out;
-#endif
 
   pak_file_t* entries;
   uint32_t    count;
-#if !defined(ASTERA_PAK_NO_FILE)
-  int file_mode : 1;
-#endif
+  int         file_mode : 1;
 } pak_t;
-
-#if !defined(ASTERA_PAK_NO_FILE)
-ASTERA_API pak_t*  pak_open(const char* file, const char* mode);
-ASTERA_API int32_t pak_append(pak_t* pak, const char* filename,
-                              const unsigned char* data, uint32_t data_length);
-ASTERA_API int32_t pak_append_file(pak_t* pak, const char* filename, FILE* in);
-#endif
-ASTERA_API void           pak_open_mem(pak_t* pak, unsigned char* data,
-                                       uint32_t data_length);
-ASTERA_API unsigned char* pak_extract(pak_t* pak, uint32_t index);
-ASTERA_API unsigned char* pak_extract_noalloc(pak_t* pak, uint32_t index,
-                                              unsigned char* out,
-                                              uint32_t       out_cap);
-ASTERA_API pak_t* pak_close(pak_t* pak);
-
-ASTERA_API int32_t  pak_find(pak_t* pak, const char* filename);
-ASTERA_API uint32_t pak_count(pak_t* pak);
-ASTERA_API uint32_t pak_offset(pak_t* pak, uint32_t index);
-ASTERA_API uint32_t pak_size(pak_t* pak, uint32_t index);
-ASTERA_API char*    pak_name(pak_t* pak, uint32_t index);
-
-#endif
 
 typedef enum { MAP_FS = 0, MAP_PAK = 1, MAP_ZIP = 2 } asset_map_type;
 
@@ -80,51 +54,70 @@ typedef struct {
 
   uint32_t count;
   uint32_t capacity;
+  uint32_t uid_counter;
 
   const char* name;
   const char* filename;
 
-#if !defined(ASTERA_NO_PAK)
   pak_t* pak;
-#endif
 
   uint8_t        compression_level;
   asset_map_type type;
 } asset_map_t;
 
-/* Create an asset map to track assets */
-ASTERA_API asset_map_t asset_map_create(const char* filename, const char* name,
-                                        uint32_t       capacity,
-                                        uint8_t        compression_level,
-                                        asset_map_type type);
+pak_t*  pak_open(const char* file, const char* mode);
+int32_t pak_append(pak_t* pak, const char* filename, const unsigned char* data,
+                   uint32_t data_length);
+int32_t pak_append_file(pak_t* pak, const char* filename, FILE* in);
+void    pak_open_mem(pak_t* pak, unsigned char* data, uint32_t data_length);
+unsigned char* pak_extract(pak_t* pak, uint32_t index);
+unsigned char* pak_extract_noalloc(pak_t* pak, uint32_t index,
+                                   unsigned char* out, uint32_t out_cap);
+pak_t*         pak_close(pak_t* pak);
 
-/* Check asset map for a file
- * if allow_fetch: go and load the data immediately */
-ASTERA_API asset_t* asset_map_find(asset_map_t* map, const char* name,
-                                   int allow_fetch);
+int32_t  pak_find(pak_t* pak, const char* filename);
+uint32_t pak_count(pak_t* pak);
+uint32_t pak_offset(pak_t* pak, uint32_t index);
+uint32_t pak_size(pak_t* pak, uint32_t index);
+char*    pak_name(pak_t* pak, uint32_t index);
+
+/* Create an asset map to track assets using a zip file */
+asset_map_t asset_map_create_zip(const char* filename, const char* name,
+                                 uint32_t capacity, uint8_t compression_level);
+
+/* Create an asset map to track assets using a pak file */
+asset_map_t asset_map_create_pak(const char* filename, const char* name,
+                                 uint32_t capacity);
 
 /* Add an asset into the tracking of a map */
-ASTERA_API void asset_map_add(asset_map_t* map, asset_t* asset);
+void asset_map_add(asset_map_t* map, asset_t* asset);
 /* Remove an asset from the tracking of a map */
-ASTERA_API void asset_map_remove(asset_map_t* map, asset_t* asset);
+void asset_map_remove(asset_map_t* map, asset_t* asset);
 /* Remove an asset from the tracking of a map by id */
-ASTERA_API void asset_map_removei(asset_map_t* map, uint32_t id);
+void asset_map_removei(asset_map_t* map, uint32_t id);
+/* Get a file from the asset map's directed source */
+asset_t* asset_map_get(asset_map_t* map, const char* file);
 
 /* Update for any free requests made*/
-ASTERA_API void asset_map_update(asset_map_t* map);
+void asset_map_update(asset_map_t* map);
 
-/* Get a file from the local system */
-ASTERA_API asset_t* asset_get(const char* file);
+/* Get a file from the local system
+   file - the file path of the file
+   returns: formatted asset_t struct pointer with file data */
+asset_t* asset_get(const char* file);
 
 /* Get a chunk from a local system file */
-ASTERA_API asset_t* asset_get_chunk(const char* file, uint32_t chunk_start,
-                                    uint32_t chunk_length);
+asset_t* asset_get_chunk(const char* file, uint32_t chunk_start,
+                         uint32_t chunk_length);
 
 /* Free any memory used by the asset */
-ASTERA_API void asset_free(asset_t* asset);
+void asset_free(asset_t* asset);
 
 /* Free the map and all the assets within the map */
-ASTERA_API void asset_map_free(asset_map_t* map);
+void asset_map_free(asset_map_t* map);
+
+/* Write data to the file system */
+int8_t asset_write(const char* file_path, void* data, uint32_t data_length);
 
 #ifdef __cplusplus
 }

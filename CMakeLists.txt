@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 project(astera VERSION 0.1.0 LANGUAGES C)
 
-list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
+# list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 
 set(CMAKE_DISABLE_IN_SOURCE_BUILD ON CACHE BOOL "Prevents cmake -S. -B.")
 set(CMAKE_DISABLE_SOURCE_CHANGES ON CACHE BOOL "Prevent writing files to CMAKE_SOURCE_DIR under configure")
@@ -11,7 +11,6 @@ set(CMAKE_POLICY_DEFAULT_CMP0075 NEW)
 
 set(CMAKE_VISIBILITY_INLINES_HIDDEN ON)
 set(CMAKE_C_STANDARD_REQUIRED ON)
-set(CMAKE_C_STANDARD 99)
 set(CMAKE_FIND_FRAMEWORK FIRST)
 
 include(CMakeDependentOption)
@@ -23,18 +22,10 @@ cmake_dependent_option(ASTERA_BUILD_EXAMPLES
   "Build astera's examples" ON
   "CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME" ON)
 
-# If we want to add dynamic versions
-#cmake_dependent_option(ASTERA_BUILD_DYNAMIC
-#  "Build astera dynamically instead of static" OFF
-#  "CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME" OFF)
-
-cmake_dependent_option(ASTERA_BUILD_PEDANTIC
-  "Build astera with pedantic warning flags" OFF
-  "CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME" ON)
-
-cmake_dependent_option(ASTERA_BUILD_DOCS
-  "Build astera's documentation" OFF
-  "CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME;Sphinx_FOUND" ON)
+# TODO REMOVE??
+cmake_dependent_option(ASTERA_DEBUG_ENGINE
+  "Enable debug options for astera's compilation" OFF
+  "CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME" OFF)
 
 set(ALSOFT_DLOPEN ON)
 set(ALSOFT_WERROR OFF)
@@ -66,9 +57,7 @@ file(GLOB sources CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/src/*.c)
 add_library(${PROJECT_NAME} STATIC)
 target_sources(${PROJECT_NAME} PRIVATE ${sources})
 target_sources(${PROJECT_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/dep/nanovg/nanovg.c)
-target_sources(${PROJECT_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/dep/getopt/getopt.c)
 target_sources(${PROJECT_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/dep/zip/zip.c)
-#target_sources(${PROJECT_NAME} PRIVATE $<TARGET_OBJECTS:OpenAL::AL> $<TARGET_OBJECTS:glfw>)
 
 target_include_directories(${PROJECT_NAME}
   PUBLIC
@@ -79,24 +68,39 @@ target_include_directories(${PROJECT_NAME}
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/dep/openal-soft>
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/dep/stb>
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/dep/zip>
-    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/dep/getopt>
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
     $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include>
     $<INSTALL_INTERFACE:${CMAKE_INCLUDE_INSTALLDIR}>)
 target_compile_definitions(${PROJECT_NAME}
   PRIVATE
-  $<$<CONFIG:Debug>:ASTERA_DEBUG_OUTPUT>
+    $<$<CONFIG:Debug>:ASTERA_DEBUG_OUTPUT>
     $<$<PLATFORM_ID:FreeBSD>:FreeBSD>
     $<$<PLATFORM_ID:OpenBSD>:OpenBSD>
     $<$<PLATFORM_ID:NetBSD>:NetBSD>
     $<$<PLATFORM_ID:Darwin>:OSX>)
 target_compile_features(${PROJECT_NAME} PRIVATE c_std_99)
 
-if(ASTERA_BUILD_PEDANTIC)
+# REMOVE ASAN STUFF ONCE DONE
+# AS WELL AS PEDANTIC PROBABLY
+# TODO
+# REMOVE docs/index.html AS WELL
+# FIGURE OUT GH-ACTIONS SPHINX DEPLOY TO GH-PAGES BRANCH
+if(ASTERA_DEBUG_ENGINE)
   target_compile_options(${PROJECT_NAME}
     PRIVATE
       $<$<NOT:$<C_COMPILER_ID:MSVC>>:-Wall -Wextra -pedantic>
-      $<$<C_COMPILER_ID:MSVC>:/WX /W4>)
+      $<$<C_COMPILER_ID:MSVC>:/WX /W4>
+    PUBLIC
+      $<$<ASTERA_DEBUG_ENGINE,$<C_COMPILER_ID:MSVC>:/fsanitize=address>:>
+      $<$<ASTERA_DEBUG_ENGINE,$<C_COMPILER_ID:Clang>:-fsanitize=address -fno-omit-frame-pointer -O2>:>
+      $<$<ASTERA_DEBUG_ENGINE,$<C_COMPILER_ID:GNU>:-fsanitize=address -fno-omit-frame-pointer -O2>:>)
+  if(ASTERA_DEBUG_ENGINE) 
+    target_link_option(${PROJECT_NAME}
+      PUBLIC
+      $<$<C_COMPILER_ID:MSVC>:/fsanitize=address>
+      $<$<C_COMPILER_ID:Clang>:-fsanitize=address>
+      $<$<C_COMPILER_ID:GNU>:-fsanitize=address)
+  endif()
 endif()
 
 target_link_libraries(${PROJECT_NAME}
@@ -106,31 +110,10 @@ target_link_libraries(${PROJECT_NAME}
     $<$<NOT:$<PLATFORM_ID:Windows>>:m>
     glfw)
 
+  target_compile_options(${PROJECT_NAME} PUBLIC -w)
+
 set_property(TARGET astera PROPERTY C_VISIBILITY_PRESET "hidden")
 set_property(TARGET astera PROPERTY VERSION ${PROJECT_VERSION})
-
-if (WIN32)
-  set(al-libtype-static "#define AL_LIBTYPE_STATIC")
-endif()
-
-generate_export_header(astera 
-  EXPORT_MACRO_NAME "ASTERA_API"
-  EXPORT_FILE_NAME "include/astera/export.h"
-  CUSTOM_CONTENT_FROM_VARIABLE al-libtype-static)
-
-if (ASTERA_BUILD_DOCS)
-  find_package(Sphinx REQUIRED)
-  file(GLOB sources CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/docs/*.rst")
-  add_custom_target(docs
-    COMMAND Sphinx::Build "${PROJECT_SOURCE_DIR}/docs" "${PROJECT_BINARY_DIR}/docs"
-    DEPENDS ${sources}
-    SOURCES ${sources}
-    COMMENT "Building Astera Documentation"
-    COMMAND_EXPAND_LISTS
-    USES_TERMINAL
-    VERBATIM)
-  set_property(DIRECTORY PROPERTY ADDITIONAL_CLEAN_FILES "${PROJECT_BINARY_DIR}/docs")
-endif()
 
 install(TARGETS astera OpenAL glfw
   EXPORT astera-targets

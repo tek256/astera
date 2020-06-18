@@ -1,1 +1,1 @@
-Just don't be a dick.
+Be kind

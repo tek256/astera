@@ -1,2 +1,0 @@
-Collision Reference
-===================

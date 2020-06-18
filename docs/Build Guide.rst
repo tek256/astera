@@ -77,12 +77,21 @@ CMake Options
 
 If you want to specify a CMake Generator, you can add ``-G`` and then your option, I'm partial to ninja, so I'd add ``-GNinja``. You can read more about CMake Generators `here <https://cmake.org/cmake/help/latest/manual/cmake-generators.7.html>`_.
 
-If you'd like to specify a specific compiler use ``-DCMAKE_C_COMPILER=`` and ``-DCMAKE_CXX_COMPILER=`` in the command.
-For example using clang/clang++:
+If you want to try and compile a specific candidate type (Release vs Debug), you can specify ``-DCMAKE_BUILD_TYPE`` with either ``Release`` or ``Debug``. Which would look something like this:
+
+.. code-block::
+  
+  -DCMAKE_BUILD_TYPE=Release 
+
+
+If you'd like to specify a specific compiler use ``-DCMAKE_C_COMPILER=`` and ``-DCMAKE_CXX_COMPILER=`` in the command.  
+
+Here's an example of using all the options we just described:
+_Note: Keep in mind that the order of the options / arguments doesn't matter._
 
 .. code-block::
 
-  cmake -Bbuild -S. -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+  cmake -Bbuild -S. -GNinja -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=Debug
 
 
 

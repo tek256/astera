@@ -1,6 +1,6 @@
 /* NOTE: This is a heavily modified version of linmath in order to suit Astera's
  * needs. You can find the original linmath on github at datenwolf/linmath.h
- * - Devon */
+ * - Devon (tek256) */
 
 #ifndef LINMATH_H
 #define LINMATH_H
@@ -84,6 +84,19 @@
     }                                                                          \
     return r;                                                                  \
   }                                                                            \
+  LINMATH_H_FUNC void vec##n##_nlerp(vec##n dst, vec##n start, vec##n end,     \
+                                     float percent) {                          \
+    for (int i = 0; i < n; ++i) {                                              \
+      dst[i] = start[i] + (percent * (end[i] - start[i]));                     \
+    }                                                                          \
+    vec##n##_norm(dst, dst);                                                   \
+  }                                                                            \
+  LINMATH_H_FUNC void vec##n##_lerp(vec##n dst, vec##n start, vec##n end,      \
+                                    float percent) {                           \
+    for (int i = 0; i < n; ++i) {                                              \
+      dst[i] = start[i] + (percent * (end[i] - start[i]));                     \
+    }                                                                          \
+  }                                                                            \
   LINMATH_H_FUNC int vec##n##_nonzero(vec##n const a) {                        \
     int c = 0;                                                                 \
     for (int i = 0; i < n; ++i) {                                              \
@@ -97,6 +110,28 @@
 LINMATH_H_DEFINE_VEC(2)
 LINMATH_H_DEFINE_VEC(3)
 LINMATH_H_DEFINE_VEC(4)
+
+LINMATH_H_FUNC float f_lerp(float start, float end, float percentage) {
+  return start + ((end - start) * percentage);
+}
+
+LINMATH_H_FUNC float f_clamp(float value, float min, float max) {
+  return (value > max) ? max : (value < min) ? min : value;
+}
+
+LINMATH_H_FUNC double d_clamp(double value, double min, double max) {
+  return (value > max) ? max : (value < min) ? min : value;
+}
+
+LINMATH_H_FUNC float f_smoothstep(float min, float max, float value) {
+  float t = f_clamp((value - min) / (max - min), 0.f, 1.f);
+  return t * t * (3.f - 2.f * t);
+}
+
+LINMATH_H_FUNC float d_smoothstep(double min, double max, double value) {
+  double t = d_clamp((value - min) / (max - min), 0.0, 1.0);
+  return t * t * (3.0 - 2.0 * t);
+}
 
 LINMATH_H_FUNC void vec2_set(vec2 v, float x, float y) {
   v[0] = x;

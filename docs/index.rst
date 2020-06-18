@@ -1,9 +1,15 @@
-Astera Documentation
-====================
+Home
+====
 
-Welcome to the official Astera documentation!  
+Welcome to the official Astera |release| documentation!  
 
-If you find any errors, please open an `issue <https://github.com/tek256/astera/issues/>`_ or submit a `pull request <https://github.com/tek256/astera/compare>`_!
+Please note: This is still currently under construction and is within the early versions of Astera! If you find any errors, please open an `issue <https://github.com/tek256/astera/issues/>`_ or submit a `pull request <https://github.com/tek256/astera/compare>`_!
+
+.. toctree::
+  :maxdepth: 0 
+  :hidden:
+
+  self
 
 .. toctree::
    :caption: Build
@@ -16,8 +22,6 @@ If you find any errors, please open an `issue <https://github.com/tek256/astera/
 
    Asset Guide
    Audio Guide
-   Collision Guide
-   Config Guide
    Input Guide
    Render Guide
    Sys Guide
@@ -29,22 +33,10 @@ If you find any errors, please open an `issue <https://github.com/tek256/astera/
 
    Asset Reference
    Audio Reference
-   Collision Reference
-   Config Reference
    Input Reference
-   Macro Reference
    Render Reference
    Sys Reference
    UI Reference
-
-.. toctree::
-   :caption: Examples
-   :maxdepth: 1
-
-   Audio Example
-   Basic Game Example
-   Input Example
-   UI Example
 
 .. toctree::
    :caption: Other

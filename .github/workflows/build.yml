@@ -25,7 +25,7 @@ jobs:
       - name: Install CMake and Ninja
         run: |
           python -m pip install --upgrade pip
-          python -m pip install --upgrade cmake ninja sphinx sphinx_rtd_theme
+          python -m pip install --upgrade cmake ninja
       - name: Install Apt Dependencies
         if: contains(matrix.os, 'ubuntu')
         run: |
@@ -35,5 +35,3 @@ jobs:
         run: cmake -Bbuild -S${{ github.workspace }} -DCMAKE_BUILD_TYPE=${{ matrix.build-type }} -DASTERA_BUILD_DOCS=ON
       - name: Build
         run: cmake --build build
-      - name: Build Documentation
-        run: cmake --build build --target docs

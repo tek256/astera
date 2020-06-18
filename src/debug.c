@@ -10,220 +10,141 @@
 #include <unistd.h>
 #endif
 
-#define STR_BUFF_SIZE 128
+d_ctx* d_ctx_get() { return &_d_ctx; }
 
-static int         dbg_silent = 0;
-static int         logging    = -1;
-static int         timestamp  = 1;
-static const char* log_fp;
-
-static char time_buff[64];
-static char strbuff[STR_BUFF_SIZE];
-
-void dbg_set_log_fp(const char* fp) { log_fp = fp; }
-
-void dbg_set_timestamp(int enabled) { timestamp = enabled; }
-
-int dbg_is_logging() { return logging && log_fp; }
-
-int dbg_cleanup() {
-  if (log_fp) {
-    return remove(log_fp);
+void d_set_log(uint8_t log, const char* fp) {
+  if (log) {
+    _d_ctx.logging = 1;
+    if (fp)
+      _d_ctx.log_fp = fp;
+  } else {
+    _d_ctx.logging = 0;
   }
+}
+
+void d_set_log_fp(const char* fp) {
+  if (fp)
+    _d_ctx.log_fp = fp;
+}
+
+void d_use_timestamp(uint8_t timestamp) { _d_ctx.timestamp = timestamp; }
+
+uint8_t d_is_logging() { return _d_ctx.logging; }
+
+/* Get the current timestamp and put it in the timebuff */
+static void d_get_timestamp() {
+  time_t     raw;
+  struct tm* ti;
+  time(&raw);
+  ti = localtime(&raw);
+  memset(_d_ctx.time_buff, 0, sizeof(char) * 16);
+  strftime(_d_ctx.time_buff, 16, "%d%Om%Y_%H%M", ti);
+}
+
+uint8_t d_post_to_err() {
+  if (!_d_ctx.logging) {
+    return 0;
+  }
+
+  // Get the current timestamp
+  d_get_timestamp();
+
+  static char err_buff[64];
+  snprintf(err_buff, 64, "ERR_%s.txt", _d_ctx.time_buff);
+
+  FILE* o = fopen(err_buff, "wb+");
+  FILE* i = fopen(_d_ctx.log_fp, "rb+");
+
+  if (!o || !i) {
+    if (!o)
+      fprintf(stderr, "Unable to open, %s for error output.\n", err_buff);
+    else
+      fprintf(stderr, "Unable to open: %s for error output\n", _d_ctx.log_fp);
+    fclose(o);
+    fclose(i);
+    memset(err_buff, 0, sizeof(char) * 64);
+    return 0;
+  }
+
+  fseek(i, 0, SEEK_END);
+  long size = ftell(i);
+  long rem  = size;
+  rewind(i);
+
+  while (rem > 0) {
+    rem -= fread(err_buff, sizeof(char), 64, i);
+    fwrite(err_buff, sizeof(char), 64, o);
+  }
+
+  // Clear out the data of the error buffer
+  memset(err_buff, 0, sizeof(char) * 64);
+
+  fclose(i);
+  fclose(o);
+
   return 1;
 }
 
-void dbg_enable_log(int log, const char* fp) {
-  if (log != logging) {
-    logging = log;
+uint8_t d_cleanup() {
+  if (_d_ctx.logging && _d_ctx.log_fp) {
+    return remove(_d_ctx.log_fp);
   }
 
-  if (fp && log) {
-#if defined _WIN32 || defined _WIN64
-    remove(fp);
-#else
-    if (access(fp, F_OK) != -1) {
-      remove(fp);
-    }
-#endif
-
-    FILE* chk = fopen(fp, "a");
-    if (!chk) {
-      logging = 0;
-      _e("Unable to open file: %s\n", fp);
-    }
-    fclose(chk);
-
-    log_fp = fp;
-  }
+  return 1;
 }
 
+// NOTE: Isn't working perfectly with internal astera logging output, try
+// ASTERA_DEBUG_STDIO if you want this to work
 void _l(const char* format, ...) {
   va_list args;
   va_start(args, format);
 
-  vsprintf(strbuff, format, args);
-  if (!dbg_silent) {
-    fprintf(stdout, "%s", strbuff);
+  if (!_d_ctx.silent) {
+    vfprintf(stdout, format, args);
   }
 
-  int len = strlen(strbuff);
+  if (_d_ctx.logging) {
+    FILE* f = fopen(_d_ctx.log_fp, "ab+");
 
-  if (logging) {
-    if (timestamp) {
-      time_t     raw;
-      struct tm* ti;
-      time(&raw);
-      ti = localtime(&raw);
-
-      strftime(time_buff, 64, "%H:%M:%S ", ti);
-
-      int ts_len = strlen(time_buff);
-
-      FILE* f = fopen(log_fp, "a");
-      fwrite(time_buff, sizeof(char), ts_len, f);
-      fwrite(strbuff, sizeof(char), len, f);
-      fclose(f);
-      memset(time_buff, 0, sizeof(char) * 64);
-    } else {
-      FILE* f = fopen(log_fp, "a");
-      fwrite(strbuff, sizeof(char), len, f);
-      fclose(f);
+    if (!f) {
+      return;
     }
-  }
 
-  memset(strbuff, 0, sizeof(char) * STR_BUFF_SIZE);
-  va_end(args);
-}
-
-void _fatal(const char* format, ...) {
-  va_list args;
-  va_start(args, format);
-
-  int len = vsprintf(strbuff, format, args);
-  fprintf(stderr, "FATAL: %s", strbuff);
-
-  if (logging) {
-    if (timestamp) {
-      time_t     raw;
-      struct tm* ti;
-      time(&raw);
-      ti = localtime(&raw);
-
-      strftime(time_buff, 64, "%H:%M:%S ", ti);
-
-      int ts_len = strlen(time_buff);
-
-      FILE* f = fopen(log_fp, "a");
-      fwrite(time_buff, sizeof(char), ts_len, f);
-      fwrite(strbuff, sizeof(char), len, f);
-      fclose(f);
-      memset(time_buff, 0, sizeof(char) * 64);
-    } else {
-      FILE* f = fopen(log_fp, "a");
-      fwrite(strbuff, sizeof(char), len, f);
-      fclose(f);
+    if (_d_ctx.timestamp) {
+      d_get_timestamp();
+      fprintf(f, "%s: ", _d_ctx.time_buff);
     }
+
+    vfprintf(f, format, args);
+    fclose(f);
   }
 
-  memset(strbuff, 0, sizeof(char) * STR_BUFF_SIZE);
   va_end(args);
-
-  d_fatal = 1;
 }
 
 void _e(const char* format, ...) {
   va_list args;
   va_start(args, format);
 
-  int len = vsprintf(strbuff, format, args);
-  fprintf(stderr, "%s", strbuff);
+  if (!_d_ctx.silent) {
+    fprintf(stderr, "ERROR: ");
+    vfprintf(stderr, format, args);
+  }
 
-  if (logging) {
-    if (timestamp) {
-      time_t     raw;
-      struct tm* ti;
-      time(&raw);
-      ti = localtime(&raw);
+  if (_d_ctx.logging) {
+    FILE* f = fopen(_d_ctx.log_fp, "ab+");
 
-      strftime(time_buff, 64, "%H:%M:%S ", ti);
-
-      int ts_len = strlen(time_buff);
-
-      FILE* f = fopen(log_fp, "a");
-      fwrite(time_buff, sizeof(char), ts_len, f);
-      fwrite(strbuff, sizeof(char), len, f);
-      fclose(f);
-      memset(time_buff, 0, sizeof(char) * 64);
-    } else {
-      FILE* f = fopen(log_fp, "a");
-      fwrite(strbuff, sizeof(char), len, f);
-      fclose(f);
+    if (!f) {
+      return;
     }
+
+    if (_d_ctx.timestamp) {
+      d_get_timestamp();
+      fprintf(f, "%s ", _d_ctx.time_buff);
+    }
+
+    vfprintf(f, format, args);
   }
 
-  memset(strbuff, 0, sizeof(char) * STR_BUFF_SIZE);
   va_end(args);
-}
-
-int dbg_post_to_err() {
-  char err_buff[STR_BUFF_SIZE];
-
-  if (!log_fp) {
-    return 0;
-  }
-
-  time_t     raw;
-  struct tm* ti;
-  time(&raw);
-  ti = localtime(&raw);
-
-  strftime(time_buff, 64, "%d%Om%Y_%H%M", ti);
-
-  memset(err_buff, 0, sizeof(char) * STR_BUFF_SIZE);
-  strcat(err_buff, "ERR_");
-  strcat(err_buff, time_buff);
-  strcat(err_buff, ".txt");
-  strcat(err_buff, "\0");
-
-  FILE* o = fopen(err_buff, "w");
-  FILE* i = fopen(log_fp, "r");
-
-  if (!o) {
-    _e("Unable to open, %s for error output.\n", log_fp);
-    fclose(o);
-    fclose(i);
-    memset(err_buff, 0, sizeof(char) * STR_BUFF_SIZE);
-    return 0;
-  }
-
-  if (!i) {
-    _e("Unable to open, %s for error output.\n", err_buff);
-    fclose(o);
-    fclose(i);
-    memset(err_buff, 0, sizeof(char) * STR_BUFF_SIZE);
-    return 0;
-  }
-
-  memset(err_buff, 0, sizeof(char) * STR_BUFF_SIZE);
-
-  fseek(i, 0, SEEK_END);
-  long size = ftell(i);
-  long rem  = size - 1;
-  rewind(i);
-
-  while (rem > 0) {
-    rem -= fread(err_buff, sizeof(char), STR_BUFF_SIZE, i);
-    fwrite(err_buff, sizeof(char), STR_BUFF_SIZE, o);
-  }
-
-  memset(time_buff, 0, sizeof(char) * 64);
-
-  fclose(i);
-  fclose(o);
-
-  memset(err_buff, 0, sizeof(char) * STR_BUFF_SIZE);
-
-  dbg_cleanup();
-  return 1;
 }

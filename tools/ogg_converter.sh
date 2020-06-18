@@ -16,12 +16,14 @@ do
 				file_list+=("${subfile}")
 			fi	
 		done
-	fi	
+  elif [ -f "$file" ]; then
+    file_list+=("$file")
+  fi
 done
 
 # For each file in the file list 
 for f in "${file_list[@]}"; do
-	echo "${f%.*}.ogg"
+	echo "Converting: ${f} to ${f%.*}.ogg"
 	# Convert to pure OGG stream
-	ffmpeg -i "$f" -map 0:a -acodec libvorbis -b:a 64k -map_metadata 0 "${f%.*}.ogg"
+	ffmpeg -i "$f" -map 0:a -acodec libvorbis -q 3 -map_metadata 0 "${f%.*}".ogg
 done

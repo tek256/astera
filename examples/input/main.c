@@ -2,8 +2,8 @@
 
 #include <stdio.h>
 
-#define ASTERA_DEBUG_OUTPUT
-#include <astera/debug.h>
+//#define ASTERA_DEBUG_OUTPUT
+//#include <astera/debug.h>
 
 #include <astera/asset.h>
 #include <astera/input.h>
@@ -17,6 +17,9 @@
 static int running = 0;
 
 vec2 window_size;
+
+r_ctx* render_ctx;
+i_ctx* input_ctx;
 
 ui_ctx*     u_ctx;
 ui_text     text, text2;
@@ -132,16 +135,16 @@ void init_ui() {
   vec2 button_pos         = {0.5f, 0.5f};
   vec2 button_size        = {0.25f, 0.1f};
   vec4 button_hover_color = {1.f, 1.f, 0.f, 1.f};
-  int  alignment          = UI_ALIGN_LEFT | UI_ALIGN_BOTTOM;
+  int  alignment          = UI_ALIGN_MIDDLE | UI_ALIGN_CENTER;
 
   button      = ui_button_create(u_ctx, button_pos, button_size, "Hello world.",
-                            alignment, 16.f);
+                            alignment, 32.f);
   button.font = test_font;
   vec4_dup(button.bg, white);
   vec4_dup(button.hover_bg, button_hover_color);
   vec4 button_color = {1.f, 1.f, 1.f, 1.f};
-  vec4_dup(button.color, button_color);
-  vec4_dup(button.hover_color, button_color);
+  vec4_dup(button.color, black);
+  vec4_dup(button.hover_color, black);
 
   vec2 dropdown_position = {0.5f, 0.5f};
   vec2 dropdown_size     = {0.20f, 0.075f};
@@ -192,10 +195,11 @@ void init_ui() {
   vec2 img_px_size = {75.f, 75.f};
 
   ui_px_from_scale(img_size, img_px_size, window_size);
+  printf("%f x %f\n", img_size[0], img_size[1]);
   ui_px_to_scale(u_ctx, img_pos, img_pos);
-  img = ui_image_create(u_ctx, ui_img_file->data, ui_img_file->data_length,
-                        IMG_NEAREST | IMG_REPEATX | IMG_REPEATY, img_pos,
-                        img_size);
+  img =
+      ui_img_create(u_ctx, ui_img_file->data, ui_img_file->data_length,
+                    IMG_NEAREST | IMG_REPEATX | IMG_REPEATY, img_pos, img_size);
 
   img.border_size = 3.f;
   // ui_img_set_colors(&img, white, white);
@@ -216,46 +220,37 @@ void init_ui() {
   center_point[1]     = 0.1f;
   ui_element_center_to(line_ele, center_point);
 
-  ui_tree_add(u_ctx, &tree, &text, UI_TEXT, 0, 0);
-  ui_tree_add(u_ctx, &tree, &text2, UI_TEXT, 0, 0);
-  button_uid   = ui_tree_add(u_ctx, &tree, &button, UI_BUTTON, 0, 1);
-  dropdown_uid = ui_tree_add(u_ctx, &tree, &dropdown, UI_DROPDOWN, 3, 1);
-  ui_tree_add(u_ctx, &tree, &line, UI_LINE, 0, 0);
-  ui_tree_add(u_ctx, &tree, &img, UI_IMAGE, 0, 0);
-  ui_tree_add(u_ctx, &tree, &typed, UI_TEXT, 0, 0);
-  ui_tree_add(u_ctx, &tree, &explain, UI_TEXT, 0, 0);
-  ui_tree_add(u_ctx, &tree, &tab_msg, UI_TEXT, 0, 0);
+  ui_tree_add(u_ctx, &tree, &text, UI_TEXT, 0, 0, 0);
+  ui_tree_add(u_ctx, &tree, &text2, UI_TEXT, 0, 0, 0);
+  dropdown_uid = ui_tree_add(u_ctx, &tree, &dropdown, UI_DROPDOWN, 3, 1, 1);
+  button_uid   = ui_tree_add(u_ctx, &tree, &button, UI_BUTTON, 0, 1, 0);
+  ui_tree_add(u_ctx, &tree, &line, UI_LINE, 0, 0, 0);
+  ui_tree_add(u_ctx, &tree, &img, UI_IMG, 0, 0, 0);
+  ui_tree_add(u_ctx, &tree, &typed, UI_TEXT, 0, 0, 0);
+  ui_tree_add(u_ctx, &tree, &explain, UI_TEXT, 0, 0, 0);
+  ui_tree_add(u_ctx, &tree, &tab_msg, UI_TEXT, 0, 0, 0);
+  ui_tree_print(&tree);
+  tree.loop = 0;
 }
 
 void init() {
-  r_window_info window_info;
-  window_info.width        = 1280;
-  window_info.height       = 720;
-  window_info.refresh_rate = 60;
-  window_info.resizable    = 1;
-  window_info.max_width    = 1920;
-  window_info.max_height   = 1080;
-  window_info.min_width    = 720;
-  window_info.min_height   = 480;
-  window_info.vsync        = 1;
-  window_info.fullscreen   = 0;
-  window_info.borderless   = 0;
-  window_info.title        = "Input Example";
+  r_window_params params =
+      r_window_params_create(1280, 720, 0, 0, 1, 0, 0, "Input Example");
 
-  if (!r_init(window_info)) {
-    printf("Error: unable to initialize rendering system.\n");
-    return;
-  }
+  // Create a shell of a render context, since we're not using it for actual
+  // drawing
+  render_ctx = r_ctx_create(params, 0, 0, 0, 0, 0);
 
-  if (!i_init()) {
-    printf("Error: unable to initialize input system.\n");
-    return;
-  }
+  input_ctx = i_ctx_create(16, 16, 0, 8, 16, 32);
 
-  window_size[0] = (float)window_info.width;
-  window_size[1] = (float)window_info.height;
+  window_size[0] = (float)params.width;
+  window_size[1] = (float)params.height;
 
-  i_create_joy(0);
+  r_ctx_make_current(render_ctx);
+  r_ctx_set_i_ctx(render_ctx, input_ctx);
+
+  // If only finding happiiness in real life was this simple
+  i_joy_create(input_ctx, 0);
 
   init_ui();
 
@@ -269,37 +264,36 @@ void render(time_s delta) {
   ui_tree_draw(u_ctx, &tree);
   ui_frame_end(u_ctx);
 
-  r_window_swap_buffers();
+  r_window_swap_buffers(render_ctx);
 }
 
 void input(time_s delta) {
-  i_update();
-  r_poll_events();
+  i_ctx_update(input_ctx);
 
-  vec2 mouse_pos = {i_get_mouse_x(), i_get_mouse_y()};
+  vec2 mouse_pos = {i_mouse_get_x(input_ctx), i_mouse_get_y(input_ctx)};
   ui_ctx_update(u_ctx, mouse_pos);
 
-  uint16_t joy_id = i_joy_connected();
+  int16_t joy_id = i_joy_connected(input_ctx);
   if (joy_id > -1) {
-    if (i_joy_button_clicked(XBOX_R1)) {
+    if (i_joy_clicked(input_ctx, XBOX_R1)) {
       ui_tree_next(&tree);
     }
 
-    if (i_joy_button_clicked(XBOX_L1)) {
+    if (i_joy_clicked(input_ctx, XBOX_L1)) {
       ui_tree_prev(&tree);
     }
 
-    if (i_joy_button_clicked(XBOX_A)) {
+    if (i_joy_clicked(input_ctx, XBOX_A)) {
       ui_tree_select(u_ctx, &tree, 1, 0);
     }
   }
 
   int32_t event_type = 0;
-  if ((event_type = ui_element_event(&tree, button_uid))) {
+  if ((event_type = ui_tree_check_event(&tree, button_uid))) {
     printf("Hello from the button!\n");
   }
 
-  if ((event_type = ui_element_event(&tree, dropdown_uid))) {
+  if ((event_type = ui_tree_check_event(&tree, dropdown_uid))) {
     if (dropdown.showing) {
       ui_dropdown_set_to_cursor(&dropdown);
       dropdown.showing = 0;
@@ -308,11 +302,12 @@ void input(time_s delta) {
     }
   }
 
-  if (i_key_clicked(KEY_ESCAPE) || r_window_should_close()) {
+  if (i_key_clicked(input_ctx, KEY_ESCAPE) ||
+      r_window_should_close(render_ctx)) {
     running = 0;
   }
 
-  if (i_key_clicked(KEY_TAB)) {
+  if (i_key_clicked(input_ctx, KEY_TAB)) {
     record_string = !record_string;
     if (record_string) {
       strcpy(tab_str, "Tab ON");
@@ -323,20 +318,20 @@ void input(time_s delta) {
     }
   }
 
-  int char_track = i_get_char_tracking();
+  int char_track = i_get_char_tracking(input_ctx);
   if (record_string) {
     // backspace cooldown (repeating, prevents super fast backspace)
     static time_s bkp_cd = MS_TO_SEC / 8; // 4 backspaces repeating per second
     static time_s bkp_timer = 0;          // time til allowed to backspace
 
     if (bkp_timer <= 0) {
-      if (i_key_clicked(KEY_BACKSPACE)) {
+      if (i_key_clicked(input_ctx, KEY_BACKSPACE)) {
         if (string_count > 0) {
           string_buffer[string_count - 1] = 0;
           --string_count;
           bkp_timer = bkp_cd;
         }
-      } else if (i_key_down(KEY_BACKSPACE)) {
+      } else if (i_key_down(input_ctx, KEY_BACKSPACE)) {
         if (string_count > 0) {
           string_buffer[string_count - 1] = 0;
           --string_count;
@@ -348,11 +343,12 @@ void input(time_s delta) {
     }
 
     if (!char_track) {
-      i_set_char_tracking(1);
+      i_set_char_tracking(input_ctx, 1);
     }
 
-    if (i_get_char_count() > 0) {
-      frame_chars_count = i_get_chars(frame_chars, STRING_FRAME_SIZE - 1);
+    if (i_get_char_count(input_ctx) > 0) {
+      frame_chars_count =
+          i_get_chars(input_ctx, frame_chars, STRING_FRAME_SIZE - 1);
 
       for (int i = 0; i < frame_chars_count; ++i) {
         if (string_count + 1 < STRING_BUFFER_SIZE) {
@@ -364,26 +360,26 @@ void input(time_s delta) {
         frame_chars[i] = 0;
       }
 
-      i_clear_chars();
+      i_clear_chars(input_ctx);
     }
   } else {
     if (char_track) {
-      i_set_char_tracking(0);
+      i_set_char_tracking(input_ctx, 0);
     }
 
-    if (i_key_clicked('E')) {
+    if (i_key_clicked(input_ctx, 'E')) {
       ui_tree_next(&tree);
     }
 
-    if (i_key_clicked('Q')) {
+    if (i_key_clicked(input_ctx, 'Q')) {
       ui_tree_prev(&tree);
     }
 
-    if (i_key_clicked(KEY_SPACE)) {
+    if (i_key_clicked(input_ctx, KEY_SPACE)) {
       ui_tree_select(u_ctx, &tree, 1, 0);
     }
 
-    if (i_mouse_clicked(0)) {
+    if (i_mouse_clicked(input_ctx, 0)) {
       ui_tree_select(u_ctx, &tree, 1, 1);
     }
   }
