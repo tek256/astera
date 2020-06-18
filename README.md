@@ -4,7 +4,7 @@
       <b>astera</b><br>
 	  <span font-size="16px">a cross platform game library</span><br>
       <span font-size="12px">Made by <a href="http://tek256.com">Devon</a> with love.</span><br><br>
-      <span><a href="https://github.com/tek256/astera/wiki/Setup">Setup</a> | <a href="https://github.com/tek256/astera/tree/master/examples/">Examples</a> | <a href="https://discordapp.com/invite/63GvpMh">Discord</a> | <a href="https://github.com/sponsors/tek256">Support</a></span><br><br>
+      <span><a href="https://tek256.com/astera/Build%20Guide.html">Setup</a> | <a href="https://github.com/tek256/astera/tree/master/examples/">Examples</a> | <a href="https://discordapp.com/invite/63GvpMh">Discord</a> | <a href="https://github.com/sponsors/tek256">Support</a></span><br><br>
       <span><img src="https://github.com/tek256/astera/workflows/Build%20Astera/badge.svg"></span>
     </p>
 </div>
@@ -57,7 +57,7 @@ cmake -Bbuilld -S. -DASTERA_BUILD_EXAMPLES=OFF -DCMAKE_BUILD_TYPE=Release # Gene
 cmake --build build # Build the build files
 ```
 
-For more information see the relevant [wiki page](http://tek256.com/astera/_build/html/Build%20Guide.html) or the `docs/Build Guide.rst` file.
+For more information see the relevant [wiki page](https://tek256.com/astera/Build%20Guide.html) or the `docs/Build Guide.rst` file.
 
 ### Changelog
 ```
