@@ -11,5 +11,5 @@ The audio for the audio example is from Sean Barrett's STB Example, you can find
 | ------- | --------- | ----------- |
 | Advanced Game | Rendering, Audio, UI | How to build a more advanced game with astera |
 | Audio | Audio | How to use astera to play music and sound effects |
-| Basic Game | Rendering, Audio, UI | How to build a basic game with astera |
+| Rendering | Rendering, | How to render with astera |
 | Input | Input | How to use astera to get user input |

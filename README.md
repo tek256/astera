@@ -61,7 +61,7 @@ For more information see the relevant [wiki page](http://tek256.com/astera/_buil
 
 ### Changelog
 ```
-June 7, 2020 - [0.01 RELEASE]
+June 18, 2020 - [0.01 RELEASE]
 - New context based engine usage
   - System prefix + `_ctx` for audio, render, input, and ui systems
 - Lots of bug fixes 
