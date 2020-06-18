@@ -175,7 +175,7 @@ void i_ctx_update(i_ctx* ctx) {
   ctx->mouse_l.y = ctx->mouse_p.y;
 
   /* Check for newly connected joysticks */
-  if (!ctx->joy_exists) {
+  /*if (!ctx->joy_exists) {
     for (int i = 0; i < 16; ++i) {
       if (glfwJoystickPresent(i)) {
         i_joy_create(ctx, i);
@@ -184,7 +184,7 @@ void i_ctx_update(i_ctx* ctx) {
         break;
       }
     }
-  }
+  }*/
 
   memset(ctx->keyboard.prev, 0, sizeof(int) * ctx->keyboard.prev_count);
   memcpy(ctx->keyboard.prev, ctx->keyboard.curr,
