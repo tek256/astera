@@ -57,7 +57,7 @@ cmake -Bbuilld -S. -DASTERA_BUILD_EXAMPLES=OFF -DCMAKE_BUILD_TYPE=Release # Gene
 cmake --build build # Build the build files
 ```
 
-For more information see the relevant [wiki page](http://tek256.com/astera/_build/html/Build%20Guide.html) or the `docs/Build Guide.rst` file.
+For more information see the relevant [wiki page](http://tek256.com/astera/Build%20Guide.html) or the `docs/Build Guide.rst` file.
 
 ### Changelog
 ```
