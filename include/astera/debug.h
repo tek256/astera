@@ -20,12 +20,7 @@ typedef struct {
 } d_ctx;
 
 // Create the global context to use, and initialize it
-static d_ctx _d_ctx = (d_ctx){
-    .silent    = 0,
-    .logging   = 0,
-    .timestamp = 0,
-    .log_fp    = "debug.txt",
-};
+static d_ctx _d_ctx;
 
 /* Get a pointer to the debug context paramters
  * returns: pointer to the debug context */

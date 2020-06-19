@@ -195,7 +195,6 @@ void init_ui() {
   vec2 img_px_size = {75.f, 75.f};
 
   ui_px_from_scale(img_size, img_px_size, window_size);
-  printf("%f x %f\n", img_size[0], img_size[1]);
   ui_px_to_scale(u_ctx, img_pos, img_pos);
   img =
       ui_img_create(u_ctx, ui_img_file->data, ui_img_file->data_length,
@@ -269,6 +268,7 @@ void render(time_s delta) {
 
 void input(time_s delta) {
   i_ctx_update(input_ctx);
+  i_poll_events();
 
   vec2 mouse_pos = {i_mouse_get_x(input_ctx), i_mouse_get_y(input_ctx)};
   ui_ctx_update(u_ctx, mouse_pos);
@@ -388,7 +388,6 @@ void input(time_s delta) {
 void update(time_s delta) { uint32_t active = ui_tree_check(u_ctx, &tree); }
 
 int main(void) {
-  printf("Hello world.\n");
   init();
 
   time_s frame_time = MS_TO_SEC / 60;

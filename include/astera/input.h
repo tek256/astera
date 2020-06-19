@@ -172,6 +172,8 @@ i_ctx* i_ctx_create(uint16_t max_mouse_buttons, uint16_t max_keys,
 void   i_ctx_destroy(i_ctx* ctx);
 void   i_ctx_update(i_ctx* ctx);
 
+void i_poll_events();
+
 void i_joy_create(i_ctx* ctx, uint16_t joy);
 void i_joy_destroy(i_ctx* ctx, uint16_t joy);
 

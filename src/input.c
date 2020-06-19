@@ -255,9 +255,9 @@ void i_ctx_update(i_ctx* ctx) {
     ctx->joy_b.prev_count = ctx->joy_b.curr_count;
     ctx->joy_b.curr_count = count;
   }
-
-  glfwPollEvents();
 }
+
+void i_poll_events() { glfwPollEvents(); }
 
 void i_ctx_destroy(i_ctx* ctx) {
   free(ctx->mouse_b.curr);

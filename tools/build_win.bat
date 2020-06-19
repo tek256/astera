@@ -24,16 +24,16 @@ IF NOT "x!ARG!" == "x!ARG:r=!" (
 IF NOT "x!ARG!" == "x!ARG:c=!" (
   goto CLEAN
 )
-IF NOT "x!ARG!" == "x!ARG:x=! (
+IF NOT "x!ARG!" == "x!ARG:x=!" (
   set NO_EXAMPLES=1
 )
-IF NOT "x!ARG!" == "x!ARG:l=! (
+IF NOT "x!ARG!" == "x!ARG:l=!" (
   set FORCE_LLVM=1
 )
 IF NOT "x!ARG!" == "x!ARG:m=!" (
   set FORCE_MINGW=1
 )
-IF NOT "x!ARG!" == "x!ARG:q=! (
+IF NOT "x!ARG!" == "x!ARG:q=!" (
   IF NOT DEFINED QUIET (
     set QUIET=1
   ) ELSE (

@@ -36,6 +36,4 @@ foreach(directory IN LISTS directories)
     PRIVATE
     $<${opengl-deprecation}:GL_SILENCE_DEPRECATION>)
   target_link_libraries(${name} PRIVATE ${PROJECT_NAME})
-  #set_property(TARGET ${name} PROPERTY BUILD_RPATH $<TARGET_FILE_DIR:astera>)
-  
 endforeach()

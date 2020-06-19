@@ -17,6 +17,8 @@ In order to create a binding, you can do so by calling:
 
 If you want to modify a binding in real time, you can set ``i_enable_binding_track`` which will then set the next input to the respective value:
 
+NOTE: You can set the binding types as ``ASTERA_BINDING_KEY``, ``ASTERA_BINDING_MB``, ``ASTERA_BINDING_JOYA``, or ``ASTERA_BINDING_JOYB``.
+
 .. code-block:: c
 
   // Set a key binding's value (alt = 1, value = 0) to the next input type
@@ -35,6 +37,10 @@ Macros
 Many of the button macro values are modified based on the target system being compiled for. This is due to different operating system drivers remapping different buttons / axes to different numbers. 
 
 - ``ASTERA_KB_NAMELEN`` - The max length of a key binding's name
+- ``ASTERA_BINDING_KEY``
+- ``ASTERA_BINDING_MB``
+- ``ASTERA_BINDING_JOYA``
+- ``ASTERA_BINDING_JOYB``
 - ``KEY_A`` - ``KEY_Z``
 - ``KEY_0`` - ``KEY_9``
 - ``XBOX_A``

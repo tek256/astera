@@ -220,8 +220,6 @@ void input(float delta) {
 void update(float delta) { r_particles_update(&particles, delta); }
 
 int main(void) {
-  printf("Hello world.\n");
-
   r_window_params params =
       r_window_params_create(1280, 720, 0, 0, 1, 0, 0, "Basic Game");
 
@@ -256,6 +254,7 @@ int main(void) {
 
   while (!r_window_should_close(render_ctx)) {
     i_ctx_update(input_ctx);
+    i_poll_events();
 
     input(16.f);
 

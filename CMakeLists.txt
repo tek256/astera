@@ -18,11 +18,12 @@ include(GenerateExportHeader)
 
 find_package(OpenGL REQUIRED)
 
+# If to build the `examples/` folder
 cmake_dependent_option(ASTERA_BUILD_EXAMPLES 
   "Build astera's examples" ON
   "CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME" ON)
 
-# TODO REMOVE??
+# Enables ASAN & Pedantic output
 cmake_dependent_option(ASTERA_DEBUG_ENGINE
   "Enable debug options for astera's compilation" OFF
   "CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME" OFF)
@@ -80,11 +81,7 @@ target_compile_definitions(${PROJECT_NAME}
     $<$<PLATFORM_ID:Darwin>:OSX>)
 target_compile_features(${PROJECT_NAME} PRIVATE c_std_99)
 
-# REMOVE ASAN STUFF ONCE DONE
-# AS WELL AS PEDANTIC PROBABLY
-# TODO
-# REMOVE docs/index.html AS WELL
-# FIGURE OUT GH-ACTIONS SPHINX DEPLOY TO GH-PAGES BRANCH
+# Enables ASAN & Pedantics
 if(ASTERA_DEBUG_ENGINE)
   target_compile_options(${PROJECT_NAME}
     PRIVATE

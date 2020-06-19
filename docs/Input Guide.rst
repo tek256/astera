@@ -13,13 +13,13 @@ Function Ordering
 
 1. ``i_ctx_create``
 2. ``r_ctx_set_i_ctx`` (for callbacks)
-3. **RUNTIME**
+3. **RUNTIME** (``i_ctx_update`` & ``i_poll_events``)
 4. ``i_ctx_destroy``
 
 Basic Input 
 ^^^^^^^^^^^
 
-Every frame you'll want to call ``i_ctx_update`` in order to update the states for your system. After this you can call the input check functions you want. There are 3 base types of input's you can check:
+Every frame you'll want to call ``i_ctx_update`` and ``i_poll_events`` in order to update the states for your system. After this you can call the input check functions you want. There are 3 base types of input's you can check:
 
 1. ``key``
 2. ``mouse``
@@ -71,6 +71,7 @@ This is meant to be an outline of the functions you should call in order to get 
 
   while(1){
     i_ctx_update(input_ctx);
+    i_poll_events();
 
     if(i_key_clicked(input_ctx, KEY_SPACE)){
       printf("Hello world!\n");
