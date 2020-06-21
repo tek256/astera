@@ -170,8 +170,8 @@ typedef struct {
    * flip_y - flips the texture along the y axis (1 = on, 0 = off) */
   uint32_t subtex;
   uint8_t  layer;
-  int      flip_x : 1;
-  int      flip_y : 1;
+  uint8_t  flip_x;
+  uint8_t  flip_y;
 } r_baked_quad;
 
 typedef struct {
@@ -256,11 +256,11 @@ typedef struct {
   r_sheet* sheet;
 
   // Uniform Arrays
-  mat4x4* mats;
-  int8_t* flip_x;
-  int8_t* flip_y;
-  vec4*   colors;
-  vec4*   coords;
+  mat4x4*  mats;
+  uint8_t* flip_x;
+  uint8_t* flip_y;
+  vec4*    colors;
+  vec4*    coords;
 
   uint32_t count, capacity;
 } r_batch;
@@ -761,11 +761,8 @@ void r_camera_screen_to_world(vec2 dst, r_camera* camera, vec2 point);
 void r_camera_screen_to_world(vec2 dst, r_camera* camera, vec2 point);
 
 /* vert - the vertex shader program's data
- * vert_length - the size of the vertex shader
- * frag - the fragment shader program's data
- * frag_length - the size of the fragment shader  */
-r_shader r_shader_create(unsigned char* vert, int vert_length,
-                         unsigned char* frag, int frag_length);
+ * frag - the fragment shader program's data */
+r_shader r_shader_create(unsigned char* vert, unsigned char* frag);
 
 /* Get a shader from the context's map by name */
 r_shader r_shader_get(r_ctx* ctx, const char* name);

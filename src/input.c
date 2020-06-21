@@ -73,7 +73,7 @@ struct i_ctx {
 };
 
 static inline uint8_t i_contains(int val, int* arr, uint16_t count) {
-  for (int i = 0; i < count; ++i) {
+  for (uint16_t i = 0; i < count; ++i) {
     if (arr[i] == val) {
       return 1;
     }
@@ -81,26 +81,23 @@ static inline uint8_t i_contains(int val, int* arr, uint16_t count) {
   return 0;
 }
 
-static inline void i_create_s(i_states* states, uint16_t size) {
+static void i_create_s(i_states* states, uint16_t size) {
   states->curr = (int*)malloc(sizeof(int) * size);
 
   if (!states->curr) {
-    return;
+    goto fail;
   }
 
   states->prev = (int*)malloc(sizeof(int) * size);
 
   if (!states->prev) {
-    free(states->curr);
-    return;
+    goto fail;
   }
 
   states->concurrent = (int*)malloc(sizeof(int) * size);
 
   if (!states->concurrent) {
-    free(states->curr);
-    free(states->prev);
-    return;
+    goto fail;
   }
 
   memset(states->curr, 0, sizeof(int) * size);
@@ -111,24 +108,48 @@ static inline void i_create_s(i_states* states, uint16_t size) {
   states->prev_count       = 0;
   states->concurrent_count = 0;
   states->capacity         = size;
+
+  return;
+fail:
+  if (states->curr)
+    free(states->curr);
+  if (states->prev)
+    free(states->prev);
+  if (states->concurrent)
+    free(states->concurrent);
+
+  states->curr_count       = 0;
+  states->prev_count       = 0;
+  states->concurrent_count = 0;
+  states->capacity         = 0;
 }
 
-static inline void i_create_sf(i_statesf* dst, uint16_t size) {
+static void i_create_sf(i_statesf* dst, uint16_t size) {
   dst->curr = (float*)malloc(sizeof(float) * size);
 
   if (!dst->curr)
-    return;
+    goto fail;
 
   dst->prev = (float*)malloc(sizeof(float) * size);
 
   if (!dst->prev)
-    return;
+    goto fail;
 
   memset(dst->curr, 0, sizeof(float) * size);
   memset(dst->prev, 0, sizeof(float) * size);
+
+  dst->capacity = size;
+
+fail:
+  if (dst->curr)
+    free(dst->curr);
+  if (dst->prev)
+    free(dst->prev);
 }
 
-static inline i_positions i_create_p() { return (i_positions){0}; }
+static inline i_positions i_create_p() {
+  return (i_positions){.dx = 0.0, .dy = 0.0, .x = 0.0, .y = 0.0};
+}
 
 i_ctx* i_ctx_create(uint16_t max_mouse_buttons, uint16_t max_keys,
                     uint16_t max_bindings, uint16_t max_joy_axes,
@@ -137,6 +158,8 @@ i_ctx* i_ctx_create(uint16_t max_mouse_buttons, uint16_t max_keys,
 
   i_create_s(&ctx->mouse_b, max_mouse_buttons);
   i_create_s(&ctx->keyboard, max_keys);
+
+  ctx->joy_exists = 0;
 
   ctx->max_mouse_buttons = max_mouse_buttons;
   ctx->max_keys          = max_keys;
@@ -174,17 +197,15 @@ void i_ctx_update(i_ctx* ctx) {
   ctx->mouse_l.x = ctx->mouse_p.x;
   ctx->mouse_l.y = ctx->mouse_p.y;
 
-  /* Check for newly connected joysticks */
-  /*if (!ctx->joy_exists) {
-    for (int i = 0; i < 16; ++i) {
-      if (glfwJoystickPresent(i)) {
+  if (!ctx->joy_exists && !ctx->max_joy_buttons > 0) {
+    for (uint8_t i = 0; i < GLFW_JOYSTICK_LAST; ++i) {
+      int8_t present = glfwJoystickPresent(i);
+      if (i != ctx->joystick_id) {
         i_joy_create(ctx, i);
-        ASTERA_DBG("Joystick [%i] found.\n", i);
-        ctx->joy_exists = 1;
         break;
       }
     }
-  }*/
+  }
 
   memset(ctx->keyboard.prev, 0, sizeof(int) * ctx->keyboard.prev_count);
   memcpy(ctx->keyboard.prev, ctx->keyboard.curr,
@@ -267,26 +288,43 @@ void i_ctx_destroy(i_ctx* ctx) {
   free(ctx->keyboard.prev);
   free(ctx->keyboard.concurrent);
 
-  free(ctx->joy_b.curr);
-  free(ctx->joy_b.prev);
-  free(ctx->joy_a.curr);
-  free(ctx->joy_a.prev);
+  if (ctx->bindings)
+    free(ctx->bindings);
+
+  if (ctx->chars)
+    free(ctx->chars);
+
+  if (ctx->joy_exists) {
+    if (ctx->joy_b.curr)
+      free(ctx->joy_b.curr);
+    if (ctx->joy_b.prev)
+      free(ctx->joy_b.prev);
+    if (ctx->joy_b.concurrent)
+      free(ctx->joy_b.concurrent);
+    if (ctx->joy_a.curr)
+      free(ctx->joy_a.curr);
+    if (ctx->joy_a.prev)
+      free(ctx->joy_a.prev);
+  }
 }
 
 void i_joy_create(i_ctx* ctx, uint16_t joy_id) {
-  if (!ctx->joy_exists) {
-    int present = glfwJoystickPresent(joy_id);
+  int8_t present = glfwJoystickPresent(joy_id);
 
-    if (!present) {
-      return;
-    }
+  printf("Joy is present.\n");
 
-    i_create_sf(&ctx->joy_a, ctx->max_joy_axes);
-    i_create_s(&ctx->joy_b, ctx->max_joy_buttons);
-
-    ctx->joystick_id = joy_id;
-    ctx->joy_exists  = 1;
+  if (!present) {
+    return;
   }
+
+  printf("Creating sf\n");
+  i_create_sf(&ctx->joy_a, ctx->max_joy_axes);
+
+  printf("Creating s\n");
+  i_create_s(&ctx->joy_b, ctx->max_joy_buttons);
+
+  ctx->joystick_id = joy_id;
+  ctx->joy_exists  = 1;
 }
 
 int i_joy_connected(i_ctx* ctx) { return ctx->joy_exists; }
@@ -405,7 +443,7 @@ void i_key_callback(i_ctx* ctx, int key, int scancode, int toggle) {
       }
     }
 
-    ctx->keyboard.concurrent[ctx->keyboard.capacity] = 0;
+    ctx->keyboard.concurrent[ctx->keyboard.capacity - 1] = 0;
     --ctx->keyboard.concurrent_count;
   }
 }

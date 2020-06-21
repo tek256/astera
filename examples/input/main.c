@@ -1,6 +1,7 @@
 // NOTE: At this time the dropdown implementation is buggy
 
 #include <stdio.h>
+#include <stdlib.h>
 
 //#define ASTERA_DEBUG_OUTPUT
 //#include <astera/debug.h>
@@ -54,6 +55,8 @@ int record_string = 0;
 vec4 green, darkgreen;
 vec4 red, darkred;
 
+asset_t* font_asset;
+
 void init_ui() {
   u_ctx = ui_ctx_create(window_size, 1.f, 1, 1);
   // ui_init(window_size, 1.f, 1);
@@ -76,9 +79,9 @@ void init_ui() {
   ui_get_color(red, "de0c0c");
   ui_get_color(darkred, "af1111");
 
-  vec2     text_pos   = {0.5f, 0.05f};
-  vec2     text_pos2  = {0.5f, 0.065f};
-  asset_t* font_asset = asset_get("resources/fonts/monogram.ttf");
+  vec2 text_pos  = {0.5f, 0.05f};
+  vec2 text_pos2 = {0.5f, 0.065f};
+  font_asset     = asset_get("resources/fonts/monogram.ttf");
 
   test_font = ui_font_create(u_ctx, font_asset->data, font_asset->data_length,
                              "monogram");
@@ -204,6 +207,9 @@ void init_ui() {
   // ui_img_set_colors(&img, white, white);
   ui_img_set_border_radius(&img, 25.f);
 
+  asset_free(ui_img_file);
+  free(ui_img_file);
+
   ui_element button_ele   = ui_element_get(&button, UI_BUTTON);
   vec2       center_point = {0.5f, 0.5f};
 
@@ -236,11 +242,11 @@ void init() {
   r_window_params params =
       r_window_params_create(1280, 720, 0, 0, 1, 0, 0, "Input Example");
 
+  input_ctx = i_ctx_create(16, 16, 0, 8, 16, 32);
+
   // Create a shell of a render context, since we're not using it for actual
   // drawing
   render_ctx = r_ctx_create(params, 0, 0, 0, 0, 0);
-
-  input_ctx = i_ctx_create(16, 16, 0, 8, 16, 32);
 
   window_size[0] = (float)params.width;
   window_size[1] = (float)params.height;
@@ -249,7 +255,7 @@ void init() {
   r_ctx_set_i_ctx(render_ctx, input_ctx);
 
   // If only finding happiiness in real life was this simple
-  i_joy_create(input_ctx, 0);
+  // i_joy_create(input_ctx, 0);
 
   init_ui();
 
@@ -267,13 +273,13 @@ void render(time_s delta) {
 }
 
 void input(time_s delta) {
-  i_ctx_update(input_ctx);
   i_poll_events();
+  i_ctx_update(input_ctx);
 
   vec2 mouse_pos = {i_mouse_get_x(input_ctx), i_mouse_get_y(input_ctx)};
   ui_ctx_update(u_ctx, mouse_pos);
 
-  int16_t joy_id = i_joy_connected(input_ctx);
+  /*int16_t joy_id = i_joy_connected(input_ctx);
   if (joy_id > -1) {
     if (i_joy_clicked(input_ctx, XBOX_R1)) {
       ui_tree_next(&tree);
@@ -286,7 +292,7 @@ void input(time_s delta) {
     if (i_joy_clicked(input_ctx, XBOX_A)) {
       ui_tree_select(u_ctx, &tree, 1, 0);
     }
-  }
+  }*/
 
   int32_t event_type = 0;
   if ((event_type = ui_tree_check_event(&tree, button_uid))) {
@@ -398,5 +404,14 @@ int main(void) {
     update(frame_time);
   }
 
-  return 1;
+  i_ctx_destroy(input_ctx);
+  r_ctx_destroy(render_ctx);
+  ui_ctx_destroy(u_ctx);
+
+  asset_free(font_asset);
+  free(input_ctx);
+  free(render_ctx);
+  free(u_ctx);
+
+  return 0;
 }

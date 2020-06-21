@@ -34,8 +34,7 @@ r_shader load_shader(const char* vs, const char* fs) {
   asset_t* vs_data = asset_get(vs);
   asset_t* fs_data = asset_get(fs);
 
-  r_shader shader = r_shader_create(vs_data->data, vs_data->data_length,
-                                    fs_data->data, fs_data->data_length);
+  r_shader shader = r_shader_create(vs_data->data, fs_data->data);
 
   asset_free(vs_data);
   asset_free(fs_data);
@@ -240,12 +239,13 @@ int main(void) {
 
   printf("Loading icon\n");
 
-  asset_t* icon = asset_get("resources/textures/icon.png");
-
   init_render(render_ctx);
 
+  asset_t* icon = asset_get("resources/textures/icon.png");
   r_window_set_icon(render_ctx, icon->data, icon->data_length);
   printf("Set icon.\n");
+  asset_free(icon);
+  free(icon);
 
   r_ctx_make_current(render_ctx);
   r_ctx_set_i_ctx(render_ctx, input_ctx);

@@ -49,6 +49,8 @@ void init_ui() {
   ui_get_color(dark, "0A0A0A");
   ui_get_color(red, "de221f");
 
+  ASTERA_FUNC_DBG("Hello world. %i\n", 4);
+
   asset_t* font_asset = asset_get("resources/fonts/monogram.ttf");
 
   test_font = ui_font_create(u_ctx, font_asset->data, font_asset->data_length,
@@ -145,7 +147,7 @@ void init() {
   r_ctx_set_i_ctx(render_ctx, input_ctx);
 
   // If only finding happiiness in real life was this simple
-  i_joy_create(input_ctx, 0);
+  // i_joy_create(input_ctx, 0);
 
   /*a_ctx* a_ctx_create(const char* device, uint8_t layers, uint16_t max_sfx,
                     uint16_t max_buffers, uint16_t max_songs, uint16_t max_fx,
@@ -195,8 +197,8 @@ void render(time_s delta) {
 }
 
 void input(time_s delta) {
-  i_ctx_update(input_ctx);
   i_poll_events();
+  i_ctx_update(input_ctx);
 
   vec2 mouse_pos = {i_mouse_get_x(input_ctx), i_mouse_get_y(input_ctx)};
   ui_ctx_update(u_ctx, mouse_pos);

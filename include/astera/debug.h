@@ -57,8 +57,13 @@ void _e(const char* format, ...);
 // TODO fix this
 #if defined(ASTERA_DEBUG_OUTPUT) && !defined(_MSC_VER)
 #define ASTERA_DBG(fmt, ...) _l(fmt, ##__VA_ARGS__)
+
+#define ASTERA_FUNC_DBG(fmt, ...) \
+  _l("%s: ", __FUNCTION__);       \
+  _l(fmt, ##__VA_ARGS__);
 #else
 #define ASTERA_DBG(fmt, ...)
+#define ASTERA_FUNC_DBG(fmt, ...)
 #endif
 
 // EOF

@@ -70,6 +70,15 @@ Here are a few package lists for various Linux Distributions in case you need th
 
 NOTE: If you have a package manager on here that you'd like to see added, please create an issue and add the package names if you know them!
 
+Astera Options
+^^^^^^^^^^^^^^
+
+In Astera's build system there are a few togglable options you can use:
+
+- ``ASTERA_DEBUG_OUTPUT`` - Enable internal astera debug output
+- ``ASTERA_BUILD_EXAMPLES`` - Enable building examples (disabled for projects including astera)
+- ``ASTERA_DEBUG_ENGINE`` - Enable internal debugging tools for debugging the engine itself (ASAN / Pedantic)
+
 .. _CMake Options:
 
 CMake Options

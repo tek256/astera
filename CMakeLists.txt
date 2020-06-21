@@ -23,10 +23,12 @@ cmake_dependent_option(ASTERA_BUILD_EXAMPLES
   "Build astera's examples" ON
   "CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME" ON)
 
+# Enables output using the ASTERA_DBG macro
+option(ASTERA_DEBUG_OUTPUT "Enable Astera's internal debug output" ON)
+
 # Enables ASAN & Pedantic output
-cmake_dependent_option(ASTERA_DEBUG_ENGINE
-  "Enable debug options for astera's compilation" OFF
-  "CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME" OFF)
+option(ASTERA_DEBUG_ENGINE
+  "Enable debug options for astera's compilation" OFF)
 
 set(ALSOFT_DLOPEN ON)
 set(ALSOFT_WERROR OFF)
@@ -74,7 +76,7 @@ target_include_directories(${PROJECT_NAME}
     $<INSTALL_INTERFACE:${CMAKE_INCLUDE_INSTALLDIR}>)
 target_compile_definitions(${PROJECT_NAME}
   PRIVATE
-    $<$<CONFIG:Debug>:ASTERA_DEBUG_OUTPUT>
+    $<$<BOOL:${ASTERA_DEBUG_ENGINE}>:ASTERA_DEBUG_OUTPUT>
     $<$<PLATFORM_ID:FreeBSD>:FreeBSD>
     $<$<PLATFORM_ID:OpenBSD>:OpenBSD>
     $<$<PLATFORM_ID:NetBSD>:NetBSD>
@@ -85,19 +87,17 @@ target_compile_features(${PROJECT_NAME} PRIVATE c_std_99)
 if(ASTERA_DEBUG_ENGINE)
   target_compile_options(${PROJECT_NAME}
     PRIVATE
-      $<$<NOT:$<C_COMPILER_ID:MSVC>>:-Wall -Wextra -pedantic>
-      $<$<C_COMPILER_ID:MSVC>:/WX /W4>
+    $<$<NOT:$<C_COMPILER_ID:MSVC>>:-Wall -Wextra -pedantic>
+    $<$<C_COMPILER_ID:MSVC>:/WX /W4>
     PUBLIC
-      $<$<ASTERA_DEBUG_ENGINE,$<C_COMPILER_ID:MSVC>:/fsanitize=address>:>
-      $<$<ASTERA_DEBUG_ENGINE,$<C_COMPILER_ID:Clang>:-fsanitize=address -fno-omit-frame-pointer -O2>:>
-      $<$<ASTERA_DEBUG_ENGINE,$<C_COMPILER_ID:GNU>:-fsanitize=address -fno-omit-frame-pointer -O2>:>)
-  if(ASTERA_DEBUG_ENGINE) 
-    target_link_option(${PROJECT_NAME}
-      PUBLIC
-      $<$<C_COMPILER_ID:MSVC>:/fsanitize=address>
-      $<$<C_COMPILER_ID:Clang>:-fsanitize=address>
-      $<$<C_COMPILER_ID:GNU>:-fsanitize=address)
-  endif()
+    $<$<C_COMPILER_ID:MSVC>:/fsanitize=address>
+    $<$<NOT:$<C_COMPILER_ID:MSVC>>: -fsanitize=address -fno-omit-frame-pointer -O2 -g>)# -fstack-protector-all -fstack-protector-strong -D_GLIBCXX_ASSERTIONS -fasynchronous-unwind-tables -D_FORTIFY_SOURCE=2>)
+    target_link_options(${PROJECT_NAME}
+       PUBLIC
+       $<$<C_COMPILER_ID:MSVC>:/fsanitize=address>
+       $<$<NOT:$<C_COMPILER_ID:MSVC>>:-fsanitize=address>)
+else()
+  target_compile_options(${PROJECT_NAME} PUBLIC -w)
 endif()
 
 target_link_libraries(${PROJECT_NAME}
@@ -106,8 +106,6 @@ target_link_libraries(${PROJECT_NAME}
     OpenAL::AL
     $<$<NOT:$<PLATFORM_ID:Windows>>:m>
     glfw)
-
-  target_compile_options(${PROJECT_NAME} PUBLIC -w)
 
 set_property(TARGET astera PROPERTY C_VISIBILITY_PRESET "hidden")
 set_property(TARGET astera PROPERTY VERSION ${PROJECT_VERSION})

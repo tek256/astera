@@ -133,6 +133,10 @@ a_ctx* a_ctx_create(const char* device, uint8_t layers, uint16_t max_sfx,
   ctx->context = context;
   ctx->device  = al_device;
 
+#if defined(ASTERA_AL_DISTANCE_MODEL)
+  alDistanceModel(ASTERA_AL_DISTANCE_MODEL);
+#endif
+
   if (ctx->use_fx) {
     alcGetIntegerv(al_device, ALC_MAX_AUXILIARY_SENDS, 1, &ctx->fx_per_source);
 
@@ -142,10 +146,6 @@ a_ctx* a_ctx_create(const char* device, uint8_t layers, uint16_t max_sfx,
       ctx->use_fx = 0;
     }
   }
-
-#if defined(ASTERA_AL_DISTANCE_MODEL)
-  alDistanceModel(ASTERA_AL_DISTANCE_MODEL);
-#endif
 
   if (ctx->use_fx) {
 #define LOAD_PROC(T, x) ((x) = (T)alGetProcAddress(#x))
@@ -317,24 +317,34 @@ uint8_t a_ctx_destroy(a_ctx* ctx) {
     if (song->buffer_sizes)
       free(song->buffer_sizes);
   }
-  if (ctx->fx_capacity) {
+  if (ctx->fx_capacity && ctx->fx_slots) {
     free(ctx->fx_slots);
   }
 
-  if (ctx->filter_capacity) {
+  if (ctx->filter_capacity && ctx->filter_slots) {
     free(ctx->filter_slots);
   }
 
-  free(ctx->buffers);
-  free(ctx->buffer_names);
+  if (ctx->buffers)
+    free(ctx->buffers);
 
-  free(ctx->songs);
-  free(ctx->song_names);
+  if (ctx->buffer_names)
+    free(ctx->buffer_names);
 
-  free(ctx->sfx);
+  if (ctx->songs)
+    free(ctx->songs);
 
-  free(ctx->layers);
-  free(ctx->layer_names);
+  if (ctx->song_names)
+    free(ctx->song_names);
+
+  if (ctx->sfx)
+    free(ctx->sfx);
+
+  if (ctx->layers)
+    free(ctx->layers);
+
+  if (ctx->layer_names)
+    free(ctx->layer_names);
 
   alcDestroyContext(ctx->context);
   alcCloseDevice(ctx->device);
@@ -454,6 +464,9 @@ void a_ctx_update(a_ctx* ctx) {
   for (uint16_t i = 0; i < ctx->sfx_capacity; ++i) {
     a_sfx* sfx = &ctx->sfx[i];
 
+    if (!sfx)
+      continue;
+
     if (!sfx->buffer || !sfx->req || !sfx->source) {
       continue;
     }
@@ -461,10 +474,8 @@ void a_ctx_update(a_ctx* ctx) {
     ALenum state;
     alGetSourcei(sfx->source, AL_SOURCE_STATE, &state);
 
-    int8_t remove = 0;
-    if (state == AL_STOPPED || sfx->req->stop) {
-      remove = 1;
-    }
+    // int8_t remove = state == AL_STOPPED || sfx->req->stop;
+    int8_t remove = state == AL_STOPPED;
 
     if (remove) {
       --ctx->sfx_count;
@@ -490,6 +501,8 @@ void a_ctx_update(a_ctx* ctx) {
       ++sfx_count;
       sfx_high = i;
     }
+
+    float gain = sfx->req->gain;
 
     alSourcef(sfx->source, AL_GAIN, sfx->req->gain);
     alSource3f(sfx->source, AL_POSITION, sfx->req->position[0],

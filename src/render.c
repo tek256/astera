@@ -124,6 +124,9 @@ static void glfw_mouse_pos_cb(GLFWwindow* window, double x, double y) {
 
 static void glfw_mouse_button_cb(GLFWwindow* window, int button, int action,
                                  int mods) {
+  if (window != _r_ctx->window.glfw)
+    return;
+
   if (action == GLFW_PRESS || action == GLFW_REPEAT) {
     i_mouse_button_callback(_r_ctx->input_ctx, button, 1);
     if (i_key_binding_track(_r_ctx->input_ctx)) {
@@ -141,8 +144,10 @@ static void glfw_scroll_cb(GLFWwindow* window, double dx, double dy) {
 
 static void glfw_joy_cb(int joystick, int action) {
   if (action == GLFW_CONNECTED) {
+    printf("Joy connected!.\n");
     i_joy_create(_r_ctx->input_ctx, joystick);
   } else if (action == GLFW_DISCONNECTED) {
+    printf("Joy disconnected!.\n");
     i_joy_destroy(_r_ctx->input_ctx, joystick);
   }
 }
@@ -257,8 +262,8 @@ static void r_batch_draw(r_ctx* ctx, r_batch* batch) {
   r_set_m4(batch->shader, "view", ctx->camera.view);
   r_set_m4(batch->shader, "projection", ctx->camera.projection);
 
-  r_set_ix(batch->shader, batch->count, "flip_x", batch->flip_x);
-  r_set_ix(batch->shader, batch->count, "flip_y", batch->flip_y);
+  r_set_ix(batch->shader, batch->count, "flip_x", (int*)batch->flip_x);
+  r_set_ix(batch->shader, batch->count, "flip_y", (int*)batch->flip_y);
   r_set_v4x(batch->shader, batch->count, "coords", batch->coords);
   r_set_v4x(batch->shader, batch->count, "colors", batch->colors);
   r_set_m4x(batch->shader, batch->count, "mats", batch->mats);
@@ -299,7 +304,7 @@ uint32_t r_check_error_loc(const char* loc) {
 }
 
 r_quad r_quad_create(float width, float height, uint8_t use_vto) {
-  uint32_t vao, vbo, vboi, vto;
+  uint32_t vao = 0, vbo = 0, vboi = 0, vto = 0;
 
   glGenVertexArrays(1, &vao);
   glBindVertexArray(vao);
@@ -435,8 +440,12 @@ r_ctx* r_ctx_create(r_window_params params, uint8_t use_fbo,
     ctx->framebuffer = r_framebuffer_create(params.width, params.height, 0);
   }
 
-  ctx->batches = (r_batch*)malloc(sizeof(r_batch) * batch_count);
-  memset(ctx->batches, 0, sizeof(r_batch) * batch_count);
+  if (batch_count > 0) {
+    ctx->batches = (r_batch*)malloc(sizeof(r_batch) * batch_count);
+    memset(ctx->batches, 0, sizeof(r_batch) * batch_count);
+  } else {
+    ctx->batches = 0;
+  }
 
   ctx->batch_capacity = batch_count;
   ctx->batch_count    = 0;
@@ -446,12 +455,26 @@ r_ctx* r_ctx_create(r_window_params params, uint8_t use_fbo,
     ctx->batches[i].capacity = batch_size;
   }
 
-  ctx->anim_names    = (const char**)malloc(sizeof(char*) * anim_map_size);
-  ctx->anims         = (r_anim*)malloc(sizeof(r_anim) * anim_map_size);
+  if (anim_map_size > 0) {
+    ctx->anim_names = (const char**)malloc(sizeof(char*) * anim_map_size);
+    ctx->anims      = (r_anim*)malloc(sizeof(r_anim) * anim_map_size);
+  } else {
+    ctx->anim_names = 0;
+    ctx->anims      = 0;
+  }
+
+  ctx->anim_count    = 0;
   ctx->anim_capacity = anim_map_size;
 
-  ctx->shaders         = (r_shader*)malloc(sizeof(r_shader) * shader_map_size);
-  ctx->shader_names    = (const char**)malloc(sizeof(char*) * shader_map_size);
+  if (shader_map_size > 0) {
+    ctx->shaders      = (r_shader*)malloc(sizeof(r_shader) * shader_map_size);
+    ctx->shader_names = (const char**)malloc(sizeof(char*) * shader_map_size);
+  } else {
+    ctx->shaders      = 0;
+    ctx->shader_names = 0;
+  }
+
+  ctx->shader_count    = 0;
   ctx->shader_capacity = shader_map_size;
 
   ctx->default_quad = r_quad_create(1.f, 1.f, 0);
@@ -474,11 +497,42 @@ void r_ctx_set_fbo_shader(r_ctx* ctx, r_shader shader) {
 }
 
 void r_ctx_destroy(r_ctx* ctx) {
-  for (uint32_t i = 0; i < ctx->batch_count; ++i) {}
+  if (ctx->anims) {
+    for (int i = 0; i < ctx->anim_count; ++i) {
+      r_anim* anim = &ctx->anims[i];
+      if (anim->count != 0 && anim->frames)
+        free(anim->frames);
+    }
+    free(ctx->anims);
+  }
 
-  for (int i = 0; i < ctx->anim_capacity; ++i) {
-    // if (ctx->anims[i].frames)
-    // free(ctx->anims[i].frames);
+  if (ctx->shaders) {
+    for (uint16_t i = 0; i < ctx->shader_capacity; ++i) {
+      if (ctx->shaders[i])
+        glDeleteProgram(ctx->shaders[i]);
+    }
+
+    free(ctx->shaders);
+    free(ctx->shader_names);
+  }
+
+  if (ctx->batches) {
+    for (uint16_t i = 0; i < ctx->batch_capacity; ++i) {
+      if (ctx->batches[i].mats)
+        free(ctx->batches[i].mats);
+
+      if (ctx->batches[i].coords)
+        free(ctx->batches[i].coords);
+
+      if (ctx->batches[i].colors)
+        free(ctx->batches[i].colors);
+
+      if (ctx->batches[i].flip_x)
+        free(ctx->batches[i].flip_x);
+
+      if (ctx->batches[i].flip_y)
+        free(ctx->batches[i].flip_y);
+    }
   }
 
   r_quad_destroy(&ctx->default_quad);
@@ -984,7 +1038,7 @@ void r_particles_update(r_particles* system, time_s delta) {
   for (int i = 0; i < to_spawn; ++i) {
     r_particle* open = 0;
 
-    for (int j = 0; j < system->capacity; ++j) {
+    for (uint32_t j = 0; j < system->capacity; ++j) {
       if (system->list[j].life <= 0.f) {
         open = &system->list[j];
         break;
@@ -1003,7 +1057,6 @@ void r_particles_update(r_particles* system, time_s delta) {
     if (system->use_spawner) {
       system->spawner_func(system, open);
     } else {
-      float x, y;
       open->position[0] = fmod(rand(), system->size[0]);
       open->position[1] = fmod(rand(), system->size[1]);
 
@@ -1249,7 +1302,7 @@ void r_sprite_anim_stop(r_sprite* sprite) {
   r_anim_stop(&sprite->render.anim);
 }
 
-static GLuint r_shader_create_sub(unsigned char* data, int length, int type) {
+static GLuint r_shader_create_sub(unsigned char* data, int type) {
   GLint  success = 0;
   GLuint id      = glCreateShader(type);
 
@@ -1286,10 +1339,9 @@ r_shader r_shader_get(r_ctx* ctx, const char* name) {
   return 0;
 }
 
-r_shader r_shader_create(unsigned char* vert_data, int vert_length,
-                         unsigned char* frag_data, int frag_length) {
-  GLuint v = r_shader_create_sub(vert_data, vert_length, GL_VERTEX_SHADER);
-  GLuint f = r_shader_create_sub(frag_data, frag_length, GL_FRAGMENT_SHADER);
+r_shader r_shader_create(unsigned char* vert_data, unsigned char* frag_data) {
+  GLuint v = r_shader_create_sub(vert_data, GL_VERTEX_SHADER);
+  GLuint f = r_shader_create_sub(frag_data, GL_FRAGMENT_SHADER);
 
   GLuint id = glCreateProgram();
 
@@ -1315,21 +1367,28 @@ r_shader r_shader_create(unsigned char* vert_data, int vert_length,
 
 void r_shader_cache(r_ctx* ctx, r_shader shader, const char* name) {
   if (!shader) {
-    ASTERA_DBG("r_shader_cache: invalid shader (0) passed.\n");
+    ASTERA_DBG("r_shader_cache: invalid shader (%i) passed.\n", shader);
     return;
   }
 
-  if (ctx->shader_capacity == ctx->shader_count) {
+  if (ctx->shader_capacity == ctx->shader_count || ctx->shader_capacity == 0) {
     ASTERA_DBG("r_shader_cache: no shader cache available.\n");
     return;
   }
 
-  for (uint32_t i = 0; i < ctx->shader_count; ++i) {
-    if (ctx->shaders[i] == shader) {
-      ASTERA_DBG(
-          "r_shader_cache: shader %d already contained with an alias of: %s\n",
-          shader, ctx->shader_names[i]);
-      return;
+  if (!ctx->shaders) {
+    ASTERA_DBG("r_shader_cache: no shader cache allocated.\n");
+    return;
+  }
+
+  if (ctx->shader_count > 0) {
+    for (uint32_t i = 0; i < ctx->shader_capacity; ++i) {
+      if (ctx->shaders[i] == shader) {
+        ASTERA_DBG("r_shader_cache: shader %d already contained with an alias "
+                   "of: %s\n",
+                   shader, ctx->shader_names[i]);
+        return;
+      }
     }
   }
 
@@ -1848,8 +1907,8 @@ uint8_t r_select_mode(r_ctx* ctx, uint8_t index, int8_t fullscreen,
       ASTERA_DBG("Setting borderless to: %i\n", borderless);
     }
 
-    if (selected_mode->width != ctx->window.params.width ||
-        selected_mode->height != ctx->window.params.height) {
+    if ((uint32_t)selected_mode->width != ctx->window.params.width ||
+        (uint32_t)selected_mode->height != ctx->window.params.height) {
       glfwSetWindowSize(ctx->window.glfw, selected_mode->width,
                         selected_mode->height);
       vec2_dup(ctx->resolution,

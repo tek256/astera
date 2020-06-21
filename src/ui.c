@@ -84,7 +84,11 @@ void ui_ctx_update(ui_ctx* ctx, vec2 mouse_pos) {
   }
 }
 
-void ui_ctx_destroy(ui_ctx* ctx) { nvgDeleteGL3(ctx->nvg); }
+void ui_ctx_destroy(ui_ctx* ctx) {
+  nvgDeleteGL3(ctx->nvg);
+  if (ctx->attribs.attribs)
+    free(ctx->attribs.attribs);
+}
 
 static int ui_hex_number(const char v) {
   if (v >= '0' && v <= '9') {
