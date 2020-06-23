@@ -5,7 +5,6 @@
 #include <astera/asset.h>
 #include <astera/render.h>
 #include <astera/input.h>
-#include <astera/ui.h>
 
 #define SPRITE_COUNT      16
 #define BAKED_SHEET_SIZE  16 * 16 * 16
@@ -22,8 +21,6 @@ r_ctx*        render_ctx;
 i_ctx*        input_ctx;
 r_baked_sheet baked_sheet;
 r_particles   particles;
-
-ui_ctx* ui_context;
 
 r_framebuffer fbo, ui_fbo;
 r_anim        anim;
@@ -182,11 +179,6 @@ void init_render(r_ctx* ctx) {
   r_camera_set_size(r_ctx_get_camera(ctx), camera_size);
 }
 
-void init_ui() {
-  vec2 size  = {1280, 720};
-  ui_context = ui_ctx_create(size, 1.f, 1, 1);
-}
-
 void input(float delta) {
   if (i_key_clicked(input_ctx, KEY_ESCAPE)) {
     r_window_request_close(render_ctx);
@@ -237,24 +229,18 @@ int main(void) {
     return 1;
   }
 
-  printf("Loading icon\n");
-
   init_render(render_ctx);
 
   asset_t* icon = asset_get("resources/textures/icon.png");
   r_window_set_icon(render_ctx, icon->data, icon->data_length);
-  printf("Set icon.\n");
   asset_free(icon);
   free(icon);
 
   r_ctx_make_current(render_ctx);
   r_ctx_set_i_ctx(render_ctx, input_ctx);
 
-  printf("Everything happened fine.\n");
-
   while (!r_window_should_close(render_ctx)) {
     i_ctx_update(input_ctx);
-    i_poll_events();
 
     input(16.f);
 
@@ -284,6 +270,10 @@ int main(void) {
   }
 
   r_ctx_destroy(render_ctx);
-  printf("Exited correctly.\n");
+  i_ctx_destroy(input_ctx);
+
+  free(render_ctx);
+  free(input_ctx);
+
   return 0;
 }

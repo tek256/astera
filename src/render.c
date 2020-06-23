@@ -144,10 +144,8 @@ static void glfw_scroll_cb(GLFWwindow* window, double dx, double dy) {
 
 static void glfw_joy_cb(int joystick, int action) {
   if (action == GLFW_CONNECTED) {
-    printf("Joy connected!.\n");
     i_joy_create(_r_ctx->input_ctx, joystick);
   } else if (action == GLFW_DISCONNECTED) {
-    printf("Joy disconnected!.\n");
     i_joy_destroy(_r_ctx->input_ctx, joystick);
   }
 }
@@ -506,6 +504,10 @@ void r_ctx_destroy(r_ctx* ctx) {
     free(ctx->anims);
   }
 
+  if (ctx->anim_names) {
+    free(ctx->anim_names);
+  }
+
   if (ctx->shaders) {
     for (uint16_t i = 0; i < ctx->shader_capacity; ++i) {
       if (ctx->shaders[i])
@@ -533,6 +535,8 @@ void r_ctx_destroy(r_ctx* ctx) {
       if (ctx->batches[i].flip_y)
         free(ctx->batches[i].flip_y);
     }
+
+    free(ctx->batches);
   }
 
   r_quad_destroy(&ctx->default_quad);
@@ -826,7 +830,7 @@ r_baked_sheet r_baked_sheet_create(r_sheet* sheet, r_baked_quad* quads,
   float    _verts[8] = {-0.5f, 0.5f, 0.5f, 0.5f, 0.5f, -0.5f, -0.5f, -0.5f};
   float    _texcs[8] = {0.f, 1.f, 1.f, 1.f, 1.f, 0.f, 0.f, 0.f};
 
-  vec4 bounds;
+  vec4 bounds = {0.f, 0.f, 0.f, 0.f};
 
   for (uint32_t i = 0; i < quad_count; ++i) {
     r_baked_quad* quad   = &quads[i];
@@ -1322,8 +1326,6 @@ static GLuint r_shader_create_sub(unsigned char* data, int type) {
     glGetShaderInfoLog(id, maxlen, &len, log);
     ASTERA_DBG("%s: %s\n", (type == GL_FRAGMENT_SHADER) ? "FRAGMENT" : "VERTEX",
                log);
-    printf("%s: %s\n", (type == GL_FRAGMENT_SHADER) ? "FRAGMENT" : "VERTEX",
-           log);
     free(log);
   }
 
@@ -2104,6 +2106,8 @@ uint8_t r_window_create(r_ctx* ctx, r_window_params params) {
 
   if (params.vsync) {
     glfwSwapInterval(1);
+  } else {
+    glfwSwapInterval(0);
   }
 
   ctx->allowed = 1;

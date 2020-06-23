@@ -255,6 +255,7 @@ a_ctx* a_ctx_create(const char* device, uint8_t layers, uint16_t max_sfx,
     for (uint16_t i = 0; i < max_songs; ++i) {
       ctx->songs[i].id = i + 1;
       alGenSources(1, &ctx->songs[i].source);
+      ctx->songs[i].req = 0;
     }
   }
 
@@ -283,6 +284,7 @@ a_ctx* a_ctx_create(const char* device, uint8_t layers, uint16_t max_sfx,
     for (uint16_t i = 0; i < max_sfx; ++i) {
       ctx->sfx[i].id = i + 1;
       alGenSources(1, &ctx->sfx[i].source);
+      ctx->sfx[i].req = 0;
     }
   }
 
@@ -311,12 +313,16 @@ uint8_t a_ctx_destroy(a_ctx* ctx) {
   for (uint16_t i = 0; i < ctx->song_capacity; ++i) {
     a_song* song = &ctx->songs[i];
 
+    if (song->vorbis)
+      stb_vorbis_close(song->vorbis);
+
     if (song->buffers)
       free(song->buffers);
 
     if (song->buffer_sizes)
       free(song->buffer_sizes);
   }
+
   if (ctx->fx_capacity && ctx->fx_slots) {
     free(ctx->fx_slots);
   }
@@ -340,11 +346,25 @@ uint8_t a_ctx_destroy(a_ctx* ctx) {
   if (ctx->sfx)
     free(ctx->sfx);
 
-  if (ctx->layers)
+  if (ctx->layers) {
+    for (uint32_t i = 0; i < ctx->layer_count; ++i) {
+      if (ctx->layers[i].sfx_capacity > 0 && ctx->layers[i].sfx) {
+        free(ctx->layers[i].sfx);
+      }
+
+      if (ctx->layers[i].song_capacity > 0 && ctx->layers[i].songs) {
+        free(ctx->layers[i].songs);
+      }
+    }
+
     free(ctx->layers);
+  }
 
   if (ctx->layer_names)
     free(ctx->layer_names);
+
+  if (ctx->pcm)
+    free(ctx->pcm);
 
   alcDestroyContext(ctx->context);
   alcCloseDevice(ctx->device);
@@ -411,7 +431,7 @@ void a_song_update_decode(a_ctx* ctx, a_song* song) {
           song->buffer_sizes[i] = song->buffer_sizes[i + 1];
         }
 
-        song->buffer_sizes[song->buffer_count] = num_samples;
+        song->buffer_sizes[song->buffer_count - 1] = num_samples;
       }
 
       stb_vorbis_info info = stb_vorbis_get_info(song->vorbis);
@@ -471,11 +491,13 @@ void a_ctx_update(a_ctx* ctx) {
       continue;
     }
 
+    if (!sfx->req)
+      continue;
+
     ALenum state;
     alGetSourcei(sfx->source, AL_SOURCE_STATE, &state);
 
-    // int8_t remove = state == AL_STOPPED || sfx->req->stop;
-    int8_t remove = state == AL_STOPPED;
+    int8_t remove = state == AL_STOPPED || sfx->req->stop;
 
     if (remove) {
       --ctx->sfx_count;
@@ -960,7 +982,7 @@ uint16_t a_song_create(a_ctx* ctx, unsigned char* data, uint32_t data_length,
     return 0;
   }
 
-  int32_t error, used;
+  int32_t error;
 
   song->data   = data;
   song->vorbis = stb_vorbis_open_memory(data, data_length, &error, 0);
@@ -1066,6 +1088,8 @@ uint8_t a_song_destroy(a_ctx* ctx, uint16_t id) {
 
   alDeleteBuffers(song->buffer_count, song->buffers);
   alDeleteSources(1, &song->source);
+
+  stb_vorbis_close(song->vorbis);
 
   free(song->buffers);
   free(song->vorbis);
@@ -1296,7 +1320,7 @@ uint8_t a_song_reset(a_ctx* ctx, uint16_t song_id) {
         song->buffer_sizes[i] = song->buffer_sizes[i + 1];
       }
 
-      song->buffer_sizes[song->buffer_count] = num_samples;
+      song->buffer_sizes[song->buffer_count - 1] = num_samples;
     }
 
     stb_vorbis_info info = stb_vorbis_get_info(song->vorbis);
@@ -1383,7 +1407,7 @@ uint16_t a_buf_create(a_ctx* ctx, unsigned char* data, uint32_t data_length,
   alGenBuffers(1, &buffer->buf);
 
   if (is_ogg) {
-    int32_t used, error;
+    int32_t error;
 
     stb_vorbis* vorbis = stb_vorbis_open_memory(data, data_length, &error, 0);
 

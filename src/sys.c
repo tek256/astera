@@ -1,7 +1,7 @@
 #include <astera/sys.h>
 #include <astera/debug.h>
 
-#include <GLFW/glfw3.h>
+// #include <GLFW / glfw3.h>
 #include <math.h>
 
 #if defined(__linux__) || defined(__unix__) || defined(__FreeBSD__) || \
@@ -22,19 +22,59 @@
 #include <string.h>
 #endif
 
-/* Returns time in milliseconds */
-time_s s_get_time() { return glfwGetTime() * MS_TO_SEC; }
+#include <stdint.h>
+#if defined(__linux)
+#define HAVE_POSIX_TIMER
+#include <time.h>
+#ifdef CLOCK_MONOTONIC
+#define CLOCKID CLOCK_MONOTONIC
+#else
+#define CLOCKID CLOCK_REALTIME
+#endif
+#elif defined(__APPLE__)
+#define HAVE_MACH_TIMER
+#include <mach/mach_time.h>
+#elif defined(_WIN32)
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
 
-/* Update a timer with current time & calculate delta from last update */
-time_s s_timer_update(s_timer* t) {
-  time_s current = s_get_time();
-  t->delta       = current - t->last;
-  t->last        = current;
-  return t->delta;
+/* Get time in nanoseconds from the Operating System's High performance timer */
+static uint64_t s_get_ns() {
+  static uint64_t is_init = 0;
+#if defined(__APPLE__)
+  static mach_timebase_info_data_t info;
+  if (0 == is_init) {
+    mach_timebase_info(&info);
+    is_init = 1;
+  }
+  uint64_t now;
+  now = mach_absolute_time();
+  now *= info.numer;
+  now /= info.denom;
+  return now;
+#elif defined(__linux)
+  static struct timespec linux_rate;
+  if (0 == is_init) {
+    clock_getres(CLOCKID, &linux_rate);
+    is_init = 1;
+  }
+  uint64_t        now;
+  struct timespec spec;
+  clock_gettime(CLOCKID, &spec);
+  now = spec.tv_sec * 1.0e9 + spec.tv_nsec;
+  return now;
+#elif defined(_WIN32)
+  static LARGE_INTEGER win_frequency;
+  if (0 == is_init) {
+    QueryPerformanceFrequency(&win_frequency);
+    is_init = 1;
+  }
+  LARGE_INTEGER now;
+  QueryPerformanceCounter(&now);
+  return (uint64_t)((1e9 * now.QuadPart) / win_frequency.QuadPart);
+#endif
 }
-
-/* Create the timer structure with current time */
-s_timer s_timer_create() { return (s_timer){s_get_time(), 0}; }
 
 /* Call the OS's sleep function for given milliseconds */
 time_s s_sleep(time_s duration) {
@@ -51,6 +91,20 @@ time_s s_sleep(time_s duration) {
 #endif
   return duration;
 }
+
+/* Returns time in milliseconds */
+time_s s_get_time() { return s_get_ns() / NS_TO_MS; }
+
+/* Update a timer with current time & calculate delta from last update */
+time_s s_timer_update(s_timer* t) {
+  time_s current = s_get_time();
+  t->delta       = current - t->last;
+  t->last        = current;
+  return t->delta;
+}
+
+/* Create the timer structure with current time */
+s_timer s_timer_create() { return (s_timer){s_get_time(), 0}; }
 
 /* String reversal */
 static char* s_reverse(char* string, uint32_t length) {

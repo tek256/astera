@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-// NOTE: outputs internal astera debug based on cmake build type
+// NOTE: outputs internal astera debug based on cmake flags
 #include <astera/debug.h>
 
 #include <astera/asset.h>
@@ -11,6 +11,7 @@
 #include <astera/ui.h>
 
 #include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 #include <assert.h>
 
@@ -34,7 +35,8 @@ uint16_t blip_id;
 uint16_t master_layer;
 uint16_t song_id;
 
-a_req req, sfx_req;
+a_req    req, sfx_req;
+asset_t *font_data, *song_data;
 
 void init_ui() {
   u_ctx = ui_ctx_create(window_size, 1.f, 1, 1);
@@ -51,9 +53,9 @@ void init_ui() {
 
   ASTERA_FUNC_DBG("Hello world. %i\n", 4);
 
-  asset_t* font_asset = asset_get("resources/fonts/monogram.ttf");
+  font_data = asset_get("resources/fonts/monogram.ttf");
 
-  test_font = ui_font_create(u_ctx, font_asset->data, font_asset->data_length,
+  test_font = ui_font_create(u_ctx, font_data->data, font_data->data_length,
                              "monogram");
 
   vec2 explain_pos  = {0.5f, 0.25f};
@@ -113,20 +115,15 @@ void init_audio() {
   master_layer = a_ctx_layer_create(audio_ctx, "master", 8, 2);
   a_layer_set_gain(audio_ctx, master_layer, 1.0f);
 
-  /*uint16_t a_song_create(a_ctx* ctx, unsigned char* data, uint32_t
-     data_length, const char* name, uint16_t packets_per_buffer, uint8_t
-     buffers, uint32_t max_buffer_size);
-*/
-  asset_t* song_data = asset_get("resources/audio/thingy.ogg");
-  song_id = a_song_create(audio_ctx, song_data->data, song_data->data_length,
+  song_data = asset_get("resources/audio/thingy.ogg");
+  song_id   = a_song_create(audio_ctx, song_data->data, song_data->data_length,
                           "test", 32, 4, 4096 * 4);
 
-  // uint16_t a_buf_create(a_ctx* ctx, unsigned char* data, uint32_t
-  // data_length,
-  //                      const char* name, uint8_t is_ogg);
   asset_t* blip_data = asset_get("resources/audio/blop.wav");
   blip_id = a_buf_create(audio_ctx, blip_data->data, blip_data->data_length,
                          "blip", 0);
+  asset_free(blip_data);
+  free(blip_data);
 }
 
 void init() {
@@ -138,7 +135,7 @@ void init() {
   // drawing
   render_ctx = r_ctx_create(params, 0, 0, 0, 0, 0);
 
-  input_ctx = i_ctx_create(16, 16, 0, 8, 16, 32);
+  input_ctx = i_ctx_create(16, 16, 32, 8, 16, 32);
 
   window_size[0] = (float)params.width;
   window_size[1] = (float)params.height;
@@ -147,13 +144,13 @@ void init() {
   r_ctx_set_i_ctx(render_ctx, input_ctx);
 
   // If only finding happiiness in real life was this simple
-  // i_joy_create(input_ctx, 0);
+  i_joy_create(input_ctx, 0);
 
   /*a_ctx* a_ctx_create(const char* device, uint8_t layers, uint16_t max_sfx,
                     uint16_t max_buffers, uint16_t max_songs, uint16_t max_fx,
                     uint16_t max_filters, uint32_t pcm_size);
 */
-  audio_ctx = a_ctx_create(0, 1, 8, 8, 2, 0, 0, 4096 * 4);
+  audio_ctx = a_ctx_create(0, 1, 8, 8, 2, 2, 2, 4096 * 4);
   a_listener_set_gain(audio_ctx, 0.1f);
 
   if (!audio_ctx) {
@@ -197,7 +194,6 @@ void render(time_s delta) {
 }
 
 void input(time_s delta) {
-  i_poll_events();
   i_ctx_update(input_ctx);
 
   vec2 mouse_pos = {i_mouse_get_x(input_ctx), i_mouse_get_y(input_ctx)};
@@ -227,7 +223,7 @@ void input(time_s delta) {
   }
 
   if (i_key_clicked(input_ctx, 'S')) {
-    vec2 zero = {0.f, 0.f};
+    vec3 zero = {0.f, 0.f, 0.f};
     sfx_req   = a_req_create(zero, 1.f, 100.f, 0, 0, 0, 0, 0);
     a_sfx_play(audio_ctx, 0, blip_id, &sfx_req);
   }
@@ -262,7 +258,6 @@ void update(time_s delta) {
 }
 
 int main(void) {
-  // d_set_log(0, 0);
   init();
 
   time_s frame_time = MS_TO_SEC / 60;
@@ -278,7 +273,18 @@ int main(void) {
   }
 
   a_ctx_destroy(audio_ctx);
+  r_ctx_destroy(render_ctx);
+  i_ctx_destroy(input_ctx);
 
-  return 1;
+  free(audio_ctx);
+  free(render_ctx);
+  free(input_ctx);
+
+  asset_free(song_data);
+  asset_free(font_data);
+  free(song_data);
+  free(font_data);
+
+  return 0;
 }
 

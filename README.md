@@ -61,6 +61,10 @@ For more information see the relevant [wiki page](https://tek256.com/astera/Buil
 
 ### Changelog
 ```
+June 23, 2020 
+- Memory hardening (leaks / unitialization)
+- General bug fixes causing crashes
+
 June 18, 2020 - [0.01 RELEASE]
 - New context based engine usage
   - System prefix + `_ctx` for audio, render, input, and ui systems
@@ -68,11 +72,6 @@ June 18, 2020 - [0.01 RELEASE]
 - Lots of code hardening 
 - Pedantic fixes
 - Basic Game, Audio, Input, and UI Examples created
-
-May 8, 2020
-- Static building
-- Working on examples
-- Refactored UI to context based usage (non-global) 
 
 For older changes see docs/changelog-archive.txt
 ```

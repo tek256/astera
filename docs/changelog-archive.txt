@@ -1,3 +1,8 @@
+May 8, 2020
+- Static building
+- Working on examples
+- Refactored UI to context based usage (non-global) 
+
 Mar 21, 2020
 - Updated OpenAL-Soft to 1.20.1
 - AABB & Circle Collision detection working

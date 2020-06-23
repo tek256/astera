@@ -273,7 +273,6 @@ void render(time_s delta) {
 }
 
 void input(time_s delta) {
-  i_poll_events();
   i_ctx_update(input_ctx);
 
   vec2 mouse_pos = {i_mouse_get_x(input_ctx), i_mouse_get_y(input_ctx)};

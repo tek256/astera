@@ -138,8 +138,11 @@ static void i_create_sf(i_statesf* dst, uint16_t size) {
   memset(dst->curr, 0, sizeof(float) * size);
   memset(dst->prev, 0, sizeof(float) * size);
 
-  dst->capacity = size;
+  dst->prev_count = 0;
+  dst->curr_count = 0;
+  dst->capacity   = size;
 
+  return;
 fail:
   if (dst->curr)
     free(dst->curr);
@@ -160,6 +163,7 @@ i_ctx* i_ctx_create(uint16_t max_mouse_buttons, uint16_t max_keys,
   i_create_s(&ctx->keyboard, max_keys);
 
   ctx->joy_exists = 0;
+  ctx->char_track = 0;
 
   ctx->max_mouse_buttons = max_mouse_buttons;
   ctx->max_keys          = max_keys;
@@ -191,6 +195,8 @@ i_ctx* i_ctx_create(uint16_t max_mouse_buttons, uint16_t max_keys,
 }
 
 void i_ctx_update(i_ctx* ctx) {
+  glfwPollEvents();
+
   ctx->mouse_p.dx = ctx->mouse_p.x - ctx->mouse_l.x;
   ctx->mouse_p.dy = ctx->mouse_p.y - ctx->mouse_l.y;
 
@@ -200,7 +206,7 @@ void i_ctx_update(i_ctx* ctx) {
   if (!ctx->joy_exists && !ctx->max_joy_buttons > 0) {
     for (uint8_t i = 0; i < GLFW_JOYSTICK_LAST; ++i) {
       int8_t present = glfwJoystickPresent(i);
-      if (i != ctx->joystick_id) {
+      if (i != ctx->joystick_id && present) {
         i_joy_create(ctx, i);
         break;
       }
@@ -232,6 +238,7 @@ void i_ctx_update(i_ctx* ctx) {
     const float* axes = glfwGetJoystickAxes(ctx->joystick_id, &count);
 
     // Joy axes in variable
+    memset(ctx->joy_a.prev, 0, sizeof(float) * ctx->joy_a.capacity);
     memcpy(ctx->joy_a.prev, ctx->joy_a.curr,
            sizeof(float) * ctx->joy_a.curr_count);
     memset(ctx->joy_a.curr, 0, sizeof(float) * ctx->joy_a.capacity);
@@ -311,16 +318,12 @@ void i_ctx_destroy(i_ctx* ctx) {
 void i_joy_create(i_ctx* ctx, uint16_t joy_id) {
   int8_t present = glfwJoystickPresent(joy_id);
 
-  printf("Joy is present.\n");
-
   if (!present) {
     return;
   }
 
-  printf("Creating sf\n");
   i_create_sf(&ctx->joy_a, ctx->max_joy_axes);
 
-  printf("Creating s\n");
   i_create_s(&ctx->joy_b, ctx->max_joy_buttons);
 
   ctx->joystick_id = joy_id;
@@ -459,8 +462,10 @@ void i_char_callback(i_ctx* ctx, uint32_t c) {
     return;
   }
 
-  ctx->chars[ctx->char_count] = c;
-  ctx->char_count++;
+  if (ctx->char_count < ctx->max_chars - 1) {
+    ctx->chars[ctx->char_count] = c;
+    ctx->char_count++;
+  }
 }
 
 int i_get_chars(i_ctx* ctx, char* dst, uint16_t count) {
@@ -735,7 +740,7 @@ uint16_t i_binding_clicked(i_ctx* ctx, const char* key_binding) {
     int len = strlen(ctx->bindings[i].name);
     len     = (len > 8) ? 8 : len;
     if (!strncmp(ctx->bindings[i].name, key_binding, len)) {
-      int val;
+      int val = 0;
       switch (ctx->bindings[i].type) {
         case ASTERA_BINDING_JOYB:
           val = i_joy_clicked(ctx, ctx->bindings[i].value);
@@ -780,7 +785,7 @@ uint16_t i_binding_released(i_ctx* ctx, const char* key_binding) {
         return 0;
       }
 
-      int val;
+      int val = 0;
       switch (ctx->bindings[i].type) {
         case ASTERA_BINDING_JOYB:
           val = i_joy_released(ctx, ctx->bindings[i].value);
@@ -825,7 +830,7 @@ uint16_t i_binding_down(i_ctx* ctx, const char* key_binding) {
         return 0;
       }
 
-      int val;
+      int val = 0;
       switch (ctx->bindings[i].type) {
         case ASTERA_BINDING_JOYB:
           val = i_joy_down(ctx, ctx->bindings[i].value);
@@ -871,7 +876,7 @@ uint16_t i_binding_up(i_ctx* ctx, const char* key_binding) {
     int len = strlen(ctx->bindings[i].name);
     len     = (len > 8) ? 8 : len;
     if (!strncmp(ctx->bindings[i].name, key_binding, len)) {
-      int val;
+      int val = 0;
 
       switch (ctx->bindings[i].type) {
         case ASTERA_BINDING_JOYB:
@@ -918,7 +923,7 @@ float i_binding_val(i_ctx* ctx, const char* key_binding) {
     int len = strlen(ctx->bindings[i].name);
     len     = (len > 8) ? 8 : len;
     if (!strncmp(ctx->bindings[i].name, key_binding, len)) {
-      float val;
+      float val = 0.f;
       switch (ctx->bindings[i].type) {
         case ASTERA_BINDING_MB:
           val = (i_mouse_down(ctx, ctx->bindings[i].value)) ? 1.0f : 0.0f;

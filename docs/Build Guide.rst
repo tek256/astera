@@ -75,9 +75,9 @@ Astera Options
 
 In Astera's build system there are a few togglable options you can use:
 
-- ``ASTERA_DEBUG_OUTPUT`` - Enable internal astera debug output
+- ``ASTERA_DEBUG_OUTPUT`` - Enable internal astera debug output (debug.h)
 - ``ASTERA_BUILD_EXAMPLES`` - Enable building examples (disabled for projects including astera)
-- ``ASTERA_DEBUG_ENGINE`` - Enable internal debugging tools for debugging the engine itself (ASAN / Pedantic)
+- ``ASTERA_DEBUG_ENGINE`` - Enable internal debugging tools for debugging the engine itself (ASAN / Pedantic warnings)
 
 .. _CMake Options:
 
