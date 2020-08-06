@@ -404,8 +404,8 @@ int main(void) {
   }
 
   i_ctx_destroy(input_ctx);
-  r_ctx_destroy(render_ctx);
   ui_ctx_destroy(u_ctx);
+  r_ctx_destroy(render_ctx);
 
   asset_free(font_asset);
   free(input_ctx);
