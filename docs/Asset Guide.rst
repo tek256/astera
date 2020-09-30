@@ -30,24 +30,34 @@ Now an example of it's usage:
   // Free up the allocated data 
   asset_free(text_file);
 
-
 Asset Maps
 ^^^^^^^^^^
 
-Asset maps in astera are meant to represent a collection of related assets needed together. You can modify which individual assets you have in the map at any given time, and manage/find the assets within the map with relative ease. In astera these maps can be created around either a zip or pak file. Thus there are two different functions for creating the specific types:
+Asset maps in astera are meant to represent a collection of related assets needed together. You can modify which individual assets you have in the map at any given time, and manage/find the assets within the map with relative ease. In astera these maps can be created around pak files or the file system structure. Thus there are two different functions for creating the specific types:
 
 .. code-block:: c
 
-   /* Create an asset map to track assets using a zip file */
-   asset_map_t asset_map_create_zip(const char* filename, const char* name,
-                                    uint32_t capacity, uint8_t compression_level);
+    /* Create an asset map
+     * filename - point to a file to read from [OPTIONAL]
+     * name - the name of the asset map capacity - the max number of
+     * assets to store in the map
+     * returns: formatted asset_map_t type with assets loaded in */
+     asset_map_t asset_map_create(const char* filename, const char* name,
+                                  uint32_t capacity);
 
-   /* Create an asset map to track assets using a pak file */
-   asset_map_t asset_map_create_pak(const char* filename, const char* name,
-                                    uint32_t capacity);
+As well as the memory based function:
 
+.. code-block:: c
+  
+    /* Create an asset map
+     * data - the data of a pak file [OPTIONAL]
+     * data_length - the length of the pak file's data [OPTIONAL]
+     * name - the name of the asset map capacity - the max number of
+     * assets to store in the map
+     * returns: formatted asset_map_t type with assets loaded in */
+     asset_map_t asset_map_create_mem(unsigned char* data, uint32_t data_length,
+                                      const char* name, uint32_t capacity);
 
-**NOTE**: The default compression level (by most zip programs) of a zip file is 6. 
 
 From the asset map you can request specific files, and it'll fetch them for you. Once the map is created you can just call:
 
@@ -67,7 +77,20 @@ Once you're done with an asset map, you can free it and all it's contents with:
 
 .. code-block:: c
 
-  /* Free any memory used by the asset */
-  void asset_free(asset_t* asset);
+    /* Destroy an asset map and all its resources
+     * map - the map to destroy */
+    void asset_map_destroy(asset_map_t* map);
+
+If you want to free just an individual asset, you're able to do so using:
+
+.. code-block:: c
+
+    /* Free any memory used by the asset */
+    void asset_free(asset_t* asset);
 
 
+
+PAK File Type
+^^^^^^^^^^^^^
+
+In the engine, Astera uses it's own version of a PAK file. There are a few different tools provided, such as the ``pakutil`` tool in the ``tools/`` directory for creating / managing PAK files. To make sure that the tools directory is being built, at generation time enable ``-DASTERA_BUILD_TOOLS=ON``. As well, there are functions in the ``asset.h`` header for writing pak files. You can disable these from being included with ``ASTERA_NO_PAK_WRITE``. 

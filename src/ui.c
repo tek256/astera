@@ -1,6 +1,5 @@
 #include <astera/ui.h>
 
-// Include the debugging definitions
 #include <astera/debug.h>
 
 #include <glad/glad.h>
@@ -10,10 +9,6 @@
 #include <nanovg/nanovg.h>
 #define NANOVG_GL3_IMPLEMENTATION
 #include <nanovg/nanovg_gl.h>
-
-#if !defined(UI_DEFAULT_ATTRIB_CAPACITY)
-#define UI_DEFAULT_ATTRIB_CAPACITY 16
-#endif
 
 #include <assert.h>
 #include <stdio.h>
@@ -28,13 +23,12 @@ struct ui_ctx {
   ui_attrib_map attribs;
 
   // mouse info
-  vec2 mouse_pos;
-  int  use_mouse : 1;
-  int  antialias : 1;
+  vec2    mouse_pos;
+  uint8_t use_mouse, antialias;
 };
 
-static NVGcolor ui_vec4_color(vec4 v) {
-  return nvgRGBA(v[0] * 255.f, v[1] * 255.f, v[2] * 255.f, v[3] * 255.f);
+static NVGcolor ui_u_color(ui_color v) {
+  return nvgRGBA((unsigned char)(v[0] * 255), (unsigned char)(v[1] * 255), (unsigned char)(v[2] * 255), (unsigned char)(v[3] * 255));
 }
 
 uint32_t ui_element_get_uid(ui_element element) {
@@ -45,8 +39,25 @@ uint32_t ui_element_get_uid(ui_element element) {
   }
 }
 
-ui_ctx* ui_ctx_create(vec2 screen_size, float pixel_scale, int8_t use_mouse,
-                      int8_t antialias) {
+void ui_color_dup(ui_color dst, ui_color const a) {
+  for (int i = 0; i < 4; ++i)
+    dst[i] = a[i];
+}
+
+void ui_color_clear(ui_color dst) {
+  for (int i = 0; i < 4; ++i)
+    dst[i] = -1.f;
+}
+
+uint8_t ui_color_valid(ui_color const a) {
+  for (int i = 0; i < 4; ++i)
+    if (a[i] >= 0.f)
+      return 1;
+  return 0;
+}
+
+ui_ctx* ui_ctx_create(vec2 screen_size, float pixel_scale, uint8_t use_mouse,
+                      uint8_t antialias, uint8_t attribs) {
   ui_ctx* ctx = (ui_ctx*)malloc(sizeof(ui_ctx));
 
   memset(ctx, 0, sizeof(ui_ctx));
@@ -64,9 +75,15 @@ ui_ctx* ui_ctx_create(vec2 screen_size, float pixel_scale, int8_t use_mouse,
   ctx->pixel_scale = pixel_scale;
   ctx->use_mouse   = use_mouse;
 
-  ctx->attribs.capacity = UI_DEFAULT_ATTRIB_CAPACITY;
-  ctx->attribs.attribs =
-      malloc(sizeof(ui_attrib_storage) * ctx->attribs.capacity);
+  if (attribs) {
+    ctx->attribs.capacity = UI_ATTRIB_LAST;
+    ctx->attribs.attribs =
+        malloc(sizeof(ui_attrib_storage) * ctx->attribs.capacity);
+    memset(ctx->attribs.attribs, 0,
+           sizeof(ui_attrib_storage) * ctx->attribs.capacity);
+  } else {
+    ctx->attribs.capacity = 0;
+  }
   ctx->attribs.count = 0;
 
   return ctx;
@@ -79,15 +96,45 @@ uint8_t ui_ctx_is_antialias(ui_ctx* ctx) { return ctx->antialias; }
 void ui_ctx_set_mouse(ui_ctx* ctx, uint8_t mouse) { ctx->use_mouse = mouse; }
 
 void ui_ctx_update(ui_ctx* ctx, vec2 mouse_pos) {
-  if (ctx->use_mouse && mouse_pos) {
+  if (ctx->use_mouse) {
     vec2_dup(ctx->mouse_pos, mouse_pos);
   }
 }
 
 void ui_ctx_destroy(ui_ctx* ctx) {
   nvgDeleteGL3(ctx->nvg);
+
   if (ctx->attribs.attribs)
     free(ctx->attribs.attribs);
+  free(ctx);
+}
+
+void ui_ctx_set_attribs_fixed(ui_ctx* ctx) {
+  ui_attrib_map* map = &ctx->attribs;
+  map->allow_resize  = 0;
+}
+
+void ui_ctx_set_attribs_capacity(ui_ctx* ctx, uint32_t capacity) {
+  if (capacity > UI_ATTRIB_LAST) {
+    capacity = UI_ATTRIB_LAST;
+  }
+
+  ui_attrib_map* map = &ctx->attribs;
+
+  if (!map->allow_resize)
+    return;
+
+  if (map->capacity == capacity) {
+    return;
+  }
+
+  if (map->count > capacity) {
+    map->count = capacity;
+  }
+
+  map->attribs = (ui_attrib_storage*)realloc(
+      map->attribs, sizeof(ui_attrib_storage) * capacity);
+  map->capacity = capacity;
 }
 
 static int ui_hex_number(const char v) {
@@ -128,8 +175,8 @@ static int ui_hex_multi(const char* v, int len) {
   return -1;
 }
 
-void ui_get_color(vec4 val, const char* v) {
-  int len    = strlen(v);
+void ui_get_color(ui_color val, const char* v) {
+  int len    = (int)strlen(v);
   int offset = 0;
   if (len == 4) {
     offset = 1;
@@ -155,7 +202,6 @@ void ui_px_to_scale(ui_ctx* ctx, vec2 dst, vec2 px) {
   vec2 tmp;
   tmp[0] = px[0] / ctx->size[0];
   tmp[1] = px[1] / ctx->size[1];
-
   vec2_dup(dst, tmp);
 }
 
@@ -163,30 +209,18 @@ void ui_scale_to_px(ui_ctx* ctx, vec2 dst, vec2 scale) {
   vec2 tmp;
   tmp[0] = scale[0] * ctx->size[0];
   tmp[1] = scale[1] * ctx->size[1];
-
   vec2_dup(dst, tmp);
-}
-
-void ui_px_to_scale4f(ui_ctx* ctx, vec4 dst, vec4 px) {
-  dst[0] = px[0] / ctx->size[0];
-  dst[1] = px[1] / ctx->size[1];
-  dst[2] = px[0] / ctx->size[0];
-  dst[3] = px[1] / ctx->size[1];
 }
 
 void ui_scale_to_px4f(ui_ctx* ctx, vec4 dst, vec4 scale) {
   dst[0] = scale[0] * ctx->size[0];
   dst[1] = scale[1] * ctx->size[1];
-  dst[2] = scale[0] * ctx->size[0];
-  dst[3] = scale[1] * ctx->size[1];
+  dst[2] = scale[2] * ctx->size[2];
+  dst[3] = scale[3] * ctx->size[3];
 }
 
 void ui_px_from_scale(vec2 dst, vec2 px, vec2 screen) {
-  vec2 tmp;
-  tmp[0] = px[0] / screen[0];
-  tmp[1] = px[1] / screen[1];
-
-  vec2_dup(dst, tmp);
+  vec2_div(dst, px, screen);
 }
 
 void ui_scale_move_px(ui_ctx* ctx, vec2 dst, vec2 scale, vec2 px) {
@@ -211,11 +245,13 @@ void ui_frame_start(ui_ctx* ctx) {
   nvgBeginFrame(ctx->nvg, ctx->size[0], ctx->size[1], ctx->pixel_scale);
 }
 
-int8_t ui_is_type(int value, int type) { return ((value) & (type)) == type; }
+static inline int8_t ui_is_type(int value, int type) {
+  return ((value) & (type)) == type;
+}
 
 void ui_frame_end(ui_ctx* ctx) { nvgEndFrame(ctx->nvg); }
 
-static int16_t ui_attrib_size(ui_attrib_type type) {
+static uint16_t ui_attrib_size(ui_attrib_type type) {
   switch (type) {
     case UI_INT:
       return sizeof(int32_t);
@@ -227,287 +263,81 @@ static int16_t ui_attrib_size(ui_attrib_type type) {
       return sizeof(vec3);
     case UI_VEC4:
       return sizeof(vec4);
+    case UI_COLOR:
+      return sizeof(ui_color);
     default:
       return sizeof(char);
   }
 }
 
-void ui_attrib_set(ui_ctx* ctx, ui_attrib attrib, void* value,
-                   ui_attrib_type type) {
-  ui_attrib_map map = ctx->attribs;
-
-  int size = ui_attrib_size(type);
-  for (int i = 0; i < map.count; ++i) {
-    if (map.attribs[i].attrib == attrib) {
-      memcpy(map.attribs[i].data, value, size);
-      return;
+static ui_attrib_storage* _ui_attrib_get_add(ui_ctx* ctx, ui_attrib attrib,
+                                             ui_attrib_type type) {
+  ui_attrib_map* map = &ctx->attribs;
+  for (uint32_t i = 0; i < ctx->attribs.count; ++i) {
+    if (map->attribs[i].attrib == type) {
+      return &map->attribs[i];
     }
   }
 
-  if (map.count == map.capacity - 1) {
-    return;
+  ui_attrib_storage* storage = 0;
+
+  if (map->count == map->capacity) {
+    if (map->allow_resize) {
+      ui_ctx_set_attribs_capacity(ctx, map->capacity + 4);
+      ++map->count;
+
+      storage = &map->attribs[map->capacity];
+
+      storage->attrib = attrib;
+      storage->type   = type;
+
+      return storage;
+    } else {
+      return 0;
+    }
+  } else {
+    ++map->count;
+
+    storage         = &map->attribs[map->count];
+    storage->attrib = attrib;
+    storage->type   = type;
+
+    return storage;
   }
-
-  if (map.attribs[map.count].data) {
-    free(map.attribs[map.count].data);
-  }
-
-  void* new_data = malloc(size);
-  memcpy(new_data, value, size);
-
-  map.attribs[map.count].attrib = attrib;
-  map.attribs[map.count].type   = type;
-  map.attribs[map.count].data   = new_data;
-  map.count++;
 }
 
-void ui_attrib_set3f(ui_ctx* ctx, ui_attrib attrib, float x, float y, float z) {
-  ui_attrib_map map = ctx->attribs;
-
-  for (int i = 0; i < map.count; ++i) {
-    if (map.attribs[i].attrib == attrib && map.attribs[i].type == UI_VEC3) {
-      vec3* data_value = ((vec3*)map.attribs[i].data);
-      *data_value[0]   = x;
-      *data_value[1]   = y;
-      *data_value[2]   = z;
-      return;
-    }
-  }
-
-  if (map.count == map.capacity - 1) {
-    return;
-  }
-
-  if (map.attribs[map.count].data) {
-    free(map.attribs[map.count].data);
-  }
-
-  void* new_data   = malloc(sizeof(vec3));
-  vec3* data_value = ((vec3*)map.attribs[map.count].data);
-  *data_value[0]   = x;
-  *data_value[1]   = y;
-  *data_value[2]   = z;
-
-  map.attribs[map.count].attrib = attrib;
-  map.attribs[map.count].type   = UI_VEC3;
-  map.attribs[map.count].data   = new_data;
-  map.count++;
+void ui_attrib_set4f(ui_ctx* ctx, ui_attrib attrib, vec4 value) {
+  ui_attrib_storage* storage = _ui_attrib_get_add(ctx, attrib, UI_VEC4);
+  vec4_dup(storage->data.v4, value);
 }
 
-void ui_attrib_set3fv(ui_ctx* ctx, ui_attrib attrib, vec3 value) {
-  ui_attrib_map map = ctx->attribs;
-
-  for (int i = 0; i < map.count; ++i) {
-    if (map.attribs[i].attrib == attrib && map.attribs[i].type == UI_VEC3) {
-      vec3* data_value = ((vec3*)map.attribs[i].data);
-      vec3_dup(*data_value, value);
-      return;
-    }
-  }
-
-  if (map.count == map.capacity - 1) {
-    return;
-  }
-
-  if (map.attribs[map.count].data) {
-    free(map.attribs[map.count].data);
-  }
-
-  void* new_data   = malloc(sizeof(vec3));
-  vec3* data_value = (vec3*)map.attribs[map.count].data;
-  vec3_dup(*data_value, value);
-
-  map.attribs[map.count].attrib = attrib;
-  map.attribs[map.count].type   = UI_VEC3;
-  map.attribs[map.count].data   = new_data;
-  map.count++;
+void ui_attrib_setc(ui_ctx* ctx, ui_attrib attrib, ui_color color) {
+  ui_attrib_storage* storage = _ui_attrib_get_add(ctx, attrib, UI_COLOR);
+  ui_color_dup(storage->data.c, color);
 }
 
-void ui_attrib_set4f(ui_ctx* ctx, ui_attrib attrib, float x, float y, float z,
-                     float w) {
-  ui_attrib_map map = ctx->attribs;
-
-  for (int i = 0; i < map.count; ++i) {
-    if (map.attribs[i].attrib == attrib && map.attribs[i].type == UI_VEC4) {
-      vec4* data_value = ((vec4*)map.attribs[i].data);
-      *data_value[0]   = x;
-      *data_value[1]   = y;
-      *data_value[2]   = z;
-      *data_value[3]   = w;
-      return;
-    }
-  }
-
-  if (map.count == map.capacity - 1) {
-    return;
-  }
-
-  if (map.attribs[map.count].data) {
-    free(map.attribs[map.count].data);
-  }
-
-  void* new_data   = malloc(sizeof(vec4));
-  vec4* data_value = ((vec4*)map.attribs[map.count].data);
-  *data_value[0]   = x;
-  *data_value[1]   = y;
-  *data_value[2]   = z;
-  *data_value[3]   = w;
-
-  map.attribs[map.count].attrib = attrib;
-  map.attribs[map.count].type   = UI_VEC4;
-  map.attribs[map.count].data   = new_data;
-  map.count++;
+void ui_attrib_set3f(ui_ctx* ctx, ui_attrib attrib, vec3 value) {
+  ui_attrib_storage* storage = _ui_attrib_get_add(ctx, attrib, UI_VEC3);
+  vec3_dup(storage->data.v3, value);
 }
 
-void ui_attrib_set4fv(ui_ctx* ctx, ui_attrib attrib, vec4 value) {
-  ui_attrib_map map = ctx->attribs;
-
-  for (int i = 0; i < map.count; ++i) {
-    if (map.attribs[i].attrib == attrib && map.attribs[i].type == UI_VEC4) {
-      vec4* data_value = (vec4*)map.attribs[i].data;
-      vec4_dup(*data_value, value);
-      return;
-    }
-  }
-
-  if (map.count == map.capacity - 1) {
-    return;
-  }
-
-  if (map.attribs[map.count].data) {
-    free(map.attribs[map.count].data);
-  }
-
-  void* new_data   = malloc(sizeof(vec4));
-  vec4* data_value = (vec4*)new_data;
-  vec4_dup(*data_value, value);
-
-  map.attribs[map.count].attrib = attrib;
-  map.attribs[map.count].type   = UI_VEC4;
-  map.attribs[map.count].data   = new_data;
-  map.count++;
-}
-
-void ui_attrib_set2f(ui_ctx* ctx, ui_attrib attrib, float x, float y) {
-  ui_attrib_map map = ctx->attribs;
-
-  for (int i = 0; i < map.count; ++i) {
-    if (map.attribs[i].attrib == attrib && map.attribs[i].type == UI_VEC2) {
-      vec2* data_value = (vec2*)map.attribs[i].data;
-      *data_value[0]   = x;
-      *data_value[1]   = y;
-      return;
-    }
-  }
-
-  if (map.count == map.capacity - 1) {
-    return;
-  }
-
-  if (map.attribs[map.count].data) {
-    free(map.attribs[map.count].data);
-  }
-
-  void* new_data   = malloc(sizeof(vec2));
-  vec2* data_value = (vec2*)new_data;
-  *data_value[0]   = x;
-  *data_value[1]   = y;
-
-  map.attribs[map.count].attrib = attrib;
-  map.attribs[map.count].type   = UI_VEC2;
-  map.attribs[map.count].data   = new_data;
-  map.count++;
-}
-
-void ui_attrib_set2fv(ui_ctx* ctx, ui_attrib attrib, vec2 value) {
-  ui_attrib_map map = ctx->attribs;
-
-  for (int i = 0; i < map.count; ++i) {
-    if (map.attribs[i].attrib == attrib && map.attribs[i].type == UI_VEC2) {
-      vec2* data_value = (vec2*)map.attribs[i].data;
-      vec2_dup(*data_value, value);
-      return;
-    }
-  }
-
-  if (map.count == map.capacity - 1) {
-    return;
-  }
-
-  if (map.attribs[map.count].data) {
-    free(map.attribs[map.count].data);
-  }
-
-  void* new_data   = malloc(sizeof(vec2));
-  vec2* data_value = (vec2*)new_data;
-  vec2_dup(*data_value, value);
-
-  map.attribs[map.count].attrib = attrib;
-  map.attribs[map.count].type   = UI_VEC2;
-  map.attribs[map.count].data   = new_data;
-  map.count++;
+void ui_attrib_set2f(ui_ctx* ctx, ui_attrib attrib, vec2 value) {
+  ui_attrib_storage* storage = _ui_attrib_get_add(ctx, attrib, UI_VEC2);
+  vec2_dup(storage->data.v2, value);
 }
 
 void ui_attrib_setf(ui_ctx* ctx, ui_attrib attrib, float value) {
-  ui_attrib_map map = ctx->attribs;
-
-  for (int i = 0; i < map.count; ++i) {
-    if (map.attribs[i].attrib == attrib && map.attribs[i].type == UI_FLOAT) {
-      float* data_value = (float*)map.attribs[i].data;
-      *data_value       = value;
-      return;
-    }
-  }
-
-  if (map.count == map.capacity - 1) {
-    return;
-  }
-
-  if (map.attribs[map.count].data) {
-    free(map.attribs[map.count].data);
-  }
-
-  void*  new_data   = malloc(sizeof(float));
-  float* data_value = (float*)new_data;
-  *data_value       = value;
-
-  map.attribs[map.count].attrib = attrib;
-  map.attribs[map.count].type   = UI_FLOAT;
-  map.attribs[map.count].data   = new_data;
-  map.count++;
+  ui_attrib_storage* storage = _ui_attrib_get_add(ctx, attrib, UI_FLOAT);
+  storage->data.f            = value;
 }
 
 void ui_attrib_seti(ui_ctx* ctx, ui_attrib attrib, int32_t value) {
-  ui_attrib_map map = ctx->attribs;
-
-  for (int i = 0; i < map.count; ++i) {
-    if (map.attribs[i].attrib == attrib && map.attribs[i].type == UI_INT) {
-      int32_t* data_value = (int32_t*)map.attribs[i].data;
-      *data_value         = value;
-      return;
-    }
-  }
-
-  if (map.count == map.capacity - 1) {
-    return;
-  }
-
-  if (map.attribs[map.count].data) {
-    free(map.attribs[map.count].data);
-  }
-
-  void*    new_data   = malloc(sizeof(int32_t));
-  int32_t* data_value = (int32_t*)new_data;
-  *data_value         = value;
-
-  map.attribs[map.count].attrib = attrib;
-  map.attribs[map.count].type   = UI_INT;
-  map.attribs[map.count].data   = new_data;
-  map.count++;
+  ui_attrib_storage* storage = _ui_attrib_get_add(ctx, attrib, UI_FLOAT);
+  storage->data.i            = value;
 }
 
-int8_t ui_attrib_exists(ui_ctx* ctx, ui_attrib attrib) {
-  for (int i = 0; i < ctx->attribs.count; ++i) {
+uint8_t ui_attrib_exists(ui_ctx* ctx, ui_attrib attrib) {
+  for (uint32_t i = 0; i < ctx->attribs.count; ++i) {
     if (ctx->attribs.attribs[i].attrib == attrib) {
       return 1;
     }
@@ -515,57 +345,69 @@ int8_t ui_attrib_exists(ui_ctx* ctx, ui_attrib attrib) {
   return 0;
 }
 
-ui_attrib_storage ui_attrib_get(ui_ctx* ctx, ui_attrib attrib) {
+static ui_attrib_storage* ui_attrib_get(ui_ctx* ctx, ui_attrib attrib) {
   ui_attrib_map map = ctx->attribs;
-  for (int i = 0; i < map.count; ++i) {
+  for (uint32_t i = 0; i < map.capacity; ++i) {
     if (map.attribs[i].attrib == attrib) {
-      return map.attribs[i];
+      return &map.attribs[i];
     }
   }
-  return (ui_attrib_storage){.type = UI_NONE};
+  return 0;
 }
 
 int ui_attrib_geti(ui_ctx* ctx, ui_attrib attrib) {
-  ui_attrib_storage storage = ui_attrib_get(ctx, attrib);
-  if (storage.type != UI_INT) {
-    return -1;
+  ui_attrib_storage* data = ui_attrib_get(ctx, attrib);
+  if (data) {
+    return data->data.i;
   }
-  return *((int*)storage.data);
+  return -1;
 }
 
 float ui_attrib_getf(ui_ctx* ctx, ui_attrib attrib) {
-  ui_attrib_storage storage = ui_attrib_get(ctx, attrib);
-  if (storage.type != UI_FLOAT) {
-    return -1.f;
+  ui_attrib_storage* data = ui_attrib_get(ctx, attrib);
+  if (data) {
+    return data->data.f;
   }
-  return *((float*)storage.data);
+  return 0.f;
 }
 
 void ui_attrib_get2f(ui_ctx* ctx, ui_attrib attrib, vec2 dst) {
-  ui_attrib_storage storage = ui_attrib_get(ctx, attrib);
-  if (storage.type != UI_VEC2) {
-    dst[0] = -1.f;
+  ui_attrib_storage* data = ui_attrib_get(ctx, attrib);
+  if (data) {
+    vec2_dup(dst, data->data.v2);
     return;
   }
-  vec2_dup(dst, *(vec2*)storage.data);
+
+  dst[0] = -1.f;
 }
 
 void ui_attrib_get3f(ui_ctx* ctx, ui_attrib attrib, vec3 dst) {
-  ui_attrib_storage storage = ui_attrib_get(ctx, attrib);
-  if (storage.type != UI_VEC3) {
-    dst[0] = -1.f;
+  ui_attrib_storage* data = ui_attrib_get(ctx, attrib);
+  if (data) {
+    vec3_dup(dst, data->data.v3);
     return;
   }
-  vec3_dup(dst, *(vec3*)storage.data);
+  dst[0] = -1.f;
 }
 
 void ui_attrib_get4f(ui_ctx* ctx, ui_attrib attrib, vec4 dst) {
-  ui_attrib_storage storage = ui_attrib_get(ctx, attrib);
-  if (storage.type != UI_VEC4) {
-    dst[0] = -1.f;
+  ui_attrib_storage* data = ui_attrib_get(ctx, attrib);
+  if (data) {
+    vec4_dup(dst, data->data.v4);
     return;
   }
-  vec4_dup(dst, *(vec4*)storage.data);
+
+  dst[0] = -1.f;
+}
+
+void ui_attrib_getc(ui_ctx* ctx, ui_attrib attrib, ui_color dst) {
+  ui_attrib_storage* data = ui_attrib_get(ctx, attrib);
+  if (data) {
+    ui_color_dup(dst, data->data.c);
+    return;
+  }
+
+  dst[0] = -1.f;
 }
 
 ui_element ui_element_get(void* data, int type) {
@@ -624,9 +466,9 @@ void ui_element_center_to(ui_element element, vec2 point) {
     case UI_LINE: {
       ui_line* line = (ui_line*)element.data;
 
-      vec2 delta;
-      delta[0] = line->end[0] - line->start[0];
-      delta[1] = line->end[1] - line->start[1];
+      vec2 delta = {0.f};
+      delta[0]   = line->end[0] - line->start[0];
+      delta[1]   = line->end[1] - line->start[1];
 
       center[0] -= (delta[0] * 0.5f);
       center[1] -= (delta[1] * 0.5f);
@@ -649,7 +491,7 @@ void ui_element_center_to(ui_element element, vec2 point) {
       center[1] -= option->size[1] * 0.5f;
       vec2_dup(option->position, center);
     } break;
-    case UI_IMG: {
+    case UI_IMAGE: {
       ui_img* image = (ui_img*)element.data;
       center[0] -= image->size[0] * 0.5f;
       center[1] -= image->size[1] * 0.5f;
@@ -667,7 +509,6 @@ ui_tree ui_tree_create(uint16_t capacity) {
   tree.draw_order = (ui_leaf**)malloc(sizeof(ui_leaf*) * (capacity + 1));
   memset(raw, 0, sizeof(ui_leaf*) * (capacity + 1));
 
-  // TODO add memory safety check
   assert(raw != 0);
 
   tree.cursor_id      = 0;
@@ -924,7 +765,7 @@ int16_t ui_element_contains(ui_ctx* ctx, ui_element element, vec2 point) {
       }
     }
       return -1;
-    case UI_IMG: {
+    case UI_IMAGE: {
       ui_img* img = (ui_img*)element.data;
       vec2    img_position, img_size;
       ui_scale_to_px(ctx, img_position, img->position);
@@ -1015,26 +856,26 @@ void ui_text_draw(ui_ctx* ctx, ui_text* text) {
 
     if (text->use_shadow) {
       nvgFontBlur(ctx->nvg, text->shadow_size);
-      nvgFillColor(ctx->nvg, ui_vec4_color(text->shadow));
+      nvgFillColor(ctx->nvg, ui_u_color(text->shadow));
       nvgTextBox(ctx->nvg, draw_pos[0], draw_pos[1], text_bounds[0], text->text,
                  text->reveal);
 
       nvgFontBlur(ctx->nvg, 0.f);
     }
 
-    nvgFillColor(ctx->nvg, ui_vec4_color(text->color));
+    nvgFillColor(ctx->nvg, ui_u_color(text->color));
     nvgTextBox(ctx->nvg, draw_pos[0], draw_pos[1], text_bounds[0], text->text,
                text->reveal);
   } else {
     if (text->use_shadow) {
       nvgFontBlur(ctx->nvg, text->shadow_size);
-      nvgFillColor(ctx->nvg, ui_vec4_color(text->shadow));
+      nvgFillColor(ctx->nvg, ui_u_color(text->shadow));
       nvgText(ctx->nvg, draw_pos[0], draw_pos[1], text->text, text->reveal);
 
       nvgFontBlur(ctx->nvg, 0.f);
     }
 
-    nvgFillColor(ctx->nvg, ui_vec4_color(text->color));
+    nvgFillColor(ctx->nvg, ui_u_color(text->color));
     nvgText(ctx->nvg, draw_pos[0], draw_pos[1], text->text, text->reveal);
   }
 }
@@ -1045,7 +886,8 @@ void ui_box_draw(ui_ctx* ctx, ui_box* box, int8_t focused) {
   ui_scale_to_px(ctx, box_size, box->size);
 
   nvgBeginPath(ctx->nvg);
-  if (box->use_border) {
+
+  if (box->border_size > 0.f) {
     if (box->border_radius != 0.f) {
       nvgRoundedRect(ctx->nvg, box_position[0], box_position[1], box_size[0],
                      box_size[1], box->border_radius);
@@ -1054,30 +896,26 @@ void ui_box_draw(ui_ctx* ctx, ui_box* box, int8_t focused) {
               box_size[1]);
     }
 
-    if (box->border_size > 0.f) {
-      nvgStrokeWidth(ctx->nvg, box->border_size);
-      if (focused) {
-        nvgStrokeColor(ctx->nvg, ui_vec4_color(box->hover_border_color));
-        nvgFillColor(ctx->nvg, ui_vec4_color(box->hover_bg));
-      } else {
-        nvgStrokeColor(ctx->nvg, ui_vec4_color(box->border_color));
-        nvgFillColor(ctx->nvg, ui_vec4_color(box->bg));
-      }
-      nvgStroke(ctx->nvg);
-    }
-
-    nvgFill(ctx->nvg);
-  } else {
+    nvgStrokeWidth(ctx->nvg, box->border_size);
     if (focused) {
-      nvgFillColor(ctx->nvg, ui_vec4_color(box->hover_bg));
+      nvgStrokeColor(ctx->nvg, ui_u_color(box->hover_border_color));
+      nvgFillColor(ctx->nvg, ui_u_color(box->hover_bg));
     } else {
-      nvgFillColor(ctx->nvg, ui_vec4_color(box->bg));
+      nvgStrokeColor(ctx->nvg, ui_u_color(box->border_color));
+      nvgFillColor(ctx->nvg, ui_u_color(box->bg));
     }
+    nvgStroke(ctx->nvg);
+  }
 
+  if (box->border_radius != 0.f) {
+    nvgRoundedRect(ctx->nvg, box_position[0], box_position[1], box_size[0],
+                   box_size[1], box->border_radius);
+  } else {
     nvgRect(ctx->nvg, box_position[0], box_position[1], box_size[0],
             box_size[1]);
-    nvgFill(ctx->nvg);
   }
+
+  nvgFill(ctx->nvg);
 }
 
 void ui_button_draw(ui_ctx* ctx, ui_button* button, int8_t focused) {
@@ -1096,55 +934,42 @@ void ui_button_draw(ui_ctx* ctx, ui_button* button, int8_t focused) {
   button_padded_size[1] =
       button_padding[1] + button_padding[3] + button_size[1];
 
-  if (button->use_border) {
-    if (button->border_radius != 0.f) {
-      nvgRoundedRect(ctx->nvg, button_position[0] - button_padding[0],
-                     button_position[1] - button_padding[1],
-                     button_padded_size[0], button_padded_size[1],
-                     button->border_radius);
-    } else {
-      nvgRect(ctx->nvg, button_position[0] - button_padding[0],
-              button_position[1] - button_padding[1], button_padded_size[0],
-              button_padded_size[1]);
-    }
-
-    if (button->border_size > 0.f) {
-      nvgStrokeWidth(ctx->nvg, button->border_size);
-      if (focused) {
-        nvgStrokeColor(ctx->nvg, ui_vec4_color(button->hover_border_color));
-        nvgFillColor(ctx->nvg, ui_vec4_color(button->hover_bg));
-      } else {
-        nvgStrokeColor(ctx->nvg, ui_vec4_color(button->border_color));
-        nvgFillColor(ctx->nvg, ui_vec4_color(button->bg));
-      }
-      nvgStroke(ctx->nvg);
-    }
-
-    if (focused) {
-      nvgFillColor(ctx->nvg, ui_vec4_color(button->hover_bg));
-    } else {
-      nvgFillColor(ctx->nvg, ui_vec4_color(button->bg));
-    }
-
-    nvgFill(ctx->nvg);
+  if (button->border_radius != 0.f) {
+    nvgRoundedRect(ctx->nvg, button_position[0] - button_padding[0],
+                   button_position[1] - button_padding[1],
+                   button_padded_size[0], button_padded_size[1],
+                   button->border_radius);
   } else {
-    if (focused) {
-      nvgFillColor(ctx->nvg, ui_vec4_color(button->hover_bg));
-    } else {
-      nvgFillColor(ctx->nvg, ui_vec4_color(button->bg));
-    }
-
     nvgRect(ctx->nvg, button_position[0] - button_padding[0],
             button_position[1] - button_padding[1], button_padded_size[0],
             button_padded_size[1]);
-    nvgFill(ctx->nvg);
   }
+
+  if (button->border_size > 0.f) {
+    nvgStrokeWidth(ctx->nvg, button->border_size);
+    if (focused) {
+      nvgStrokeColor(ctx->nvg, ui_u_color(button->hover_border_color));
+      nvgFillColor(ctx->nvg, ui_u_color(button->hover_bg));
+    } else {
+      nvgStrokeColor(ctx->nvg, ui_u_color(button->border_color));
+      nvgFillColor(ctx->nvg, ui_u_color(button->bg));
+    }
+    nvgStroke(ctx->nvg);
+  }
+
+  if (focused) {
+    nvgFillColor(ctx->nvg, ui_u_color(button->hover_bg));
+  } else {
+    nvgFillColor(ctx->nvg, ui_u_color(button->bg));
+  }
+
+  nvgFill(ctx->nvg);
 
   if (button->text) {
     if (focused) {
-      nvgFillColor(ctx->nvg, ui_vec4_color(button->hover_color));
+      nvgFillColor(ctx->nvg, ui_u_color(button->hover_color));
     } else {
-      nvgFillColor(ctx->nvg, ui_vec4_color(button->color));
+      nvgFillColor(ctx->nvg, ui_u_color(button->color));
     }
 
     nvgFontSize(ctx->nvg, button->font_size);
@@ -1210,9 +1035,9 @@ void ui_progress_draw(ui_ctx* ctx, ui_progress* progress, int8_t focused) {
     }
 
     if (focused || progress->active) {
-      nvgStrokeColor(ctx->nvg, ui_vec4_color(progress->active_border_color));
+      nvgStrokeColor(ctx->nvg, ui_u_color(progress->active_border_color));
     } else {
-      nvgStrokeColor(ctx->nvg, ui_vec4_color(progress->border_color));
+      nvgStrokeColor(ctx->nvg, ui_u_color(progress->border_color));
     }
 
     nvgStrokeWidth(ctx->nvg, progress->border_size);
@@ -1230,9 +1055,9 @@ void ui_progress_draw(ui_ctx* ctx, ui_progress* progress, int8_t focused) {
   }
 
   if (focused || progress->active) {
-    nvgFillColor(ctx->nvg, ui_vec4_color(progress->active_bg));
+    nvgFillColor(ctx->nvg, ui_u_color(progress->active_bg));
   } else {
-    nvgFillColor(ctx->nvg, ui_vec4_color(progress->bg));
+    nvgFillColor(ctx->nvg, ui_u_color(progress->bg));
   }
 
   nvgFill(ctx->nvg);
@@ -1275,9 +1100,9 @@ void ui_progress_draw(ui_ctx* ctx, ui_progress* progress, int8_t focused) {
     }
 
     if (focused || progress->active) {
-      nvgFillColor(ctx->nvg, ui_vec4_color(progress->active_fg));
+      nvgFillColor(ctx->nvg, ui_u_color(progress->active_fg));
     } else {
-      nvgFillColor(ctx->nvg, ui_vec4_color(progress->fg));
+      nvgFillColor(ctx->nvg, ui_u_color(progress->fg));
     }
 
     nvgFill(ctx->nvg);
@@ -1417,10 +1242,10 @@ void ui_slider_draw(ui_ctx* ctx, ui_slider* slider, int8_t focused) {
               slider_size[1]);
     }
 
-    if (focused || slider->active && slider->active_border_color) {
-      nvgStrokeColor(ctx->nvg, ui_vec4_color(slider->active_border_color));
+    if (focused || (slider->active && slider->active_border_color)) {
+      nvgStrokeColor(ctx->nvg, ui_u_color(slider->active_border_color));
     } else {
-      nvgStrokeColor(ctx->nvg, ui_vec4_color(slider->border_color));
+      nvgStrokeColor(ctx->nvg, ui_u_color(slider->border_color));
     }
 
     nvgStrokeWidth(ctx->nvg, slider->border_size);
@@ -1438,9 +1263,9 @@ void ui_slider_draw(ui_ctx* ctx, ui_slider* slider, int8_t focused) {
   }
 
   if (focused || slider->active) {
-    nvgFillColor(ctx->nvg, ui_vec4_color(slider->active_bg));
+    nvgFillColor(ctx->nvg, ui_u_color(slider->active_bg));
   } else {
-    nvgFillColor(ctx->nvg, ui_vec4_color(slider->bg));
+    nvgFillColor(ctx->nvg, ui_u_color(slider->bg));
   }
 
   nvgFill(ctx->nvg);
@@ -1455,17 +1280,11 @@ void ui_slider_draw(ui_ctx* ctx, ui_slider* slider, int8_t focused) {
                            slider->fill_padding,
                        slider_pos[1] + slider_size[1] - fill_size[1] +
                            slider->fill_padding,
-                       fill_size[0], fill_size[1],
-                       // fill_size[0] - (slider->fill_padding * 2),
-                       // fill_size[1] - (slider->fill_padding * 2),
-                       slider->border_radius);
+                       fill_size[0], fill_size[1], slider->border_radius);
       } else {
         nvgRoundedRect(ctx->nvg, slider_pos[0] + slider->fill_padding,
                        slider_pos[1] + slider->fill_padding, fill_size[0],
-                       fill_size[1],
-                       // fill_size[0] - (slider->fill_padding * 2),
-                       // fill_size[1] - (slider->fill_padding * 2),
-                       slider->border_radius);
+                       fill_size[1], slider->border_radius);
       }
     } else {
       if (slider->flip) {
@@ -1475,21 +1294,17 @@ void ui_slider_draw(ui_ctx* ctx, ui_slider* slider, int8_t focused) {
                 slider_pos[1] + slider_size[1] + slider->fill_padding -
                     fill_size[1],
                 fill_size[0], fill_size[1]);
-        // fill_size[0] - (slider->fill_padding * 2),
-        // fill_size[1] - (slider->fill_padding * 2));
       } else {
         nvgRect(ctx->nvg, slider_pos[0] + slider->fill_padding,
                 slider_pos[1] + slider->fill_padding, fill_size[0],
                 fill_size[1]);
-        // fill_size[0] - (slider->fill_padding * 2),
-        // fill_size[1] - (slider->fill_padding * 2));
       }
     }
 
     if (focused || slider->active) {
-      nvgFillColor(ctx->nvg, ui_vec4_color(slider->active_fg));
+      nvgFillColor(ctx->nvg, ui_u_color(slider->active_fg));
     } else {
-      nvgFillColor(ctx->nvg, ui_vec4_color(slider->fg));
+      nvgFillColor(ctx->nvg, ui_u_color(slider->fg));
     }
 
     nvgFill(ctx->nvg);
@@ -1527,9 +1342,9 @@ void ui_slider_draw(ui_ctx* ctx, ui_slider* slider, int8_t focused) {
       nvgStrokeWidth(ctx->nvg, slider->button_border_size);
       if (focused || slider->button_hover) {
         nvgStrokeColor(ctx->nvg,
-                       ui_vec4_color(slider->active_button_border_color));
+                       ui_u_color(slider->active_button_border_color));
       } else {
-        nvgStrokeColor(ctx->nvg, ui_vec4_color(slider->button_border_color));
+        nvgStrokeColor(ctx->nvg, ui_u_color(slider->button_border_color));
       }
       nvgStroke(ctx->nvg);
     }
@@ -1561,9 +1376,9 @@ void ui_slider_draw(ui_ctx* ctx, ui_slider* slider, int8_t focused) {
     }
 
     if (focused || slider->button_hover) {
-      nvgFillColor(ctx->nvg, ui_vec4_color(slider->active_button_color));
+      nvgFillColor(ctx->nvg, ui_u_color(slider->active_button_color));
     } else {
-      nvgFillColor(ctx->nvg, ui_vec4_color(slider->button_color));
+      nvgFillColor(ctx->nvg, ui_u_color(slider->button_color));
     }
 
     nvgFill(ctx->nvg);
@@ -1572,7 +1387,7 @@ void ui_slider_draw(ui_ctx* ctx, ui_slider* slider, int8_t focused) {
 
 float ui_dropdown_max_font_size(ui_ctx* ctx, ui_dropdown dropdown) {
   if (dropdown.option_count == 0) {
-    ASTERA_DBG("Dropdown doesn't contain any options.\n");
+    ASTERA_FUNC_DBG("Dropdown doesn't contain any options.\n");
     return -1.f;
   }
 
@@ -1582,7 +1397,7 @@ float ui_dropdown_max_font_size(ui_ctx* ctx, ui_dropdown dropdown) {
     if (!dropdown.options[i])
       continue;
 
-    int32_t option_len = strlen(dropdown.options[i]);
+    uint32_t option_len = (uint32_t)strlen(dropdown.options[i]);
     if (option_len > longest_option_len) {
       longest_option     = (uint32_t)i;
       longest_option_len = option_len;
@@ -1593,9 +1408,13 @@ float ui_dropdown_max_font_size(ui_ctx* ctx, ui_dropdown dropdown) {
     longest_option = 0;
   }
 
+  char* start = dropdown.options[longest_option];
+  char* end   = start + longest_option_len;
+
   float current_size = dropdown.font_size;
 
-  vec4 text_bounds = {0.f};
+  vec4 text_bounds;
+  vec4_clear(text_bounds);
   vec2 dropdown_size;
   ui_scale_to_px(ctx, dropdown_size, dropdown.size);
 
@@ -1603,13 +1422,14 @@ float ui_dropdown_max_font_size(ui_ctx* ctx, ui_dropdown dropdown) {
   nvgTextAlign(ctx->nvg, dropdown.align);
   nvgTextLineHeight(ctx->nvg, dropdown_size[1]);
 
+  float bounds[4];
+
   while (1) {
     nvgFontSize(ctx->nvg, current_size);
-    nvgTextBounds(ctx->nvg, 0.f, 0.f, dropdown.options[longest_option], 0,
-                  text_bounds);
+    nvgTextBounds(ctx->nvg, 0.f, 0.f, start, end, bounds);
 
-    float width  = text_bounds[2] - text_bounds[0];
-    float height = text_bounds[3] - text_bounds[1];
+    float width  = bounds[2] - bounds[0];
+    float height = bounds[3] - bounds[1];
 
     if (width >= dropdown_size[0] || height >= dropdown_size[1]) {
       break;
@@ -1634,33 +1454,31 @@ void ui_dropdown_draw(ui_ctx* ctx, ui_dropdown* dropdown, int8_t focused) {
     dropdown_size[1] *= dropdown->option_display;
   }
 
-  if (dropdown->use_border) {
-    if (dropdown->border_size != 0.f) {
-      nvgStrokeWidth(ctx->nvg, dropdown->border_size);
+  if (dropdown->border_size != 0.f) {
+    nvgStrokeWidth(ctx->nvg, dropdown->border_size);
 
-      if (focused) {
-        nvgStrokeColor(ctx->nvg, ui_vec4_color(dropdown->hover_border_color));
-      } else {
-        nvgStrokeColor(ctx->nvg, ui_vec4_color(dropdown->border_color));
-      }
-
-      if (dropdown->border_radius != 0.f) {
-        nvgRoundedRect(ctx->nvg, dropdown_position[0], dropdown_position[1],
-                       dropdown_size[0], dropdown_size[1],
-                       dropdown->border_radius);
-      } else {
-        nvgRect(ctx->nvg, dropdown_position[0], dropdown_position[1],
-                dropdown_size[0], dropdown_size[1]);
-      }
-
-      nvgStroke(ctx->nvg);
+    if (focused) {
+      nvgStrokeColor(ctx->nvg, ui_u_color(dropdown->hover_border_color));
+    } else {
+      nvgStrokeColor(ctx->nvg, ui_u_color(dropdown->border_color));
     }
+
+    if (dropdown->border_radius != 0.f) {
+      nvgRoundedRect(ctx->nvg, dropdown_position[0], dropdown_position[1],
+                     dropdown_size[0], dropdown_size[1],
+                     dropdown->border_radius);
+    } else {
+      nvgRect(ctx->nvg, dropdown_position[0], dropdown_position[1],
+              dropdown_size[0], dropdown_size[1]);
+    }
+
+    nvgStroke(ctx->nvg);
   }
 
   if (focused) {
-    nvgFillColor(ctx->nvg, ui_vec4_color(dropdown->hover_bg));
+    nvgFillColor(ctx->nvg, ui_u_color(dropdown->hover_bg));
   } else {
-    nvgFillColor(ctx->nvg, ui_vec4_color(dropdown->bg));
+    nvgFillColor(ctx->nvg, ui_u_color(dropdown->bg));
   }
 
   if (dropdown->border_radius != 0.f) {
@@ -1680,16 +1498,16 @@ void ui_dropdown_draw(ui_ctx* ctx, ui_dropdown* dropdown, int8_t focused) {
 
   if (dropdown->showing) {
     int start = dropdown->start;
-    for (int i = 0; i < dropdown->option_display; ++i) {
+    for (uint16_t i = 0; i < dropdown->option_display; ++i) {
       int cursor_index = i + start;
 
       if (cursor_index == dropdown->cursor ||
           cursor_index == dropdown->selected ||
           cursor_index == dropdown->mouse_cursor) {
         if (focused) {
-          nvgFillColor(ctx->nvg, ui_vec4_color(dropdown->hover_select_bg));
+          nvgFillColor(ctx->nvg, ui_u_color(dropdown->hover_select_bg));
         } else {
-          nvgFillColor(ctx->nvg, ui_vec4_color(dropdown->select_bg));
+          nvgFillColor(ctx->nvg, ui_u_color(dropdown->select_bg));
         }
 
         if (i + start == dropdown->option_display &&
@@ -1708,7 +1526,7 @@ void ui_dropdown_draw(ui_ctx* ctx, ui_dropdown* dropdown, int8_t focused) {
         nvgFill(ctx->nvg);
 
         // Draw overlaying text
-        nvgFillColor(ctx->nvg, ui_vec4_color(dropdown->hover_color));
+        nvgFillColor(ctx->nvg, ui_u_color(dropdown->hover_color));
 
         vec2 text_offset = {0.f, option_size[1] * i};
 
@@ -1732,7 +1550,7 @@ void ui_dropdown_draw(ui_ctx* ctx, ui_dropdown* dropdown, int8_t focused) {
                 dropdown_position[1] + text_offset[1],
                 dropdown->options[start + i], 0);
       } else {
-        nvgFillColor(ctx->nvg, ui_vec4_color(dropdown->color));
+        nvgFillColor(ctx->nvg, ui_u_color(dropdown->color));
         vec2 text_offset = {0.f, option_size[1] * i};
 
         if (ui_is_type(dropdown->align, UI_ALIGN_LEFT)) {
@@ -1758,12 +1576,12 @@ void ui_dropdown_draw(ui_ctx* ctx, ui_dropdown* dropdown, int8_t focused) {
     }
   } else {
     if (focused) {
-      nvgFillColor(ctx->nvg, ui_vec4_color(dropdown->hover_color));
+      nvgFillColor(ctx->nvg, ui_u_color(dropdown->hover_color));
     } else {
-      nvgFillColor(ctx->nvg, ui_vec4_color(dropdown->color));
+      nvgFillColor(ctx->nvg, ui_u_color(dropdown->color));
     }
 
-    vec2 text_offset;
+    vec2 text_offset = {0.f, 0.f};
 
     if (ui_is_type(dropdown->align, UI_ALIGN_LEFT)) {
     } else if (ui_is_type(dropdown->align, UI_ALIGN_MIDDLE)) {
@@ -1800,7 +1618,7 @@ void ui_line_draw(ui_ctx* ctx, ui_line* line) {
   nvgMoveTo(ctx->nvg, line_start[0], line_start[1]);
   nvgLineTo(ctx->nvg, line_end[0], line_end[1]);
   nvgStrokeWidth(ctx->nvg, line->thickness);
-  nvgStrokeColor(ctx->nvg, ui_vec4_color(line->color));
+  nvgStrokeColor(ctx->nvg, ui_u_color(line->color));
   nvgStroke(ctx->nvg);
 }
 
@@ -1823,9 +1641,9 @@ void ui_option_draw(ui_ctx* ctx, ui_option* option, int8_t focused) {
 
   if (option->use_color) {
     if (focused) {
-      nvgFillColor(ctx->nvg, ui_vec4_color(option->hover_bg));
+      nvgFillColor(ctx->nvg, ui_u_color(option->hover_bg));
     } else {
-      nvgFillColor(ctx->nvg, ui_vec4_color(option->bg));
+      nvgFillColor(ctx->nvg, ui_u_color(option->bg));
     }
   }
 
@@ -1836,9 +1654,9 @@ void ui_option_draw(ui_ctx* ctx, ui_option* option, int8_t focused) {
     nvgTextAlign(ctx->nvg, option->align);
 
     if (focused) {
-      nvgFillColor(ctx->nvg, ui_vec4_color(option->hover_color));
+      nvgFillColor(ctx->nvg, ui_u_color(option->hover_color));
     } else {
-      nvgFillColor(ctx->nvg, ui_vec4_color(option->color));
+      nvgFillColor(ctx->nvg, ui_u_color(option->color));
     }
 
     nvgText(ctx->nvg, option->position[0], option->position[1], option->text,
@@ -1859,9 +1677,9 @@ void ui_img_draw(ui_ctx* ctx, ui_img* img, int8_t focused) {
   if (img->border_size != 0.f) {
     nvgBeginPath(ctx->nvg);
     if (focused) {
-      nvgStrokeColor(ctx->nvg, ui_vec4_color(img->hover_border_color));
+      nvgStrokeColor(ctx->nvg, ui_u_color(img->hover_border_color));
     } else {
-      nvgStrokeColor(ctx->nvg, ui_vec4_color(img->border_color));
+      nvgStrokeColor(ctx->nvg, ui_u_color(img->border_color));
     }
 
     nvgStrokeWidth(ctx->nvg, img->border_size);
@@ -1890,8 +1708,8 @@ void ui_im_text_draw(ui_ctx* ctx, vec2 pos, float font_size, ui_font font,
                      char* text) {
   nvgBeginPath(ctx->nvg);
   nvgFontSize(ctx->nvg, font_size);
-  vec4 im_text_color = {1.f, 1.f, 1.f, 1.f};
-  nvgFillColor(ctx->nvg, ui_vec4_color(im_text_color));
+  ui_color im_text_color = {1.f, 1.f, 1.f, 1.f};
+  nvgFillColor(ctx->nvg, ui_u_color(im_text_color));
   nvgFontFaceId(ctx->nvg, font);
   nvgTextAlign(ctx->nvg, UI_ALIGN_LEFT);
   nvgText(ctx->nvg, pos[0], pos[1], text, 0);
@@ -1904,31 +1722,49 @@ void ui_im_text_draw_aligned(ui_ctx* ctx, vec2 pos, float font_size,
 
   nvgBeginPath(ctx->nvg);
   nvgFontSize(ctx->nvg, font_size);
-  vec4 im_text_color = {1.f, 1.f, 1.f, 1.f};
-  nvgFillColor(ctx->nvg, ui_vec4_color(im_text_color));
+  ui_color im_text_color = {1.f, 1.f, 1.f, 1.f};
+  nvgFillColor(ctx->nvg, ui_u_color(im_text_color));
   nvgFontFaceId(ctx->nvg, font);
   nvgTextAlign(ctx->nvg, align);
   nvgText(ctx->nvg, text_pos[0], text_pos[1], text, 0);
 }
 
-void ui_im_box_draw(ui_ctx* ctx, vec2 pos, vec2 size, vec4 color) {
+void ui_im_box_draw(ui_ctx* ctx, vec2 pos, vec2 size, ui_color color) {
   vec2 box_pos, box_size;
   ui_scale_to_px(ctx, box_pos, pos);
   ui_scale_to_px(ctx, box_size, size);
   nvgBeginPath(ctx->nvg);
-  nvgFillColor(ctx->nvg, ui_vec4_color(color));
+  nvgFillColor(ctx->nvg, ui_u_color(color));
   nvgRect(ctx->nvg, box_pos[0], box_pos[1], box_size[0], box_size[1]);
   nvgFill(ctx->nvg);
 }
 
-void ui_im_circle_draw(ui_ctx* ctx, vec2 pos, float radius, vec4 color) {
+void ui_im_circle_draw(ui_ctx* ctx, vec2 pos, float radius, float thickness, ui_color color) {
   vec2 circ_pos;
   ui_scale_to_px(ctx, circ_pos, pos);
 
   nvgBeginPath(ctx->nvg);
-  nvgFillColor(ctx->nvg, ui_vec4_color(color));
+  nvgStrokeWidth(ctx->nvg, thickness);
+  nvgStrokeColor(ctx->nvg, ui_u_color(color));
   nvgCircle(ctx->nvg, circ_pos[0], circ_pos[1], radius);
-  nvgFill(ctx->nvg);
+  nvgStroke(ctx->nvg);
+}
+
+void ui_im_line_draw(ui_ctx* ctx, vec2 start, vec2 end, float thickness,
+                     ui_color color) {
+  vec2 line_start, line_end;
+  ui_scale_to_px(ctx, line_start, start);
+  ui_scale_to_px(ctx, line_end, end);
+
+  nvgBeginPath(ctx->nvg);
+
+  nvgMoveTo(ctx->nvg, line_start[0], line_start[1]);
+  nvgLineTo(ctx->nvg, line_end[0], line_end[1]);
+  nvgStrokeWidth(ctx->nvg, thickness);
+  nvgStrokeColor(ctx->nvg, ui_u_color(color));
+  nvgLineCap(ctx->nvg, NVG_ROUND);
+
+  nvgStroke(ctx->nvg);
 }
 
 static int ui_text_fits(ui_ctx* ctx, ui_text text, float size, vec2 scaled_pos,
@@ -1998,7 +1834,7 @@ void ui_tree_destroy(ui_ctx* ctx, ui_tree* tree) {
     ui_leaf* cursor = &tree->raw[i];
     if (cursor->element.data) {
       switch (cursor->element.type) {
-        case UI_IMG:
+        case UI_IMAGE:
           ui_img_destroy(ctx, (ui_img*)cursor->element.data);
           break;
         case UI_DROPDOWN:
@@ -2030,13 +1866,13 @@ uint32_t ui_tree_add(ui_ctx* ctx, ui_tree* tree, void* data,
   }
 
   if (tree->count == tree->capacity - 1) {
-    ASTERA_DBG("No free space in tree.\n");
+    ASTERA_FUNC_DBG("No free space in tree.\n");
     return 0;
   }
 
   ui_leaf* leaf_ptr = &tree->raw[tree->count];
   if (!leaf_ptr) {
-    ASTERA_DBG("Invalid leaf pointer.\n");
+    ASTERA_FUNC_DBG("Invalid leaf pointer.\n");
     return 0;
   }
 
@@ -2079,16 +1915,10 @@ uint32_t ui_tree_add(ui_ctx* ctx, ui_tree* tree, void* data,
       ui_option* option = (ui_option*)data;
       option->id        = uid;
     } break;
-    case UI_IMG: {
+    case UI_IMAGE: {
       ui_img* img = (ui_img*)data;
       img->id     = uid;
     } break;
-  }
-
-  // Automatically add the first selectable as cursor
-  if (!tree->cursor_id && selectable) {
-    // tree->cursor_id    = uid;
-    // tree->cursor_index = tree->count;
   }
 
   leaf_ptr->selectable = selectable;
@@ -2103,7 +1933,7 @@ uint32_t ui_tree_add(ui_ctx* ctx, ui_tree* tree, void* data,
 
 void ui_tree_set_cursor_to(ui_tree* tree, uint32_t id) {
   if (!tree) {
-    ASTERA_DBG("ui_tree_set_cursor_to: no tree passed.\n");
+    ASTERA_FUNC_DBG("no tree passed.\n");
     return;
   }
 
@@ -2118,7 +1948,7 @@ void ui_tree_set_cursor_to(ui_tree* tree, uint32_t id) {
 
 void ui_tree_print(ui_tree* tree) {
   if (!tree) {
-    ASTERA_DBG("No tree passed.\n");
+    ASTERA_FUNC_DBG("No tree passed.\n");
     return;
   }
 
@@ -2128,7 +1958,7 @@ void ui_tree_print(ui_tree* tree) {
     ASTERA_DBG("Empty");
   }
 
-  for (uint32_t i = 0; i < tree->count; ++i) {
+  for (int32_t i = 0; i < tree->count; ++i) {
     ui_leaf* cursor = &tree->raw[i];
 
     ASTERA_DBG("[%i]", cursor->index);
@@ -2158,7 +1988,7 @@ void ui_tree_print(ui_tree* tree) {
       case UI_LINE:
         ASTERA_DBG("Line");
         break;
-      case UI_IMG:
+      case UI_IMAGE:
         ASTERA_DBG("Image");
         break;
       default:
@@ -2177,7 +2007,7 @@ void ui_tree_print(ui_tree* tree) {
 /* Returns -1 if no element with uid found */
 int32_t ui_tree_check_event(ui_tree* tree, uint32_t uid) {
   if (!tree) {
-    ASTERA_DBG("ui_element_event: invalid tree passed.\n");
+    ASTERA_FUNC_DBG("invalid tree passed.\n");
     return 0;
   }
 
@@ -2212,7 +2042,7 @@ static int compare_leaf(const void* a, const void* b) {
 
 void ui_tree_draw(ui_ctx* ctx, ui_tree* tree) {
   if (!tree || !ctx) {
-    ASTERA_DBG("ui_tree_draw: Invalid context or tree passed.\n");
+    ASTERA_FUNC_DBG("Invalid context or tree passed.\n");
     return;
   }
 
@@ -2246,8 +2076,9 @@ void ui_tree_draw(ui_ctx* ctx, ui_tree* tree) {
         case UI_TEXT:
           ui_text_draw(ctx, (ui_text*)element.data);
           break;
-        case UI_IMG:
+        case UI_IMAGE:
           ui_img_draw(ctx, (ui_img*)element.data, focused);
+          break;
         case UI_BOX:
           ui_box_draw(ctx, (ui_box*)element.data, focused);
           break;
@@ -2276,76 +2107,81 @@ void ui_tree_draw(ui_ctx* ctx, ui_tree* tree) {
 
 ui_text ui_text_create(ui_ctx* ctx, vec2 pos, char* string, float font_size,
                        ui_font font_id, int alignment) {
-  ui_text text;
+  ui_text text = (ui_text){0};
 
   vec2_dup(text.position, pos);
-  text.text   = string;
-  text.size   = font_size;
-  text.font   = font_id;
-  text.align  = alignment;
-  text.reveal = NULL;
+
+  if (font_size) {
+    text.size = font_size;
+  } else {
+    text.size = ui_attrib_getf(ctx, UI_TEXT_FONT_SIZE);
+    if (text.size == -1.f)
+      text.size = 16.f;
+  }
+
+  text.text = string;
+
+  if (font_id)
+    text.font = font_id;
+  else {
+    int _font = ui_attrib_geti(ctx, UI_TEXT_FONT);
+    if (_font == -1) {
+      _font = ui_attrib_geti(ctx, UI_DEFAULT_FONT);
+      if (_font == -1)
+        text.font = 0;
+      else
+        text.font = _font;
+    } else {
+      text.font = _font;
+    }
+  }
+
+  if (alignment != -1)
+    text.align = alignment;
+  else {
+    text.align = ui_attrib_geti(ctx, UI_TEXT_ALIGN);
+    if (text.align == -1)
+      text.align = 0;
+  }
+
+  text.reveal = 0;
 
   if (string) {
-    text.text_length = strlen(string);
+    text.text_length = (int)strlen(string);
   } else {
     text.text_length = 0;
   }
 
-  vec4 color, shadow;
-  ui_attrib_get4f(ctx, UI_TEXT_COLOR, color);
-  ui_attrib_get4f(ctx, UI_TEXT_SHADOW, shadow);
-  float shadow_size = ui_attrib_getf(ctx, UI_TEXT_SHADOW_SIZE);
-  float spacing     = ui_attrib_getf(ctx, UI_TEXT_SPACING);
-  float line_height = ui_attrib_getf(ctx, UI_TEXT_LINE_HEIGHT);
+  ui_attrib_getc(ctx, UI_TEXT_COLOR, text.color);
+  if (text.color[0] == -1.f)
+    ui_color_clear(text.color);
 
-  if (color[0] > 0.f) {
-    vec4_dup(text.color, color);
-  } else {
-    text.color[0] = 1.f;
-    text.color[1] = 1.f;
-    text.color[2] = 1.f;
-    text.color[3] = 1.f;
-  }
+  ui_attrib_getc(ctx, UI_TEXT_SHADOW, text.shadow);
+  if (text.shadow[0] == -1.f)
+    ui_color_clear(text.shadow);
+  else
+    text.use_shadow = 1;
 
-  if (spacing > 0.f) {
-    text.spacing     = spacing;
-    text.use_spacing = 1;
-  }
-
-  if (line_height > 0.f) {
-    text.line_height = line_height;
-    text.use_spacing = 1;
-  } else {
-    text.line_height = font_size;
-  }
-
-  if (shadow[0] >= 0.f) {
-    vec4_dup(text.shadow, shadow);
-
-    if (shadow_size == -1.f) {
-      text.shadow_size = 3.f;
-    }
-
+  text.shadow_size = ui_attrib_getf(ctx, UI_TEXT_SHADOW_SIZE);
+  if (text.shadow_size == -1.f) {
+    text.shadow_size = 0.f;
+    text.use_shadow  = 0;
+  } else if (text.shadow_size > 0.f) {
     text.use_shadow = 1;
   }
 
-  if (shadow_size > 0.f) {
-    if (shadow[0] <= 0.f) {
-      text.shadow[0] = 0.f;
-      text.shadow[1] = 0.f;
-      text.shadow[2] = 0.f;
-    }
-
-    text.shadow_size = shadow_size;
-    text.use_shadow  = 1;
+  text.line_height = ui_attrib_getf(ctx, UI_TEXT_LINE_HEIGHT);
+  if (text.line_height == -1.f) {
+    text.line_height = 0.f;
   }
 
-  vec2_clear(text.bounds);
-
-  text.use_box     = 0;
-  text.use_reveal  = 0;
-  text.use_shadow  = 0;
-  text.use_spacing = 0;
+  text.spacing = ui_attrib_getf(ctx, UI_TEXT_SPACING);
+  if (text.spacing == -1.f) {
+    text.spacing     = 0.f;
+    text.use_spacing = 0;
+  } else {
+    text.use_spacing = 1;
+  }
 
   return text;
 }
@@ -2353,91 +2189,144 @@ ui_text ui_text_create(ui_ctx* ctx, vec2 pos, char* string, float font_size,
 ui_button ui_button_create(ui_ctx* ctx, vec2 pos, vec2 size, char* text,
                            int text_alignment, float font_size) {
   ui_button button = (ui_button){0};
-  vec2_dup(button.position, pos);
-  vec2_dup(button.size, size);
 
-  button.font_size = font_size;
-  button.text      = text;
-  button.align     = text_alignment;
+  if (pos)
+    vec2_dup(button.position, pos);
 
-  vec4 _color, _bg, _color_hover, _bg_hover, _border_color, _border_color_hover;
-  float   _border_size, _border_radius;
-  int32_t _font;
-
-  ui_attrib_get4f(ctx, UI_BUTTON_COLOR, _color);
-  ui_attrib_get4f(ctx, UI_BUTTON_COLOR_HOVER, _color_hover);
-  ui_attrib_get4f(ctx, UI_BUTTON_BG, _bg);
-  ui_attrib_get4f(ctx, UI_BUTTON_BG_HOVER, _bg_hover);
-  ui_attrib_get4f(ctx, UI_BUTTON_BORDER_COLOR, _border_color);
-  ui_attrib_get4f(ctx, UI_BUTTON_BORDER_COLOR_HOVER, _border_color_hover);
-
-  _border_size   = ui_attrib_getf(ctx, UI_BUTTON_BORDER_SIZE);
-  _border_radius = ui_attrib_getf(ctx, UI_BUTTON_BORDER_RADIUS);
-  _font          = ui_attrib_geti(ctx, UI_BUTTON_FONT);
-
-  if (_border_size != -1.f) {
-    button.border_size = _border_size;
-    button.use_border  = 1;
-  } else {
-    button.border_size = 0.f;
+  if (size)
+    vec2_dup(button.size, size);
+  else {
+    ui_attrib_get2f(ctx, UI_BUTTON_SIZE, button.size);
+    if (button.size[0] == -1.f)
+      vec2_clear(button.size);
   }
 
-  if (_border_radius != -1.f) {
-    button.border_radius = _border_radius;
-    button.use_border    = 1;
+  if (text_alignment) {
+    button.align = text_alignment;
   } else {
+    button.align = ui_attrib_geti(ctx, UI_BUTTON_TEXT_ALIGNMENT);
+    if (button.align == -1)
+      button.align = 0;
+  }
+
+  if (font_size != 0.f) {
+    button.font_size = font_size;
+  } else {
+    button.font_size = ui_attrib_getf(ctx, UI_BUTTON_FONT_SIZE);
+    if (button.font_size == -1.f)
+      button.font_size = 16.f;
+  }
+
+  button.text = text;
+
+  ui_attrib_get4f(ctx, UI_BUTTON_PADDING, button.padding);
+  if (button.padding[0] == -1.f)
+    vec4_clear(button.padding);
+
+  int font = ui_attrib_geti(ctx, UI_BUTTON_FONT);
+  if (font == -1) {
+    font = ui_attrib_geti(ctx, UI_DEFAULT_FONT);
+    if (button.font == -1) {
+      button.font = 0;
+    } else {
+      button.font = font;
+    }
+  } else {
+    button.font = font;
+  }
+
+  ui_attrib_getc(ctx, UI_BUTTON_COLOR, button.color);
+  if (button.color[0] == -1.f)
+    ui_color_clear(button.color);
+
+  ui_attrib_getc(ctx, UI_BUTTON_BG, button.bg);
+  if (button.bg[0] == -1.f)
+    ui_color_clear(button.bg);
+
+  ui_attrib_getc(ctx, UI_BUTTON_COLOR_HOVER, button.hover_color);
+  if (button.hover_color[0] == -1.f)
+    ui_color_clear(button.hover_color);
+
+  ui_attrib_getc(ctx, UI_BUTTON_BG_HOVER, button.hover_bg);
+  if (button.hover_bg[0] == -1.f)
+    ui_color_clear(button.hover_bg);
+
+  button.border_radius = ui_attrib_getf(ctx, UI_BUTTON_BORDER_RADIUS);
+  if (button.border_radius == -1.f)
     button.border_radius = 0.f;
-  }
 
-  if (_color[0] != -1.f) {
-    vec4_dup(button.color, _color);
-  } else {
-    vec4_clear(button.color);
-  }
+  ui_attrib_getc(ctx, UI_BUTTON_BORDER_COLOR, button.border_color);
+  if (button.border_color[0] == -1.f)
+    ui_color_clear(button.border_color);
 
-  if (_bg[0] != -1.f) {
-    vec4_dup(button.bg, _bg);
-  } else {
-    vec4_clear(button.bg);
-  }
+  ui_attrib_getc(ctx, UI_BUTTON_BORDER_COLOR_HOVER, button.hover_border_color);
+  if (button.hover_border_color[0] == -1.f)
+    ui_color_clear(button.hover_border_color);
 
-  if (_color_hover[0] != -1.f) {
-    vec4_dup(button.hover_color, _color_hover);
-  } else {
-    vec4_clear(button.hover_color);
-  }
-
-  if (_bg_hover[0] != -1.f) {
-    vec4_dup(button.hover_bg, _bg_hover);
-  } else {
-    vec4_clear(button.hover_bg);
-  }
-
-  if (_border_color[0] != -1.f) {
-    vec4_dup(button.border_color, _border_color);
-  } else {
-    vec4_clear(button.border_color);
-  }
-
-  if (_border_color_hover[0] != -1.f) {
-    vec4_dup(button.hover_border_color, _border_color_hover);
-  } else {
-    vec4_clear(button.hover_border_color);
-  }
+  button.border_size = ui_attrib_getf(ctx, UI_BUTTON_BORDER_SIZE);
+  if (button.border_size == -1.f)
+    button.border_size = 0.f;
 
   return button;
 }
 
-ui_progress ui_progress_create(ui_ctx* ctx, vec2 pos, vec2 size, float progress,
-                               int vertical) {
+ui_progress ui_progress_create(ui_ctx* ctx, vec2 pos, vec2 size,
+                               float progress) {
   ui_progress _progress = (ui_progress){0};
 
   vec2_dup(_progress.position, pos);
-  vec2_dup(_progress.size, size);
 
-  _progress.progress      = progress;
-  _progress.vertical_fill = vertical;
-  _progress.active        = 0;
+  if (size) {
+    vec2_dup(_progress.size, size);
+  } else {
+    ui_attrib_get2f(ctx, UI_PROGRESS_SIZE, _progress.size);
+    if (_progress.size[0] == -1.f)
+      vec2_clear(_progress.size);
+  }
+
+  _progress.fill_padding = ui_attrib_getf(ctx, UI_PROGRESS_FILL_PADDING);
+  if (_progress.fill_padding == -1.f)
+    _progress.fill_padding = 0.f;
+
+  ui_attrib_getc(ctx, UI_PROGRESS_BG, _progress.bg);
+  if (_progress.bg[0] == -1.f)
+    ui_color_clear(_progress.bg);
+
+  ui_attrib_getc(ctx, UI_PROGRESS_FG, _progress.fg);
+  if (_progress.fg[0] == -1.f)
+    ui_color_clear(_progress.fg);
+
+  ui_attrib_getc(ctx, UI_PROGRESS_BORDER_COLOR, _progress.border_color);
+  if (_progress.border_color[0] == -1.f)
+    ui_color_clear(_progress.border_color);
+
+  ui_attrib_getc(ctx, UI_PROGRESS_ACTIVE_BG, _progress.active_bg);
+  if (_progress.active_bg[0] == -1.f)
+    ui_color_clear(_progress.active_bg);
+
+  ui_attrib_getc(ctx, UI_PROGRESS_ACTIVE_FG, _progress.active_fg);
+  if (_progress.active_fg[0] == -1.f)
+    ui_color_clear(_progress.active_fg);
+
+  ui_attrib_getc(ctx, UI_PROGRESS_ACTIVE_BORDER_COLOR,
+                 _progress.active_border_color);
+  if (_progress.active_border_color[0] == -1.f)
+    ui_color_clear(_progress.active_border_color);
+
+  _progress.border_radius = ui_attrib_getf(ctx, UI_PROGRESS_BORDER_RADIUS);
+  if (_progress.border_radius == -1.f)
+    _progress.border_radius = 0.f;
+
+  _progress.border_size = ui_attrib_getf(ctx, UI_PROGRESS_BORDER_SIZE);
+  if (_progress.border_size == -1.f)
+    _progress.border_size = 0.f;
+
+  int vertical = ui_attrib_geti(ctx, UI_PROGRESS_VERTICAL_FILL);
+  if (vertical != -1)
+    _progress.vertical_fill = (int8_t)vertical;
+
+  _progress.progress = progress;
+  _progress.active   = 0;
 
   return _progress;
 }
@@ -2447,45 +2336,162 @@ ui_slider ui_slider_create(ui_ctx* ctx, vec2 pos, vec2 size, vec2 button_size,
                            int steps) {
   ui_slider slider = (ui_slider){0};
 
-  slider.steps         = steps;
-  slider.button_circle = round_button;
-  slider.min_value     = min;
-  slider.max_value     = max;
-  slider.value         = value;
+  vec2_dup(slider.position, pos);
 
-  slider.always_hide_button = 0;
-  slider.auto_hide_button   = 0;
+  if (size)
+    vec2_dup(slider.size, size);
+  else {
+    ui_attrib_get2f(ctx, UI_SLIDER_SIZE, slider.size);
+    if (slider.size[0] == -1.f)
+      vec2_clear(slider.size);
+  }
+
+  if (button_size) {
+    vec2_dup(slider.button_size, button_size);
+  } else {
+    ui_attrib_get2f(ctx, UI_SLIDER_BUTTON_SIZE, slider.button_size);
+    if (slider.button_size[0] == -1.f)
+      vec2_clear(slider.button_size);
+  }
+
+  if (round_button != -1) {
+    slider.button_circle = (int8_t)round_button;
+  } else {
+    int bc = ui_attrib_geti(ctx, UI_SLIDER_BUTTON_CIRCLE);
+    if (slider.button_circle == -1) {
+      slider.button_circle = 0;
+    } else {
+      slider.button_circle = (int8_t)bc;
+    }
+  }
+
+  slider.steps     = (int16_t)steps;
+  slider.min_value = min;
+  slider.max_value = max;
+  slider.value     = value;
+
+  int8_t ahb = (int8_t)ui_attrib_geti(ctx, UI_SLIDER_ALWAYS_HIDE_BUTTON);
+  if (ahb != -1) {
+    slider.always_hide_button = ahb;
+  }
+
+  ui_attrib_getc(ctx, UI_SLIDER_BG, slider.bg);
+  if (slider.bg[0] == -1.f)
+    ui_color_clear(slider.bg);
+
+  ui_attrib_getc(ctx, UI_SLIDER_FG, slider.fg);
+  if (slider.fg[0] == -1.f)
+    ui_color_clear(slider.fg);
+
+  ui_attrib_getc(ctx, UI_SLIDER_BORDER_COLOR, slider.border_color);
+  if (slider.border_color[0] == -1.f)
+    ui_color_clear(slider.border_color);
+
+  ui_attrib_getc(ctx, UI_SLIDER_ACTIVE_BG, slider.active_bg);
+  if (slider.active_bg[0] == -1.f)
+    ui_color_clear(slider.active_bg);
+
+  ui_attrib_getc(ctx, UI_SLIDER_ACTIVE_FG, slider.active_fg);
+  if (slider.active_fg[0] == -1.f)
+    ui_color_clear(slider.active_fg);
+
+  ui_attrib_getc(ctx, UI_SLIDER_ACTIVE_BORDER_COLOR,
+                 slider.active_border_color);
+  if (slider.active_border_color[0] == -1.f)
+    ui_color_clear(slider.active_border_color);
+
+  slider.border_radius = ui_attrib_getf(ctx, UI_SLIDER_BORDER_RADIUS);
+  if (slider.border_radius == -1.f)
+    slider.border_radius = 0.f;
+
+  slider.border_size = ui_attrib_getf(ctx, UI_SLIDER_BORDER_SIZE);
+  if (slider.border_size == -1.f)
+    slider.border_size = 0.f;
+
+  int vertical_fill = ui_attrib_geti(ctx, UI_SLIDER_VERTICAL_FILL);
+  if (vertical_fill != -1)
+    slider.vertical_fill = (int8_t)vertical_fill;
+  else
+    slider.vertical_fill = 0;
+
+  slider.button_border_size = ui_attrib_getf(ctx, UI_SLIDER_BUTTON_BORDER_SIZE);
+  if (slider.button_border_size == -1.f)
+    slider.button_border_size = 0.f;
+
+  ui_attrib_getc(ctx, UI_SLIDER_BUTTON_COLOR, slider.button_color);
+  if (slider.button_color[0] == -1.f)
+    ui_color_clear(slider.button_color);
+
+  ui_attrib_getc(ctx, UI_SLIDER_BUTTON_ACTIVE_COLOR,
+                 slider.active_button_color);
+  if (slider.active_button_color[0] == -1.f)
+    ui_color_clear(slider.active_button_color);
+
+  ui_attrib_getc(ctx, UI_SLIDER_BUTTON_BORDER_COLOR,
+                 slider.button_border_color);
+  if (slider.button_border_color[0] == -1.f)
+    ui_color_clear(slider.button_border_color);
+
+  ui_attrib_getc(ctx, UI_SLIDER_BUTTON_ACTIVE_BORDER_COLOR,
+                 slider.active_button_border_color);
+  if (slider.active_button_border_color[0] == -1.f)
+    ui_color_clear(slider.active_button_border_color);
+
+  slider.button_border_radius =
+      ui_attrib_getf(ctx, UI_SLIDER_BUTTON_BORDER_RADIUS);
+  if (slider.button_border_radius == -1.f)
+    slider.button_border_radius = 0.f;
+
+  slider.button_border_size = ui_attrib_getf(ctx, UI_SLIDER_BUTTON_BORDER_SIZE);
+  if (slider.button_border_size == -1.f)
+    slider.button_border_size = 0.f;
+
+  int flip = ui_attrib_geti(ctx, UI_SLIDER_FLIP);
+  if (flip != -1)
+    slider.flip = (int8_t)flip;
+  else
+    slider.flip = 0;
 
   slider.progress = (value - min) / (max - min);
-
-  vec2_dup(slider.button_size, button_size);
-  vec2_dup(slider.position, pos);
-  vec2_dup(slider.size, size);
 
   return slider;
 }
 
-ui_line ui_line_create(ui_ctx* ctx, vec2 start, vec2 end, vec4 color,
+ui_line ui_line_create(ui_ctx* ctx, vec2 start, vec2 end, ui_color color,
                        float thickness) {
-  ui_line line;
+  ui_line line = (ui_line){0};
 
   vec2_dup(line.start, start);
   vec2_dup(line.end, end);
-  vec4_dup(line.color, color);
+  ui_color_dup(line.color, color);
 
-  line.thickness = thickness;
+  if (color) {
+    ui_color_dup(line.color, color);
+  } else {
+    ui_attrib_getc(ctx, UI_LINE_COLOR, line.color);
+    if (line.color[0] == -1.f)
+      ui_color_clear(line.color);
+  }
+
+  if (line.thickness != -1.f) {
+    line.thickness = thickness;
+  } else {
+    ui_attrib_getf(ctx, UI_LINE_THICKNESS);
+    if (line.thickness == -1.f)
+      line.thickness = 0.f;
+  }
 
   return line;
 }
 
 ui_dropdown ui_dropdown_create(ui_ctx* ctx, vec2 pos, vec2 size, char** options,
-                               int option_count) {
+                               uint16_t option_count) {
   ui_dropdown dropdown = (ui_dropdown){0};
 
   if (option_count > 0) {
     char** _options = (char**)malloc(sizeof(char*) * (option_count + 1));
-    for (int i = 0; i < option_count; ++i) {
-      int str_len = strlen(options[i]);
+    for (uint16_t i = 0; i < option_count; ++i) {
+      int str_len = (int)strlen(options[i]);
 
       _options[i] = (char*)malloc(sizeof(char) * (str_len + 1));
       memcpy(_options[i], options[i], sizeof(char) * (str_len + 1));
@@ -2495,155 +2501,124 @@ ui_dropdown ui_dropdown_create(ui_ctx* ctx, vec2 pos, vec2 size, char** options,
 
     _options[option_count] = 0;
 
-    dropdown.options         = (const char**)_options;
+    dropdown.options         = (char**)_options;
     dropdown.option_count    = option_count;
     dropdown.option_capacity = option_count + 1;
   } else {
-    dropdown.options         = (const char**)malloc(sizeof(char*) * 8);
+    dropdown.options         = (char**)malloc(sizeof(char*) * 8);
     dropdown.option_count    = 0;
     dropdown.option_capacity = 8;
 
     if (!dropdown.options) {
-      ASTERA_DBG("Unable to allocate space for dropdown options\n");
+      ASTERA_FUNC_DBG("Unable to allocate space for dropdown options\n");
       return (ui_dropdown){0};
     }
   }
 
   dropdown.selected = 0;
   dropdown.cursor   = 0;
-
   vec2_dup(dropdown.position, pos);
-  vec2_dup(dropdown.size, size);
 
-  // Attributes
-  vec4 _select_color, _select_bg, _select_color_hover, _select_bg_hover;
-  vec4 _color, _bg, _bg_hover, _color_hover;
-
-  float _border_radius, _border_size;
-  vec4  _border_color, _border_color_hover;
-
-  int32_t _font;
-  float   _font_size;
-
-  ui_attrib_get4f(ctx, UI_DROPDOWN_SELECT_COLOR, _select_color);
-  ui_attrib_get4f(ctx, UI_DROPDOWN_SELECT_BG, _select_bg);
-  ui_attrib_get4f(ctx, UI_DROPDOWN_SELECT_COLOR_HOVER, _select_color_hover);
-  ui_attrib_get4f(ctx, UI_DROPDOWN_SELECT_BG_HOVER, _select_bg_hover);
-
-  ui_attrib_get4f(ctx, UI_DROPDOWN_COLOR, _color);
-  ui_attrib_get4f(ctx, UI_DROPDOWN_BG, _bg);
-  ui_attrib_get4f(ctx, UI_DROPDOWN_COLOR_HOVER, _color_hover);
-  ui_attrib_get4f(ctx, UI_DROPDOWN_BG_HOVER, _bg_hover);
-
-  ui_attrib_get4f(ctx, UI_DROPDOWN_BORDER_COLOR, _border_color);
-  ui_attrib_get4f(ctx, UI_DROPDOWN_BORDER_COLOR_HOVER, _border_color_hover);
-
-  _border_radius = ui_attrib_getf(ctx, UI_DROPDOWN_BORDER_RADIUS);
-  _border_size   = ui_attrib_getf(ctx, UI_DROPDOWN_BORDER_SIZE);
-
-  _font      = ui_attrib_getf(ctx, UI_DROPDOWN_FONT);
-  _font_size = ui_attrib_getf(ctx, UI_DROPDOWN_FONT_SIZE);
-
-  if (_font != -1) {
-    dropdown.font = _font;
+  if (vec2_nonzero(size)) {
+    vec2_dup(dropdown.size, size);
   } else {
-    dropdown.font = 0;
+    ui_attrib_get2f(ctx, UI_DROPDOWN_SIZE, dropdown.size);
+
+    if (dropdown.size[0] == -1.f) {
+      vec2_clear(dropdown.size);
+    }
   }
 
-  if (_font_size != -1.f) {
-    dropdown.font_size = _font_size;
-  } else {
-    // NOTE: Default font size, probably change later
-    dropdown.font_size = 12.f;
-  }
+  dropdown.border_radius = ui_attrib_getf(ctx, UI_DROPDOWN_BORDER_RADIUS);
 
-  if (_border_radius != -1.f) {
-    dropdown.use_border    = 1;
-    dropdown.border_radius = _border_radius;
-  } else {
+  if (dropdown.border_radius == -1.f)
     dropdown.border_radius = 0.f;
-  }
 
-  if (_border_size != -1.f) {
-    dropdown.use_border  = 1;
-    dropdown.border_size = _border_size;
-  } else {
+  dropdown.border_size = ui_attrib_getf(ctx, UI_DROPDOWN_BORDER_SIZE);
+
+  if (dropdown.border_size == -1.f)
     dropdown.border_size = 0.f;
+
+  ui_attrib_getc(ctx, UI_DROPDOWN_BORDER_COLOR, dropdown.border_color);
+  if (dropdown.border_color[0] == -1.f)
+    ui_color_clear(dropdown.border_color);
+
+  ui_attrib_getc(ctx, UI_DROPDOWN_BORDER_COLOR_HOVER,
+                 dropdown.hover_border_color);
+  if (dropdown.hover_border_color[0] == -1.f)
+    ui_color_clear(dropdown.hover_border_color);
+
+  dropdown.font_size = ui_attrib_getf(ctx, UI_DROPDOWN_FONT_SIZE);
+  if (dropdown.font_size == -1.f)
+    dropdown.font_size = 16.f;
+
+  int font = ui_attrib_geti(ctx, UI_DROPDOWN_FONT);
+  if (font == -1) {
+    font = ui_attrib_geti(ctx, UI_DEFAULT_FONT);
+
+    if (font == -1)
+      dropdown.font = 0;
+    else
+      dropdown.font = font;
+  } else {
+    dropdown.font = font;
   }
 
-  if (_border_color[0] != -1.f) {
-    vec4_dup(dropdown.border_color, _border_color);
-    dropdown.use_border = 1;
-  } else {
-    vec4_clear(dropdown.border_color);
+  ui_attrib_getc(ctx, UI_DROPDOWN_COLOR, dropdown.color);
+  if (dropdown.color[0] == -1.f) {
+    ASTERA_FUNC_DBG("Invalid dropdown color\n");
+    ui_color_clear(dropdown.color);
   }
 
-  if (_border_color_hover[0] != -1.f) {
-    vec4_dup(dropdown.hover_border_color, _border_color_hover);
-    dropdown.use_border = 1;
-  } else {
-    vec4_clear(dropdown.hover_border_color);
+  ui_attrib_getc(ctx, UI_DROPDOWN_COLOR_HOVER, dropdown.hover_color);
+  if (dropdown.hover_color[0] == -1.f)
+    ui_color_clear(dropdown.hover_color);
+
+  ui_attrib_getc(ctx, UI_DROPDOWN_BG, dropdown.bg);
+  if (dropdown.bg[0] == -1.f) {
+    ui_color_clear(dropdown.bg);
+    ASTERA_FUNC_DBG("Invalid dropdown bg\n");
   }
 
-  if (_select_color[0] != -1.f) {
-    vec4_dup(dropdown.select_color, _select_color);
-  } else {
-    vec4_clear(dropdown.select_color);
-  }
+  ui_attrib_getc(ctx, UI_DROPDOWN_BG_HOVER, dropdown.hover_bg);
+  if (dropdown.hover_bg[0] == -1.f)
+    ui_color_clear(dropdown.hover_bg);
 
-  if (_select_bg[0] != -1.f) {
-    vec4_dup(dropdown.select_bg, _select_bg);
-  } else {
-    vec4_clear(dropdown.select_bg);
-  }
+  ui_attrib_getc(ctx, UI_DROPDOWN_SELECT_COLOR, dropdown.select_color);
+  if (dropdown.select_color[0] == -1.f)
+    ui_color_clear(dropdown.select_color);
 
-  if (_select_color_hover[0] != -1.f) {
-    vec4_dup(dropdown.hover_select_color, _select_color_hover);
-  } else {
-    vec4_clear(dropdown.hover_select_color);
-  }
+  ui_attrib_getc(ctx, UI_DROPDOWN_SELECT_BG, dropdown.select_bg);
+  if (dropdown.select_bg[0] == -1.f)
+    ui_color_clear(dropdown.select_bg);
 
-  if (_select_bg_hover[0] != -1.f) {
-    vec4_dup(dropdown.hover_select_bg, _select_bg_hover);
-  } else {
-    vec4_clear(dropdown.hover_select_bg);
-  }
+  ui_attrib_getc(ctx, UI_DROPDOWN_SELECT_COLOR_HOVER,
+                 dropdown.hover_select_color);
+  if (dropdown.hover_select_color[0] == -1.f)
+    ui_color_clear(dropdown.select_color);
 
-  if (_color[0] != -1.f) {
-    vec4_dup(dropdown.color, _color);
-  } else {
-    vec4_clear(dropdown.color);
-  }
-
-  if (_bg[0] != -1.f) {
-    vec4_dup(dropdown.bg, _bg);
-  } else {
-    vec4_clear(dropdown.bg);
-  }
-
-  if (_bg_hover[0] != -1.f) {
-    vec4_dup(dropdown.hover_bg, _bg_hover);
-  } else {
-    vec4_clear(dropdown.hover_bg);
-  }
-
-  if (_color_hover[0] != -1.f) {
-    vec4_dup(dropdown.hover_color, _color_hover);
-  } else {
-    vec4_clear(dropdown.hover_color);
-  }
+  ui_attrib_getc(ctx, UI_DROPDOWN_SELECT_BG_HOVER, dropdown.hover_select_bg);
+  if (dropdown.hover_select_bg[0] == -1.f)
+    ui_color_clear(dropdown.select_bg);
 
   dropdown.showing = 0;
-
-  dropdown.bottom_scroll_pad = 1;
-  dropdown.top_scroll_pad    = 1;
 
   return dropdown;
 }
 
-ui_option ui_option_create(ui_ctx* ctx, const char* text, float font_size,
-                           int32_t text_alignment, vec2 pos, vec2 size) {
-  ui_option option;
+ui_option ui_option_create(ui_ctx* ctx, vec2 pos, vec2 size, const char* text,
+                           float font_size, int32_t text_alignment) {
+  ui_option option = (ui_option){0};
+
+  vec2_dup(option.position, pos);
+
+  if (vec2_nonzero(size)) {
+    vec2_dup(option.size, size);
+  } else {
+    ui_attrib_get2f(ctx, UI_OPTION_SIZE, option.size);
+    if (option.size[0] == -1.f)
+      vec2_clear(option.size);
+  }
 
   int32_t option_img_attrib = ui_attrib_geti(ctx, UI_OPTION_IMAGE);
   if (option_img_attrib > -1) {
@@ -2666,11 +2641,28 @@ ui_option ui_option_create(ui_ctx* ctx, const char* text, float font_size,
   if (_font != -1) {
     option.font = _font;
   } else {
+    _font = ui_attrib_geti(ctx, UI_DEFAULT_FONT);
+    if (_font != -1)
+      option.font = _font;
+
     option.font = 0;
   }
 
-  option.font_size = font_size;
-  option.align     = text_alignment;
+  if (font_size != -1.f) {
+    option.font_size = font_size;
+  } else {
+    option.font_size = ui_attrib_getf(ctx, UI_OPTION_FONT_SIZE);
+    if (option.font_size == -1.f)
+      option.font_size = 16.f;
+  }
+
+  if (text_alignment != -1) {
+    option.align = text_alignment;
+  } else {
+    option.align = ui_attrib_geti(ctx, UI_OPTION_TEXT_ALIGN);
+    if (option.align == -1)
+      option.align = 0;
+  }
 
   if (text) {
     option.text     = (char*)text;
@@ -2679,15 +2671,25 @@ ui_option ui_option_create(ui_ctx* ctx, const char* text, float font_size,
     option.use_text = 0;
   }
 
-  vec2_clear(option.img_offset);
+  ui_attrib_get2f(ctx, UI_OPTION_IMAGE_OFFSET, option.img_offset);
+  if (option.img_offset[0] == -1.f)
+    vec2_clear(option.img_offset);
 
-  vec2_dup(option.position, pos);
-  vec2_dup(option.size, size);
+  ui_attrib_getc(ctx, UI_OPTION_BG, option.bg);
+  if (option.bg[0] == -1.f)
+    ui_color_clear(option.bg);
 
-  vec4_clear(option.bg);
-  vec4_clear(option.hover_bg);
-  vec4_clear(option.color);
-  vec4_clear(option.hover_color);
+  ui_attrib_getc(ctx, UI_OPTION_COLOR, option.color);
+  if (option.color[0] == -1.f)
+    ui_color_clear(option.color);
+
+  ui_attrib_getc(ctx, UI_OPTION_BG_HOVER, option.hover_bg);
+  if (option.hover_bg[0] == -1.f)
+    ui_color_clear(option.hover_bg);
+
+  ui_attrib_getc(ctx, UI_OPTION_COLOR_HOVER, option.hover_color);
+  if (option.hover_color[0] == -1.f)
+    ui_color_clear(option.hover_color);
 
   option.state     = 0;
   option.use_color = 0;
@@ -2696,18 +2698,40 @@ ui_option ui_option_create(ui_ctx* ctx, const char* text, float font_size,
 }
 
 ui_box ui_box_create(ui_ctx* ctx, vec2 pos, vec2 size) {
-  ui_box box;
+  ui_box box = (ui_box){0};
   vec2_dup(box.position, pos);
-  vec2_dup(box.size, size);
 
-  vec4_clear(box.bg);
-  vec4_clear(box.hover_bg);
-  vec4_clear(box.border_color);
-  vec4_clear(box.hover_border_color);
+  if (vec2_nonzero(size))
+    vec2_dup(box.size, size);
+  else {
+    ui_attrib_get2f(ctx, UI_BOX_SIZE, box.size);
+    if (box.size[0] == -1.f)
+      vec2_clear(box.size);
+  }
 
-  box.border_size   = 0.f;
-  box.border_radius = 0.f;
-  box.use_border    = 0;
+  ui_attrib_getc(ctx, UI_BOX_BG, box.bg);
+  if (box.bg[0] == -1.f)
+    ui_color_clear(box.bg);
+
+  ui_attrib_getc(ctx, UI_BOX_BORDER_COLOR, box.border_color);
+  if (box.border_color[0] == -1.f)
+    ui_color_clear(box.border_color);
+
+  ui_attrib_getc(ctx, UI_BOX_BG_HOVER, box.hover_bg);
+  if (box.hover_bg[0] == -1.f)
+    ui_color_clear(box.hover_bg);
+
+  ui_attrib_getc(ctx, UI_BOX_BORDER_COLOR_HOVER, box.hover_border_color);
+  if (box.hover_border_color[0] == -1.f)
+    ui_color_clear(box.hover_border_color);
+
+  box.border_size = ui_attrib_getf(ctx, UI_BOX_BORDER_SIZE);
+  if (box.border_size == -1.f)
+    box.border_size = 0.f;
+
+  box.border_radius = ui_attrib_getf(ctx, UI_BOX_BORDER_RADIUS);
+  if (box.border_radius == -1.f)
+    box.border_radius = 0.f;
 
   return box;
 }
@@ -2715,7 +2739,7 @@ ui_box ui_box_create(ui_ctx* ctx, vec2 pos, vec2 size) {
 ui_img ui_img_create(ui_ctx* ctx, unsigned char* data, int data_length,
                      ui_img_flags flags, vec2 pos, vec2 size) {
   if (!data || !data_length) {
-    ASTERA_DBG("No data passed.\n");
+    ASTERA_FUNC_DBG("No data passed.\n");
     return (ui_img){0};
   }
 
@@ -2726,225 +2750,229 @@ ui_img ui_img_create(ui_ctx* ctx, unsigned char* data, int data_length,
   return img;
 }
 
-void ui_dropdown_set_colors(ui_dropdown* dropdown, vec4 bg, vec4 hover_bg,
-                            vec4 fg, vec4 hover_fg, vec4 border_color,
-                            vec4 hover_border_color, vec4 select_bg,
-                            vec4 select_fg, vec4 hover_select_bg,
-                            vec4 hover_select_fg) {
+void ui_dropdown_set_colors(ui_dropdown* dropdown, ui_color bg,
+                            ui_color hover_bg, ui_color fg, ui_color hover_fg,
+                            ui_color border_color, ui_color hover_border_color,
+                            ui_color select_bg, ui_color select_fg,
+                            ui_color hover_select_bg,
+                            ui_color hover_select_fg) {
   if (bg) {
-    vec4_dup(dropdown->bg, bg);
+    ui_color_dup(dropdown->bg, bg);
   }
 
   if (hover_bg) {
-    vec4_dup(dropdown->hover_bg, hover_bg);
+    ui_color_dup(dropdown->hover_bg, hover_bg);
   }
 
   if (fg) {
-    vec4_dup(dropdown->color, fg);
+    ui_color_dup(dropdown->color, fg);
   }
 
   if (hover_fg) {
-    vec4_dup(dropdown->hover_color, hover_fg);
+    ui_color_dup(dropdown->hover_color, hover_fg);
   }
 
   if (border_color) {
-    vec4_dup(dropdown->border_color, border_color);
+    ui_color_dup(dropdown->border_color, border_color);
   }
 
   if (hover_border_color) {
-    vec4_dup(dropdown->hover_border_color, hover_border_color);
+    ui_color_dup(dropdown->hover_border_color, hover_border_color);
   }
 
   if (select_bg) {
-    vec4_dup(dropdown->select_bg, select_bg);
+    ui_color_dup(dropdown->select_bg, select_bg);
   }
 
   if (hover_select_bg) {
-    vec4_dup(dropdown->hover_select_bg, hover_select_bg);
+    ui_color_dup(dropdown->hover_select_bg, hover_select_bg);
   }
 
   if (select_fg) {
-    vec4_dup(dropdown->select_color, select_fg);
+    ui_color_dup(dropdown->select_color, select_fg);
   }
 
   if (hover_select_fg) {
-    vec4_dup(dropdown->hover_select_color, hover_select_fg);
+    ui_color_dup(dropdown->hover_select_color, hover_select_fg);
   }
 }
 
-void ui_box_set_colors(ui_box* box, vec4 bg, vec4 hover_bg, vec4 border_color,
-                       vec4 hover_border_color) {
+void ui_box_set_colors(ui_box* box, ui_color bg, ui_color hover_bg,
+                       ui_color border_color, ui_color hover_border_color) {
   if (bg) {
-    vec4_dup(box->bg, bg);
+    ui_color_dup(box->bg, bg);
   }
 
   if (hover_bg) {
-    vec4_dup(box->hover_bg, hover_bg);
+    ui_color_dup(box->hover_bg, hover_bg);
   }
 
   if (border_color) {
-    vec4_dup(box->border_color, border_color);
+    ui_color_dup(box->border_color, border_color);
   }
 
   if (hover_border_color) {
-    vec4_dup(box->hover_border_color, hover_border_color);
+    ui_color_dup(box->hover_border_color, hover_border_color);
   }
 }
 
-void ui_text_set_colors(ui_text* text, vec4 color, vec4 shadow) {
+void ui_text_set_colors(ui_text* text, ui_color color, ui_color shadow) {
   if (color) {
-    vec4_dup(text->color, color);
+    ui_color_dup(text->color, color);
   }
 
   if (shadow) {
-    vec4_dup(text->shadow, shadow);
+    ui_color_dup(text->shadow, shadow);
   }
 }
 
-void ui_button_set_colors(ui_button* button, vec4 bg, vec4 hover_bg, vec4 fg,
-                          vec4 hover_fg, vec4 border_color,
-                          vec4 hover_border_color) {
+void ui_button_set_colors(ui_button* button, ui_color bg, ui_color hover_bg,
+                          ui_color fg, ui_color hover_fg, ui_color border_color,
+                          ui_color hover_border_color) {
   if (bg) {
-    vec4_dup(button->bg, bg);
+    ui_color_dup(button->bg, bg);
   }
 
   if (hover_bg) {
-    vec4_dup(button->hover_bg, hover_bg);
+    ui_color_dup(button->hover_bg, hover_bg);
   }
 
   if (fg) {
-    vec4_dup(button->color, fg);
+    ui_color_dup(button->color, fg);
   }
 
   if (hover_fg) {
-    vec4_dup(button->hover_color, hover_fg);
+    ui_color_dup(button->hover_color, hover_fg);
   }
 
   if (border_color) {
-    vec4_dup(button->border_color, border_color);
+    ui_color_dup(button->border_color, border_color);
   }
 
   if (hover_border_color) {
-    vec4_dup(button->hover_border_color, hover_border_color);
+    ui_color_dup(button->hover_border_color, hover_border_color);
   }
 }
 
-void ui_progress_set_colors(ui_progress* progress, vec4 bg, vec4 active_bg,
-                            vec4 fg, vec4 active_fg, vec4 border_color,
-                            vec4 active_border_color) {
+void ui_progress_set_colors(ui_progress* progress, ui_color bg,
+                            ui_color active_bg, ui_color fg, ui_color active_fg,
+                            ui_color border_color,
+                            ui_color active_border_color) {
   if (!progress) {
-    ASTERA_DBG("ui_progress_set_colors: no progress passed.\n");
+    ASTERA_FUNC_DBG("no progress passed.\n");
     return;
   }
 
   if (bg) {
-    vec4_dup(progress->bg, bg);
+    ui_color_dup(progress->bg, bg);
   }
 
   if (active_bg) {
-    vec4_dup(progress->active_bg, active_bg);
+    ui_color_dup(progress->active_bg, active_bg);
   }
 
   if (fg) {
-    vec4_dup(progress->fg, fg);
+    ui_color_dup(progress->fg, fg);
   }
 
   if (active_fg) {
-    vec4_dup(progress->active_fg, active_fg);
+    ui_color_dup(progress->active_fg, active_fg);
   }
 
   if (border_color) {
-    vec4_dup(progress->border_color, border_color);
+    ui_color_dup(progress->border_color, border_color);
   }
 
   if (active_border_color) {
-    vec4_dup(progress->active_border_color, active_border_color);
+    ui_color_dup(progress->active_border_color, active_border_color);
   }
 }
 
-void ui_slider_set_colors(ui_slider* slider, vec4 bg, vec4 active_bg, vec4 fg,
-                          vec4 active_fg, vec4 border_color,
-                          vec4 active_border_color, vec4 button_color,
-                          vec4 active_button_color, vec4 button_border_color,
-                          vec4 active_button_border_color) {
+void ui_slider_set_colors(ui_slider* slider, ui_color bg, ui_color active_bg,
+                          ui_color fg, ui_color active_fg,
+                          ui_color border_color, ui_color active_border_color,
+                          ui_color button_color, ui_color active_button_color,
+                          ui_color button_border_color,
+                          ui_color active_button_border_color) {
   if (!slider) {
     return;
   }
 
   if (bg) {
-    vec4_dup(slider->bg, bg);
+    ui_color_dup(slider->bg, bg);
   }
 
   if (active_bg) {
-    vec4_dup(slider->active_bg, active_bg);
+    ui_color_dup(slider->active_bg, active_bg);
   }
 
   if (fg) {
-    vec4_dup(slider->fg, fg);
+    ui_color_dup(slider->fg, fg);
   }
 
   if (active_fg) {
-    vec4_dup(slider->active_fg, fg);
+    ui_color_dup(slider->active_fg, fg);
   }
 
   if (border_color) {
-    vec4_dup(slider->border_color, border_color);
+    ui_color_dup(slider->border_color, border_color);
   }
 
   if (active_border_color) {
-    vec4_dup(slider->active_border_color, active_border_color);
+    ui_color_dup(slider->active_border_color, active_border_color);
   }
 
   if (button_color) {
-    vec4_dup(slider->button_color, button_color);
+    ui_color_dup(slider->button_color, button_color);
   }
 
   if (active_button_color) {
-    vec4_dup(slider->active_button_color, active_button_color);
+    ui_color_dup(slider->active_button_color, active_button_color);
   }
 
   if (button_border_color) {
-    vec4_dup(slider->button_border_color, button_border_color);
+    ui_color_dup(slider->button_border_color, button_border_color);
   }
 
   if (active_button_border_color) {
-    vec4_dup(slider->active_button_border_color, active_button_border_color);
+    ui_color_dup(slider->active_button_border_color,
+                 active_button_border_color);
   }
 }
 
-void ui_line_set_colors(ui_line* line, vec4 color) {
+void ui_line_set_colors(ui_line* line, ui_color color) {
   if (color) {
-    vec4_dup(line->color, color);
+    ui_color_dup(line->color, color);
   }
 }
 
-void ui_option_set_colors(ui_option* option, vec4 bg, vec4 hover_bg, vec4 fg,
-                          vec4 hover_fg) {
+void ui_option_set_colors(ui_option* option, ui_color bg, ui_color hover_bg,
+                          ui_color fg, ui_color hover_fg) {
   if (bg) {
-    vec4_dup(option->bg, bg);
+    ui_color_dup(option->bg, bg);
   }
 
   if (hover_bg) {
-    vec4_dup(option->hover_bg, hover_bg);
+    ui_color_dup(option->hover_bg, hover_bg);
   }
 
   if (fg) {
-    vec4_dup(option->color, fg);
+    ui_color_dup(option->color, fg);
   }
 
   if (hover_fg) {
-    vec4_dup(option->hover_color, hover_fg);
+    ui_color_dup(option->hover_color, hover_fg);
   }
 }
 
-void ui_img_set_colors(ui_img* img, vec4 border_color,
-                       vec4 hover_border_color) {
+void ui_img_set_colors(ui_img* img, ui_color border_color,
+                       ui_color hover_border_color) {
   if (border_color) {
-    vec4_dup(img->border_color, border_color);
+    ui_color_dup(img->border_color, border_color);
   }
 
   if (hover_border_color) {
-    vec4_dup(img->hover_border_color, hover_border_color);
+    ui_color_dup(img->hover_border_color, hover_border_color);
   }
 }
 
@@ -2954,32 +2982,29 @@ void ui_img_set_border_radius(ui_img* img, float radius) {
 
 void ui_button_set_border_radius(ui_button* button, float radius) {
   button->border_radius = radius;
-  button->use_border    = 1;
 }
 
 void ui_box_set_border_radius(ui_box* box, float radius) {
   box->border_radius = radius;
-  box->use_border    = 1;
 }
 
 void ui_dropdown_set_border_radius(ui_dropdown* dropdown, float radius) {
   dropdown->border_radius = radius;
-  dropdown->use_border    = 1;
 }
 
 uint16_t ui_dropdown_add_option(ui_dropdown* dropdown, const char* option) {
   if (dropdown->option_count == dropdown->option_capacity) {
     dropdown->options =
-        (const char**)realloc((void*)dropdown->options,
+        (char**)realloc((void*)dropdown->options,
                               sizeof(char*) * dropdown->option_capacity + 4);
     dropdown->option_capacity += 4;
     if (!dropdown->options) {
-      ASTERA_DBG("Unable to expand memory for dropdown options\n");
+      ASTERA_FUNC_DBG("Unable to expand memory for dropdown options\n");
       return 0;
     }
   }
 
-  dropdown->options[dropdown->option_count] = option;
+  dropdown->options[dropdown->option_count] = (char*)option;
   ++dropdown->option_count;
 
   return dropdown->option_count - 1;
@@ -3003,20 +3028,30 @@ void ui_text_prev(ui_text* text) {
   }
 }
 
-// TODO Mouse Scrolling w/ Click / Hover
+uint16_t ui_dropdown_scroll_down(ui_dropdown* dropdown, uint16_t amount) {
+  uint16_t distance =
+      dropdown->option_count - (dropdown->start + dropdown->option_display);
+  uint16_t move = (distance > amount) ? amount : distance;
+  dropdown->start += move;
+  return amount;
+}
+
+uint16_t ui_dropdown_scroll_up(ui_dropdown* dropdown, uint16_t amount) {
+  uint16_t distance = dropdown->start;
+  uint16_t move     = (distance > amount) ? amount : distance;
+  dropdown->start -= move;
+  return move;
+}
+
 void ui_dropdown_next(ui_dropdown* dropdown) {
   if (dropdown->cursor < dropdown->option_count - 1) {
     dropdown->cursor += 1;
   }
 
-  int cursor_rel =
-      dropdown->option_display - (dropdown->cursor - dropdown->start);
-  if (cursor_rel < dropdown->bottom_scroll_pad) {
-    if (dropdown->start < dropdown->option_count - dropdown->option_display) {
-      dropdown->start += 1;
-    } else {
-      dropdown->start = dropdown->option_count - dropdown->option_display;
-    }
+  uint16_t rel = dropdown->cursor - dropdown->start;
+
+  if (dropdown->option_display - (rel) <= dropdown->bottom_scroll_pad) {
+    ui_dropdown_scroll_down(dropdown, 1);
   }
 }
 
@@ -3025,14 +3060,10 @@ void ui_dropdown_prev(ui_dropdown* dropdown) {
     dropdown->cursor--;
   }
 
-  int cursor_rel = dropdown->cursor - dropdown->start;
+  int rel = (dropdown->cursor - dropdown->start);
 
-  if (cursor_rel < dropdown->top_scroll_pad) {
-    if (dropdown->start > 0) {
-      dropdown->start--;
-    } else {
-      dropdown->start = 0;
-    }
+  if (rel < dropdown->top_scroll_pad) {
+    ui_dropdown_scroll_up(dropdown, 1);
   }
 }
 
@@ -3042,33 +3073,41 @@ void ui_dropdown_set_to_cursor(ui_dropdown* dropdown) {
   }
 
   dropdown->selected = dropdown->cursor;
+  int32_t new_start  = dropdown->selected - (dropdown->option_display / 2);
 
-  dropdown->start = dropdown->selected - dropdown->option_display / 2;
-
-  if (dropdown->start < 0) {
-    dropdown->start = 0;
-  } else if (dropdown->start >
-             dropdown->option_count - dropdown->option_display) {
-    dropdown->start = dropdown->option_count - dropdown->option_display;
+  if (new_start > dropdown->option_count - dropdown->option_display) {
+    new_start = dropdown->option_count - dropdown->option_display;
+  } else if (new_start < 0) {
+    new_start = 0;
   }
+
+  dropdown->start = (uint16_t)new_start;
+}
+
+void ui_dropdown_set_scroll(ui_dropdown* dropdown, uint8_t top_scroll_pad,
+                            uint8_t bottom_scroll_pad) {
+  dropdown->top_scroll_pad    = top_scroll_pad;
+  dropdown->bottom_scroll_pad = bottom_scroll_pad;
 }
 
 void ui_dropdown_set(ui_dropdown* dropdown, uint16_t select) {
-  if (select < dropdown->option_count - 1 && select >= 0) {
-    if (select != dropdown->selected) {
-      dropdown->has_change = 1;
-    }
-    dropdown->selected = select;
-
-    dropdown->start = dropdown->selected - dropdown->option_display / 2;
-
-    if (dropdown->start < 0) {
-      dropdown->start = 0;
-    } else if (dropdown->start >
-               dropdown->option_count - dropdown->option_display) {
-      dropdown->start = dropdown->option_count - dropdown->option_display;
-    }
+  if (select != dropdown->selected) {
+    dropdown->has_change = 1;
   }
+
+  dropdown->selected = select;
+
+  uint16_t half_length = dropdown->option_display / 2, new_start = 0;
+
+  if (select > (half_length + 1)) {
+    new_start = select - (half_length - 1);
+  } else if (select > dropdown->option_count - (half_length)) {
+    new_start = dropdown->option_count - dropdown->option_display;
+  } else if (select < half_length) {
+    new_start = 0;
+  }
+
+  dropdown->start = (uint16_t)new_start;
 }
 
 int8_t ui_dropdown_has_change(ui_dropdown* dropdown) {
@@ -3182,7 +3221,7 @@ void ui_img_destroy(ui_ctx* ctx, ui_img* img) {
 }
 
 void ui_dropdown_destroy(ui_ctx* ctx, ui_dropdown* dropdown) {
-  for (int i = 0; i < dropdown->option_count; ++i) {
+  for (uint16_t i = 0; i < dropdown->option_count; ++i) {
     free(dropdown->options[i]);
   }
   free(dropdown->options);
@@ -3224,6 +3263,18 @@ void ui_text_bounds(ui_ctx* ctx, ui_text* text, vec4 bounds) {
 uint32_t ui_tree_select(ui_ctx* ctx, ui_tree* tree, int32_t event_type,
                         int is_mouse) {
   if (ctx->use_mouse && is_mouse) {
+    for (uint32_t i = 0; i < tree->count; ++i) {
+      ui_leaf* leaf = &tree->raw[i];
+      if (leaf->uid == tree->mouse_hover_id || leaf->uid == tree->cursor_id) {
+        continue;
+      }
+
+      if (leaf->element.type == UI_DROPDOWN) {
+        ui_dropdown* dropdown = (ui_dropdown*)leaf->element.data;
+        dropdown->showing     = 0;
+      }
+    }
+
     if (tree->mouse_hover_id) {
       tree->raw[tree->mouse_hover_index].event = event_type;
 
@@ -3233,8 +3284,8 @@ uint32_t ui_tree_select(ui_ctx* ctx, ui_tree* tree, int32_t event_type,
         int16_t selection = ui_element_contains(
             ctx, tree->raw[tree->mouse_hover_index].element, ctx->mouse_pos);
 
-        if (selection > 0 && dropdown->showing) {
-          ui_dropdown_set(dropdown, selection);
+        if (selection > -1 && dropdown->showing) {
+          ui_dropdown_set(dropdown, (uint16_t)(tree->mouse_hover_index + dropdown->start));
         } else if (selection > 0 && !dropdown->showing) {
           dropdown->showing = 1;
         }
@@ -3252,7 +3303,7 @@ uint32_t ui_tree_select(ui_ctx* ctx, ui_tree* tree, int32_t event_type,
 
       return tree->mouse_hover_id;
     }
-  } else if (tree->cursor_id != -1 && tree->cursor_id != 0) {
+  } else if (tree->cursor_id != 0) {
     tree->raw[tree->cursor_index].event = event_type;
     return tree->cursor_id;
   }
@@ -3261,11 +3312,10 @@ uint32_t ui_tree_select(ui_ctx* ctx, ui_tree* tree, int32_t event_type,
 }
 
 // NOTE: You're not gonna mouse click something with this function
-/* Return 0 if no eleemnt with `id` found */
+/* Return 0 if no element with `id` found */
 uint32_t ui_tree_select_id(ui_tree* tree, uint32_t id, int32_t event_type) {
   if (!tree) {
-    ASTERA_DBG(
-        "ui_tree_select_id: unable to operate on null or invalid tree\n");
+    ASTERA_FUNC_DBG("unable to operate on null or invalid tree\n");
     return 0;
   }
 
@@ -3295,29 +3345,55 @@ int8_t ui_tree_is_active(ui_ctx* ctx, ui_tree* tree, uint32_t id) {
   return 0;
 }
 
-/* Return 0 if invalid operation (all ui id's are non-zero)*/
-uint32_t ui_tree_next(ui_tree* tree) {
-  if (!tree || tree->count < 2) {
-    ASTERA_DBG("ui_tree_next: no or empty tree passed.\n");
+uint32_t ui_tree_scroll_down(ui_tree* tree, uint16_t amount, uint8_t is_mouse) {
+  ui_leaf* cursor;
+  if (is_mouse) {
+    cursor = &tree->raw[tree->mouse_hover_index];
+  } else {
+    cursor = &tree->raw[tree->cursor_index];
+  }
+
+  if (!cursor) {
     return 0;
   }
 
-  // check for unset cursor
-  if (tree->cursor_index == -1) {
-    for (uint32_t i = 0; i < tree->count; ++i) {
-      if (tree->raw[i].selectable) {
-        tree->cursor_index = i;
-        tree->cursor_id    = tree->raw[i].uid;
+  if (cursor->element.type == UI_DROPDOWN) {
+    ui_dropdown_scroll_down((ui_dropdown*)cursor->element.data, amount);
+  }
 
-        return tree->cursor_id;
-      }
-    }
+  return cursor->uid;
+}
+
+uint32_t ui_tree_scroll_up(ui_tree* tree, uint16_t amount, uint8_t is_mouse) {
+  ui_leaf* cursor;
+  if (is_mouse) {
+    cursor = &tree->raw[tree->mouse_hover_index];
+  } else {
+    cursor = &tree->raw[tree->cursor_index];
+  }
+
+  if (!cursor) {
+    return 0;
+  }
+
+  if (cursor->element.type == UI_DROPDOWN) {
+    ui_dropdown_scroll_up((ui_dropdown*)cursor->element.data, amount);
+  }
+
+  return cursor->uid;
+}
+
+/* Return 0 if invalid operation (all ui id's are non-zero)*/
+uint32_t ui_tree_next(ui_tree* tree) {
+  if (!tree || tree->count < 2) {
+    ASTERA_FUNC_DBG("no or empty tree passed.\n");
+    return 0;
   }
 
   ui_leaf* cursor = &tree->raw[tree->cursor_index];
 
   if (!cursor) {
-    ASTERA_DBG("ui_tree_next: unable to get cursor from array.\n");
+    ASTERA_FUNC_DBG("unable to get cursor from array.\n");
     return 0;
   }
 
@@ -3347,7 +3423,7 @@ uint32_t ui_tree_next(ui_tree* tree) {
     for (uint32_t i = 0; i < start_index; ++i) {
       ui_leaf* current = &tree->raw[i];
       if (current->selectable) {
-        tree->cursor_id    = current->uid;
+        tree->cursor_id    = (uint32_t)current->uid;
         tree->cursor_index = i;
         return cursor->uid;
       }
@@ -3360,7 +3436,7 @@ uint32_t ui_tree_next(ui_tree* tree) {
 /* Return 0 if unable to find a valid target (all uid's are non-zero)*/
 uint32_t ui_tree_prev(ui_tree* tree) {
   if (!tree || tree->count < 2) {
-    ASTERA_DBG("ui_tree_prev: no or empty tree passed.\n");
+    ASTERA_FUNC_DBG("no or empty tree passed.\n");
     return 0;
   }
 
@@ -3378,7 +3454,7 @@ uint32_t ui_tree_prev(ui_tree* tree) {
 
   ui_leaf* cursor = &tree->raw[tree->cursor_index];
   if (!cursor) {
-    ASTERA_DBG("ui_tree_prev: Unable to get cursor from array.\n");
+    ASTERA_FUNC_DBG("Unable to get cursor from array.\n");
     return 0;
   }
 
@@ -3412,7 +3488,7 @@ uint32_t ui_tree_prev(ui_tree* tree) {
 
     if (closest) {
       tree->cursor_id    = tree->raw[closest].uid;
-      tree->cursor_index = closest;
+      tree->cursor_index = (uint16_t)closest;
       return tree->cursor_id;
     }
   }

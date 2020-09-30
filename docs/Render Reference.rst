@@ -160,3 +160,55 @@ For reference, from the ``render.h`` header, here are the parameters of the ``r_
     int8_t calculate, type, use_animator, use_spawner;
   };
 
+If you want to create a shader for paritlces, here is the vertex layout: 
+
+.. code-block:: c
+
+  uniform mat4 mats[MAX_BATCH_SIZE];
+  uniform vec4 coords[MAX_BATCH_SIZE];
+  uniform vec4 colors[MAX_BATCH_SIZE];
+  
+  // 0 = colored only, 1 = textured
+  uniform int use_tex = 0;
+
+
+Baked Sheet
+^^^^^^^^^^^
+
+.. _baked-sheet-reference:
+
+If you want to write a shader to draw a baked sheet with, here is the shader layout:
+
+
+.. code-block:: c
+
+  layout(location = 0) in vec3 in_pos;
+  layout(location = 1) in vec2 in_texc;
+
+Baked sheets are created with the following vertex buffer layout:
+
+  ``x, y, z, s, t`` 
+
+in the same vertex array the baked sheet also has it's index buffer.
+
+
+Framebuffers
+^^^^^^^^^^^^
+
+Framebuffers in Astera currently are just of OpenGL type: ``GL_DEPTH24_STENCIL8``. The texture filtering methods for both min & mag are by default set to: ``GL_NEAREST`` and clamping is set to: ``GL_REPEAT``. The quad for the framebuffer is generated using an interleaved VAO/VBO pair with a separate VBO for indices. The VBO layout is as follows: ``x, y, z, s, t``.
+
+If you want to create your own framebuffer shader, these are the uniforms & layouts you should use: 
+
+.. code-block:: c
+
+  VERTEX SHADER:
+  layout(location = 0) in vec3 in_vert;
+  layout(location = 1) in vec2 in_texc;
+
+  uniform float depth_offset = 0.0f;
+
+  FRAGMENT SHADER:
+  uniform sampler2D screen_tex;
+  uniform float gamma = 1.0;
+
+

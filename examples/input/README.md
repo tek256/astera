@@ -4,9 +4,9 @@ This example is meant to show how to create & manage UI elements in Astera
 
 ### Controls
 
-- `Q` - Previous Element
-- `E` - Next Element
-- `Space` - Select Element
-- `Tab` - Enable/Disable Key Tracking (character typing)
+- `W` / `Up Arrow` - Previous Element
+- `S` / `Down Arrow` - Next Element
+- `Space` / `Left Mouse Click` - Select Element
+- `Tab` - Toggle text capture 
 
 NOTE: When key tracking is enabled, other keyboard inputs will be ignored.

@@ -20,7 +20,6 @@ add_custom_target(${PROJECT_NAME}-examples-resources ALL
     ${CMAKE_COMMAND} -E copy_directory
       "${CMAKE_CURRENT_SOURCE_DIR}/resources"
       "${CMAKE_CURRENT_BINARY_DIR}/resources"
-      #MAIN_DEPENDENCY "${CMAKE_CURRENT_SOURCE_DIR}/resources"
   COMMENT "Copying resources directory"
   VERBATIM)
 

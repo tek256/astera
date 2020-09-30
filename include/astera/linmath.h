@@ -6,12 +6,16 @@
 #define LINMATH_H
 
 #include <math.h>
+#include <float.h>
 
 #ifdef LINMATH_NO_INLINE
 #define LINMATH_H_FUNC static
 #else
 #define LINMATH_H_FUNC static inline
 #endif
+
+#define _max(a, b) ((a) > (b) ? (a) : (b))
+#define _min(a, b) ((a) < (b) ? (a) : (b))
 
 #define LINMATH_H_DEFINE_VEC(n)                                                \
   typedef float      vec##n[n];                                                \
@@ -24,20 +28,17 @@
     return 1;                                                                  \
   }                                                                            \
   LINMATH_H_FUNC void vec##n##_add(vec##n r, vec##n const a, vec##n const b) { \
-    int i;                                                                     \
-    for (i = 0; i < n; ++i)                                                    \
+    for (int i = 0; i < n; ++i)                                                \
       r[i] = a[i] + b[i];                                                      \
   }                                                                            \
                                                                                \
   LINMATH_H_FUNC void vec##n##_sub(vec##n r, vec##n const a, vec##n const b) { \
-    int i;                                                                     \
-    for (i = 0; i < n; ++i)                                                    \
+    for (int i = 0; i < n; ++i)                                                \
       r[i] = a[i] - b[i];                                                      \
   }                                                                            \
   LINMATH_H_FUNC void vec##n##_scale(vec##n r, vec##n const v,                 \
                                      float const s) {                          \
-    int i;                                                                     \
-    for (i = 0; i < n; ++i)                                                    \
+    for (int i = 0; i < n; ++i)                                                \
       r[i] = v[i] * s;                                                         \
   }                                                                            \
   LINMATH_H_FUNC float vec##n##_mul_inner(vec##n const a, vec##n const b) {    \
@@ -53,19 +54,34 @@
   LINMATH_H_FUNC float vec##n##_lensq(vec##n const v) {                        \
     return vec##n##_mul_inner(v, v);                                           \
   }                                                                            \
+  LINMATH_H_FUNC void vec##n##_abs(vec##n r, vec##n const v) {                 \
+    for (int i = 0; i < n; ++i)                                                \
+      r[i] = fabs(v[i]);                                                       \
+  }                                                                            \
   LINMATH_H_FUNC void vec##n##_norm(vec##n r, vec##n const v) {                \
     float k = 1.0 / vec##n##_len(v);                                           \
     vec##n##_scale(r, v, k);                                                   \
   }                                                                            \
+  LINMATH_H_FUNC void vec##n##_mul(vec##n r, vec##n const a, vec##n const b) { \
+    for (int i = 0; i < n; ++i)                                                \
+      r[i] = a[i] * b[i];                                                      \
+  }                                                                            \
+  LINMATH_H_FUNC void vec##n##_div(vec##n r, vec##n const a, vec##n const b) { \
+    for (int i = 0; i < n; ++i)                                                \
+      r[i] = a[i] / b[i];                                                      \
+  }                                                                            \
   LINMATH_H_FUNC void vec##n##_min(vec##n r, vec##n const a, vec##n const b) { \
-    int i;                                                                     \
-    for (i = 0; i < n; ++i)                                                    \
-      r[i] = a[i] < b[i] ? a[i] : b[i];                                        \
+    for (int i = 0; i < n; ++i)                                                \
+      r[i] = _min(a[i], b[i]);                                                 \
   }                                                                            \
   LINMATH_H_FUNC void vec##n##_max(vec##n r, vec##n const a, vec##n const b) { \
-    int i;                                                                     \
-    for (i = 0; i < n; ++i)                                                    \
-      r[i] = a[i] > b[i] ? a[i] : b[i];                                        \
+    for (int i = 0; i < n; ++i)                                                \
+      r[i] = _max(a[i], b[i]);                                                 \
+  }                                                                            \
+  LINMATH_H_FUNC void vec##n##_clamp(vec##n r, vec##n const val,               \
+                                     vec##n const lo, vec##n const high) {     \
+    for(int i = 0; i < n; ++i)                                                 \
+      r[i] = _max(lo[i], _min(val[i], high[i]));                               \
   }                                                                            \
   LINMATH_H_FUNC void vec##n##_dup(vec##n dst, vec##n src) {                   \
     for (int i = 0; i < n; ++i) {                                              \
@@ -115,6 +131,10 @@ LINMATH_H_FUNC float f_lerp(float start, float end, float percentage) {
   return start + ((end - start) * percentage);
 }
 
+LINMATH_H_FUNC double d_lerp(double start, double end, double percentage){
+  return start + ((end - start) * percentage);
+}
+
 LINMATH_H_FUNC float f_clamp(float value, float min, float max) {
   return (value > max) ? max : (value < min) ? min : value;
 }
@@ -128,7 +148,7 @@ LINMATH_H_FUNC float f_smoothstep(float min, float max, float value) {
   return t * t * (3.f - 2.f * t);
 }
 
-LINMATH_H_FUNC float d_smoothstep(double min, double max, double value) {
+LINMATH_H_FUNC double d_smoothstep(double min, double max, double value) {
   double t = d_clamp((value - min) / (max - min), 0.0, 1.0);
   return t * t * (3.0 - 2.0 * t);
 }
@@ -178,6 +198,22 @@ LINMATH_H_FUNC void vec4_reflect(vec4 r, vec4 v, vec4 n) {
     r[i] = v[i] - p * n[i];
 }
 
+/* Combine two bounds to create the largest combination of both */
+LINMATH_H_FUNC void vec4_comb_bounds(vec4 dst, vec4 a, vec4 b) {
+  dst[0] = _min(_min(a[0], b[0]), _min(a[2], b[2]));
+  dst[1] = _min(_min(a[1], b[1]), _min(a[3], b[3]));
+  dst[2] = _max(_max(a[0], b[0]), _max(a[2], b[2]));
+  dst[3] = _max(_max(a[1], b[1]), _max(a[3], b[3]));
+}
+
+/* Create an uninitialized bounds with opposing infinite values */
+LINMATH_H_FUNC void vec4_inf_bounds(vec4 r) {
+  r[0] = FLT_MAX;
+  r[1] = FLT_MAX;
+  r[2] = FLT_MIN;
+  r[3] = FLT_MIN;
+}
+
 typedef vec4        mat4x4[4];
 LINMATH_H_FUNC void mat4x4_identity(mat4x4 M) {
   int i, j;
@@ -185,53 +221,57 @@ LINMATH_H_FUNC void mat4x4_identity(mat4x4 M) {
     for (j = 0; j < 4; ++j)
       M[i][j] = i == j ? 1.f : 0.f;
 }
+
 LINMATH_H_FUNC void mat4x4_dup(mat4x4 M, mat4x4 N) {
   int i, j;
   for (i = 0; i < 4; ++i)
     for (j = 0; j < 4; ++j)
       M[i][j] = N[i][j];
 }
+
 LINMATH_H_FUNC void mat4x4_row(vec4 r, mat4x4 M, int i) {
   int k;
   for (k = 0; k < 4; ++k)
     r[k] = M[k][i];
 }
+
 LINMATH_H_FUNC void mat4x4_col(vec4 r, mat4x4 M, int i) {
   int k;
   for (k = 0; k < 4; ++k)
     r[k] = M[i][k];
 }
+
 LINMATH_H_FUNC void mat4x4_transpose(mat4x4 M, mat4x4 N) {
-  int i, j;
-  for (j = 0; j < 4; ++j)
-    for (i = 0; i < 4; ++i)
+  for (int j = 0; j < 4; ++j)
+    for (int i = 0; i < 4; ++i)
       M[i][j] = N[j][i];
 }
+
 LINMATH_H_FUNC void mat4x4_add(mat4x4 M, mat4x4 a, mat4x4 b) {
-  int i;
-  for (i = 0; i < 4; ++i)
+  for (int i = 0; i < 4; ++i)
     vec4_add(M[i], a[i], b[i]);
 }
+
 LINMATH_H_FUNC void mat4x4_sub(mat4x4 M, mat4x4 a, mat4x4 b) {
-  int i;
-  for (i = 0; i < 4; ++i)
+  for (int i = 0; i < 4; ++i)
     vec4_sub(M[i], a[i], b[i]);
 }
+
 LINMATH_H_FUNC void mat4x4_scale(mat4x4 M, mat4x4 a, float k) {
-  int i;
-  for (i = 0; i < 4; ++i)
+  for (int i = 0; i < 4; ++i)
     vec4_scale(M[i], a[i], k);
 }
+
 LINMATH_H_FUNC void mat4x4_scale_aniso(mat4x4 M, mat4x4 a, float x, float y,
                                        float z) {
-  int i;
   vec4_scale(M[0], a[0], x);
   vec4_scale(M[1], a[1], y);
   vec4_scale(M[2], a[2], z);
-  for (i = 0; i < 4; ++i) {
+  for (int i = 0; i < 4; ++i) {
     M[3][i] = a[3][i];
   }
 }
+
 LINMATH_H_FUNC void mat4x4_mul(mat4x4 M, mat4x4 a, mat4x4 b) {
   mat4x4 temp;
   int    k, r, c;
@@ -243,6 +283,7 @@ LINMATH_H_FUNC void mat4x4_mul(mat4x4 M, mat4x4 a, mat4x4 b) {
     }
   mat4x4_dup(M, temp);
 }
+
 LINMATH_H_FUNC void mat4x4_mul_vec4(vec4 r, mat4x4 M, vec4 v) {
   int i, j;
   for (j = 0; j < 4; ++j) {
@@ -251,12 +292,14 @@ LINMATH_H_FUNC void mat4x4_mul_vec4(vec4 r, mat4x4 M, vec4 v) {
       r[j] += M[i][j] * v[i];
   }
 }
+
 LINMATH_H_FUNC void mat4x4_translate(mat4x4 T, float x, float y, float z) {
   mat4x4_identity(T);
   T[3][0] = x;
   T[3][1] = y;
   T[3][2] = z;
 }
+
 LINMATH_H_FUNC void mat4x4_translate_in_place(mat4x4 M, float x, float y,
                                               float z) {
   vec4 t = {x, y, z, 0};
@@ -267,12 +310,14 @@ LINMATH_H_FUNC void mat4x4_translate_in_place(mat4x4 M, float x, float y,
     M[3][i] += vec4_mul_inner(r, t);
   }
 }
+
 LINMATH_H_FUNC void mat4x4_from_vec3_mul_outer(mat4x4 M, vec3 a, vec3 b) {
   int i, j;
   for (i = 0; i < 4; ++i)
     for (j = 0; j < 4; ++j)
       M[i][j] = i < 3 && j < 3 ? a[i] * b[j] : 0.f;
 }
+
 LINMATH_H_FUNC void mat4x4_rotate(mat4x4 R, mat4x4 M, float x, float y, float z,
                                   float angle) {
   float s = sinf(angle);
@@ -305,6 +350,7 @@ LINMATH_H_FUNC void mat4x4_rotate(mat4x4 R, mat4x4 M, float x, float y, float z,
     mat4x4_dup(R, M);
   }
 }
+
 LINMATH_H_FUNC void mat4x4_rotate_x(mat4x4 Q, mat4x4 M, float angle) {
   float  s = sinf(angle);
   float  c = cosf(angle);
@@ -314,6 +360,7 @@ LINMATH_H_FUNC void mat4x4_rotate_x(mat4x4 Q, mat4x4 M, float angle) {
               {0.f, 0.f, 0.f, 1.f}};
   mat4x4_mul(Q, M, R);
 }
+
 LINMATH_H_FUNC void mat4x4_rotate_y(mat4x4 Q, mat4x4 M, float angle) {
   float  s = sinf(angle);
   float  c = cosf(angle);
@@ -323,6 +370,7 @@ LINMATH_H_FUNC void mat4x4_rotate_y(mat4x4 Q, mat4x4 M, float angle) {
               {0.f, 0.f, 0.f, 1.f}};
   mat4x4_mul(Q, M, R);
 }
+
 LINMATH_H_FUNC void mat4x4_rotate_z(mat4x4 Q, mat4x4 M, float angle) {
   float  s = sinf(angle);
   float  c = cosf(angle);
@@ -332,6 +380,7 @@ LINMATH_H_FUNC void mat4x4_rotate_z(mat4x4 Q, mat4x4 M, float angle) {
               {0.f, 0.f, 0.f, 1.f}};
   mat4x4_mul(Q, M, R);
 }
+
 LINMATH_H_FUNC void mat4x4_invert(mat4x4 T, mat4x4 M) {
   float s[6];
   float c[6];
@@ -373,6 +422,7 @@ LINMATH_H_FUNC void mat4x4_invert(mat4x4 T, mat4x4 M) {
   T[3][2] = (-M[3][0] * s[3] + M[3][1] * s[1] - M[3][2] * s[0]) * idet;
   T[3][3] = (M[2][0] * s[3] - M[2][1] * s[1] + M[2][2] * s[0]) * idet;
 }
+
 LINMATH_H_FUNC void mat4x4_orthonormalize(mat4x4 R, mat4x4 M) {
   mat4x4_dup(R, M);
   float s = 1.;
@@ -411,6 +461,7 @@ LINMATH_H_FUNC void mat4x4_frustum(mat4x4 M, float l, float r, float b, float t,
   M[3][2] = -2.f * (f * n) / (f - n);
   M[3][0] = M[3][1] = M[3][3] = 0.f;
 }
+
 LINMATH_H_FUNC void mat4x4_ortho(mat4x4 M, float l, float r, float b, float t,
                                  float n, float f) {
   M[0][0] = 2.f / (r - l);
@@ -427,6 +478,7 @@ LINMATH_H_FUNC void mat4x4_ortho(mat4x4 M, float l, float r, float b, float t,
   M[3][2] = -(f + n) / (f - n);
   M[3][3] = 1.f;
 }
+
 LINMATH_H_FUNC void mat4x4_perspective(mat4x4 m, float y_fov, float aspect,
                                        float n, float f) {
   /* NOTE: Degrees are an unhandy unit to work with.
@@ -453,6 +505,7 @@ LINMATH_H_FUNC void mat4x4_perspective(mat4x4 m, float y_fov, float aspect,
   m[3][2] = -((2.f * f * n) / (f - n));
   m[3][3] = 0.f;
 }
+
 LINMATH_H_FUNC void mat4x4_look_at(mat4x4 m, vec3 eye, vec3 center, vec3 up) {
   /* Adapted from Android's OpenGL Matrix.java.                        */
   /* See the OpenGL GLUT documentation for gluLookAt for a description */
@@ -499,16 +552,17 @@ LINMATH_H_FUNC void quat_identity(quat q) {
   q[0] = q[1] = q[2] = 0.f;
   q[3]               = 1.f;
 }
+
 LINMATH_H_FUNC void quat_add(quat r, quat a, quat b) {
-  int i;
-  for (i = 0; i < 4; ++i)
+  for (int i = 0; i < 4; ++i)
     r[i] = a[i] + b[i];
 }
+
 LINMATH_H_FUNC void quat_sub(quat r, quat a, quat b) {
-  int i;
-  for (i = 0; i < 4; ++i)
+  for (int i = 0; i < 4; ++i)
     r[i] = a[i] - b[i];
 }
+
 LINMATH_H_FUNC void quat_mul(quat r, quat p, quat q) {
   vec3 w;
   vec3_mul_cross(r, p, q);
@@ -518,11 +572,12 @@ LINMATH_H_FUNC void quat_mul(quat r, quat p, quat q) {
   vec3_add(r, r, w);
   r[3] = p[3] * q[3] - vec3_mul_inner(p, q);
 }
+
 LINMATH_H_FUNC void quat_scale(quat r, quat v, float s) {
-  int i;
-  for (i = 0; i < 4; ++i)
+  for (int i = 0; i < 4; ++i)
     r[i] = v[i] * s;
 }
+
 LINMATH_H_FUNC float quat_inner_product(quat a, quat b) {
   float p = 0.f;
   int   i;
@@ -530,20 +585,21 @@ LINMATH_H_FUNC float quat_inner_product(quat a, quat b) {
     p += b[i] * a[i];
   return p;
 }
+
 LINMATH_H_FUNC void quat_conj(quat r, quat q) {
-  int i;
-  for (i = 0; i < 3; ++i)
+  for (int i = 0; i < 3; ++i)
     r[i] = -q[i];
   r[3] = q[3];
 }
+
 LINMATH_H_FUNC void quat_rotate(quat r, float angle, vec3 axis) {
   vec3 v;
   vec3_scale(v, axis, sinf(angle / 2));
-  int i;
-  for (i = 0; i < 3; ++i)
+  for (int i = 0; i < 3; ++i)
     r[i] = v[i];
   r[3] = cosf(angle / 2);
 }
+
 #define quat_norm vec4_norm
 LINMATH_H_FUNC void quat_mul_vec3(vec3 r, quat q, vec3 v) {
   /*
@@ -564,6 +620,7 @@ LINMATH_H_FUNC void quat_mul_vec3(vec3 r, quat q, vec3 v) {
   vec3_add(r, v, t);
   vec3_add(r, r, u);
 }
+
 LINMATH_H_FUNC void mat4x4_from_quat(mat4x4 M, quat q) {
   float a  = q[3];
   float b  = q[0];
@@ -603,6 +660,7 @@ LINMATH_H_FUNC void mat4x4o_mul_quat(mat4x4 R, mat4x4 M, quat q) {
   R[3][0] = R[3][1] = R[3][2] = 0.f;
   R[3][3]                     = 1.f;
 }
+
 LINMATH_H_FUNC void quat_from_mat4x4(quat q, mat4x4 M) {
   float r = 0.f;
   int   i;

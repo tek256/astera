@@ -6,11 +6,6 @@
  * and ui_ctx_scale_get NOTE: Scale is the term used to denote normalized size
  */
 
-// TODO: Clipping / Scissor effects
-// TODO: Finish Dropdown Scrolling
-// TODO: Finalize attributes
-// TODO: More documentation once attributes are done
-
 #ifndef ASTERA_UI_HEADER
 #define ASTERA_UI_HEADER
 
@@ -20,9 +15,6 @@ extern "C" {
 
 #include <astera/linmath.h>
 #include <stdint.h>
-
-#define UI_IS_ALIGN(value, offset) ((value) & (1 << (offset)))
-#define UI_IS_TYPE(value, type)    (((value & (type)) == type))
 
 typedef enum {
   UI_ALIGN_LEFT   = 1 << 0,
@@ -35,6 +27,8 @@ typedef enum {
   UI_ALIGN_BASELINE = 1 << 6,
 } ui_align;
 
+typedef float ui_color[4];
+
 typedef uint32_t ui_font;
 
 typedef struct {
@@ -45,15 +39,12 @@ typedef struct {
   int   text_length;
   int   align;
 
-  vec2 position, bounds;
-  vec4 color, shadow;
+  vec2     position, bounds;
+  ui_color color, shadow;
 
   float size, spacing, line_height, shadow_size;
 
-  int use_shadow : 1;
-  int use_spacing : 1;
-  int use_reveal : 1;
-  int use_box : 1;
+  uint8_t use_shadow, use_spacing, use_reveal, use_box;
 } ui_text;
 
 typedef struct {
@@ -66,57 +57,77 @@ typedef struct {
   vec2 position, size;
   vec4 padding;
 
-  vec4  bg, hover_bg;
-  vec4  color, hover_color;
-  vec4  border_color, hover_border_color;
-  float border_size, border_radius;
-
-  int use_border : 1;
+  ui_color bg, hover_bg;
+  ui_color color, hover_color;
+  ui_color border_color, hover_border_color;
+  float    border_size, border_radius;
 } ui_button;
 
 typedef struct {
+  // id - the internal unique UI ID for this element
   uint32_t id;
-  vec2     position, size;
+  // position - the position of the box (in relative size)
+  // size - the size of the box (in relative size)
+  vec2 position, size;
 
-  vec4  bg, hover_bg;
-  vec4  border_color, hover_border_color;
+  // bg - the background color
+  // hover_bg - the background color when hovered (0 just defaults to bg)
+  ui_color bg, hover_bg;
+  // border_color - the color of the border if drawn
+  // hover_border_color - the color of the border when hovered if drawn
+  ui_color border_color, hover_border_color;
+
+  // border_size - the size of the border in px (0 = not drawn)
+  // border_radius - the rounding of the corners in px
+  //                  (not affected by border_size)
   float border_size, border_radius;
-
-  int use_border : 1;
 } ui_box;
 
 typedef struct {
-  uint32_t     id;
-  const char** options;
-  uint16_t     option_count, option_display, option_capacity;
-  uint16_t     start; // the start index for scrolling
-  uint16_t     top_scroll_pad,
-      bottom_scroll_pad; // the points in which scrolling will start
+  uint32_t id;
+  // options - the array of strings for option strings
+  char** options;
+
+  // option_count - the number of total options
+  // option_capacity - the max number of options stored in `options`
+  uint16_t option_count, option_capacity;
+
+  // -- SCROLLING --
+  // option_display - the number of options to display
+  // start - the start index for the scroll offset
+  uint16_t option_display, start;
+  // top_scroll_pad - the # of options to leave at the top when scrolling
+  // bottom_scroll_pad - the # of options to leave at the bottom when scrolling
+  uint16_t top_scroll_pad, bottom_scroll_pad;
+
+  // selected - current selected option
+  // cursor - the current hovered option
+  // mouse_cursor - the current mouse hovered option
   uint16_t selected, cursor, mouse_cursor;
 
   ui_font font;
   float   font_size;
   int     align;
 
-  vec2 position, size;
-  vec4 bg, hover_bg;
-  vec4 color, hover_color;
-  vec4 border_color, hover_border_color;
+  vec2     position, size;
+  ui_color bg, hover_bg;
+  ui_color color, hover_color;
+  ui_color border_color, hover_border_color;
 
-  vec4 select_bg, select_color;
-  vec4 hover_select_bg, hover_select_color;
+  ui_color select_bg, select_color;
+  ui_color hover_select_bg, hover_select_color;
 
   float border_size, border_radius;
 
-  int use_border : 1;
-  int showing : 1;
-  int has_change : 1;
+  // has_change - if there has been a change
+  // use_mouse - if to use the mouse_cursor over cursor
+  uint8_t showing, has_change, use_mouse;
 } ui_dropdown;
 
 typedef struct {
   uint32_t id;
   vec2     start, end;
-  vec4     color;
+  ui_color color;
   float    thickness;
 } ui_line;
 
@@ -131,14 +142,11 @@ typedef struct {
   float   font_size;
   int     align;
 
-  vec2 position, size;
-  vec4 bg, hover_bg;
-  vec4 color, hover_color;
+  vec2     position, size;
+  ui_color bg, hover_bg;
+  ui_color color, hover_color;
 
-  uint8_t state;
-  int     use_color : 1;
-  int     use_text : 1;
-  int     use_img : 1;
+  uint8_t state, use_color, use_text, use_img;
 } ui_option;
 
 typedef enum {
@@ -153,8 +161,8 @@ typedef struct {
   uint32_t id;
   vec2     position, size;
   float    fill_padding; // padding amount between border & fill
-  vec4     active_bg, active_fg, active_border_color;
-  vec4     bg, fg, border_color;
+  ui_color active_bg, active_fg, active_border_color;
+  ui_color bg, fg, border_color;
 
   float border_radius, border_size;
   float progress;
@@ -168,10 +176,10 @@ typedef struct {
   uint32_t id;
   vec2     position, size, button_size;
   float    fill_padding; // padding amount between border & fill
-  vec4     active_bg, active_fg, active_border_color;
-  vec4     bg, fg, border_color;
-  vec4     button_color, active_button_color;
-  vec4     button_border_color, active_button_border_color;
+  ui_color active_bg, active_fg, active_border_color;
+  ui_color bg, fg, border_color;
+  ui_color button_color, active_button_color;
+  ui_color button_border_color, active_button_border_color;
 
   float border_radius, border_size;
   float button_border_size, button_border_radius;
@@ -205,12 +213,15 @@ typedef struct {
   vec2     position, size;
   int32_t  handle;
 
-  vec4  border_color, hover_border_color;
-  float border_size, border_radius;
+  ui_color border_color, hover_border_color;
+  float    border_size, border_radius;
 } ui_img;
 
 typedef enum {
+  UI_DEFAULT_FONT, // Global fallback font
+
   UI_TEXT_FONT,
+  UI_TEXT_FONT_SIZE,
   UI_TEXT_ALIGN,
   UI_TEXT_COLOR,
   UI_TEXT_SHADOW,
@@ -218,12 +229,23 @@ typedef enum {
   UI_TEXT_LINE_HEIGHT,
   UI_TEXT_SPACING,
 
+  UI_BOX_SIZE,
+  UI_BOX_BG,
+  UI_BOX_BORDER_COLOR,
+  UI_BOX_BG_HOVER,
+  UI_BOX_BORDER_COLOR_HOVER,
+  UI_BOX_BORDER_SIZE,
+  UI_BOX_BORDER_RADIUS,
+
+  UI_BUTTON_SIZE,
+  UI_BUTTON_PADDING,
   UI_BUTTON_FONT,
+  UI_BUTTON_FONT_SIZE,
+  UI_BUTTON_TEXT_ALIGNMENT,
   UI_BUTTON_COLOR,
   UI_BUTTON_BG,
   UI_BUTTON_COLOR_HOVER,
   UI_BUTTON_BG_HOVER,
-
   UI_BUTTON_BORDER_RADIUS,
   UI_BUTTON_BORDER_COLOR,
   UI_BUTTON_BORDER_COLOR_HOVER,
@@ -233,22 +255,69 @@ typedef enum {
   UI_DROPDOWN_BORDER_SIZE,
   UI_DROPDOWN_BORDER_COLOR,
   UI_DROPDOWN_BORDER_COLOR_HOVER,
-
+  UI_DROPDOWN_SIZE,
   UI_DROPDOWN_FONT_SIZE,
   UI_DROPDOWN_FONT,
   UI_DROPDOWN_COLOR,
   UI_DROPDOWN_COLOR_HOVER,
   UI_DROPDOWN_BG,
   UI_DROPDOWN_BG_HOVER,
-
   UI_DROPDOWN_SELECT_COLOR,
   UI_DROPDOWN_SELECT_BG,
   UI_DROPDOWN_SELECT_COLOR_HOVER,
   UI_DROPDOWN_SELECT_BG_HOVER,
 
+  UI_OPTION_SIZE,
   UI_OPTION_IMAGE,
   UI_OPTION_IMAGE_SIZE,
+  UI_OPTION_IMAGE_OFFSET,
   UI_OPTION_FONT,
+  UI_OPTION_FONT_SIZE,
+  UI_OPTION_TEXT_ALIGN,
+  UI_OPTION_BG,
+  UI_OPTION_BG_HOVER,
+  UI_OPTION_COLOR,
+  UI_OPTION_COLOR_HOVER,
+
+  UI_LINE_THICKNESS,
+  UI_LINE_COLOR,
+
+  UI_PROGRESS_SIZE,
+  UI_PROGRESS_FILL_PADDING,
+  UI_PROGRESS_BG,
+  UI_PROGRESS_FG,
+  UI_PROGRESS_BORDER_COLOR,
+  UI_PROGRESS_ACTIVE_BG,
+  UI_PROGRESS_ACTIVE_FG,
+  UI_PROGRESS_ACTIVE_BORDER_COLOR,
+  UI_PROGRESS_BORDER_RADIUS,
+  UI_PROGRESS_BORDER_SIZE,
+  UI_PROGRESS_VERTICAL_FILL,
+
+  UI_SLIDER_SIZE,
+  UI_SLIDER_FILL_PADDING,
+  UI_SLIDER_BG,
+  UI_SLIDER_FG,
+  UI_SLIDER_BORDER_COLOR,
+  UI_SLIDER_ACTIVE_BG,
+  UI_SLIDER_ACTIVE_FG,
+  UI_SLIDER_ACTIVE_BORDER_COLOR,
+  UI_SLIDER_BORDER_RADIUS,
+  UI_SLIDER_BORDER_SIZE,
+  UI_SLIDER_VERTICAL_FILL,
+  UI_SLIDER_BUTTON_SIZE,
+  UI_SLIDER_BUTTON_CIRCLE,
+  UI_SLIDER_BUTTON_COLOR,
+  UI_SLIDER_BUTTON_ACTIVE_COLOR,
+  UI_SLIDER_BUTTON_BORDER_COLOR,
+  UI_SLIDER_BUTTON_ACTIVE_BORDER_COLOR,
+  UI_SLIDER_BUTTON_BORDER_SIZE,
+  UI_SLIDER_BUTTON_BORDER_RADIUS,
+  UI_SLIDER_FLIP,
+  UI_SLIDER_AUTO_HIDE_BUTTON,
+  UI_SLIDER_ALWAYS_HIDE_BUTTON,
+
+  UI_ATTRIB_LAST,
 } ui_attrib;
 
 typedef enum {
@@ -257,18 +326,27 @@ typedef enum {
   UI_FLOAT,
   UI_VEC2,
   UI_VEC3,
-  UI_VEC4
+  UI_VEC4,
+  UI_COLOR
 } ui_attrib_type;
 
 typedef struct {
   ui_attrib      attrib;
   ui_attrib_type type;
-  void*          data;
+  union {
+    vec2     v2;
+    vec3     v3;
+    vec4     v4;
+    ui_color c;
+    float    f;
+    int      i;
+  } data;
 } ui_attrib_storage;
 
 typedef struct {
   ui_attrib_storage* attribs;
-  int                count, capacity;
+  uint32_t           count, capacity;
+  uint8_t            allow_resize;
 } ui_attrib_map;
 
 typedef enum {
@@ -280,7 +358,7 @@ typedef enum {
   UI_OPTION,
   UI_PROGRESS,
   UI_SLIDER,
-  UI_IMG
+  UI_IMAGE
 } ui_element_type;
 
 typedef struct {
@@ -310,10 +388,34 @@ typedef struct {
 
 typedef struct ui_ctx ui_ctx;
 
-ui_ctx* ui_ctx_create(vec2 screen_size, float pixel_scale, int8_t use_mouse,
-                      int8_t antialias);
+/* Duplicate a color from a to dst
+ * dst - the destination of the color
+ * a - the color to duplicate */
+void ui_color_dup(ui_color dst, ui_color const a);
+
+/* Clear a color (set to black/0)
+ * dst - the color to change */
+void ui_color_clear(ui_color dst);
+
+/* Check if a ui color is valud (non-negative)
+ * a - the color to check
+ * returns: valid = 1, invalid = 0 */
+uint8_t ui_color_valid(ui_color const a);
+
+ui_ctx* ui_ctx_create(vec2 screen_size, float pixel_scale, uint8_t use_mouse,
+                      uint8_t antialias, uint8_t attribs);
 void    ui_ctx_update(ui_ctx* ctx, vec2 mouse_pos);
 void    ui_ctx_destroy(ui_ctx* ctx);
+
+/* Set the attributes to fixed
+ * ctx - the context to affect */
+void ui_ctx_set_attribs_fixed(ui_ctx* ctx);
+
+/* Set the max capacity of the attributes map
+ * ctx - the context to use
+ * capacity - the max number of attributes
+ *            (will be clamped to max possible attributes, UI_ATTRIB_LAST) */
+void ui_ctx_set_attribs_capacity(ui_ctx* ctx, uint32_t capacity);
 
 /* Check if the UI Context is using mouse input
  * ctx - the context to check
@@ -335,7 +437,7 @@ void ui_ctx_set_mouse(ui_ctx* ctx, uint8_t mouse);
  *       works with both 3 & 6 length hex codes
  * val - the value to set (destination of the color)
  * v - the hex code string */
-void ui_get_color(vec4 val, const char* v);
+void ui_get_color(ui_color val, const char* v);
 
 /* Convert a pixel size / position to scale (based on the ctx size)
  * ctx - the context to use for scale
@@ -343,13 +445,11 @@ void ui_get_color(vec4 val, const char* v);
  * px - the pixel size to convert */
 void ui_px_to_scale(ui_ctx* ctx, vec2 dst, vec2 px);
 
-// Convert Pixels to screen scale (4f)
-void ui_px_to_scale4f(ui_ctx* ctx, vec4 dst, vec4 px);
-
 // Convert Screen Scale to Pixels
 void ui_scale_to_px(ui_ctx* ctx, vec2 dst, vec2 scale);
 
 // Convert Screen Scale to Pixels (4f)
+// min x max, [min_x, min_y, max_x, max_y]
 void ui_scale_to_px4f(ui_ctx* ctx, vec4 dst, vec4 scale);
 
 // Adjust a scaled position by pixels
@@ -367,37 +467,82 @@ void ui_ctx_scale_set(ui_ctx* ctx, vec2 size_px);
 // Get the UI's screensize (px)
 void ui_ctx_scale_get(ui_ctx* ctx, vec2 dst_px);
 
-// Check if value contains bitflag of type
-int8_t ui_is_type(int value, int type);
-
 // Start the NanoVG Frame
 void ui_frame_start(ui_ctx* ctx);
 // End the NanoVG Frame
 void ui_frame_end(ui_ctx* ctx);
 
-/* NOTE: Attributes currently aren't 100% working, documentation will be added
- * when they're working correctly */
-void ui_attrib_set(ui_ctx* ctx, ui_attrib attrib, void* value,
-                   ui_attrib_type type);
-void ui_attrib_set3f(ui_ctx* ctx, ui_attrib attrib, float x, float y, float z);
-void ui_attrib_set3fv(ui_ctx* ctx, ui_attrib attrib, vec3 value);
-void ui_attrib_set4f(ui_ctx* ctx, ui_attrib attrib, float x, float y, float z,
-                     float w);
-void ui_attrib_set4fv(ui_ctx* ctx, ui_attrib attrib, vec4 value);
-void ui_attrib_set2f(ui_ctx* ctx, ui_attrib attrib, float x, float y);
-void ui_attrib_set2fv(ui_ctx* ctx, ui_attrib attrib, vec2 value);
+/* Set a vec2 attribute by type & size
+ * ctx - the context to hold the attribute
+ * attrib - the attribute
+ * value - the value of the attribute */
+void ui_attrib_set2f(ui_ctx* ctx, ui_attrib attrib, vec2 value);
+
+/* Set a vec3 attribute by type & size
+ * ctx - the context to hold the attribute
+ * attrib - the attribute
+ * value - the value of the attribute */
+void ui_attrib_set3f(ui_ctx* ctx, ui_attrib attrib, vec3 value);
+
+/* Set a vec4 attribute by type & size
+ * ctx - the context to hold the attribute
+ * attrib - the attribute
+ * value - the value of the attribute */
+void ui_attrib_set4f(ui_ctx* ctx, ui_attrib attrib, vec4 value);
+
+/* Set a color attribute by type
+ * ctx - the context to hold the attribute
+ * attrib - the attribute
+ * value - the value of the attribute */
+void ui_attrib_setc(ui_ctx* ctx, ui_attrib attrib, ui_color color);
+
+/* Set a float attribute by type & size
+ * ctx - the context to hold the attribute
+ * attrib - the attribute
+ * value - the value of the attribute */
 void ui_attrib_setf(ui_ctx* ctx, ui_attrib attrib, float value);
+
+/* Set an integer attribute by type & size
+ * ctx - the context to hold the attribute
+ * attrib - the attribute
+ * value - the value of the attribute */
 void ui_attrib_seti(ui_ctx* ctx, ui_attrib attrib, int32_t value);
 
-ui_attrib_storage ui_attrib_get(ui_ctx* ctx, ui_attrib attrib);
-int               ui_attrib_geti(ui_ctx* ctx, ui_attrib attrib);
-float             ui_attrib_getf(ui_ctx* ctx, ui_attrib attrib);
+/* Get an integer attribute's value
+ * ctx - the context containing the attribute map
+ * attrib - the attribute type
+ * returns: attribute value or -1 for fail */
+int ui_attrib_geti(ui_ctx* ctx, ui_attrib attrib);
 
+/* Get a float attribute's value
+ * ctx - the context containing the attribute map
+ * attrib - the attribute type
+ * returns: attribute value or -1 for fail */
+float ui_attrib_getf(ui_ctx* ctx, ui_attrib attrib);
+
+/* Get vec4 attribute's value
+ * ctx - the context containing the attribute map
+ * attrib - the attribute type
+ * dst - the destination to store the value
+ * NOTE: will set all values in dst to -1 on fail */
 void ui_attrib_get2f(ui_ctx* ctx, ui_attrib attrib, vec2 dst);
+
+/* Get vec3 attribute's value
+ * ctx - the context containing the attribute map
+ * attrib - the attribute type
+ * dst - the destination to store the value
+ * NOTE: will set all values in dst to -1 on fail */
 void ui_attrib_get3f(ui_ctx* ctx, ui_attrib attrib, vec3 dst);
+
+/* Get vec4 attribute's value
+ * ctx - the context containing the attribute map
+ * attrib - the attribute type
+ * dst - the destination to store the value
+ * NOTE: will set all values in dst to -1 on fail */
 void ui_attrib_get4f(ui_ctx* ctx, ui_attrib attrib, vec4 dst);
 
-int8_t ui_attrib_exists(ui_ctx* ctx, ui_attrib attrib);
+/* Check if an attribute has been set */
+uint8_t ui_attrib_exists(ui_ctx* ctx, ui_attrib attrib);
 
 /* Get a font based on it's assigned name
  * ctx - the context to check
@@ -440,8 +585,8 @@ ui_button ui_button_create(ui_ctx* ctx, vec2 pos, vec2 size, char* text,
  * size - the size of the progress bar on screen (scale)
  * progress - the percentage of progress (0 to 1)
  * vertical - if to draw the progress vertically */
-ui_progress ui_progress_create(ui_ctx* ctx, vec2 pos, vec2 size, float progress,
-                               int vertical);
+ui_progress ui_progress_create(ui_ctx* ctx, vec2 pos, vec2 size,
+                               float progress);
 /* Create a UI Slider struct
  * ctx - the context for screen scale
  * pos - the position of the slider (scale)
@@ -462,7 +607,7 @@ ui_slider ui_slider_create(ui_ctx* ctx, vec2 pos, vec2 size, vec2 button_size,
  * end - the end of the line (scale)
  * color - the color of the line
  * thickness - the thickness of the line (px) */
-ui_line ui_line_create(ui_ctx* ctx, vec2 start, vec2 end, vec4 color,
+ui_line ui_line_create(ui_ctx* ctx, vec2 start, vec2 end, ui_color color,
                        float thickness);
 
 /* Create a UI Dropdown struct
@@ -472,7 +617,7 @@ ui_line ui_line_create(ui_ctx* ctx, vec2 start, vec2 end, vec4 color,
  * options - an array of strings listing out the options for the dropdown
  * option_count - the number of strings in the options array */
 ui_dropdown ui_dropdown_create(ui_ctx* ctx, vec2 pos, vec2 size, char** options,
-                               int option_count);
+                               uint16_t option_count);
 
 /* Create a UI Option Struct
  * ctx - the context for screen scale
@@ -481,8 +626,8 @@ ui_dropdown ui_dropdown_create(ui_ctx* ctx, vec2 pos, vec2 size, char** options,
  * text_alignment - the alignment of the text
  * pos - the position of the option (scale)
  * size - the size of the option (scale) */
-ui_option ui_option_create(ui_ctx* ctx, const char* text, float font_size,
-                           int32_t text_alignment, vec2 pos, vec2 size);
+ui_option ui_option_create(ui_ctx* ctx, vec2 pos, vec2 size, const char* text,
+                           float font_size, int32_t text_alignment);
 
 /* Create a UI Box struct
  * ctx - the context for screen scale
@@ -501,45 +646,49 @@ ui_img ui_img_create(ui_ctx* ctx, unsigned char* data, int data_len,
                      ui_img_flags flags, vec2 pos, vec2 size);
 
 /* Set a dropdown's colors, if 0 is passed the argument is ignored */
-void ui_dropdown_set_colors(ui_dropdown* dropdown, vec4 bg, vec4 hover_bg,
-                            vec4 fg, vec4 hover_fg, vec4 border_color,
-                            vec4 hover_border_color, vec4 select_bg,
-                            vec4 select_color, vec4 hover_select_bg,
-                            vec4 hover_select_color);
+void ui_dropdown_set_colors(ui_dropdown* dropdown, ui_color bg,
+                            ui_color hover_bg, ui_color fg, ui_color hover_fg,
+                            ui_color border_color, ui_color hover_border_color,
+                            ui_color select_bg, ui_color select_color,
+                            ui_color hover_select_bg,
+                            ui_color hover_select_color);
 
 /* Set a box's colors, if 0 is passed the argument is ignored */
-void ui_box_set_colors(ui_box* box, vec4 bg, vec4 hover_bg, vec4 border_color,
-                       vec4 hover_border_color);
+void ui_box_set_colors(ui_box* box, ui_color bg, ui_color hover_bg,
+                       ui_color border_color, ui_color hover_border_color);
 
 /* Set a text's colors, if 0 is passed the argument is ignored */
-void ui_text_set_colors(ui_text* text, vec4 color, vec4 shadow);
+void ui_text_set_colors(ui_text* text, ui_color color, ui_color shadow);
 
 /* Set a buttons's colors, if 0 is passed the argument is ignored */
-void ui_button_set_colors(ui_button* button, vec4 bg, vec4 hover_bg, vec4 fg,
-                          vec4 hover_fg, vec4 border_color,
-                          vec4 hover_border_color);
+void ui_button_set_colors(ui_button* button, ui_color bg, ui_color hover_bg,
+                          ui_color fg, ui_color hover_fg, ui_color border_color,
+                          ui_color hover_border_color);
 
 /* Set a progress's colors, if 0 is passed the argument is ignored */
-void ui_progress_set_colors(ui_progress* progress, vec4 bg, vec4 active_bg,
-                            vec4 fg, vec4 active_fg, vec4 border_color,
-                            vec4 active_border_color);
+void ui_progress_set_colors(ui_progress* progress, ui_color bg,
+                            ui_color active_bg, ui_color fg, ui_color active_fg,
+                            ui_color border_color,
+                            ui_color active_border_color);
 
 /* Set a slider's colors, if 0 is passed the argument is ignored */
-void ui_slider_set_colors(ui_slider* slider, vec4 bg, vec4 active_bg, vec4 fg,
-                          vec4 active_fg, vec4 border_color,
-                          vec4 active_border_color, vec4 button_color,
-                          vec4 active_button_color, vec4 button_border_color,
-                          vec4 active_button_border_color);
+void ui_slider_set_colors(ui_slider* slider, ui_color bg, ui_color active_bg,
+                          ui_color fg, ui_color active_fg,
+                          ui_color border_color, ui_color active_border_color,
+                          ui_color button_color, ui_color active_button_color,
+                          ui_color button_border_color,
+                          ui_color active_button_border_color);
 
 /* Set a line's colors, if 0 is passed the argument is ignored */
-void ui_line_set_colors(ui_line* line, vec4 color);
+void ui_line_set_colors(ui_line* line, ui_color color);
 
 /* Set a img's colors, if 0 is passed the argument is ignored */
-void ui_img_set_colors(ui_img* img, vec4 border_color, vec4 hover_border_color);
+void ui_img_set_colors(ui_img* img, ui_color border_color,
+                       ui_color hover_border_color);
 
 /* Set a option's colors, if 0 is passed the argument is ignored */
-void ui_option_set_colors(ui_option* option, vec4 bg, vec4 hover_bg, vec4 fg,
-                          vec4 hover_fg);
+void ui_option_set_colors(ui_option* option, ui_color bg, ui_color hover_bg,
+                          ui_color fg, ui_color hover_fg);
 
 /* Set the border radius of a ui img (px) */
 void ui_img_set_border_radius(ui_img* img, float radius);
@@ -569,10 +718,30 @@ uint16_t ui_dropdown_add_option(ui_dropdown* dropdown, const char* option);
  * dropdown - the dropdown to affect */
 void ui_dropdown_set_to_cursor(ui_dropdown* dropdown);
 
+/* Set the dropdown's scroll padding preferences
+ * dropdown - the dropdown to affect
+ * top_scroll_pad - the number of options to leave at the top before scrolling
+ * bottom_scroll_pad - the number of options to leave at the bottom before
+ *                     scrolling */
+void ui_dropdown_set_scroll(ui_dropdown* dropdown, uint8_t top_scroll_pad,
+                            uint8_t bottom_scroll_pad);
+
 /* Set the dropdown's index
  * dropdown - the dropdown to affect
  * select - the index to set to */
 void ui_dropdown_set(ui_dropdown* dropdown, uint16_t select);
+
+/* Scroll a dropdown down
+ * dropdown - the dropdown to affect
+ * amount - the number of indexes to move
+ * returns: number of indexes moved */
+uint16_t ui_dropdown_scroll_down(ui_dropdown* dropdown, uint16_t amount);
+
+/* Scroll a dropdown up
+ * dropdown - the dropdown to affect
+ * amount - the number of indexes to move
+ * returns: number of indexes moved */
+uint16_t ui_dropdown_scroll_up(ui_dropdown* dropdown, uint16_t amount);
 
 /* Move the cursor to the next index in a dropdown
  * dropdown - the dropdown to affect */
@@ -620,8 +789,10 @@ void ui_im_text_draw_aligned(ui_ctx* ctx, vec2 pos, float font_size,
                              ui_font font, int alignment, char* text);
 void ui_im_text_draw(ui_ctx* ctx, vec2 pos, float font_size, ui_font font,
                      char* text);
-void ui_im_box_draw(ui_ctx* ctx, vec2 pos, vec2 size, vec4 color);
-void ui_im_circle_draw(ui_ctx* ctx, vec2 pos, float radius, vec4 color);
+void ui_im_box_draw(ui_ctx* ctx, vec2 pos, vec2 size, ui_color color);
+void ui_im_circle_draw(ui_ctx* ctx, vec2 pos, float radius, float thickness, ui_color color);
+void ui_im_line_draw(ui_ctx* ctx, vec2 start, vec2 end, float thickness,
+                     ui_color color);
 
 float ui_text_max_size(ui_ctx* ctx, ui_text text, vec2 bounds,
                        int allow_reveal);
@@ -696,6 +867,20 @@ uint32_t ui_tree_next(ui_tree* tree);
 
 /* Advance to the previous selectable element in a tree */
 uint32_t ui_tree_prev(ui_tree* tree);
+
+/* Scroll whatever hovered element down
+ * tree - the tree to affect
+ * amount - the amount to scroll
+ * is_mouse - if to use the mouse cursor
+ * returns: affected element ID, 0 if none */
+uint32_t ui_tree_scroll_down(ui_tree* tree, uint16_t amount, uint8_t is_mouse);
+
+/* Scroll whatever hovered element up
+ * tree - the tree to affect
+ * amount - the amount to scroll
+ * is_mouse - if to use the mouse cursor
+ * returns: affected element ID, 0 if none */
+uint32_t ui_tree_scroll_up(ui_tree* tree, uint16_t amount, uint8_t is_mouse);
 
 /* Draw all the elements within a tree */
 void ui_tree_draw(ui_ctx* ctx, ui_tree* tree);

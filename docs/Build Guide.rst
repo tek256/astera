@@ -66,6 +66,10 @@ Here are a few package lists for various Linux Distributions in case you need th
 .. code-block::
 
   sudo xbps-install MesaLib-devel libXrandr-devel libXinerama-devel libXcursor-devel libXi-devel
+  
+**Arch Linux**
+
+  sudo pacman -S mesa libx11 libxi libxinerama libxcursor
 
 
 NOTE: If you have a package manager on here that you'd like to see added, please create an issue and add the package names if you know them!

@@ -7,3 +7,4 @@ This example is meant to show how to use the audio system for playing music & sm
 - `P` - Play / Pause Song
 - `O` - Reset Song
 - `S` - Play Sound Effect
+- `Esc` - Exit

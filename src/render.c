@@ -3,77 +3,25 @@
 
 #include <astera/render.h>
 
-// For ASTERA_DBG macro
+// For ASTERA_DBG/ASTERA_FUNC_DBG macro
 #include <astera/debug.h>
 
-// TODO Test usages
 #include <math.h>
 #include <assert.h>
 
 #include <string.h>
 
+#include <stdio.h>
+
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
-
-struct r_ctx {
-  // window - the rendering context's window
-  // camera - the rendering context's camera
-  r_window window;
-  r_camera camera;
-
-  // framebuffer - the window's framebuffer (if opted-in)
-  // resolution - the target resolution for the rendering system
-  r_framebuffer framebuffer;
-  vec2          resolution;
-
-  // default_quad - default quad used to draw things, typically this is created
-  // as 1x1 then expected to be scaled by whatever model matrix
-  r_quad default_quad;
-
-  // modes - glfw representations of available video modes for fullscreen
-  // mode_count - the amount of vide modes available
-  const GLFWvidmode* modes;
-  uint8_t            mode_count;
-
-  // anims - array of cached animations
-  // anim_names - an array of strings naming each animation (by index)
-  // anim_high - the high mark of animations set in cache
-  // anim_count - the amount of animations currently held
-  // anim_capacity - the max amount of animations that can be held
-  r_anim*      anims;
-  const char** anim_names;
-  uint16_t     anim_high;
-  uint16_t     anim_count, anim_capacity;
-
-  // shaders - an array of shaders (Kappa)
-  // shader_names - an array of strings naming each shader (by index)
-  // shader_count - the number of shaders currently held
-  // shader_capacity - the max amount of shaders that can be held
-  r_shader*    shaders;
-  const char** shader_names;
-  uint32_t     shader_count, shader_capacity;
-
-  // batches - the batches themselves
-  // batch_count - the amount of current batches
-  // batch_capacity - the max amount of current batches
-  // batch_size - the number of sprites each batch can hold
-  r_batch* batches;
-  uint8_t  batch_count, batch_capacity;
-  uint32_t batch_size;
-
-  // input_ctx - a pointer to an input context for glfw callbacks
-  i_ctx* input_ctx;
-
-  // allowed - allow rendering
-  // scaled - whether the resolution has changed
-  uint8_t allowed, scaled;
-};
 
 // For callbacks only
 static r_ctx* _r_ctx;
 
 static void glfw_err_cb(int error, const char* msg) {
   ASTERA_DBG("GLFW ERROR: %i %s\n", error, msg);
+  printf("GLFW error: %i %s\n", error, msg);
 }
 
 static void glfw_window_pos_cb(GLFWwindow* window, int x, int y) {
@@ -102,14 +50,14 @@ static void glfw_key_cb(GLFWwindow* window, int key, int scancode, int action,
   if (_r_ctx->window.glfw != window)
     return;
 
-  if (action == GLFW_PRESS || action == GLFW_REPEAT) {
+  i_key_callback(_r_ctx->input_ctx, key, scancode,
+                 (action == GLFW_PRESS || action == GLFW_REPEAT));
+
+  /*if (action == GLFW_PRESS || action == GLFW_REPEAT) {
     i_key_callback(_r_ctx->input_ctx, key, scancode, 1);
-    if (i_key_binding_track(_r_ctx->input_ctx)) {
-      i_binding_track_callback(_r_ctx->input_ctx, key, ASTERA_BINDING_KEY);
-    }
   } else if (action == GLFW_RELEASE) {
     i_key_callback(_r_ctx->input_ctx, key, scancode, 0);
-  }
+  }*/
 }
 
 static void glfw_char_cb(GLFWwindow* window, uint32_t c) {
@@ -130,10 +78,11 @@ static void glfw_mouse_button_cb(GLFWwindow* window, int button, int action,
   if (action == GLFW_PRESS || action == GLFW_REPEAT) {
     i_mouse_button_callback(_r_ctx->input_ctx, button, 1);
     if (i_key_binding_track(_r_ctx->input_ctx)) {
-      i_binding_track_callback(_r_ctx->input_ctx, button, ASTERA_BINDING_MB);
+      i_binding_track_callback(_r_ctx->input_ctx, 0, (uint16_t)button,
+                               ASTERA_BINDING_MB);
     }
   } else {
-    i_mouse_button_callback(_r_ctx->input_ctx, button, 0);
+    i_mouse_button_callback(_r_ctx->input_ctx, (uint16_t)button, 0);
   }
 }
 
@@ -144,9 +93,9 @@ static void glfw_scroll_cb(GLFWwindow* window, double dx, double dy) {
 
 static void glfw_joy_cb(int joystick, int action) {
   if (action == GLFW_CONNECTED) {
-    i_joy_create(_r_ctx->input_ctx, joystick);
+    i_joy_create(_r_ctx->input_ctx, (uint8_t)joystick);
   } else if (action == GLFW_DISCONNECTED) {
-    i_joy_destroy(_r_ctx->input_ctx, joystick);
+    i_joy_destroy(_r_ctx->input_ctx, (uint8_t)joystick);
   }
 }
 
@@ -200,7 +149,8 @@ static void r_batch_add(r_batch* batch, r_sprite* sprite) {
   if (sprite->animated) {
     vec4_dup(batch->coords[batch->count],
              batch->sheet
-                 ->subtexs[sprite->render.anim.frames[sprite->render.anim.curr]]
+                 ->subtexs[sprite->render.anim.anim
+                               ->frames[sprite->render.anim.curr]]
                  .coords);
   } else {
     vec4_dup(batch->coords[batch->count],
@@ -208,6 +158,34 @@ static void r_batch_add(r_batch* batch, r_sprite* sprite) {
   }
 
   ++batch->count;
+}
+
+static uint32_t r_batch_add_multi(r_batch* batch, r_sprite* sprites,
+                                  uint32_t count) {
+  for (uint32_t i = 0; i < count; ++i) {
+    if (batch->count == batch->capacity)
+      return i;
+    batch->flip_x[batch->count] = sprites[i].flip_x;
+    batch->flip_y[batch->count] = sprites[i].flip_y;
+
+    mat4x4_dup(batch->mats[batch->count], sprites[i].model);
+    vec4_dup(batch->colors[batch->count], sprites[i].color);
+
+    if (sprites[i].animated) {
+      vec4_dup(batch->coords[batch->count],
+               batch->sheet
+                   ->subtexs[sprites[i].render.anim.anim->frames
+                                 [sprites[i].render.anim.curr]]
+                   .coords);
+    } else {
+      vec4_dup(batch->coords[batch->count],
+               batch->sheet->subtexs[sprites[i].render.tex].coords);
+    }
+
+    ++batch->count;
+  }
+
+  return count;
 }
 
 static r_batch* r_batch_get(r_ctx* ctx, r_sheet* sheet, r_shader shader) {
@@ -237,24 +215,24 @@ static r_batch* r_batch_get(r_ctx* ctx, r_sheet* sheet, r_shader shader) {
 
 static void r_batch_draw(r_ctx* ctx, r_batch* batch) {
   if (!batch->count) {
-    ASTERA_DBG("r_batch_draw: nothing in batch to draw.\n");
+    ASTERA_FUNC_DBG("nothing in batch to draw.\n");
     return;
   }
 
   if (!batch || !ctx) {
-    ASTERA_DBG("r_batch_draw: incomplete arguments passed.\n");
+    ASTERA_FUNC_DBG("incomplete arguments passed.\n");
     return;
   }
 
   if (!batch->sheet) {
-    ASTERA_DBG("r_batch_draw: batch sheet is not set.\n");
+    ASTERA_FUNC_DBG("batch sheet is not set.\n");
     return;
   }
 
   r_shader_bind(batch->shader);
   r_tex_bind(batch->sheet->id);
 
-  vec2 sheet_size = {batch->sheet->width, batch->sheet->height};
+  vec2 sheet_size = {(float)batch->sheet->width, (float)batch->sheet->height};
   r_set_v2(batch->shader, "sheet_size", sheet_size);
 
   r_set_m4(batch->shader, "view", ctx->camera.view);
@@ -270,8 +248,8 @@ static void r_batch_draw(r_ctx* ctx, r_batch* batch) {
   glBindBuffer(GL_ARRAY_BUFFER, ctx->default_quad.vbo);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ctx->default_quad.vboi);
 
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 20, 0);
-  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 20, 12);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 20, (const void*)0);
+  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 20, (const void*)12);
 
   glEnableVertexAttribArray(0);
   glEnableVertexAttribArray(1);
@@ -283,7 +261,6 @@ static void r_batch_draw(r_ctx* ctx, r_batch* batch) {
 
   r_batch_clear(batch);
 
-  // TODO test this
   glBindVertexArray(0);
   r_tex_bind(0);
   r_shader_bind(0);
@@ -327,12 +304,12 @@ r_quad r_quad_create(float width, float height, uint8_t use_vto) {
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBufferData(GL_ARRAY_BUFFER, 12 * sizeof(float), verts, GL_STATIC_DRAW);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (const void*)0);
 
     glBindBuffer(GL_ARRAY_BUFFER, vto);
     glBufferData(GL_ARRAY_BUFFER, 8 * sizeof(float), texcs, GL_STATIC_DRAW);
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, 0);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (const void*)0);
   } else {
     float verts[20] = {-0.5f, -0.5f, 0.f,   0.f,  0.f,  -0.5f, 0.5f,
                        0.f,   0.f,   1.f,   0.5f, 0.5f, 0.f,   1.f,
@@ -347,8 +324,8 @@ r_quad r_quad_create(float width, float height, uint8_t use_vto) {
     glBufferData(GL_ARRAY_BUFFER, 20 * sizeof(float), verts, GL_STATIC_DRAW);
     glEnableVertexAttribArray(0);
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 20, 0);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 20, 12);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 20, (const void*)0);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 20, (const void*)12);
   }
 
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vboi);
@@ -374,7 +351,6 @@ void r_quad_draw(r_quad quad) {
 
   glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
 
-  // TODO test if this is something we need to do
   glBindVertexArray(0);
   glUseProgram(0);
 }
@@ -387,7 +363,6 @@ void r_quad_draw_instanced(r_quad quad, uint32_t count) {
 
   glDrawElementsInstanced(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0, count);
 
-  // TODO test if this is something we need to do
   glBindVertexArray(0);
   glUseProgram(0);
 }
@@ -423,19 +398,15 @@ r_window_params r_window_params_create(uint32_t width, uint32_t height,
                            .y            = 0};
 }
 
-r_ctx* r_ctx_create(r_window_params params, uint8_t use_fbo,
-                    uint32_t batch_count, uint32_t batch_size,
-                    uint32_t anim_map_size, uint32_t shader_map_size) {
+r_ctx* r_ctx_create(r_window_params params, uint8_t batch_count,
+                    uint32_t batch_size, uint16_t anim_map_size,
+                    uint8_t shader_map_size) {
   r_ctx* ctx = (r_ctx*)malloc(sizeof(r_ctx));
 
   if (!r_window_create(ctx, params)) {
-    ASTERA_DBG("r_ctx_create: unable to create window.\n");
+    ASTERA_FUNC_DBG("unable to create window.\n");
     free(ctx);
     return 0;
-  }
-
-  if (use_fbo) {
-    ctx->framebuffer = r_framebuffer_create(params.width, params.height, 0);
   }
 
   if (batch_count > 0) {
@@ -490,10 +461,6 @@ void r_ctx_make_current(r_ctx* ctx) { _r_ctx = ctx; }
 
 void r_ctx_set_i_ctx(r_ctx* ctx, i_ctx* input) { ctx->input_ctx = input; }
 
-void r_ctx_set_fbo_shader(r_ctx* ctx, r_shader shader) {
-  ctx->framebuffer.shader = shader;
-}
-
 void r_ctx_destroy(r_ctx* ctx) {
   if (ctx->anims) {
     for (int i = 0; i < ctx->anim_count; ++i) {
@@ -543,6 +510,8 @@ void r_ctx_destroy(r_ctx* ctx) {
 
   r_window_destroy(ctx);
   glfwTerminate();
+
+  free(ctx);
 }
 
 void r_ctx_update(r_ctx* ctx) { r_camera_update(&ctx->camera); }
@@ -571,12 +540,27 @@ r_camera r_camera_create(vec3 position, vec2 size, float near, float far) {
   return cam;
 }
 
-void r_camera_move(r_camera* camera, vec3 dist) {
-  vec3_add(camera->position, camera->position, dist);
+void r_camera_move(r_camera* camera, vec2 dist) {
+  camera->position[0] += dist[0];
+  camera->position[1] += dist[1];
 }
 
 void r_camera_get_size(vec2 dst, r_camera* camera) {
   vec2_dup(dst, camera->size);
+}
+
+void r_camera_screen_to_world(vec2 dst, r_camera* camera, vec2 point) {
+  dst[0] = (camera->position[0]) + (camera->size[0] * point[0]);
+  dst[1] = (camera->position[1]) + (camera->size[1] * point[1]);
+}
+
+void r_camera_world_to_screen(vec2 dst, r_camera* camera, vec2 point) {
+  dst[0] = (point[0] - camera->position[0]) / camera->size[0];
+  dst[1] = (point[1] - camera->position[1]) / camera->size[1];
+}
+
+void r_camera_size_to_screen(vec2 dst, r_camera* camera, vec2 size) {
+  vec2_div(dst, size, camera->size);
 }
 
 void r_camera_set_size(r_camera* camera, vec2 size) {
@@ -585,9 +569,27 @@ void r_camera_set_size(r_camera* camera, vec2 size) {
                camera->near, camera->far);
 }
 
+void r_camera_set_position(r_camera* camera, vec2 position) {
+  vec2_dup(camera->position, position);
+  r_camera_update(camera);
+}
+
+void r_camera_get_position(r_camera* camera, vec2 dst) {
+  vec2_dup(dst, camera->position);
+}
+
+void r_camera_center_to(r_camera* camera, vec2 point) {
+  vec2_dup(camera->position, point);
+  vec2 halfsize;
+  vec2_scale(halfsize, camera->size, 0.5f);
+  vec2_sub(camera->position, camera->position, halfsize);
+
+  r_camera_update(camera);
+}
+
 void r_camera_update(r_camera* camera) {
   mat4x4_identity(camera->view);
-  mat4x4_translate(camera->view, camera->position[0], camera->position[1],
+  mat4x4_translate(camera->view, -camera->position[0], -camera->position[1],
                    camera->position[2]);
 }
 
@@ -612,9 +614,11 @@ void r_cam_world_to_screen(vec2 dst, r_camera* camera, vec2 point) {
 }
 
 r_framebuffer r_framebuffer_create(uint32_t width, uint32_t height,
-                                   r_shader shader) {
-  r_framebuffer fbo =
-      (r_framebuffer){.width = width, .height = height, .shader = shader};
+                                   r_shader shader, uint8_t color_only) {
+  r_framebuffer fbo = (r_framebuffer){.width      = width,
+                                      .height     = height,
+                                      .shader     = shader,
+                                      .color_only = color_only};
 
   glGenFramebuffers(1, &fbo.fbo);
   glBindFramebuffer(GL_FRAMEBUFFER, fbo.fbo);
@@ -622,25 +626,33 @@ r_framebuffer r_framebuffer_create(uint32_t width, uint32_t height,
   glGenTextures(1, &fbo.tex);
   glBindTexture(GL_TEXTURE_2D, fbo.tex);
 
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, width, height, 0, GL_RGBA,
-               GL_FLOAT, NULL);
-
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_FLOAT,
+               NULL);
+
   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,
                          fbo.tex, 0);
 
-  glGenRenderbuffers(1, &fbo.rbo);
-  glBindRenderbuffer(GL_RENDERBUFFER, fbo.rbo);
-  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
-  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
-                            GL_RENDERBUFFER, fbo.rbo);
+  if (!color_only) {
+    glGenRenderbuffers(1, &fbo.rbo);
+    glBindRenderbuffer(GL_RENDERBUFFER, fbo.rbo);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
+                              GL_RENDERBUFFER, fbo.rbo);
+  }
 
-  if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-    ASTERA_DBG("Incomplete FBO: %i\n", fbo.fbo);
+  if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+    ASTERA_FUNC_DBG("incomplete FBO: %i\n", fbo.fbo);
+    if (!color_only)
+      glDeleteRenderbuffers(1, &fbo.rbo);
+    glDeleteFramebuffers(1, &fbo.fbo);
+    glDeleteTextures(1, &fbo.tex);
+    return (r_framebuffer){0};
+  }
 
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -662,19 +674,23 @@ r_framebuffer r_framebuffer_create(uint32_t width, uint32_t height,
 
   glBindBuffer(GL_ARRAY_BUFFER, fbo.vbo);
   glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 20, verts, GL_STATIC_DRAW);
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 20, 0);
-  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 20, 12);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 20, (const void*)0);
+  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 20, (const void*)12);
   glEnableVertexAttribArray(0);
   glEnableVertexAttribArray(1);
 
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, fbo.vboi);
   glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint16_t) * 6, indices,
-               GL_STATIC_DRAW);
+               GL_STREAM_DRAW);
 
   glBindVertexArray(0);
 
+  mat4x4_identity(fbo.model);
+
   return fbo;
 }
+
+void r_framebuffer_unbind(void) { glBindFramebuffer(GL_FRAMEBUFFER, 0); }
 
 void r_framebuffer_destroy(r_framebuffer fbo) {
   glDeleteFramebuffers(1, &fbo.fbo);
@@ -688,10 +704,6 @@ void r_framebuffer_bind(r_framebuffer fbo) {
 }
 
 void r_framebuffer_draw(r_ctx* ctx, r_framebuffer fbo) {
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-  glDisable(GL_DEPTH_TEST);
-
   glBindVertexArray(fbo.vao);
   glUseProgram(fbo.shader);
 
@@ -703,19 +715,31 @@ void r_framebuffer_draw(r_ctx* ctx, r_framebuffer fbo) {
   glBindBuffer(GL_ARRAY_BUFFER, fbo.vbo);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, fbo.vboi);
 
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 20, 0);
-  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 20, 12);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 20, (const void*)0);
+  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 20, (const void*)12);
 
   glEnableVertexAttribArray(0);
   glEnableVertexAttribArray(1);
 
   glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
 
+  glDisableVertexAttribArray(0);
+  glDisableVertexAttribArray(1);
+
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
   glBindVertexArray(0);
   glUseProgram(0);
-
-  glEnable(GL_DEPTH_TEST);
 }
+
+void r_framebuffer_start_draw(r_ctx* ctx) {
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  glDisable(GL_DEPTH_TEST);
+}
+
+void r_framebuffer_end_draw(r_ctx* ctx) { glEnable(GL_DEPTH_TEST); }
 
 void r_tex_bind(uint32_t tex) {
   glActiveTexture(GL_TEXTURE0);
@@ -744,16 +768,49 @@ r_tex r_tex_create(unsigned char* data, uint32_t length) {
 
 void r_tex_destroy(r_tex* tex) { glDeleteTextures(1, &tex->id); }
 
+r_sheet r_sheet_create(unsigned char* data, uint32_t length, vec4* sub_sprites,
+                       vec2* origins, uint32_t subsprite_count) {
+  if (!data || !length || !sub_sprites || !origins || !subsprite_count) {
+    ASTERA_FUNC_DBG("invalid texture data passed.\n");
+    return (r_sheet){0};
+  }
+  // Load the texture data
+  int32_t w, h, ch;
+  int32_t id;
+
+  unsigned char* img = stbi_load_from_memory(data, length, &w, &h, &ch, 0);
+
+  int format = (ch == 4) ? GL_RGBA : (ch == 3) ? GL_RGB : GL_RGB;
+
+  glGenTextures(1, &id);
+  glBindTexture(GL_TEXTURE_2D, id);
+
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+  glTexImage2D(GL_TEXTURE_2D, 0, format, w, h, 0, format, GL_UNSIGNED_BYTE,
+               img);
+
+  glBindTexture(GL_TEXTURE_2D, 0);
+
+  stbi_image_free(img);
+
+  return (r_sheet){0};
+}
+
 r_sheet r_sheet_create_tiled(unsigned char* data, uint32_t length,
                              uint32_t sub_width, uint32_t sub_height,
                              uint32_t width_pad, uint32_t height_pad) {
   if (!data || !length || !sub_width || !sub_height) {
-    ASTERA_DBG("r_sheet_create_tiled: invalid texture data passed.\n");
+    ASTERA_FUNC_DBG("invalid texture data passed.\n");
     return (r_sheet){0};
   }
+
   // Load the texture data
-  uint32_t w, h, ch;
-  uint32_t id;
+  int32_t w, h, ch;
+  int32_t id;
 
   unsigned char* img = stbi_load_from_memory(data, length, &w, &h, &ch, 0);
 
@@ -784,24 +841,30 @@ r_sheet r_sheet_create_tiled(unsigned char* data, uint32_t length,
     uint32_t x = i % per_width;
     uint32_t y = i / per_width;
 
-    float x_offset = (x * sub_width) + width_pad;
-    float y_offset = (y * sub_height) + height_pad;
-    float width    = sub_width - (width_pad * 2);
-    float height   = sub_height - (height_pad * 2);
+    float x_offset = (float)((x * sub_width) + width_pad);
+    float y_offset = (float)((y * sub_height) + height_pad);
+    float width    = (float)(sub_width - (width_pad * 2));
+    float height   = (float)(sub_height - (height_pad * 2));
 
     vec4 coords = {x_offset / w, y_offset / h, (x_offset + width) / w,
                    (y_offset + height) / h};
 
+    uint32_t ox = (uint32_t)(width * 0.5f), oy = (uint32_t)(height * 0.5f);
+    vec2     o_offset = {ox / width, oy / height};
+
     subtexs[i] = (r_subtex){.x      = (uint32_t)x_offset,
                             .y      = (uint32_t)y_offset,
+                            .ox     = ox,
+                            .oy     = oy,
                             .width  = (uint32_t)width,
                             .height = (uint32_t)height};
+    vec2_dup(subtexs[i].o_offset, o_offset);
     vec4_dup(subtexs[i].coords, coords);
   }
 
   return (r_sheet){.id       = id,
-                   .width    = w,
-                   .height   = h,
+                   .width    = (uint32_t)w,
+                   .height   = (uint32_t)h,
                    .subtexs  = subtexs,
                    .count    = sub_count,
                    .capacity = sub_count};
@@ -815,7 +878,7 @@ void r_sheet_destroy(r_sheet* sheet) {
 r_baked_sheet r_baked_sheet_create(r_sheet* sheet, r_baked_quad* quads,
                                    uint32_t quad_count, vec2 position) {
   if (!quads || !quad_count) {
-    ASTERA_DBG("r_baked_sheet_create: invalid quad parameters.\n");
+    ASTERA_FUNC_DBG("invalid quad parameters.\n");
     return (r_baked_sheet){0};
   }
 
@@ -824,17 +887,22 @@ r_baked_sheet r_baked_sheet_create(r_sheet* sheet, r_baked_quad* quads,
   uint32_t uvert_count = 0;
 
   float*    verts = (float*)malloc(sizeof(float) * vert_cap);
-  uint16_t* inds  = (uint16_t*)malloc(sizeof(uint16_t) * ind_cap);
+  uint32_t* inds  = (uint32_t*)malloc(sizeof(uint32_t) * ind_cap);
 
-  uint16_t _inds[6]  = {0, 1, 2, 2, 3, 0};
+  uint32_t _inds[6]  = {0, 1, 2, 2, 3, 0};
   float    _verts[8] = {-0.5f, 0.5f, 0.5f, 0.5f, 0.5f, -0.5f, -0.5f, -0.5f};
   float    _texcs[8] = {0.f, 1.f, 1.f, 1.f, 1.f, 0.f, 0.f, 0.f};
 
   vec4 bounds = {0.f, 0.f, 0.f, 0.f};
 
   for (uint32_t i = 0; i < quad_count; ++i) {
-    r_baked_quad* quad   = &quads[i];
-    r_subtex*     subtex = &sheet->subtexs[quad->subtex];
+    r_baked_quad* quad = &quads[i];
+
+    if (quad->subtex >= sheet->count) {
+      continue;
+    }
+
+    r_subtex* subtex = &sheet->subtexs[quad->subtex];
 
     vec2 _offset = {quad->x, quad->y};
     vec2 _size   = {quad->width, quad->height};
@@ -846,7 +914,7 @@ r_baked_sheet r_baked_sheet_create(r_sheet* sheet, r_baked_quad* quads,
     for (uint32_t j = 0; j < 4; ++j) {
       verts[vert_count]     = (_verts[j * 2] * _size[0]) + _offset[0];
       verts[vert_count + 1] = (_verts[(j * 2) + 1] * _size[1]) + _offset[1];
-      verts[vert_count + 2] = quad->layer * ASTERA_RENDER_LAYER_MOD;
+      verts[vert_count + 2] = (float)(quad->layer * ASTERA_RENDER_LAYER_MOD);
 
       float sample_x = _texcs[j * 2];
       float sample_y = _texcs[(j * 2) + 1];
@@ -885,8 +953,8 @@ r_baked_sheet r_baked_sheet_create(r_sheet* sheet, r_baked_quad* quads,
 
   glEnableVertexAttribArray(0);
   glEnableVertexAttribArray(1);
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 20, 0);
-  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 20, 12);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 20, (const void*)0);
+  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 20, (const void*)12);
 
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vboi);
   glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint16_t) * ind_count, inds,
@@ -917,8 +985,10 @@ r_baked_sheet r_baked_sheet_create(r_sheet* sheet, r_baked_quad* quads,
 }
 
 void r_baked_sheet_draw(r_ctx* ctx, r_shader shader, r_baked_sheet* sheet) {
-  if (shader == 0)
-    ASTERA_DBG("r_baked_sheet_draw: Invalid shader.\n");
+  if (shader == 0) {
+    ASTERA_FUNC_DBG("invalid shader.\n");
+    return;
+  }
 
   r_shader_bind(shader);
 
@@ -930,16 +1000,15 @@ void r_baked_sheet_draw(r_ctx* ctx, r_shader shader, r_baked_sheet* sheet) {
 
   glBindVertexArray(sheet->vao);
 
-  // TODO Test binding requirements
   glBindBuffer(GL_ARRAY_BUFFER, sheet->vbo);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, sheet->vboi);
 
   glEnableVertexAttribArray(0);
   glEnableVertexAttribArray(1);
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 20, 0);
-  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 20, 12);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 20, (const void*)0);
+  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 20, (const void*)12);
 
-  glDrawElements(GL_TRIANGLES, sheet->quad_count * 2, GL_UNSIGNED_SHORT, 0);
+  glDrawElements(GL_TRIANGLES, sheet->quad_count * 2, GL_UNSIGNED_INT, 0);
 
   glDisableVertexAttribArray(0);
   glDisableVertexAttribArray(1);
@@ -1004,6 +1073,34 @@ r_particles r_particles_create(uint32_t emit_rate, float particle_life,
   return particles;
 }
 
+uint32_t r_particles_frame_at(r_particles* system, time_s time) {
+  if (system->type == PARTICLE_ANIMATED) {
+    return r_anim_frame_at(system->render.anim.anim, time);
+  } else {
+    return system->render.subtex;
+  }
+}
+
+void r_particles_set_system(r_particles* system, float lifetime,
+                            float prespawn) {
+  system->system_life = lifetime;
+
+  float change = prespawn;
+  if (system->prespawn != 0.f) {
+    change -= system->prespawn;
+  }
+
+  system->prespawn = prespawn;
+
+  if (change > 0.f) {
+    uint32_t rounds = (uint32_t)(change / 100.f);
+    for (uint32_t i = 0; i < rounds; ++i) {
+      r_particles_update(system, (change > 100.f) ? 100.f : change);
+      change -= 100.f;
+    }
+  }
+}
+
 void r_particles_set_particle(r_particles* system, vec4 color,
                               float particle_life, vec2 particle_size,
                               vec2 particle_velocity) {
@@ -1028,8 +1125,8 @@ void r_particles_set_particle(r_particles* system, vec4 color,
 }
 
 void r_particles_update(r_particles* system, time_s delta) {
-  system->time += delta;
-  system->spawn_time += delta;
+  system->time += (float)delta;
+  system->spawn_time += (float)delta;
 
   int32_t to_spawn = (int32_t)system->spawn_time / system->spawn_rate;
 
@@ -1061,8 +1158,8 @@ void r_particles_update(r_particles* system, time_s delta) {
     if (system->use_spawner) {
       system->spawner_func(system, open);
     } else {
-      open->position[0] = fmod(rand(), system->size[0]);
-      open->position[1] = fmod(rand(), system->size[1]);
+      open->position[0] = fmodf((float)rand(), system->size[0]);
+      open->position[1] = fmodf((float)rand(), system->size[1]);
 
       open->layer = system->particle_layer;
 
@@ -1076,20 +1173,11 @@ void r_particles_update(r_particles* system, time_s delta) {
     ++system->count;
   }
 
-  float    frame_time  = 0.f;
-  uint32_t frame_count = 0;
-  uint8_t  anim_loop;
-  if (system->type == PARTICLE_ANIMATED) {
-    frame_time  = MS_TO_SEC / system->render.anim.rate;
-    frame_count = system->render.anim.count;
-    anim_loop   = system->render.anim.loop;
-  }
-
   // Update particles
   for (uint32_t i = 0; i < system->capacity; ++i) {
     r_particle* particle = &system->list[i];
     if (particle->life > 0.f) {
-      particle->life -= delta;
+      particle->life -= (float)delta;
     } else {
       continue;
     }
@@ -1097,39 +1185,31 @@ void r_particles_update(r_particles* system, time_s delta) {
     if (particle->life <= 0.f) {
       particle->life = 0.f;
       --system->count;
-      // TODO Test if this causes any weird issues
       continue;
     }
 
-    vec2 movement;
-    vec2_scale(movement, particle->velocity, delta);
+    vec2 movement = {0.f, 0.f};
+    vec2_scale(movement, particle->velocity, (const float)delta);
     vec2_add(particle->position, particle->position, movement);
 
     if (system->use_animator) {
       (*system->animator_func)(system, &system->list[i]);
     } else if (system->type == PARTICLE_ANIMATED) {
-      float   life_span = system->particle_life - particle->life;
-      int32_t frame     = (int32_t)(life_span / frame_time);
-
-      if (frame > frame_count) {
-        if (anim_loop) {
-          frame = frame % frame_count;
-        } else {
-          frame = frame_count;
-        }
+      float lifespan  = system->particle_life - particle->life;
+      particle->frame = r_anim_frame_at(system->render.anim.anim, lifespan);
+      if (particle->frame > system->render.anim.count) {
+        particle->frame = system->render.anim.count;
       }
-
-      particle->frame = frame;
     }
   }
 }
 
-void r_particles_set_anim(r_particles* particles, r_anim anim) {
+void r_particles_set_anim(r_particles* particles, r_anim* anim) {
   if (!particles)
     return;
 
-  particles->sheet       = anim.sheet;
-  particles->render.anim = anim;
+  particles->sheet       = anim->sheet;
+  particles->render.anim = r_anim_create_viewer(anim);
 }
 
 void r_particles_set_subtex(r_particles* particles, r_sheet* sheet,
@@ -1139,6 +1219,18 @@ void r_particles_set_subtex(r_particles* particles, r_sheet* sheet,
 
   particles->sheet         = sheet;
   particles->render.subtex = subtex;
+}
+
+void r_particles_set_color(r_particles* particles, vec4 color,
+                           uint8_t color_only) {
+  if (!particles || !color)
+    return;
+
+  vec4_dup(particles->color, color);
+
+  if (color_only) {
+    particles->type = PARTICLE_COLORED;
+  }
 }
 
 void r_particles_destroy(r_particles* particles) {
@@ -1177,8 +1269,8 @@ static void r_particles_render(r_ctx* ctx, r_particles* particles,
   glBindBuffer(GL_ARRAY_BUFFER, ctx->default_quad.vbo);
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ctx->default_quad.vboi);
 
-  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 20, 0);
-  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 20, 12);
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 20, (const void*)0);
+  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 20, (const void*)12);
 
   glEnableVertexAttribArray(0);
   glEnableVertexAttribArray(1);
@@ -1264,6 +1356,10 @@ void r_particles_remove_animator(r_particles* system) {
   system->animator_func = 0;
 }
 
+void r_sprite_move(r_sprite* sprite, vec2 dist) {
+  vec2_add(sprite->position, sprite->position, dist);
+}
+
 void r_sprite_draw(r_ctx* ctx, r_sprite* sprite) {
   if (!sprite->visible) {
     return;
@@ -1278,6 +1374,39 @@ void r_sprite_draw(r_ctx* ctx, r_sprite* sprite) {
 
     r_batch_add(batch, sprite);
   }
+}
+
+uint32_t r_sprites_draw(r_ctx* ctx, r_sprite* sprites, uint32_t sprite_count) {
+  if (!sprites || !sprite_count || !ctx) {
+    ASTERA_FUNC_DBG("no sprites passed.\n");
+    return 0;
+  }
+
+  r_batch* batch = r_batch_get(ctx, sprites[0].sheet, sprites[0].shader);
+
+  if (batch) {
+    uint32_t remaining = sprite_count, used = 0;
+    uint32_t index = 0;
+    while (1) {
+      uint32_t open = batch->capacity - batch->count;
+      used          = (open < remaining) ? open : remaining;
+
+      uint32_t used_count = r_batch_add_multi(batch, &sprites[index], used);
+
+      index += used_count;
+      remaining -= used_count;
+
+      if (remaining && used)
+        r_batch_draw(ctx, batch);
+      else
+        break;
+    }
+
+    return index;
+  }
+
+  ASTERA_FUNC_DBG("No batch found\n");
+  return 0;
 }
 
 uint8_t r_sprite_get_anim_state(r_sprite* sprite) {
@@ -1324,6 +1453,8 @@ static GLuint r_shader_create_sub(unsigned char* data, int type) {
     char* log = malloc(maxlen);
 
     glGetShaderInfoLog(id, maxlen, &len, log);
+    printf("%s: %s\n", (type == GL_FRAGMENT_SHADER) ? "FRAGMENT" : "VERTEX",
+           log);
     ASTERA_DBG("%s: %s\n", (type == GL_FRAGMENT_SHADER) ? "FRAGMENT" : "VERTEX",
                log);
     free(log);
@@ -1333,7 +1464,7 @@ static GLuint r_shader_create_sub(unsigned char* data, int type) {
 }
 
 r_shader r_shader_get(r_ctx* ctx, const char* name) {
-  for (uint32_t i = 0; i < ctx->shader_count; ++i) {
+  for (uint8_t i = 0; i < ctx->shader_count; ++i) {
     if (strcmp(name, ctx->shader_names[i]) == 0) {
       return ctx->shaders[i];
     }
@@ -1360,7 +1491,8 @@ r_shader r_shader_create(unsigned char* vert_data, unsigned char* frag_data) {
     glGetProgramiv(id, GL_INFO_LOG_LENGTH, &maxlen);
     char* log = malloc(maxlen);
     glGetProgramInfoLog(id, maxlen, &len, log);
-    ASTERA_DBG("%s\n", log);
+    ASTERA_FUNC_DBG("%s\n", log);
+    printf("%s\n", log);
     free(log);
   }
 
@@ -1369,26 +1501,26 @@ r_shader r_shader_create(unsigned char* vert_data, unsigned char* frag_data) {
 
 void r_shader_cache(r_ctx* ctx, r_shader shader, const char* name) {
   if (!shader) {
-    ASTERA_DBG("r_shader_cache: invalid shader (%i) passed.\n", shader);
+    ASTERA_FUNC_DBG("invalid shader (%i) passed.\n", shader);
     return;
   }
 
   if (ctx->shader_capacity == ctx->shader_count || ctx->shader_capacity == 0) {
-    ASTERA_DBG("r_shader_cache: no shader cache available.\n");
+    ASTERA_FUNC_DBG("no shader cache available.\n");
     return;
   }
 
   if (!ctx->shaders) {
-    ASTERA_DBG("r_shader_cache: no shader cache allocated.\n");
+    ASTERA_FUNC_DBG("no shader cache allocated.\n");
     return;
   }
 
   if (ctx->shader_count > 0) {
-    for (uint32_t i = 0; i < ctx->shader_capacity; ++i) {
+    for (uint8_t i = 0; i < ctx->shader_capacity; ++i) {
       if (ctx->shaders[i] == shader) {
-        ASTERA_DBG("r_shader_cache: shader %d already contained with an alias "
-                   "of: %s\n",
-                   shader, ctx->shader_names[i]);
+        ASTERA_FUNC_DBG("shader %d already contained with an alias "
+                        "of: %s\n",
+                        shader, ctx->shader_names[i]);
         return;
       }
     }
@@ -1487,21 +1619,82 @@ void r_get_color4f(vec4 val, const char* v) {
   val[3] = 1.f;
 }
 
-r_anim r_anim_create(r_sheet* sheet, uint32_t* frames, uint32_t count,
-                     uint32_t rate) {
-  uint32_t* cpy_frames = (uint32_t*)malloc(sizeof(uint32_t) * count);
-  memcpy(cpy_frames, frames, sizeof(uint32_t) * count);
+r_anim_viewer r_anim_create_viewer(r_anim* anim) {
+  if (!anim)
+    return (r_anim_viewer){0};
 
-  return (r_anim){.id     = 0,
-                  .frames = cpy_frames,
-                  .time   = 0,
-                  .curr   = 0,
-                  .count  = count,
-                  .rate   = rate,
-                  .sheet  = sheet,
-                  .state  = R_ANIM_STOP,
-                  .pstate = R_ANIM_STOP,
-                  .loop   = 0};
+  return (r_anim_viewer){.anim   = anim,
+                         .count  = anim->count,
+                         .rate   = anim->rate,
+                         .state  = R_ANIM_STOP,
+                         .pstate = R_ANIM_STOP,
+                         .loop   = anim->loop};
+}
+
+uint32_t r_anim_frame_at(r_anim* anim, time_s time) {
+  if (anim->lengths && anim->rate <= 0.f) {
+    time_s last = 0.f;
+    for (uint32_t i = 0; i < anim->count; ++i) {
+      time_s this = anim->lengths[i];
+      if (last + this >= time) {
+        return i;
+      } else {
+        last += this;
+      }
+    }
+
+    if (anim->loop && time > last) {
+#if defined(ASTERA_SYS_LOWP_TIME)
+      time = fmodf(time, last);
+#else
+      time = fmod(time, last);
+#endif
+
+      return r_anim_frame_at(anim, time);
+    }
+
+    return anim->count;
+  } else {
+    return (uint32_t)(time / anim->rate) % anim->count;
+  }
+}
+
+r_anim r_anim_create_fixed(r_sheet* sheet, uint32_t* frames, uint32_t count,
+                           uint32_t rate) {
+  uint32_t* cpy_frames = (uint32_t*)malloc(sizeof(uint32_t) * count);
+
+  time_s _rate = MS_TO_SEC / rate;
+
+  for (uint32_t i = 0; i < count; ++i) {
+    cpy_frames[i] = frames[i];
+  }
+
+  return (r_anim){.id      = 0,
+                  .frames  = cpy_frames,
+                  .lengths = 0,
+                  .count   = count,
+                  .rate    = _rate,
+                  .sheet   = sheet,
+                  .loop    = 0};
+}
+
+r_anim r_anim_create(r_sheet* sheet, uint32_t* frames, time_s* lengths,
+                     uint32_t count) {
+  uint32_t* cpy_frames = (uint32_t*)malloc(sizeof(uint32_t) * count);
+  time_s*   cpy_times  = (time_s*)malloc(sizeof(time_s) * count);
+
+  for (uint32_t i = 0; i < count; ++i) {
+    cpy_frames[i] = frames[i];
+    cpy_times[i]  = lengths[i];
+  }
+
+  return (r_anim){.id      = 0,
+                  .frames  = cpy_frames,
+                  .lengths = cpy_times,
+                  .rate    = 0.f,
+                  .count   = count,
+                  .sheet   = sheet,
+                  .loop    = 0};
 }
 
 void r_anim_destroy(r_ctx* ctx, r_anim* anim) {
@@ -1512,7 +1705,7 @@ void r_anim_destroy(r_ctx* ctx, r_anim* anim) {
 
 r_anim* r_anim_cache(r_ctx* ctx, r_anim anim, const char* name) {
   if (ctx->anim_count >= ctx->anim_capacity) {
-    ASTERA_DBG("Animation cache at capacity.\n");
+    ASTERA_FUNC_DBG("Animation cache at capacity.\n");
     return 0;
   }
 
@@ -1521,10 +1714,10 @@ r_anim* r_anim_cache(r_ctx* ctx, r_anim anim, const char* name) {
 
     if (!slot->frames) {
       *slot              = anim;
-      ctx->anim_names[i] = name;
+      ctx->anim_names[i] = (char*)name;
 
       if (i > ctx->anim_high) {
-        ctx->anim_high = i;
+        ctx->anim_high = (uint16_t)i;
       }
 
       return slot;
@@ -1534,24 +1727,24 @@ r_anim* r_anim_cache(r_ctx* ctx, r_anim anim, const char* name) {
   return 0;
 }
 
-void r_anim_play(r_anim* anim) {
+void r_anim_play(r_anim_viewer* anim) {
   anim->pstate = anim->state;
   anim->state  = R_ANIM_PLAY;
 }
 
-void r_anim_stop(r_anim* anim) {
+void r_anim_stop(r_anim_viewer* anim) {
   anim->pstate = anim->state;
   anim->state  = R_ANIM_STOP;
   anim->time   = 0;
   anim->curr   = 0;
 }
 
-void r_anim_pause(r_anim* anim) {
+void r_anim_pause(r_anim_viewer* anim) {
   anim->pstate = anim->state;
   anim->state  = R_ANIM_PAUSE;
 }
 
-void r_anim_reset(r_anim* anim) {
+void r_anim_reset(r_anim_viewer* anim) {
   anim->pstate = 0;
   anim->state  = 0;
   anim->time   = 0;
@@ -1572,7 +1765,7 @@ r_anim* r_anim_get(r_ctx* ctx, uint32_t id) {
 
 r_anim* r_anim_get_name(r_ctx* ctx, const char* name) {
   if (ctx->anim_count == 0) {
-    ASTERA_DBG("r_anim_get_name: no animations in cache.\n");
+    ASTERA_FUNC_DBG("no animations in cache.\n");
     return 0;
   }
 
@@ -1589,7 +1782,7 @@ r_anim* r_anim_get_name(r_ctx* ctx, const char* name) {
 
 r_anim r_anim_remove(r_ctx* ctx, uint32_t id) {
   if (ctx->anim_count < id) {
-    ASTERA_DBG("r_anim_remove: no animations in cache.\n");
+    ASTERA_FUNC_DBG("no animations in cache.\n");
     return (r_anim){0};
   }
 
@@ -1603,7 +1796,7 @@ r_anim r_anim_remove(r_ctx* ctx, uint32_t id) {
       // recurse down to the next available animation
       for (uint32_t i = ctx->anim_high; i > 0; --i) {
         if (ctx->anims[i].frames) {
-          ctx->anim_high = i;
+          ctx->anim_high = (uint16_t)i;
           break;
         }
       }
@@ -1624,12 +1817,12 @@ r_subtex* r_subtex_create_tiled(r_sheet* sheet, uint32_t id, uint32_t width,
                                 uint32_t height, uint32_t width_pad,
                                 uint32_t height_pad) {
   if (!sheet) {
-    ASTERA_DBG("r_subtex_create: no sheet passed.\n");
+    ASTERA_FUNC_DBG("no sheet passed.\n");
     return 0;
   }
 
   if (sheet->count >= sheet->capacity - 1) {
-    ASTERA_DBG("r_subtex_create: no free space in sheet.\n");
+    ASTERA_FUNC_DBG("no free space in sheet.\n");
     return 0;
   }
 
@@ -1644,10 +1837,10 @@ r_subtex* r_subtex_create_tiled(r_sheet* sheet, uint32_t id, uint32_t width,
                     .width  = width - (width_pad * 2),
                     .height = height - (height_pad * 2)};
 
-  tex->coords[0] = tex->x / sheet->width;
-  tex->coords[1] = tex->y / sheet->height;
-  tex->coords[2] = tex->coords[0] + (tex->width / sheet->width);
-  tex->coords[3] = tex->coords[1] + (tex->height / sheet->height);
+  tex->coords[0] = (float)(tex->x / sheet->width);
+  tex->coords[1] = (float)(tex->y / sheet->height);
+  tex->coords[2] = (float)(tex->coords[0] + (tex->width / sheet->width));
+  tex->coords[3] = (float)(tex->coords[1] + (tex->height / sheet->height));
 
   tex->sub_id = sheet->count;
   ++sheet->count;
@@ -1658,12 +1851,12 @@ r_subtex* r_subtex_create_tiled(r_sheet* sheet, uint32_t id, uint32_t width,
 r_subtex* r_subtex_create(r_sheet* sheet, uint32_t x, uint32_t y,
                           uint32_t width, uint32_t height) {
   if (!sheet) {
-    ASTERA_DBG("r_subtex_create: no sheet passed.\n");
+    ASTERA_FUNC_DBG("no sheet passed.\n");
     return 0;
   }
 
   if (sheet->count >= sheet->capacity - 1) {
-    ASTERA_DBG("r_subtex_create: no free space in sheet.\n");
+    ASTERA_FUNC_DBG("no free space in sheet.\n");
     return 0;
   }
 
@@ -1676,10 +1869,10 @@ r_subtex* r_subtex_create(r_sheet* sheet, uint32_t x, uint32_t y,
       .height = height,
   };
 
-  tex->coords[0] = x / sheet->width;
-  tex->coords[1] = y / sheet->height;
-  tex->coords[2] = tex->coords[0] + (width / sheet->width);
-  tex->coords[3] = tex->coords[1] + (height / sheet->height);
+  tex->coords[0] = (float)(x / sheet->width);
+  tex->coords[1] = (float)(y / sheet->height);
+  tex->coords[2] = tex->coords[0] + (float)(width / sheet->width);
+  tex->coords[3] = tex->coords[1] + (float)(height / sheet->height);
 
   tex->sub_id = sheet->count;
   ++sheet->count;
@@ -1687,10 +1880,17 @@ r_subtex* r_subtex_create(r_sheet* sheet, uint32_t x, uint32_t y,
   return tex;
 }
 
-void r_sprite_set_anim(r_sprite* sprite, r_anim anim) {
-  sprite->render.anim = anim;
+void r_sprite_set(r_sprite* sprite, uint8_t layer, uint8_t flip_x,
+                  uint8_t flip_y) {
+  sprite->layer  = layer;
+  sprite->flip_x = flip_x;
+  sprite->flip_y = flip_y;
+}
+
+void r_sprite_set_anim(r_sprite* sprite, r_anim* anim) {
+  sprite->render.anim = r_anim_create_viewer(anim);
   sprite->animated    = 1;
-  sprite->sheet       = anim.sheet;
+  sprite->sheet       = anim->sheet;
 }
 
 void r_sprite_set_tex(r_sprite* sprite, r_sheet* sheet, uint32_t id) {
@@ -1700,7 +1900,7 @@ void r_sprite_set_tex(r_sprite* sprite, r_sheet* sheet, uint32_t id) {
 }
 
 r_sprite r_sprite_create(r_shader shader, vec2 pos, vec2 size) {
-  r_sprite sprite;
+  r_sprite sprite = (r_sprite){0};
 
   if (pos) {
     vec2_dup(sprite.position, pos);
@@ -1731,80 +1931,88 @@ r_sprite r_sprite_create(r_shader shader, vec2 pos, vec2 size) {
 }
 
 void r_sprite_update(r_sprite* sprite, long delta) {
+  if (sprite->animated) {
+    r_anim_viewer* view = &sprite->render.anim;
+
+    if (view->state == R_ANIM_PLAY) {
+      time_s frame_time = 0.f;
+      if (view->anim->rate > 0.f) {
+        frame_time = view->rate;
+      } else {
+        frame_time = view->anim->lengths[view->curr];
+      }
+
+      if (view->time + delta >= frame_time) {
+        if (view->curr >= view->count - 1) {
+          if (!view->loop) {
+            view->state  = R_ANIM_STOP;
+            view->pstate = R_ANIM_PLAY;
+          }
+
+          view->curr = 0;
+        } else {
+          view->curr++;
+        }
+
+        view->time -= frame_time;
+      } else {
+        view->time += delta;
+      }
+    }
+  }
+
   mat4x4_translate(sprite->model, sprite->position[0], sprite->position[1],
                    (sprite->layer * ASTERA_RENDER_LAYER_MOD));
   mat4x4_scale_aniso(sprite->model, sprite->model, sprite->size[0],
                      sprite->size[0], sprite->size[1]);
 
   sprite->change = 0;
-
-  if (sprite->animated) {
-    r_anim* anim = &sprite->render.anim;
-
-    if (anim->state == R_ANIM_PLAY) {
-      float frame_time = MS_TO_SEC / anim->rate;
-      if (anim->time + delta >= frame_time) {
-        if (anim->curr >= anim->count - 1) {
-          if (!anim->loop) {
-            anim->state  = R_ANIM_STOP;
-            anim->pstate = R_ANIM_PLAY;
-          }
-
-          anim->curr = 0;
-        } else {
-          anim->curr++;
-        }
-
-        anim->time -= frame_time;
-      } else {
-        anim->time += delta;
-      }
-    }
-  }
 }
 
-inline void r_set_uniformf(r_shader shader, const char* name, float value) {
+void r_set_uniformf(r_shader shader, const char* name, float value) {
   glUniform1f(glGetUniformLocation(shader, name), value);
 }
 
-inline void r_set_uniformfi(int loc, float value) { glUniform1f(loc, value); }
+void r_set_uniformfi(int loc, float value) { glUniform1f(loc, value); }
 
-inline void r_set_uniformi(r_shader shader, const char* name, int value) {
+void r_set_uniformi(r_shader shader, const char* name, int value) {
   glUniform1i(glGetUniformLocation(shader, name), value);
 }
 
-inline void r_set_uniformii(int loc, int val) { glUniform1i(loc, val); }
+void r_set_uniformii(int loc, int val) { glUniform1i(loc, val); }
 
-inline void r_set_v4(r_shader shader, const char* name, vec4 value) {
+void r_set_v4(r_shader shader, const char* name, vec4 value) {
   glUniform4f(glGetUniformLocation(shader, name), value[0], value[1], value[2],
               value[3]);
 }
 
-inline void r_set_v4i(int loc, vec4 value) {
+void r_set_v4i(int loc, vec4 value) {
   glUniform4f(loc, value[0], value[1], value[2], value[3]);
 }
 
-inline void r_set_v3(r_shader shader, const char* name, vec3 value) {
+void r_set_v3(r_shader shader, const char* name, vec3 value) {
   glUniform3f(glGetUniformLocation(shader, name), value[0], value[1], value[2]);
 }
 
-inline void r_set_v3i(int loc, vec3 val) {
-  glUniform3f(loc, val[0], val[1], val[2]);
-}
+void r_set_v3i(int loc, vec3 val) { glUniform3f(loc, val[0], val[1], val[2]); }
 
-inline void r_set_v2(r_shader shader, const char* name, vec2 value) {
+void r_set_v2(r_shader shader, const char* name, vec2 value) {
   glUniform2f(glGetUniformLocation(shader, name), value[0], value[1]);
 }
 
-inline void r_set_v2i(int loc, vec2 val) { glUniform2f(loc, val[0], val[1]); }
+void r_set_v2i(int loc, vec2 val) { glUniform2f(loc, val[0], val[1]); }
 
-inline void r_set_m4(r_shader shader, const char* name, mat4x4 value) {
+void r_set_m4(r_shader shader, const char* name, mat4x4 value) {
   glUniformMatrix4fv(glGetUniformLocation(shader, name), 1, GL_FALSE,
                      (GLfloat*)value);
 }
 
-inline void r_set_m4i(int loc, mat4x4 val) {
+void r_set_m4i(int loc, mat4x4 val) {
   glUniformMatrix4fv(loc, 1, GL_FALSE, (GLfloat*)val);
+}
+
+int r_get_loc(r_shader shader, const char* name) {
+  return glGetUniformLocation(shader, name);
 }
 
 void r_set_m4x(r_shader shader, uint32_t count, const char* name,
@@ -1856,6 +2064,42 @@ void r_set_v4x(r_shader shader, uint32_t count, const char* name,
                (const GLfloat*)values);
 }
 
+void r_set_m4xi(int loc, uint32_t count, mat4x4* values) {
+  if (!count)
+    return;
+  glUniformMatrix4fv(loc, count, GL_FALSE, (const GLfloat*)values);
+}
+
+void r_set_fxi(int loc, uint32_t count, float* values) {
+  if (!count)
+    return;
+  glUniform1fv(loc, count, (const GLfloat*)values);
+}
+
+void r_set_ixi(int loc, uint32_t count, int* values) {
+  if (!count)
+    return;
+  glUniform1iv(loc, count, (const GLint*)values);
+}
+
+void r_set_v2xi(int loc, uint32_t count, vec2* values) {
+  if (!count)
+    return;
+  glUniform2fv(loc, count, (const GLfloat*)values);
+}
+
+void r_set_v3xi(int loc, uint32_t count, vec3* values) {
+  if (!count)
+    return;
+  glUniform3fv(loc, count, (const GLfloat*)values);
+}
+
+void r_set_v4xi(int loc, uint32_t count, vec4* values) {
+  if (!count)
+    return;
+  glUniform4fv(loc, count, (const GLfloat*)values);
+}
+
 void r_window_get_size(r_ctx* ctx, int* w, int* h) {
   *w = ctx->window.params.width;
   *h = ctx->window.params.height;
@@ -1870,13 +2114,13 @@ uint8_t r_get_videomode_str(r_ctx* ctx, char* dst, uint8_t index) {
   int str_len =
       sprintf(dst, "%ix%i@%i", ctx->modes[index].width,
               ctx->modes[index].height, ctx->modes[index].refreshRate);
-  return str_len;
+  return (uint8_t)str_len;
 }
 
 uint8_t r_select_mode(r_ctx* ctx, uint8_t index, int8_t fullscreen,
                       int8_t vsync, int8_t borderless) {
   if (index > ctx->mode_count) {
-    ASTERA_DBG("Invalid video mode index, not setting.\n");
+    ASTERA_FUNC_DBG("Invalid video mode index, not setting.\n");
     return 0;
   }
 
@@ -1895,8 +2139,8 @@ uint8_t r_select_mode(r_ctx* ctx, uint8_t index, int8_t fullscreen,
 
     ctx->window.params.refresh_rate = selected_mode->refreshRate;
 
-    vec2_dup(ctx->resolution,
-             (vec2){selected_mode->width, selected_mode->height});
+    ctx->resolution[0] = (float)selected_mode->width;
+    ctx->resolution[1] = (float)selected_mode->height;
 
     glfwSetWindowMonitor(ctx->window.glfw, glfwGetPrimaryMonitor(), 0, 0,
                          selected_mode->width, selected_mode->height,
@@ -1906,7 +2150,7 @@ uint8_t r_select_mode(r_ctx* ctx, uint8_t index, int8_t fullscreen,
       ctx->window.params.borderless = borderless;
       glfwSetWindowAttrib(ctx->window.glfw, GLFW_DECORATED,
                           (borderless == 0) ? GLFW_TRUE : GLFW_FALSE);
-      ASTERA_DBG("Setting borderless to: %i\n", borderless);
+      ASTERA_FUNC_DBG("Setting borderless to: %i\n", borderless);
     }
 
     if ((uint32_t)selected_mode->width != ctx->window.params.width ||
@@ -1942,6 +2186,14 @@ uint8_t r_select_mode(r_ctx* ctx, uint8_t index, int8_t fullscreen,
 
   ctx->allowed = 1;
   return 1;
+}
+
+GLFWwindow* r_window_get_glfw(r_ctx* ctx) {
+  if (!ctx) {
+    return 0;
+  }
+
+  return ctx->window.glfw;
 }
 
 uint8_t r_get_vidmode_count(r_ctx* ctx) { return ctx->mode_count; }
@@ -2014,12 +2266,9 @@ uint8_t r_window_create(r_ctx* ctx, r_window_params params) {
   glfwSetErrorCallback(glfw_err_cb);
 
   if (!glfwInit()) {
-    ASTERA_DBG("r_window_create: Unable to initialize GLFW\n");
+    ASTERA_FUNC_DBG("Unable to initialize GLFW\n");
     return 0;
   }
-
-  // TODO: Test this with tiled levels to check for pixel perfect glitches
-  glfwWindowHint(GLFW_SAMPLES, 0);
 
   glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -2027,7 +2276,7 @@ uint8_t r_window_create(r_ctx* ctx, r_window_params params) {
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
 #if defined(ASTERA_DEBUG_GL)
-  ASTERA_DBG("RENDER: Debug GL Enabled.\n");
+  ASTERA_FUNC_DBG("Debug GL Enabled.\n");
   glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
 #endif
 
@@ -2080,14 +2329,15 @@ uint8_t r_window_create(r_ctx* ctx, r_window_params params) {
     glfwWindowHint(GLFW_DECORATED,
                    (params.borderless == 0) ? GLFW_TRUE : GLFW_FALSE);
 
-    vec2_dup(ctx->resolution, (vec2){params.width, params.height});
+    vec2_dup(ctx->resolution,
+             (vec2){(float)params.width, (float)params.height});
 
     window =
         glfwCreateWindow(params.width, params.height, params.title, NULL, NULL);
   }
 
   if (!window) {
-    ASTERA_DBG("Error: Unable to create GLFW window.\n");
+    ASTERA_FUNC_DBG("Error: Unable to create GLFW window.\n");
     glfwTerminate();
     return 0;
   }
@@ -2113,9 +2363,7 @@ uint8_t r_window_create(r_ctx* ctx, r_window_params params) {
   ctx->allowed = 1;
 
   glEnable(GL_DEPTH_TEST);
-  // glFrontFace(GL_CW);
   glDepthFunc(GL_LESS);
-  // glDisable(GL_CULL_FACE);
 
   glEnable(GL_BLEND);
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -2154,8 +2402,8 @@ void r_window_center(r_ctx* ctx) {
     return;
   }
 
-  int mon_x, mon_y;
-  int mon_w, mon_h;
+  int mon_x = 0, mon_y = 0;
+  int mon_w = 0, mon_h = 0;
 
   for (int i = 0; i < monitor_count; ++i) {
     glfwGetMonitorPos(monitors[i], &mon_x, &mon_y);
@@ -2195,7 +2443,7 @@ uint8_t r_window_set_icon(r_ctx* ctx, unsigned char* data, uint32_t length) {
 
     free(img);
   } else {
-    ASTERA_DBG("No window icon passed to set.\n");
+    ASTERA_FUNC_DBG("No window icon passed to set.\n");
     return 0;
   }
 
@@ -2231,6 +2479,8 @@ void r_window_clear_color(const char* str) {
   r_get_color4f(color, str);
   glClearColor(color[0], color[1], color[2], color[3]);
 }
+
+void r_window_clear_color_empty(void) { glClearColor(0.f, 0.f, 0.f, 0.f); }
 
 float r_window_get_gamma(r_ctx* ctx) { return ctx->window.params.gamma; }
 

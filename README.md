@@ -1,8 +1,8 @@
 <div id="header">
     <p align="center">
-      <img width="64px" height="64px" style="border-radius: 6px;" src="examples/resources/textures/icon.png"><br>
+      <img width="64px" height="64px" style="border-radius: 6px;" src="examples/resources/textures/icon.png"/><br>
       <b>astera</b><br>
-	  <span font-size="16px">a cross platform game library</span><br>
+  	  <span font-size="16px">a cross platform game library</span><br>
       <span font-size="12px">Made by <a href="http://tek256.com">Devon</a> with love.</span><br><br>
       <span><a href="https://tek256.com/astera/Build%20Guide.html">Setup</a> | <a href="https://github.com/tek256/astera/tree/master/examples/">Examples</a> | <a href="https://discordapp.com/invite/63GvpMh">Discord</a> | <a href="https://github.com/sponsors/tek256">Support</a></span><br><br>
       <span><img src="https://github.com/tek256/astera/workflows/Build%20Astera/badge.svg"></span>
@@ -10,23 +10,33 @@
 </div>
 
 ### About
-Astera is a game library focused on performance, portability, and maintainability. Astera aims to rely on as few dependencies as possible.  
+Astera is a 2D game library written in C99 focused on performance, portability, and maintainability. Astera aims to rely on as few dependencies as possible.  
 
-#### Latest Release: 0.01  
+#### Latest Release: 1.0-PRE
+
+**NOTE: 1.0 PRE means that just about everything is finished, not all functionality is bug free**
+
+### In Progress
+NOTE: This section only exists for `-PRE` versions.
+
+```
+- Removing OpenAL in favor of MiniAudio
+- Adding CRC32 intrinsic & software versions
+```
 
 ### Target Platforms
 Here are the target platforms for this library:  
 ```
 - Windows
 - Linux
-- Mac OSX (versions supporting OpenGL 3.3+)
+- Mac OSX (NOTE: Currently audio is unsupported on Mac)
 - BSD
 ``` 
 
 _NOTE: I'm always open to adding more target platforms!_
 
 ### Libraries Used
-[GLFW](https://github.com/glfw/glfw), [OpenAL-Soft](https://github.com/kcat/openal-soft), [GLAD](https://github.com/Dav1dde/glad), [STB](https://github.com/nothings/stb/) Image & Vorbis, [nanovg](https://github.com/memononen/nanovg), and [ZIP](https://github.com/kuba--/zip).
+[GLFW](https://github.com/glfw/glfw), [GLAD](https://github.com/Dav1dde/glad), [STB](https://github.com/nothings/stb/) Image & Vorbis, [nanovg](https://github.com/memononen/nanovg), and [xxhash](https://github.com/Cyan4973/xxHash).
 
 ### Building
 Astera and it's dependencies are built using CMake. You can run your own CMake command or try using one of the automated build scripts (they're located in the `tools/` folder).
@@ -53,28 +63,13 @@ Example script usage (generate a release candidate):
 Example CMake usage:
 
 ```
-cmake -Bbuilld -S. -DASTERA_BUILD_EXAMPLES=OFF -DCMAKE_BUILD_TYPE=Release # Generate the build files
-cmake --build build # Build the build files
+cmake -Bbuilld -S. 
+cmake --build build
 ```
+
+NOTE: Once the build files are generated (first line) you only have to call `cmake --build build` to rebuild the source.
 
 For more information see the relevant [wiki page](https://tek256.com/astera/Build%20Guide.html) or the `docs/Build Guide.rst` file.
-
-### Changelog
-```
-June 23, 2020 
-- Memory hardening (leaks / unitialization)
-- General bug fixes causing crashes
-
-June 18, 2020 - [0.01 RELEASE]
-- New context based engine usage
-  - System prefix + `_ctx` for audio, render, input, and ui systems
-- Lots of bug fixes 
-- Lots of code hardening 
-- Pedantic fixes
-- Basic Game, Audio, Input, and UI Examples created
-
-For older changes see docs/changelog-archive.txt
-```
 
 ### Special Thanks
 [Isabella Muerte](https://github.com/slurps-mad-rips) for being a patient friend and helping create the build system.  

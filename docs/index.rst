@@ -39,6 +39,21 @@ Please note: This is still currently under construction and is within the early 
    UI Reference
 
 .. toctree::
+   :caption: Examples
+   :maxdepth: 1
+   Audio Example
+   Asset Example
+   Dungeon Example
+   Input Example
+   Sprites Example
+
+.. toctree::
+   :caption: Tools
+   :maxdepth: 1
+   pakutil tool
+   checksum tool
+
+.. toctree::
    :caption: Other
    :maxdepth: 1
 

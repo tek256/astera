@@ -44,6 +44,12 @@ typedef struct {
   time_s delta;
 } s_timer;
 
+/* String based data input/output*/
+typedef struct {
+  char *   data, *cursor;
+  uint32_t length, capacity;
+} s_buffer_t;
+
 #if !defined(ASTERA_NO_CONF)
 typedef struct {
   /* keys - an array of the key strings
@@ -51,14 +57,13 @@ typedef struct {
      count - the number of strings (length of each array individually) */
   const char** keys;
   const char** values;
-  int          count;
+  uint32_t     count;
 } s_table;
 
 /* Parse data as a psuedo-ini loader
    data - the data of the file
-   length - the length of the data array
    returns: formatted table struct */
-s_table s_table_get(unsigned char* data, uint32_t length);
+s_table s_table_get(unsigned char* data);
 
 /* Free a table struct's contents
    table - the table you want to free */
@@ -102,6 +107,81 @@ time_s s_sleep(time_s duration);
    base - the base to set the value to
    returns: pointer to the string */
 char* s_itoa(int32_t value, char* string, int8_t base);
+
+/* Convert a string to parsable string
+ * dst - the destination to store the string
+ * dst_capacity - the max amount of characters stored
+ * src - the source string
+ * str_length - the length of the source string
+ * returns: length of string */
+uint32_t s_strnify(char* dst, uint32_t dst_capacity, const char* src,
+                   uint32_t str_length);
+
+/* Convert a string back to regular non-strnified style
+ * dst - the destination to store the string
+ * dst_capacity - the max amount of characters stored
+ * src - the source string
+ * str_length - the length of the source string
+ * returns: new length of string */
+uint32_t s_destrnify(char* dst, uint32_t dst_capacity, const char* src,
+                  uint32_t str_length);
+
+/* Create string buffer with a size of capacity
+ * capacity - the capacity of the buffer in characters
+ * returns: formatted s_buffer_t struct */
+s_buffer_t s_buff_create(uint32_t capacity);
+
+/* Create a string buffer matching already existing data
+ * data - the data to mirror
+ * returns: formatted s_buffer_t struct */
+s_buffer_t s_buff_read(const char* data);
+
+/* Destroy a string buffer and all of its contents
+ * buff - the buffer to destroy */
+void s_buff_destroy(s_buffer_t* buffer);
+
+/* Rewind a string buffer's cursor
+ * buff - the buffer to affect */
+void s_buff_rewind(s_buffer_t* buffer);
+
+/* Move a buffer's cursor to index
+ * buff - the buffer to affect
+ * index - the index to move to */
+void s_buff_move_to(s_buffer_t* buffer, uint32_t index);
+
+/* Add a string to a string buffer
+ * buff - the buffer to add a string to
+ * string - the string to add
+ * returns: success = 1, fail = 0 */
+uint8_t s_buff_add_s(s_buffer_t* buffer, const char* string);
+
+/* Add an integer to a string buffer
+ * buff - the buffer to add an integer to
+ * value - the integer value to add
+ * returns: success = 1, fail = 0 */
+uint8_t s_buff_add_i(s_buffer_t* buffer, int value);
+
+/* Add a float to a string buffer
+ * buff - the buffer to add a float to
+ * value - the float value to add
+ * returns: success = 1, fail = 0 */
+uint8_t s_buff_add_f(s_buffer_t* buffer, float value);
+
+/* Get a float value from a string buffer at cursor point
+ * buff - the string buffer to check
+ * return: the float value */
+float s_buff_get_f(s_buffer_t* buffer);
+
+/* Get an integer value from a string buffer at cursor point
+ * buff - the string buffer to check
+ * return: the integer value */
+int s_buff_get_i(s_buffer_t* buffer);
+
+/* Get a string value from a string buffer at cursor point
+ * buff - the string buffer to check
+ * dst - the destination to place the string
+ * return: the string value */
+char* s_buff_get_s(s_buffer_t* buffer, char* dst);
 
 #ifdef __cplusplus
 }

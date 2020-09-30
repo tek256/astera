@@ -1,9 +1,3 @@
-// TODO animation loading from file
-// TODO Sprite sheet auto loading (pixel bounding)
-// TODO Sprite sheet layout from file
-// TODO Baked_sheet update/rebuffer from modifications??
-// TODO Remove `fix` from shaders since we now have internal padding
-
 #ifndef ASTERA_RENDER_HEADER
 #define ASTERA_RENDER_HEADER
 
@@ -22,7 +16,7 @@ extern "C" {
 #include <stdint.h>
 
 #if !defined(ASTERA_RENDER_LAYER_MOD)
-#define ASTERA_RENDER_LAYER_MOD 0.01
+#define ASTERA_RENDER_LAYER_MOD 0.01f
 #endif
 
 typedef struct {
@@ -33,10 +27,10 @@ typedef struct {
    * width - the width of the quad created
    * height - the height of the quad created
    * use_vto - if using a separate buffer for texcoords (1) or
-               not (interleaved) (0) */
+                 not (interleaved) (0) */
   uint32_t vao, vbo, vboi, vto;
-  float    width, height;
-  int8_t   use_vto;
+  float   width, height;
+  int8_t  use_vto;
 } r_quad;
 
 typedef struct {
@@ -92,11 +86,15 @@ typedef struct {
   r_shader shader;
   /* model - the model matrix for the fbo's quad */
   mat4x4 model;
+
+  /* color_only - if the framebuffer type uses only color attachment */
+  uint8_t color_only;
 } r_framebuffer;
 
 // Note: This is a basic orthographic camera
 typedef struct {
   /* position - the position of the camera
+   *        NOTE: the Z (2 index) will affect what layer are rendered
    * size - the size of the camera */
   vec3 position;
   vec2 size;
@@ -136,6 +134,15 @@ typedef struct {
    * height - the height in pixels of the sub texture*/
   uint32_t sub_id;
   uint32_t x, y, width, height;
+
+  /* ox - the origin x coord of the center of subsprite
+   * oy - the origin y coord of the center of subsprite */
+  uint32_t ox, oy;
+
+  /* o_offset - origin offset (unit scale)
+   *        NOTE: this is calculated by o'n' / axis
+   *              i.e ox / width */
+  vec2 o_offset;
 
   /* coords - the min max values of the sub texture
    *          [min_x, min_y, max_x, max_y] */
@@ -207,48 +214,58 @@ typedef struct {
   uint32_t id;
 
   // frames - each individual sub texture (frame)
+  // lengths - the lengths of each frame in milliseconds
   uint32_t* frames;
-  // time - the internal timer
-  float time;
+  time_s*   lengths;
 
   // curr - current index of frame
   // count - number of frames
   // rate - the amount of frames per second
+  //        (if using fixed rate, 0 if non-fixed)
   // sheet - the texture sheet the animation uses
-  uint32_t curr, count, rate;
+  uint32_t count;
+  time_s   rate;
   r_sheet* sheet;
-
-  // state - playing, pause, stop
-  // pstate - previous state
-  uint8_t state, pstate;
 
   // loop - 1 = yes, 0 = no
   int8_t loop;
 } r_anim;
+
+// Internal animation viewer type
+typedef struct {
+  r_anim*  anim;
+  time_s   time, rate;
+  uint32_t curr, count;
+  uint8_t  state, pstate;
+  int8_t   loop;
+} r_anim_viewer;
 
 typedef struct {
   /* position - the position of the sprite in world units
    * size - the size of the sprite in world units */
   vec2 position, size;
 
+  /* offset - the offset of the sprite's texture */
+  vec2 offset;
+
   /* shader - the shader program to draw the sprite with
    * sheet - the sheet to use for the sprite */
   r_shader shader;
   r_sheet* sheet;
+
+  // tex - the base texture ID
   union {
-    r_anim   anim;
-    uint32_t tex;
+    r_anim_viewer anim;
+    uint32_t      tex;
   } render;
 
   vec4 color;
 
   uint8_t layer;
-  int8_t  flip_x, flip_y;
+  uint8_t flip_x, flip_y;
   mat4x4  model;
 
-  int change : 1;
-  int animated : 1;
-  int visible : 1;
+  uint8_t change, animated, visible, group;
 } r_sprite;
 
 typedef struct {
@@ -266,7 +283,7 @@ typedef struct {
 } r_batch;
 
 typedef struct {
-  float   life;
+  float   life, last;
   float   rotation;
   vec2    position, size, velocity, direction;
   uint8_t layer;
@@ -304,8 +321,9 @@ struct r_particles {
   // particle_life - the lifetime of the particle
   // system_life - the lifetype of the system (0 = infinite)
   // spawn_rate - the amount of particles to spawn per second
+  // prespawn - the amount of time to simulate before initial creation
   float particle_life, system_life;
-  float spawn_rate;
+  float spawn_rate, prespawn;
 
   // time - the internal timer of the particle system
   // spawn_time - the time remaining to next particle spawn
@@ -321,8 +339,8 @@ struct r_particles {
   // sheet - the texture sheet to use (note: only needed for PARTICLE_TEXTURED)
   r_sheet* sheet;
   union {
-    r_anim   anim;
-    uint32_t subtex;
+    r_anim_viewer anim;
+    uint32_t      subtex;
   } render;
 
   // Overall color of the system
@@ -349,7 +367,61 @@ struct r_particles {
   int8_t calculate, type, use_animator, use_spawner;
 };
 
-typedef struct r_ctx r_ctx;
+// typedef struct r_ctx r_ctx;
+
+typedef struct r_ctx {
+  // window - the rendering context's window
+  // camera - the rendering context's camera
+  r_window window;
+  r_camera camera;
+
+  // framebuffer - the window's framebuffer (if opted-in)
+  // resolution - the target resolution for the rendering system
+  r_framebuffer framebuffer;
+  vec2          resolution;
+
+  // default_quad - default quad used to draw things, typically this is created
+  // as 1x1 then expected to be scaled by whatever model matrix
+  r_quad default_quad;
+
+  // modes - glfw representations of available video modes for fullscreen
+  // mode_count - the amount of vide modes available
+  const GLFWvidmode* modes;
+  uint8_t            mode_count;
+
+  // anims - array of cached animations
+  // anim_names - an array of strings naming each animation (by index)
+  // anim_high - the high mark of animations set in cache
+  // anim_count - the amount of animations currently held
+  // anim_capacity - the max amount of animations that can be held
+  r_anim*      anims;
+  char** anim_names;
+  uint16_t     anim_high;
+  uint16_t     anim_count, anim_capacity;
+
+  // shaders - an array of shaders (Kappa)
+  // shader_names - an array of strings naming each shader (by index)
+  // shader_count - the number of shaders currently held
+  // shader_capacity - the max amount of shaders that can be held
+  r_shader*    shaders;
+  char** shader_names;
+  uint8_t     shader_count, shader_capacity;
+
+  // batches - the batches themselves
+  // batch_count - the amount of current batches
+  // batch_capacity - the max amount of current batches
+  // batch_size - the number of sprites each batch can hold
+  r_batch* batches;
+  uint8_t  batch_count, batch_capacity;
+  uint32_t batch_size;
+
+  // input_ctx - a pointer to an input context for glfw callbacks
+  i_ctx* input_ctx;
+
+  // allowed - allow rendering
+  // scaled - whether the resolution has changed
+  uint8_t allowed, scaled;
+} r_ctx;
 
 /* Create a basic version of the window params structure for context creation
  * width - the width of the window
@@ -376,9 +448,9 @@ r_window_params r_window_params_create(uint32_t width, uint32_t height,
  * batch_size - the max amount of sprites to store in each given batch
  * anim_map_size - the amount of animations to allow to be cached / mapped
  * shader_map_size - the amount of shaders to allow to be cached / mapped */
-r_ctx* r_ctx_create(r_window_params params, uint8_t use_fbo,
-                    uint32_t batch_count, uint32_t batch_size,
-                    uint32_t anim_map_size, uint32_t shader_map_size);
+r_ctx* r_ctx_create(r_window_params params,
+                    uint8_t batch_count, uint32_t batch_size,
+                    uint16_t anim_map_size, uint8_t shader_map_size);
 
 /* Get the current set camera for the context */
 r_camera* r_ctx_get_camera(r_ctx* ctx);
@@ -391,17 +463,11 @@ void r_ctx_make_current(r_ctx* ctx);
  * input - the input context to set */
 void r_ctx_set_i_ctx(r_ctx* ctx, i_ctx* input);
 
-/* Set the shader that the context's framebuffer will be rendered with
- * ctx - the context to modify
- * shader - the shader to use
- * TODO: Document fbo shader layout */
-void r_ctx_set_fbo_shader(r_ctx* ctx, r_shader shader);
-
 /* Free all resources related to a specific context */
 void r_ctx_destroy(r_ctx* ctx);
 
-// TODO probably a better description of this
-/* Update the context */
+/* Update the context's resources
+ * Currently just camera_update */
 void r_ctx_update(r_ctx* ctx);
 
 /* Call for the context to draw it's contents */
@@ -440,17 +506,19 @@ void r_quad_destroy(r_quad* quad);
  * i.e FFF = white (255, 255, 255),
  * val - the destination to place the value
  * v - the color value string */
-void r_get_color3f(vec3 val, const char* v);
+void r_get_color3f(vec3 dst, const char* v);
 
 /* Run r_get_color3f and set the alpha to 1.0 */
-void r_get_color4f(vec4 val, const char* v);
+void r_get_color4f(vec4 dst, const char* v);
 
 /* Create an OpenGL Framebuffer & quad to draw it on
  * width - the width in pixels
  * height - the height in pixels
- * shader - the shader program to render it with */
+ * shader - the shader program to render it with
+ * color_only - if the framebuffer should be color only or not
+ * */
 r_framebuffer r_framebuffer_create(uint32_t width, uint32_t height,
-                                   r_shader shader);
+                                   r_shader shader, uint8_t color_only);
 
 /* Destroy the OpenGL Framebuffer and it's quad (the shader is unaffected)
  * fbo - the framebuffer to destroy */
@@ -459,6 +527,9 @@ void r_framebuffer_destroy(r_framebuffer fbo);
 /* Bind a framebuffer for OpenGL to draw to
  * fbo - the framebuffer to bind */
 void r_framebuffer_bind(r_framebuffer fbo);
+
+/* Bind the base window framebuffer for drawing */
+void r_framebuffer_unbind(void);
 
 /* Draw a framebuffer to it's quad
  * ctx - the context to get the gamma parameter from
@@ -482,21 +553,10 @@ void r_tex_bind(uint32_t tex);
  * data - the image data
  * length - the length of the image data
  * sub_sprites - an array of the bounding boxes in pixels for each sub sprite
+ * origins - the origin/center of each sprite to be normalized & rotated by
  * subsprite_count - the number of subsprites in the sub_sprites array */
 r_sheet r_sheet_create(unsigned char* data, uint32_t length, vec4* sub_sprites,
-                       uint32_t subsprite_count);
-
-/* Automatically create sprites by automatically detecting pixel bounds
- * NOTE: Padding between subsprites is highly recommended for this, also this
- * method isn't provento work in higher resolutions
- *
- * data - the image data
- * length - the length of the image data
- * tollerance - the amount of pixels you can go before breaking a subsprite
- *
- * NOTE: CURRENTLY NOT WORKING, TO BE IMPLEMENTED */
-r_sheet r_sheet_create_auto(unsigned char* data, uint32_t length,
-                            uint32_t tollerance);
+                       vec2* origins, uint32_t subsprite_count);
 
 /* Automatically create sprites based on a grid size
  * data - the image data
@@ -510,12 +570,10 @@ r_sheet r_sheet_create_tiled(unsigned char* data, uint32_t length,
                              uint32_t width_pad, uint32_t height_pad);
 
 /* Destroy a texture sheet's OpenGL Buffer & free it's subsprite contents
- *
  * sheet - the sheet to destroy */
 void r_sheet_destroy(r_sheet* sheet);
 
 /* Create a baked sheet (series of quads) to render
- *
  * sheet - the texture sheet you want to use
  * quads - the quads you want to put within the baked_sheet
  * quad_count - the number of quads
@@ -525,10 +583,9 @@ void r_sheet_destroy(r_sheet* sheet);
 r_baked_sheet r_baked_sheet_create(r_sheet* sheet, r_baked_quad* quads,
                                    uint32_t quad_count, vec2 position);
 /* Draw the baked sheet
- *
+ * ctx - the render context to use
  * shader - the shader to use
- * sheet - the baked sheet to draw
- * TODO add uniform spec for drawing  */
+ * sheet - the baked sheet to draw */
 void r_baked_sheet_draw(r_ctx* ctx, r_shader shader, r_baked_sheet* sheet);
 
 /* Destroy a baked sheet
@@ -550,9 +607,19 @@ r_particles r_particles_create(uint32_t emit_rate, float particle_life,
                                int8_t particle_type, int8_t calculate,
                                uint16_t uniform_cap);
 
+/* Get the frame a particle is supposed to show at a given time
+ * system - the system to check against
+ * time - the time of the particle (lifespan) */
+uint32_t r_particles_frame_at(r_particles* system, time_s time);
+
+/* Set a particle system's system properties
+ * lifetime - the max time the system can be alive (0 = forever)
+ * prespawn - the amount of time to simulate before updating */
+void r_particles_set_system(r_particles* system, float lifetime,
+                            float prespawn);
+
 /* Set particle system variables related to individual particles
  * NOTE: vectors can be passed as 0/NULL, and they won't be set
- *
  * system - the particle system to affect
  * color - the color to set particles by default
  * particle_life - the duration of each particle's lifespan in milliseconds
@@ -563,8 +630,10 @@ void r_particles_set_particle(r_particles* system, vec4 color,
                               float particle_life, vec2 particle_size,
                               vec2 particle_velocity);
 
-/* This function uses the assumed uniforms for rendering,
- * TODO add documentation to this bit */
+/* This function uses the assumed uniforms for rendering
+ * ctx - the context to use for rendering
+ * particles - the particle system to draw
+ * shader - the shader to draw the particles with */
 void r_particles_draw(r_ctx* ctx, r_particles* particles, r_shader shader);
 
 /* Set the function to spawn particles with
@@ -596,27 +665,50 @@ void r_particles_update(r_particles* system, time_s delta);
 void r_particles_destroy(r_particles* particles);
 
 /* Set a particle system's default particle animation
- *
  * particles - the particle system to affect
  * anim - the animation to set as default */
-void r_particles_set_anim(r_particles* particles, r_anim anim);
+void r_particles_set_anim(r_particles* particles, r_anim* anim);
 
 /* Set a particle system's default sub texture
- *
  * particles - the particle system to affect
  * sheet - the texture sheet to use
  * subtex - the subtex to set as default */
 void r_particles_set_subtex(r_particles* particles, r_sheet* sheet,
                             uint32_t subtex);
 
-/* Create an animation
+/* Set a particle system's default particle color
+ * particles - the particle system to affect
+ * color - the color of the particle
+ * color_only - if to set the system to only render colored particles */
+void r_particles_set_color(r_particles* particles, vec4 color,
+                           uint8_t color_only);
+
+/* Create an animation viewer from an animation
+ * anim - the animation to view
+ * returns: animation viewer */
+r_anim_viewer r_anim_create_viewer(r_anim* anim);
+
+/* Get the frame at a given time
+ * anim - the anim to check
+ * time - the time to check for
+ * returns: frame at time */
+uint32_t r_anim_frame_at(r_anim* anim, time_s time);
+
+/* Create an animation with a fixed framerate
  * sheet - the sheet to use for the animation
  * frames - the IDs of each subtex (frame)
  * count - the amount of frames
  * rate - the amount of frames to be played per second */
-// TODO check / test if we want fractional frame rates
-r_anim r_anim_create(r_sheet* sheet, uint32_t* frames, uint32_t count,
-                     uint32_t rate);
+r_anim r_anim_create_fixed(r_sheet* sheet, uint32_t* frames, uint32_t count,
+                           uint32_t rate);
+
+/* Create an animation with a dynamic framerate
+ * sheet - the sheet to use for the animation
+ * frames - the IDs of each subtex (frame)
+ * times - the lengths of each frame (milliseconds)
+ * count - the amount of frames */
+r_anim r_anim_create(r_sheet* sheet, uint32_t* frames, time_s* times,
+                     uint32_t count);
 
 /* Free all of the contents for animations
  * NOTE: this doesn't affect any texture buffers */
@@ -654,22 +746,27 @@ r_anim r_anim_remove(r_ctx* ctx, uint32_t id);
 r_anim r_anim_remove_name(r_ctx* ctx, const char* name);
 
 /* Set an animation's state to play */
-void r_anim_play(r_anim* anim);
+void r_anim_play(r_anim_viewer* anim);
 
 /* Set an animation's state to stopped */
-void r_anim_stop(r_anim* anim);
+void r_anim_stop(r_anim_viewer* anim);
 
 /* Set an animation's state to paused */
-void r_anim_pause(r_anim* anim);
+void r_anim_pause(r_anim_viewer* anim);
 
 /* Reset an animation's state & time */
-void r_anim_reset(r_anim* anim);
+void r_anim_reset(r_anim_viewer* anim);
 
 /* Create a sprite to draw
  * shader - the shader program to draw it with
  * pos - the position of the sprite
  * size - the size of the sprite in units */
 r_sprite r_sprite_create(r_shader shader, vec2 pos, vec2 size);
+
+/* Move a sprite by distance 
+ * sprite - sprite to move
+ * dist - the distance to move */
+void r_sprite_move(r_sprite* sprite, vec2 dist);
 
 /* Create a subtexture in a sheet based on a tilesheet  */
 r_subtex* r_subtex_create_tiled(r_sheet* sheet, uint32_t id, uint32_t width,
@@ -684,10 +781,18 @@ r_subtex* r_subtex_create_tiled(r_sheet* sheet, uint32_t id, uint32_t width,
 r_subtex* r_subtex_create(r_sheet* sheet, uint32_t x, uint32_t y,
                           uint32_t width, uint32_t height);
 
+/* Set useful values of the sprite
+ * sprite - the sprite to modify
+ * layer - the layer of the sprite
+ * flip_x - if to flip the sprite on the X Axis
+ * flip_y - if to flip the sprite on the Y Axis */
+void r_sprite_set(r_sprite* sprite, uint8_t layer, uint8_t flip_x,
+                  uint8_t flip_y);
+
 /* Set a sprite to draw an animation
  * sprite - the sprite to affect
  * anim - the animation to set it to draw */
-void r_sprite_set_anim(r_sprite* sprite, r_anim anim);
+void r_sprite_set_anim(r_sprite* sprite, r_anim* anim);
 
 /* Set a sprite's texture
  * sprite - the sprite to affect
@@ -704,6 +809,13 @@ void r_sprite_update(r_sprite* sprite, long delta);
  * ctx - the context to draw the sprite in
  * sprite - the sprite to draw */
 void r_sprite_draw(r_ctx* ctx, r_sprite* sprite);
+
+/* Call for multiple sprites to be drawn
+ * ctx - the context to draw the sprites in
+ * sprites - the list of sprites
+ * sprite_count - the number of sprites 
+ * returns: sprites drawn successfully */
+uint32_t r_sprites_draw(r_ctx* ctx, r_sprite* sprites, uint32_t sprite_count);
 
 /* Get the current state of a sprite's animation
  * sprite - the sprite to check
@@ -737,7 +849,7 @@ void r_camera_update(r_camera* camera);
 /* Move a camera by distance
  * camera - the camera to move
  * dist - the distance to move the camera */
-void r_camera_move(r_camera* camera, vec3 dist);
+void r_camera_move(r_camera* camera, vec2 dist);
 
 /* Get the camera's size
  * camera - the camera to get the size of
@@ -749,16 +861,39 @@ void r_camera_get_size(vec2 dst, r_camera* camera);
  * size - the size to set the camera to */
 void r_camera_set_size(r_camera* camera, vec2 size);
 
-/* dst is the vector to store the worldpsace to
+/* Set the camera's position
+ * camera - the camera to set
+ * position - the position to set the camera to */
+void r_camera_set_position(r_camera* camera, vec2 position);
+
+/* Get the camera's position
+ * camera - the camera to check
+ * dst - the destination of the position */
+void r_camera_get_position(r_camera* camera, vec2 dst);
+
+/* Center the camera to a given point in worldspace
+ * camera - the camera to set
+ * point - the point to center to */
+void r_camera_center_to(r_camera* camera, vec2 point);
+
+/* Translate a point on screen to world space based on the camera
  * camera is the camera to translate the point from
- * point is the point within the camera [0,1] on each axis */
+ * point is the point within the camera [0,1] on each axis
+ * returns the vector to store the worldpsace to */
 void r_camera_screen_to_world(vec2 dst, r_camera* camera, vec2 point);
 
-/* dst is the vector to store the screenspace point to
+/* Translate a position from world to screen space
  * (translated to 0...1 scale of camera size)
  * camera is the camera to translate the point from
- * point is the point in worldspace to translate */
-void r_camera_screen_to_world(vec2 dst, r_camera* camera, vec2 point);
+ * point is the point in worldspace to translate
+ * returns: the screenspace point */
+void r_camera_world_to_screen(vec2 dst, r_camera* camera, vec2 point);
+
+/* Translate a size to screen scale
+ * dst - destination of the screen scale
+ * camera - camer ato check
+ * size - the raw (px) size to convert */
+void r_camera_size_to_screen(vec2 dst, r_camera* camera, vec2 size);
 
 /* vert - the vertex shader program's data
  * frag - the fragment shader program's data */
@@ -775,22 +910,188 @@ void r_shader_destroy(r_ctx* ctx, r_shader shader);
 /* Add a shader to the context's cache */
 void r_shader_cache(r_ctx* ctx, r_shader shader, const char* name);
 
+/* Set a float uniform
+ * NOTE: this does not bind the shader
+ * shader - shader to get uniform location from
+ * name - the name of the uniform
+ * value - the value to set */
 void r_set_uniformf(r_shader shader, const char* name, float value);
+
+/* Set an integer uniform
+ * NOTE: this does not bind the shader
+ * shader - shader to get uniform location from
+ * name - the name of the uniform
+ * value - the value to set */
 void r_set_uniformi(r_shader shader, const char* name, int value);
+
+/* Set a vec4 uniform
+ * NOTE: this does not bind the shader
+ * shader - shader to get uniform location from
+ * name - the name of the uniform
+ * value - the value to set */
 void r_set_v4(r_shader shader, const char* name, vec4 value);
+
+/* Set a vec3 uniform
+ * NOTE: this does not bind the shader
+ * shader - shader to get uniform location from
+ * name - the name of the uniform
+ * value - the value to set */
 void r_set_v3(r_shader shader, const char* name, vec3 value);
+
+/* Set a vec2 uniform
+ * NOTE: this does not bind the shader
+ * shader - shader to get uniform location from
+ * name - the name of the uniform
+ * value - the value to set */
 void r_set_v2(r_shader shader, const char* name, vec2 value);
+
+/* Set a mat4 uniform
+ * NOTE: this does not bind the shader
+ * shader - shader to get uniform location from
+ * name - the name of the uniform
+ * value - the value to set */
 void r_set_m4(r_shader shader, const char* name, mat4x4 value);
 
+/* Set a float uniform by location
+ * NOTE: this does not bind the shader
+ * loc - the location of the uniform
+ * value - the value to set */
+void r_set_uniformfi(int loc, float value);
+
+/* Set an integer uniform by location
+ * NOTE: this does not bind the shader
+ * loc - the location of the uniform
+ * value - the value to set */
+void r_set_uniformii(int loc, int value);
+
+/* Set a vec4 uniform by location
+ * NOTE: this does not bind the shader
+ * loc - the location of the uniform
+ * value - the value to set */
+void r_set_v4i(int loc, vec4 value);
+
+/* Set a vec3 uniform by location
+ * NOTE: this does not bind the shader
+ * loc - the location of the uniform
+ * value - the value to set */
+void r_set_v3i(int loc, vec3 value);
+
+/* Set a vec2 uniform by location
+ * NOTE: this does not bind the shader
+ * loc - the location of the uniform
+ * value - the value to set */
+void r_set_v2i(int loc, vec2 value);
+
+/* Set a mat4 uniform by location
+ * NOTE: this does not bind the shader
+ * loc - the location of the uniform
+ * value - the value to set */
+void r_set_m4i(int loc, mat4x4 value);
+
+/* Get the location of a uniform in a shader
+ * NOTE: this does not bind the shader
+ * shader - the shader to check
+ * name - the name of the uniform
+ * returns: the location of the uniform */
+int r_get_loc(r_shader shader, const char* name);
+
+/* Set a mat4 uniform array
+ * NOTE: this does not bind the shader
+ * shader - the shader to use
+ * count - the number of elements in the array
+ * name - the name of the uniform
+ * values - the array of mat4's */
 void r_set_m4x(r_shader shader, uint32_t count, const char* name,
                mat4x4* values);
+
+/* Set an integer uniform array
+ * NOTE: this does not bind the shader
+ * shader - the shader to use
+ * count - the number of elements in the array
+ * name - the name of the uniform
+ * values - the array of integers */
 void r_set_ix(r_shader shader, uint32_t count, const char* name, int* values);
+
+/* Set a float uniform array
+ * NOTE: this does not bind the shader
+ * shader - the shader to use
+ * count - the number of elements in the array
+ * name - the name of the uniform
+ * values - the array of floats */
 void r_set_fx(r_shader shader, uint32_t count, const char* name, float* values);
+
+/* Set a vec2 uniform array
+ * NOTE: this does not bind the shader
+ * shader - the shader to use
+ * count - the number of elements in the array
+ * name - the name of the uniform
+ * values - the array of vec2's */
 void r_set_v2x(r_shader shader, uint32_t count, const char* name, vec2* values);
+
+/* Set a vec3 uniform array
+ * NOTE: this does not bind the shader
+ * shader - the shader to use
+ * count - the number of elements in the array
+ * name - the name of the uniform
+ * values - the array of vec3's */
 void r_set_v3x(r_shader shader, uint32_t count, const char* name, vec3* values);
+
+/* Set a vec4 uniform array
+ * NOTE: this does not bind the shader
+ * shader - the shader to use
+ * count - the number of elements in the array
+ * name - the name of the uniform
+ * values - the array of vec4's */
 void r_set_v4x(r_shader shader, uint32_t count, const char* name, vec4* values);
 
+/* Set a mat4 uniform array by location
+ * NOTE: this does not bind the shader
+ * loc - the location of the uniform
+ * count - the number of elements in the array
+ * values - the array of mat4's */
+void r_set_m4xi(int loc, uint32_t count, mat4x4* values);
+
+/* Set a float uniform array by location
+ * NOTE: this does not bind the shader
+ * loc - the location of the uniform
+ * count - the number of elements in the array
+ * values - the array of floats */
+void r_set_fxi(int loc, uint32_t count, float* values);
+
+/* Set an integer uniform array by location
+ * NOTE: this does not bind the shader
+ * loc - the location of the uniform
+ * count - the number of elements in the array
+ * values - the array of integers */
+void r_set_ixi(int loc, uint32_t count, int* values);
+
+/* Set a vec2 uniform array by location
+ * NOTE: this does not bind the shader
+ * loc - the location of the uniform
+ * count - the number of elements in the array
+ * values - the array of vec2's */
+void r_set_v2xi(int loc, uint32_t count, vec2* values);
+
+/* Set a vec3 uniform array by location
+ * NOTE: this does not bind the shader
+ * loc - the location of the uniform
+ * count - the number of elements in the array
+ * values - the array of vec3's */
+void r_set_v3xi(int loc, uint32_t count, vec3* values);
+
+/* Set a vec4 uniform array by location
+ * NOTE: this does not bind the shader
+ * loc - the location of the uniform
+ * count - the number of elements in the array
+ * values - the array of vec4's */
+void r_set_v4xi(int loc, uint32_t count, vec4* values);
+
 void r_window_get_size(r_ctx* ctx, int32_t* w, int32_t* h);
+
+/* Get the GLFW window handle for the render context
+ * ctx - the render context to check
+ * returns: glfw window handle */
+GLFWwindow* r_window_get_glfw(r_ctx* ctx);
 
 uint8_t r_get_videomode_str(r_ctx* ctx, char* dst, uint8_t index);
 uint8_t r_select_mode(r_ctx* ctx, uint8_t index, int8_t fullscreen,
@@ -817,6 +1118,7 @@ uint8_t r_window_is_resizable(r_ctx* ctx);
 void    r_window_swap_buffers(r_ctx* ctx);
 void    r_window_clear(void);
 void    r_window_clear_color(const char* str);
+void    r_window_clear_color_empty(void);
 
 /* Get the gamma value for the current window
  * ctx - the context containing the window

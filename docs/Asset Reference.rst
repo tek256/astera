@@ -17,3 +17,23 @@ Macros
 
 None currently.
 
+
+PAK File Type
+^^^^^^^^^^^^^
+
+Astera writes its own version of PAK files, these files follow this outline:
+
+.. code-block:: c
+
+  /* HEADER LAYOUT (bytes)
+   * 0 - ID
+   * 4 - count
+   * 8 - file_size (bytes)
+   * 12 - checksum (64-bit)
+   *
+   * FILE LAYOUT (bytes)
+   * 0  - pack_header_t
+   * 20 - entries (* count)
+   * n  - start of files */
+
+

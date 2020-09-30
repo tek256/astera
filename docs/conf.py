@@ -21,7 +21,7 @@ copyright = '2020, Devon (tek256)'
 author = 'Devon (tek256)'
 
 # The full version, including alpha/beta/rc tags
-release = '0.01'
+release = '1.0-PRE'
 
 
 # -- General configuration ---------------------------------------------------

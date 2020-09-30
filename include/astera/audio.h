@@ -1,13 +1,7 @@
-// POSSIBLE CHANGES
-// TODO maybe patch to automatically track/delete all effects created
-//       (ref: a_exit)
-// Linux: You probably want pulseaudio-devel, alsa-devel, and alsa-oss, maybe
-// SDL2 for that audio backend
-// TODO Filters
-// TODO Harden decoding of Vorbis/OGG (maybe ask Sean)?
-
-#ifndef ASTERA_ASTERA_HEADER
+#ifndef ASTERA_ASTERA_HEADER 
 #define ASTERA_ASTERA_HEADER
+
+#ifndef __APPLE__
 
 #ifdef __cplusplus
 extern "C" {
@@ -17,9 +11,16 @@ extern "C" {
 #include <astera/linmath.h>
 #include <stdint.h>
 
-#define AL_LIBTYPE_STATIC
-#include <AL/alc.h>
-#include <AL/al.h>
+// NOTE: These are relative includes for portability's sake
+//       the cmake find_package exports them as relative so it'll work
+//       cross platform as expected
+#if defined(__APPLE__)
+  #include <OpenAL/alc.h>
+  #include <OpenAL/al.h>
+#else
+  #include "alc.h"
+  #include "al.h"
+#endif /* defined(__APPLE__) */
 
 #define STB_VORBIS_HEADER_ONLY
 #include <stb_vorbis.c>
@@ -47,12 +48,11 @@ typedef struct {
 } a_buf;
 
 typedef enum {
-  NONE   = 0x0000,
-  REVERB = 0x0001,
-  EQ     = 0x000C,
+  FX_NONE   = 0x0000,
+  FX_REVERB = 0x0001,
+  FX_EQ     = 0x000C,
 } a_fx_type;
 
-// TODO Filter / Delay effects
 typedef struct {
   float  density;               // [0.0, 1.0],   default 1.0
   float  diffusion;             // [0.0, 1.0],   default 1.0
@@ -85,7 +85,9 @@ typedef struct {
 typedef struct {
   uint16_t id;
 
+  // AL effect ID
   uint32_t effect_id;
+  // AL auxiliary effect slot ID
   uint32_t slot_id;
 
   float gain;
@@ -95,9 +97,9 @@ typedef struct {
 } a_fx;
 
 typedef enum {
-  LOW  = 0x0001,
-  HIGH = 0x0002,
-  BAND = 0x0003,
+  FILTER_LOW  = 0x0001,
+  FILTER_HIGH = 0x0002,
+  FILTER_BAND = 0x0003,
 } a_filter_type;
 
 typedef struct {
@@ -146,8 +148,9 @@ typedef struct {
 
   // loop - if the sound/song should loop (1 = true, 0 = false)
   // stop - if the sound/song should stop (1 = true, 0 = false)
+  // destroy - if the sound/song should be destroyed (1 = true, 0 = false)
   uint8_t loop;
-  uint8_t stop;
+  uint8_t stop, destroy;
 
   // OBSERVATIONAL:
   // these variables are updated in real time for observation
@@ -157,7 +160,8 @@ typedef struct {
   // state - the current state of the sound/song
   uint16_t loop_count;
   time_s   time;
-  uint8_t  state, valid;
+  int8_t   valid;
+  int32_t  state;
 } a_req;
 
 typedef struct {
@@ -220,24 +224,17 @@ typedef struct {
 } a_sfx;
 
 typedef struct {
-  // ID is also considered it's index
   uint16_t id;
 
+  const char* name;
+
+  uint32_t *sfx, *songs;
+
+  uint32_t sfx_count, sfx_capacity;
+  uint32_t song_count, song_capacity;
+
   float gain;
-
-  a_sfx**  sfx;
-  a_song** songs;
-
-  uint16_t sfx_count, sfx_capacity;
-  uint16_t song_count, song_capacity;
-
-  uint8_t gain_change;
 } a_layer;
-
-// TODO define more errors for accurate feedback / debugging
-typedef enum {
-  ASTERA_NO_ERROR = 0,
-} a_error;
 
 typedef struct {
   // context - the OpenAL-Soft Context
@@ -264,15 +261,6 @@ typedef struct {
   a_sfx*   sfx;
   uint16_t sfx_count, sfx_capacity, sfx_high;
 
-  // layers - the list of audio layers
-  // layer_names - a list of names for the layers
-  // layer_count - the current amount of layers in the list
-  // layer_capacity - the max amount of layers
-  // layer_high - the high water mark for layers in the layer list
-  a_layer*     layers;
-  const char** layer_names;
-  uint16_t     layer_count, layer_capacity, layer_high;
-
   // buffers - the list of audio buffers (sounds / raw data)
   // buffer_names - a list of names for audio buffers in the list
   // buffer_count - the current amount of buffers in the list
@@ -287,13 +275,13 @@ typedef struct {
   // fx_capacity - the max amount of effects
   // fx_high - the high water mark for the effects in the list
   a_fx*    fx_slots;
-  uint16_t fx_count, fx_capacity, fx_high;
+  uint16_t fx_count, fx_capacity;
 
   a_filter* filter_slots;
-  uint16_t  filter_count, filter_capacity, filter_high;
+  uint16_t  filter_count, filter_capacity;
 
-  // max_fx - the OpenAL defined max FX
   // fx_per_source - the OpenAL Defined max FX per source
+  // max_fx - the OpenAL defined max FX
   uint16_t fx_per_source, max_fx;
 
   uint8_t resizable; // allow for dynamic resizing of arrays
@@ -305,6 +293,9 @@ typedef struct {
   // pcm_index - the index of the last element in the pcm
   uint16_t* pcm;
   uint32_t  pcm_length, pcm_index;
+
+  a_layer* layers;
+  uint16_t layer_count, layer_capacity;
 
   // error - the last error value set
   int32_t error;
@@ -319,13 +310,6 @@ void a_efx_info(a_ctx* ctx);
  * string_length - a pointer to set to the length of the returned string
  * returns: a pointer to the string */
 const char* a_ctx_get_device(a_ctx* ctx, uint8_t* string_length);
-
-/* Change the device OpenAL is targetting TODO Implement this maybe
- * NOTE: This is hard to implement since OpenAL isn't device independent, so
- * it'd require rebuffering of everything before destruction of the initial
- * context aka double memory / streamed memory, OR reaccessing all files, which
- * is a pain in the ass.
-uint8_t a_ctx_set_device(a_ctx* ctx, const char* device_name); */
 
 /* Check if the context is allowing playback
  * returns 1 = yes, 0 = no */
@@ -349,14 +333,6 @@ uint8_t a_ctx_destroy(a_ctx* ctx);
 /* Update the Audio Context
  * ctx - the context to update */
 void a_ctx_update(a_ctx* ctx);
-
-/* Create a layer to manage various audio resources
- * name - the name of the layer
- * max_sfx - the max amount of sfx for the layer to manage
- * max_songs - the max amount of songs for the layer to manage
- * returns: the ID of the layer (non-zero, 0 = error) */
-uint16_t a_ctx_layer_create(a_ctx* ctx, const char* name, uint16_t max_sfx,
-                            uint16_t max_songs);
 
 /* Queue up a SFX to play
  * ctx - the context to play the SFX within
@@ -389,46 +365,6 @@ uint8_t a_sfx_pause(a_ctx* ctx, uint16_t sfx_id);
  * sfx_id - the ID of the SFX returned when played
  * returns: success = 1, fail = 0 */
 uint8_t a_sfx_resume(a_ctx* ctx, uint16_t sfx_id);
-
-/* Get the ID of a layer by name
- * ctx - the context to search for the layer
- * name - the name of the layer
- * returns: the ID of the layer (non-zero, 0 = error) */
-uint16_t a_layer_get_id(a_ctx* ctx, const char* name);
-
-/* Set the gain of a layer & update it's contents to reflect that
- * ctx - the context containing the layer
- * layer_id - the ID of the layer
- * gain - the gain of the layer
- * returns: 1 = success, 0 = fail */
-uint8_t a_layer_set_gain(a_ctx* ctx, uint16_t layer_id, float gain);
-
-/* Get the gain of a layer
- * ctx - the context containing the layer
- * layer_id - the ID of the layer
- * returns: the gain of the layer */
-float a_layer_get_gain(a_ctx* ctx, uint16_t layer_id);
-
-/* Add a song to be managed by a layer
- * ctx - the context containing both the song and layer
- * layer_id - the ID of the layer returned on creation
- * song_id - the ID of the song returned on creation */
-uint8_t a_layer_add_song(a_ctx* ctx, uint16_t layer_id, uint16_t song_id);
-
-/* Add a sound effect to be managed by a layer
- * layer_id - the ID of the layer returned on creation
- * sfx_id - the ID of the sound effect returned on creation */
-uint8_t a_layer_add_sfx(a_ctx* ctx, uint16_t layer_id, uint16_t sfx_id);
-
-/* Remove a song from a layer
- * layer_id - the ID of the layer returned on creation
- * song_id - the ID of the song returned on creation */
-uint8_t a_layer_remove_song(a_ctx* ctx, uint16_t layer_id, uint16_t song_id);
-
-/* Remove a sound effect from a layer
- * layer_id - the ID of the layer returned on creation
- * sfx_id - the ID of the sfx returned on creation */
-uint8_t a_layer_remove_sfx(a_ctx* ctx, uint16_t layer_id, uint16_t sfx_id);
 
 /* Create a song
  * ctx - the context to create the song within
@@ -560,9 +496,9 @@ float a_listener_get_gain(a_ctx* ctx);
 void a_listener_get_pos(a_ctx* ctx, vec3 dst);
 
 /* Get the listener orientation
- * TODO document orientation vectors (up, at)
  * ctx - the context to check
- * dst - the array to store the data in (minimum size of 6 floats) */
+ * dst - the array to store the data in
+ *       (minimum size of 6 floats, at[3],up[3]) */
 void a_listener_get_ori(a_ctx* ctx, float dst[6]);
 
 /* Get the listener velocity
@@ -641,7 +577,6 @@ a_fx* a_fx_get_slot(a_ctx* ctx, uint16_t fx_id);
 a_fx_reverb a_fx_reverb_default(void);
 
 /* Create an instance of the reverb effect
- * TODO: Document variable names
  * returns: the formatted reverb effect structure */
 a_fx_reverb a_fx_reverb_create(float density, float diffusion, float gain,
                                float gainhf, float decay, float decay_hfratio,
@@ -651,7 +586,6 @@ a_fx_reverb a_fx_reverb_create(float density, float diffusion, float gain,
                                float room_rolloff_factor, int8_t decay_hflimit);
 
 /* Create an instance of the EQ effect
- * TODO: Document the variable names
  * returns: the formatted EQ effect structure */
 a_fx_eq a_fx_eq_create(float low_gain, float low_cutoff, float mid1_gain,
                        float mid1_center, float mid1_width, float mid2_gain,
@@ -688,7 +622,72 @@ uint8_t a_filter_destroy(a_ctx* ctx, uint16_t filter_id);
  * returns: the filter slot */
 a_filter* a_filter_get_slot(a_ctx* ctx, uint16_t filter_id);
 
+/* Create a layer to hold resources and modify them in groups
+ * ctx - the audio context to use
+ * name - the name of the layer
+ * max_sfx - the max amount of sfx to hold in the layer
+ * max_songs - the max amount of songs to hold in the layer
+ * returns: layer_id (non-zero, 0 = fail) */
+uint16_t a_layer_create(a_ctx* ctx, const char* name, uint32_t max_sfx,
+                        uint32_t max_songs);
+
+/* Get the layer ID of a layer by name
+ * ctx - the context to check
+ * name - the name of the layer
+ * returns: layer_id (non-zero, 0 = fail) */
+uint16_t a_layer_get_id(a_ctx* ctx, const char* name);
+
+/* Destroy a layer (NOTE: will not free resources in the layer)
+ * ctx - the context to check
+ * layer_id - the id of the layer
+ * returns: 1 = success, 0 = fail */
+uint8_t a_layer_destroy(a_ctx* ctx, uint16_t layer_id);
+
+/* Add an sfx to a layer
+ * ctx - the context to use
+ * layer_id - the ID of the layer to modify
+ * sfx_id - the ID of the sfx to add
+ * returns: 1 = success, 0 = fail */
+uint8_t a_layer_add_sfx(a_ctx* ctx, uint16_t layer_id, uint16_t sfx_id);
+
+/* Add a song to a layer
+ * ctx - the context to use
+ * layer_id - the ID of the layer to modify
+ * song_id - the ID of the song to add
+ * returns: 1 = success, 0 = fail */
+uint8_t a_layer_add_song(a_ctx* ctx, uint16_t layer_id, uint16_t song_id);
+
+/* Remove an sfx from a layer
+ * ctx - the context to use
+ * layer_id - the ID of the layer to modify
+ * song_id - the ID of the song to add
+ * returns: 1 = success, 0 = fail */
+uint8_t a_layer_remove_sfx(a_ctx* ctx, uint16_t layer_id, uint16_t sfx_id);
+
+/* Remove a song from a layer
+ * ctx - the context to use
+ * layer_id - the ID of the layer to modify
+ * song_id - the ID of the song to add
+ * returns: 1 = success, 0 = fail */
+uint8_t a_layer_remove_song(a_ctx* ctx, uint16_t layer_id, uint16_t song_id);
+
+/* Set the gain of the layer & all its resources
+ * ctx - the context containing the layer
+ * layer_id - the ID of the layer to affect
+ * gain - the gain of the layer
+ * return: 1 = success, 0 = fail */
+uint8_t a_layer_set_gain(a_ctx* ctx, uint16_t layer_id, float gain);
+
+/* Get the gain of a layer
+ * ctx - the context containing the layer
+ * layer_id - the ID of the layer
+ * returns: the gain of the layer, -1.f if not found */
+float a_layer_get_gain(a_ctx* ctx, uint16_t layer_id);
+
+
 #ifdef __cplusplus
 }
+#endif
+
 #endif
 #endif
