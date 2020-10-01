@@ -22,6 +22,10 @@ NOTE: This section only exists for `-PRE` versions.
 ```
 - Removing OpenAL in favor of MiniAudio
 - Adding CRC32 intrinsic & software versions
+- More accurate & in depth documentation
+- Collision resolution debugging
+- Complex collision detection & resolution
+- Clean up code warnings
 ```
 
 ### Target Platforms
@@ -36,7 +40,7 @@ Here are the target platforms for this library:
 _NOTE: I'm always open to adding more target platforms!_
 
 ### Libraries Used
-[GLFW](https://github.com/glfw/glfw), [GLAD](https://github.com/Dav1dde/glad), [STB](https://github.com/nothings/stb/) Image & Vorbis, [nanovg](https://github.com/memononen/nanovg), and [xxhash](https://github.com/Cyan4973/xxHash).
+[GLFW](https://github.com/glfw/glfw), [GLAD](https://github.com/Dav1dde/glad), [STB](https://github.com/nothings/stb/) Image & Vorbis, [nanovg](https://github.com/memononen/nanovg).
 
 ### Building
 Astera and it's dependencies are built using CMake. You can run your own CMake command or try using one of the automated build scripts (they're located in the `tools/` folder).

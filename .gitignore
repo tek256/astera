@@ -5,6 +5,9 @@
 .swp
 :w
 
+# VSCode
+.vscode/
+
 # Build files
 build/
 CMakeCache.txt
