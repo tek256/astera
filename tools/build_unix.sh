@@ -1,5 +1,7 @@
 #!/bin/sh
 
+# This is meant to be run from the tools directory (astera/tools)
+
 # Stop if something fails
 set -e
 

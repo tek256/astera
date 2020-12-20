@@ -425,7 +425,7 @@ r_ctx* r_ctx_create(r_window_params params, uint8_t batch_count,
   }
 
   if (anim_map_size > 0) {
-    ctx->anim_names = (const char**)malloc(sizeof(char*) * anim_map_size);
+    ctx->anim_names = (char**)malloc(sizeof(char*) * anim_map_size);
     ctx->anims      = (r_anim*)malloc(sizeof(r_anim) * anim_map_size);
   } else {
     ctx->anim_names = 0;
@@ -437,7 +437,7 @@ r_ctx* r_ctx_create(r_window_params params, uint8_t batch_count,
 
   if (shader_map_size > 0) {
     ctx->shaders      = (r_shader*)malloc(sizeof(r_shader) * shader_map_size);
-    ctx->shader_names = (const char**)malloc(sizeof(char*) * shader_map_size);
+    ctx->shader_names = (char**)malloc(sizeof(char*) * shader_map_size);
   } else {
     ctx->shaders      = 0;
     ctx->shader_names = 0;
@@ -775,8 +775,8 @@ r_sheet r_sheet_create(unsigned char* data, uint32_t length, vec4* sub_sprites,
     return (r_sheet){0};
   }
   // Load the texture data
-  int32_t w, h, ch;
-  int32_t id;
+  int32_t  w, h, ch;
+  uint32_t id;
 
   unsigned char* img = stbi_load_from_memory(data, length, &w, &h, &ch, 0);
 
@@ -809,8 +809,8 @@ r_sheet r_sheet_create_tiled(unsigned char* data, uint32_t length,
   }
 
   // Load the texture data
-  int32_t w, h, ch;
-  int32_t id;
+  int32_t  w, h, ch;
+  uint32_t id;
 
   unsigned char* img = stbi_load_from_memory(data, length, &w, &h, &ch, 0);
 
@@ -1537,7 +1537,7 @@ void r_shader_destroy(r_ctx* ctx, r_shader shader) {
   glDeleteProgram(shader);
 
   int8_t start = 0;
-  for (uint32_t i = 0; i < ctx->shader_count - 1; ++i) {
+  for (uint8_t i = 0; i < ctx->shader_count - 1; ++i) {
     if (ctx->shaders[i] == shader) {
       start = 1;
     }
@@ -2105,15 +2105,135 @@ void r_window_get_size(r_ctx* ctx, int* w, int* h) {
   *h = ctx->window.params.height;
 }
 
-uint8_t r_get_videomode_str(r_ctx* ctx, char* dst, uint8_t index) {
+uint8_t r_window_set_size(r_ctx* ctx, uint32_t width, uint32_t height) {
+  if (ctx->window.params.fullscreen) {
+    return 0;
+  }
+
+  glfwSetWindowSize(ctx->window.glfw, width, height);
+
+  return 1;
+}
+
+GLFWvidmode* r_get_vidmodes_by_usize(r_ctx* ctx, uint8_t* count) {
+  if (!ctx)
+    return 0;
+
+  uint16_t     ucount = 0, ucapacity = 8;
+  GLFWvidmode* umodes = calloc(sizeof(GLFWvidmode), ucapacity);
+  for (uint16_t i = 0; i < ctx->mode_count; ++i) {
+    GLFWvidmode current_mode = ctx->modes[i];
+    uint8_t     contained    = 0;
+
+    for (uint16_t j = 0; j < ucount; ++j) {
+      if (umodes[j].width == current_mode.width &&
+          umodes[j].height == current_mode.height) {
+        contained = 1;
+        break;
+      }
+    }
+
+    if (!contained) {
+      if (ucount == ucapacity) {
+        umodes = (GLFWvidmode*)realloc(umodes,
+                                       sizeof(GLFWvidmode) * (ucapacity + 8));
+        ucapacity += 8;
+      }
+
+      umodes[ucount] = current_mode;
+      ucount++;
+    }
+  }
+
+  if (ucount < ucapacity) {
+    umodes = (GLFWvidmode*)realloc(umodes, sizeof(GLFWvidmode) * ucount);
+  }
+
+  if (count)
+    *count = ucount;
+
+  return umodes;
+}
+
+GLFWvidmode* r_get_vidmode_options(r_ctx* ctx, uint8_t* count, uint32_t width,
+                                   uint32_t height) {
+  if (!ctx)
+    return 0;
+
+  uint8_t unique = 0;
+  for (uint8_t i = 0; i < ctx->mode_count; ++i) {
+    GLFWvidmode current_mode = ctx->modes[i];
+    if (current_mode.width == width && current_mode.height == height)
+      ++unique;
+  }
+
+  if (!unique)
+    return 0;
+
+  GLFWvidmode* modes      = (GLFWvidmode*)calloc(sizeof(GLFWvidmode), unique);
+  uint8_t      mode_index = 0;
+
+  for (uint8_t i = 0; i < ctx->mode_count; ++i) {
+    GLFWvidmode current_mode = ctx->modes[i];
+    if (current_mode.width == width && current_mode.height == height) {
+      modes[mode_index] = current_mode;
+      ++mode_index;
+    }
+  }
+
+  if (count)
+    *count = unique;
+
+  return modes;
+}
+
+int16_t r_get_vidmode_index(r_ctx* ctx, uint32_t width, uint32_t height,
+                            uint8_t refresh_rate) {
+  if (!ctx)
+    return -1;
+
+  for (uint8_t i = 0; i < ctx->mode_count; ++i) {
+    GLFWvidmode current_mode = ctx->modes[i];
+    if (current_mode.width == width && current_mode.height == height) {
+      if (refresh_rate) {
+        if (current_mode.refreshRate == refresh_rate) {
+          return i;
+        }
+      } else {
+        return i;
+      }
+    }
+  }
+
+  return -1;
+}
+
+uint8_t r_get_vidmode_str_simplei(r_ctx* ctx, char* dst, uint8_t index) {
   if (index >= ctx->mode_count) {
     index = 0;
   }
 
   index = (ctx->mode_count - 1) - index;
+  return (uint8_t)r_get_vidmode_str_simple(dst, ctx->modes[index]);
+}
+
+uint8_t r_get_vidmode_str_simple(char* dst, GLFWvidmode mode) {
+  int str_len = sprintf(dst, "%i x %i", mode.width, mode.height);
+  return (uint8_t)str_len;
+}
+
+uint8_t r_get_vidmode_stri(r_ctx* ctx, char* dst, uint8_t index) {
+  if (index >= ctx->mode_count) {
+    index = 0;
+  }
+
+  index = (ctx->mode_count - 1) - index;
+  return r_get_vidmode_str(dst, ctx->modes[index]);
+}
+
+uint8_t r_get_vidmode_str(char* dst, GLFWvidmode mode) {
   int str_len =
-      sprintf(dst, "%ix%i@%i", ctx->modes[index].width,
-              ctx->modes[index].height, ctx->modes[index].refreshRate);
+      sprintf(dst, "%ix%i@%i", mode.width, mode.height, mode.refreshRate);
   return (uint8_t)str_len;
 }
 

@@ -61,7 +61,9 @@ static LPALGETAUXILIARYEFFECTSLOTFV   alGetAuxiliaryEffectSlotfv;
 
 static inline float _a_clamp(float value, float min, float max, float def) {
   return (value == -1.f) ? def
-                         : (value < min) ? min : (value > max) ? max : value;
+         : (value < min) ? min
+         : (value > max) ? max
+                         : value;
 }
 
 static float a_sfx_get_source_gain(a_ctx* ctx, uint16_t source) {
@@ -1418,7 +1420,7 @@ uint16_t a_buf_create(a_ctx* ctx, unsigned char* data, uint32_t data_length,
     int32_t   format, sample_rate, channels;
 
     int32_t byte_length = stb_vorbis_decode_memory(data, data_length, &channels,
-                                                   &sample_rate, &pcm);
+                                                   &sample_rate, (short**)&pcm);
 
     format = (channels > 1) ? AL_FORMAT_STEREO16 : AL_FORMAT_MONO16;
 
@@ -1435,7 +1437,7 @@ uint16_t a_buf_create(a_ctx* ctx, unsigned char* data, uint32_t data_length,
     // int32_t byte_rate   = _a_load_int32(data, 28);
     int32_t bps = _a_load_int16(data, 34);
 
-    if (strncmp(&data[36], "data", 4) != 0) {
+    if (strncmp((const char*)&data[36], "data", 4) != 0) {
       return 0;
     }
 
@@ -1476,7 +1478,7 @@ uint8_t a_buf_destroy(a_ctx* ctx, uint16_t buf_id) {
   }
 
   a_buf* buffer = &ctx->buffers[buf_id - 1];
-  alDeleteBuffers(1, buffer->buf);
+  alDeleteBuffers(1, (const ALuint*)&buffer->buf);
   buffer->buf = 0;
 
   return 1;

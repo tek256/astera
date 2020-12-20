@@ -124,7 +124,7 @@ uint32_t s_strnify(char* dst, uint32_t dst_capacity, const char* src,
  * str_length - the length of the source string
  * returns: new length of string */
 uint32_t s_destrnify(char* dst, uint32_t dst_capacity, const char* src,
-                  uint32_t str_length);
+                     uint32_t str_length);
 
 /* Create string buffer with a size of capacity
  * capacity - the capacity of the buffer in characters

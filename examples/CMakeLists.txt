@@ -7,13 +7,10 @@ string(CONCAT opengl-deprecation $<AND:
   $<VERSION_LESS:${CMAKE_SYSTEM_VERSION},18>
 >)
 
-file(GLOB entries LIST_DIRECTORIES ON "${CMAKE_CURRENT_SOURCE_DIR}/*")
-foreach (entry IN LISTS entries)
-  if (IS_DIRECTORY "${entry}")
-    list(APPEND directories "${entry}")
-  endif()
-endforeach()
-list(REMOVE_ITEM directories "${CMAKE_CURRENT_SOURCE_DIR}/resources")
+file(GLOB entries LIST_FILES ON "${CMAKE_CURRENT_SOURCE_DIR}/*")
+list(REMOVE_ITEM entries "${CMAKE_CURRENT_SOURCE_DIR}/resources")
+list(REMOVE_ITEM entries "${CMAKE_CURRENT_SOURCE_DIR}/README.md")
+list(REMOVE_ITEM entries "${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt")
 
 add_custom_target(${PROJECT_NAME}-examples-resources ALL
   COMMAND
@@ -23,14 +20,13 @@ add_custom_target(${PROJECT_NAME}-examples-resources ALL
   COMMENT "Copying resources directory"
   VERBATIM)
 
-foreach(directory IN LISTS directories)
-  file(GLOB sources CONFIGURE_DEPENDS "${directory}/*.c") 
-  get_filename_component(name "${directory}" NAME)
+foreach(example IN LISTS entries)
+  get_filename_component(name "${example}" NAME_WLE)
 
   set(BUILD_SHARED_LIBS OFF)
 
   add_executable(${name})
-  target_sources(${name} PRIVATE ${sources})
+  target_sources(${name} PRIVATE ${example})
   target_compile_definitions(${name} 
     PRIVATE
     $<${opengl-deprecation}:GL_SILENCE_DEPRECATION>)

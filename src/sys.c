@@ -295,10 +295,11 @@ uint8_t s_table_write_mem(s_table* table, unsigned char* dst,
                           uint32_t dst_length, uint32_t* write_length) {
   uint32_t size = 0;
   char     str_buff[128];
-  uint32_t  str_size;
+  uint32_t str_size;
 
   for (uint32_t i = 0; i < table->count; ++i) {
-    str_size = (uint32_t)snprintf(str_buff, 128, "%s = %s\n", table->keys[i], table->values[i]);
+    str_size = (uint32_t)snprintf(str_buff, 128, "%s = %s\n", table->keys[i],
+                                  table->values[i]);
 
     if (size + str_size > dst_length - 2) {
       return 0;
@@ -353,7 +354,7 @@ uint32_t s_strnify(char* dst, uint32_t dst_capacity, const char* src,
 }
 
 uint32_t s_destrnify(char* dst, uint32_t dst_capacity, const char* src,
-                  uint32_t str_length) {
+                     uint32_t str_length) {
   uint32_t index = 0, length = 0;
 
   if (str_length == 0)

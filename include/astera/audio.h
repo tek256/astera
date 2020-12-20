@@ -1,4 +1,4 @@
-#ifndef ASTERA_ASTERA_HEADER 
+#ifndef ASTERA_ASTERA_HEADER
 #define ASTERA_ASTERA_HEADER
 
 #ifndef __APPLE__
@@ -15,11 +15,11 @@ extern "C" {
 //       the cmake find_package exports them as relative so it'll work
 //       cross platform as expected
 #if defined(__APPLE__)
-  #include <OpenAL/alc.h>
-  #include <OpenAL/al.h>
+#include <OpenAL/alc.h>
+#include <OpenAL/al.h>
 #else
-  #include "alc.h"
-  #include "al.h"
+#include "alc.h"
+#include "al.h"
 #endif /* defined(__APPLE__) */
 
 #define STB_VORBIS_HEADER_ONLY
@@ -683,7 +683,6 @@ uint8_t a_layer_set_gain(a_ctx* ctx, uint16_t layer_id, float gain);
  * layer_id - the ID of the layer
  * returns: the gain of the layer, -1.f if not found */
 float a_layer_get_gain(a_ctx* ctx, uint16_t layer_id);
-
 
 #ifdef __cplusplus
 }

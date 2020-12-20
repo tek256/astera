@@ -9,6 +9,8 @@ REM  "-l  Force use LLVM (clang/clang++)"
 REM  "-q  Quiet"
 REM  "-qq Really Quiet"
 
+REM "This is meant to be run from the tools directory (astera/tools)"
+
 setlocal EnableDelayedExpansion
 setlocal EnableExtensions
 

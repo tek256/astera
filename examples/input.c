@@ -19,6 +19,9 @@ static int running = 0;
 
 vec2 window_size;
 
+GLFWvidmode* vidmodes;
+uint8_t      vidmode_count;
+
 r_ctx* render_ctx;
 i_ctx* input_ctx;
 
@@ -143,7 +146,7 @@ void init_ui() {
   float max_size = ui_text_max_size(u_ctx, text, window_size, 0);
   text.size      = max_size;
 
-  text2 = ui_text_create(u_ctx, text_pos2, "Astera Input Example", 32.f,
+  text2 = ui_text_create(u_ctx, text_pos2, "Input Example - Astera 1.0", 32.f,
                          test_font, UI_ALIGN_CENTER | UI_ALIGN_BOTTOM);
 
   vec2     button_pos         = {0.5f, 0.5f};
@@ -162,27 +165,38 @@ void init_ui() {
   vec2 dropdown_position = {0.5f, 0.5f};
   vec2 dropdown_size     = {0.20f, 0.075f};
 
-  char* options[] = {
-      "Test - A", "Test - B", "Test - C", "Test - D", "Test - E", "Test - F",
-      "Test - G", "Test - H", "Test - I", "Test - J", "Test - K", "Test - L",
-  };
+  vidmodes = r_get_vidmodes_by_usize(render_ctx, &vidmode_count);
+
+  char     options_buffer[1024] = {0};
+  uint16_t option_index         = 0;
+  char**   option_list          = (char**)calloc(vidmode_count, sizeof(char*));
+
+  for (uint8_t i = 0; i < vidmode_count; ++i) {
+    uint8_t str_len =
+        r_get_vidmode_str_simple(&options_buffer[option_index], vidmodes[i]);
+    option_list[i] = &options_buffer[option_index];
+
+    option_index += str_len + 1;
+  }
 
   dropdown_scroll_timer    = 0.f;
   dropdown_scroll_duration = 1000.f;
 
-  dropdown =
-      ui_dropdown_create(u_ctx, dropdown_position, dropdown_size, options, 12);
+  dropdown = ui_dropdown_create(u_ctx, dropdown_position, dropdown_size,
+                                option_list, vidmode_count);
 
+  dropdown.data              = vidmodes;
   dropdown.border_radius     = 5.f;
   dropdown.border_size       = 3.f;
   dropdown.option_display    = 6;
   dropdown.bottom_scroll_pad = 2;
   dropdown.top_scroll_pad    = 2;
+  dropdown.font_size         = 24.f;
 
-  option_e = ui_dropdown_add_option(&dropdown, "Test - E");
+  free(option_list);
 
-  float dropdown_font_size = ui_dropdown_max_font_size(u_ctx, dropdown);
-  dropdown.font_size       = dropdown_font_size;
+  /*float dropdown_font_size = ui_dropdown_max_font_size(u_ctx, dropdown);
+  dropdown.font_size       = dropdown_font_size;*/
 
   dropdown.align = UI_ALIGN_MIDDLE | UI_ALIGN_CENTER;
 
@@ -306,6 +320,12 @@ void input(time_s delta) {
   if ((event_type = ui_tree_check_event(&tree, dropdown_uid))) {
     if (dropdown.showing) {
       ui_dropdown_set_to_cursor(&dropdown);
+      printf("%i\n", dropdown.selected);
+      char tmp_str[32] = {0};
+      r_get_vidmode_str_simple(
+          tmp_str, ((GLFWvidmode*)dropdown.data)[dropdown.selected]);
+      printf("%s\n", tmp_str);
+
       dropdown.showing = 0;
     } else {
       dropdown.showing = 1;

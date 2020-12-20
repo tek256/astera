@@ -58,9 +58,11 @@
     for (int i = 0; i < n; ++i)                                                \
       r[i] = fabs(v[i]);                                                       \
   }                                                                            \
-  LINMATH_H_FUNC void vec##n##_norm(vec##n r, vec##n const v) {                \
-    float k = 1.0 / vec##n##_len(v);                                           \
+  LINMATH_H_FUNC float vec##n##_norm(vec##n r, vec##n const v) {               \
+    float len = vec##n##_len(v);                                               \
+    float k   = 1.0 / len;                                                     \
     vec##n##_scale(r, v, k);                                                   \
+    return len;                                                                \
   }                                                                            \
   LINMATH_H_FUNC void vec##n##_mul(vec##n r, vec##n const a, vec##n const b) { \
     for (int i = 0; i < n; ++i)                                                \
@@ -80,7 +82,7 @@
   }                                                                            \
   LINMATH_H_FUNC void vec##n##_clamp(vec##n r, vec##n const val,               \
                                      vec##n const lo, vec##n const high) {     \
-    for(int i = 0; i < n; ++i)                                                 \
+    for (int i = 0; i < n; ++i)                                                \
       r[i] = _max(lo[i], _min(val[i], high[i]));                               \
   }                                                                            \
   LINMATH_H_FUNC void vec##n##_dup(vec##n dst, vec##n src) {                   \
@@ -131,7 +133,7 @@ LINMATH_H_FUNC float f_lerp(float start, float end, float percentage) {
   return start + ((end - start) * percentage);
 }
 
-LINMATH_H_FUNC double d_lerp(double start, double end, double percentage){
+LINMATH_H_FUNC double d_lerp(double start, double end, double percentage) {
   return start + ((end - start) * percentage);
 }
 

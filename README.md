@@ -12,20 +12,16 @@
 ### About
 Astera is a 2D game library written in C99 focused on performance, portability, and maintainability. Astera aims to rely on as few dependencies as possible.  
 
-#### Latest Release: 1.0-PRE
+#### Latest Release: 1.0
 
-**NOTE: 1.0 PRE means that just about everything is finished, not all functionality is bug free**
-
-### In Progress
-NOTE: This section only exists for `-PRE` versions.
-
+### Features
 ```
-- Removing OpenAL in favor of MiniAudio
-- Adding CRC32 intrinsic & software versions
-- More accurate & in depth documentation
-- Collision resolution debugging
-- Complex collision detection & resolution
-- Clean up code warnings
+- Deferred & Forward Rendering
+- Collision Dection + Resolution
+- 3D Audio + basic Audio Effects & Filters
+- Asset Management
+- UI System
+- Input System
 ```
 
 ### Target Platforms

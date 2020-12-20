@@ -28,7 +28,8 @@ struct ui_ctx {
 };
 
 static NVGcolor ui_u_color(ui_color v) {
-  return nvgRGBA((unsigned char)(v[0] * 255), (unsigned char)(v[1] * 255), (unsigned char)(v[2] * 255), (unsigned char)(v[3] * 255));
+  return nvgRGBA((unsigned char)(v[0] * 255), (unsigned char)(v[1] * 255),
+                 (unsigned char)(v[2] * 255), (unsigned char)(v[3] * 255));
 }
 
 uint32_t ui_element_get_uid(ui_element element) {
@@ -198,6 +199,13 @@ void ui_get_color(ui_color val, const char* v) {
   val[3] = 1.f;
 }
 
+void ui_scale_offset_px(ui_ctx* ctx, vec2 dst, vec2 val, vec2 px) {
+  vec2 tmp;
+  tmp[0] = px[0] / ctx->size[0];
+  tmp[1] = px[1] / ctx->size[1];
+  vec2_add(dst, val, tmp);
+}
+
 void ui_px_to_scale(ui_ctx* ctx, vec2 dst, vec2 px) {
   vec2 tmp;
   tmp[0] = px[0] / ctx->size[0];
@@ -215,8 +223,8 @@ void ui_scale_to_px(ui_ctx* ctx, vec2 dst, vec2 scale) {
 void ui_scale_to_px4f(ui_ctx* ctx, vec4 dst, vec4 scale) {
   dst[0] = scale[0] * ctx->size[0];
   dst[1] = scale[1] * ctx->size[1];
-  dst[2] = scale[2] * ctx->size[2];
-  dst[3] = scale[3] * ctx->size[3];
+  dst[2] = scale[2] * ctx->size[0];
+  dst[3] = scale[3] * ctx->size[1];
 }
 
 void ui_px_from_scale(vec2 dst, vec2 px, vec2 screen) {
@@ -1739,7 +1747,8 @@ void ui_im_box_draw(ui_ctx* ctx, vec2 pos, vec2 size, ui_color color) {
   nvgFill(ctx->nvg);
 }
 
-void ui_im_circle_draw(ui_ctx* ctx, vec2 pos, float radius, float thickness, ui_color color) {
+void ui_im_circle_draw(ui_ctx* ctx, vec2 pos, float radius, float thickness,
+                       ui_color color) {
   vec2 circ_pos;
   ui_scale_to_px(ctx, circ_pos, pos);
 
@@ -2996,7 +3005,7 @@ uint16_t ui_dropdown_add_option(ui_dropdown* dropdown, const char* option) {
   if (dropdown->option_count == dropdown->option_capacity) {
     dropdown->options =
         (char**)realloc((void*)dropdown->options,
-                              sizeof(char*) * dropdown->option_capacity + 4);
+                        sizeof(char*) * dropdown->option_capacity + 4);
     dropdown->option_capacity += 4;
     if (!dropdown->options) {
       ASTERA_FUNC_DBG("Unable to expand memory for dropdown options\n");
@@ -3285,7 +3294,8 @@ uint32_t ui_tree_select(ui_ctx* ctx, ui_tree* tree, int32_t event_type,
             ctx, tree->raw[tree->mouse_hover_index].element, ctx->mouse_pos);
 
         if (selection > -1 && dropdown->showing) {
-          ui_dropdown_set(dropdown, (uint16_t)(tree->mouse_hover_index + dropdown->start));
+          ui_dropdown_set(
+              dropdown, (uint16_t)(tree->mouse_hover_index + dropdown->start));
         } else if (selection > 0 && !dropdown->showing) {
           dropdown->showing = 1;
         }

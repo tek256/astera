@@ -86,7 +86,9 @@ typedef struct {
 typedef struct {
   uint32_t id;
   // options - the array of strings for option strings
+  // data - optional data pointer to other list
   char** options;
+  void*  data;
 
   // option_count - the number of total options
   // option_capacity - the max number of options stored in `options`
@@ -439,6 +441,13 @@ void ui_ctx_set_mouse(ui_ctx* ctx, uint8_t mouse);
  * v - the hex code string */
 void ui_get_color(ui_color val, const char* v);
 
+/* Add px offset to scaled position (convert & add)
+ * ctx - the context to use for scale
+ * dst - the destination
+ * val - the value to add
+ * px - the px value to offset by */
+void ui_scale_offset_px(ui_ctx* ctx, vec2 dst, vec2 val, vec2 px);
+
 /* Convert a pixel size / position to scale (based on the ctx size)
  * ctx - the context to use for scale
  * dst - the destiniation of the converstion
@@ -790,7 +799,8 @@ void ui_im_text_draw_aligned(ui_ctx* ctx, vec2 pos, float font_size,
 void ui_im_text_draw(ui_ctx* ctx, vec2 pos, float font_size, ui_font font,
                      char* text);
 void ui_im_box_draw(ui_ctx* ctx, vec2 pos, vec2 size, ui_color color);
-void ui_im_circle_draw(ui_ctx* ctx, vec2 pos, float radius, float thickness, ui_color color);
+void ui_im_circle_draw(ui_ctx* ctx, vec2 pos, float radius, float thickness,
+                       ui_color color);
 void ui_im_line_draw(ui_ctx* ctx, vec2 start, vec2 end, float thickness,
                      ui_color color);
 

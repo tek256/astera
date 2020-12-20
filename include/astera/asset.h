@@ -18,6 +18,8 @@ extern "C" {
 
 #include <stdint.h>
 
+#define ASTERA_HASH_INITIAL 2166136261
+
 typedef struct {
   uint32_t       uid;
   unsigned char* data;
@@ -204,6 +206,21 @@ uint32_t pak_size(pak_t* pak, uint32_t index);
  * index - the index of the entry
  * returns: name string */
 char* pak_name(pak_t* pak, uint32_t index);
+
+/* Initialize an fnv-1a hash
+ * Returns: initial fnv1a value */
+uint32_t asset_fnv1a_init(void);
+
+/* Hash on a checksum for data
+ * hash - hash value to update
+ * data - data to account for
+ * size - the amount of data to account for */
+void asset_fnv1a_hash(uint32_t* hash, const void* data, uint32_t size);
+
+/* Create a checksum for an asset
+ * asset - the asset to create a checksum for
+ * returns: 32-bit checksum */
+uint32_t asset_checksum(asset_t* asset);
 
 /* Create an asset map
  * filename - point to a file to read from [OPTIONAL]

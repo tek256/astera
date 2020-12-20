@@ -29,8 +29,8 @@ typedef struct {
    * use_vto - if using a separate buffer for texcoords (1) or
                  not (interleaved) (0) */
   uint32_t vao, vbo, vboi, vto;
-  float   width, height;
-  int8_t  use_vto;
+  float    width, height;
+  int8_t   use_vto;
 } r_quad;
 
 typedef struct {
@@ -394,18 +394,18 @@ typedef struct r_ctx {
   // anim_high - the high mark of animations set in cache
   // anim_count - the amount of animations currently held
   // anim_capacity - the max amount of animations that can be held
-  r_anim*      anims;
-  char** anim_names;
-  uint16_t     anim_high;
-  uint16_t     anim_count, anim_capacity;
+  r_anim*  anims;
+  char**   anim_names;
+  uint16_t anim_high;
+  uint16_t anim_count, anim_capacity;
 
   // shaders - an array of shaders (Kappa)
   // shader_names - an array of strings naming each shader (by index)
   // shader_count - the number of shaders currently held
   // shader_capacity - the max amount of shaders that can be held
-  r_shader*    shaders;
-  char** shader_names;
-  uint8_t     shader_count, shader_capacity;
+  r_shader* shaders;
+  char**    shader_names;
+  uint8_t   shader_count, shader_capacity;
 
   // batches - the batches themselves
   // batch_count - the amount of current batches
@@ -448,9 +448,9 @@ r_window_params r_window_params_create(uint32_t width, uint32_t height,
  * batch_size - the max amount of sprites to store in each given batch
  * anim_map_size - the amount of animations to allow to be cached / mapped
  * shader_map_size - the amount of shaders to allow to be cached / mapped */
-r_ctx* r_ctx_create(r_window_params params,
-                    uint8_t batch_count, uint32_t batch_size,
-                    uint16_t anim_map_size, uint8_t shader_map_size);
+r_ctx* r_ctx_create(r_window_params params, uint8_t batch_count,
+                    uint32_t batch_size, uint16_t anim_map_size,
+                    uint8_t shader_map_size);
 
 /* Get the current set camera for the context */
 r_camera* r_ctx_get_camera(r_ctx* ctx);
@@ -763,7 +763,7 @@ void r_anim_reset(r_anim_viewer* anim);
  * size - the size of the sprite in units */
 r_sprite r_sprite_create(r_shader shader, vec2 pos, vec2 size);
 
-/* Move a sprite by distance 
+/* Move a sprite by distance
  * sprite - sprite to move
  * dist - the distance to move */
 void r_sprite_move(r_sprite* sprite, vec2 dist);
@@ -813,7 +813,7 @@ void r_sprite_draw(r_ctx* ctx, r_sprite* sprite);
 /* Call for multiple sprites to be drawn
  * ctx - the context to draw the sprites in
  * sprites - the list of sprites
- * sprite_count - the number of sprites 
+ * sprite_count - the number of sprites
  * returns: sprites drawn successfully */
 uint32_t r_sprites_draw(r_ctx* ctx, r_sprite* sprites, uint32_t sprite_count);
 
@@ -1086,39 +1086,156 @@ void r_set_v3xi(int loc, uint32_t count, vec3* values);
  * values - the array of vec4's */
 void r_set_v4xi(int loc, uint32_t count, vec4* values);
 
+/* Get the size of the window currently
+ * ctx - context of the window
+ * w - int32 pointer to be set to width
+ * h - int32 pointer to be set to height */
 void r_window_get_size(r_ctx* ctx, int32_t* w, int32_t* h);
+
+/* Set the size of the window (non-fullscreen only)
+ * ctx - context of the window
+ * width - the width of the window
+ * height - the height of the window*/
+uint8_t r_window_set_size(r_ctx* ctx, uint32_t width, uint32_t height);
 
 /* Get the GLFW window handle for the render context
  * ctx - the render context to check
  * returns: glfw window handle */
 GLFWwindow* r_window_get_glfw(r_ctx* ctx);
 
-uint8_t r_get_videomode_str(r_ctx* ctx, char* dst, uint8_t index);
+/* Get video modes by unique size
+ *  (removes duplicates with different refresh rates)
+ *  ctx - render context to get modes from
+ *  count - a pointer to set to the number of modes returned
+ *  returns: list of unique modes */
+GLFWvidmode* r_get_vidmodes_by_usize(r_ctx* ctx, uint8_t* count);
+
+/* Get vide mode options by resolution (refresh rate is usually the difference)
+ * ctx - render context to get options from
+ * count - a pointer to set to the number of options returned
+ * width - resolution width
+ * height - resolution height
+ * returns: list of options with the same resolution */
+GLFWvidmode* r_get_vidmode_options(r_ctx* ctx, uint8_t* count, uint32_t width,
+                                   uint32_t height);
+
+/* Find a video mode by size and refresh rate
+ * ctx - render context to check modes from
+ * width - the width of the video mode
+ * height - the height of the video mode
+ * refresh_rate - the refresh rate of the video mode
+ * returns: index of vidmode, -1 = unable to find */
+int16_t r_get_vidmode_index(r_ctx* ctx, uint32_t width, uint32_t height,
+                            uint8_t refresh_rate);
+
+/* Get string of video mode by index
+ * ctx - render context to get option from
+ * dst - the destination for the string
+ * index - the option's index
+ * returns: returns string with format: width x height */
+uint8_t r_get_vidmode_str_simplei(r_ctx* ctx, char* dst, uint8_t index);
+
+/* Get string of video mode
+ * dst - the destination for the string
+ * mode - video mode to get string of
+ * returns: returns string with format: width x height */
+uint8_t r_get_vidmode_str_simple(char* dst, GLFWvidmode mode);
+
+/* Get string of video mode by index
+ * ctx - render context to get option from
+ * dst - the destination for the string
+ * index - the option's index
+ * returns: returns string with format: `width`x`height`@`refresh rate` */
+uint8_t r_get_vidmode_stri(r_ctx* ctx, char* dst, uint8_t index);
+
+/* Get string of video mode
+ * dst - the destination for the string
+ * mode - video mode to get string of
+ * returns: returns string with format: `width`x`height`@`refresh rate` */
+uint8_t r_get_vidmode_str(char* dst, GLFWvidmode mode);
+
 uint8_t r_select_mode(r_ctx* ctx, uint8_t index, int8_t fullscreen,
                       int8_t vsync, int8_t borderless);
 uint8_t r_get_vidmode_count(r_ctx* ctx);
 
+/* Check if the `allow_render` flag is set in the context
+ * ctx - the render context to check
+ * returns: the `allow_render` flag */
 uint8_t r_can_render(r_ctx* ctx);
-void    r_set_can_render(r_ctx* ctx, uint8_t allowed);
+
+/* Set the `allow_render` flag in the render context
+ * ctx - the render context to modify
+ * allowed - if to allow or disallow rendering */
+void r_set_can_render(r_ctx* ctx, uint8_t allowed);
+
+/* Check if vsync is enabled
+ * ctx - the render context to check
+ * returns: if vsync is enabled */
 uint8_t r_is_vsync(r_ctx* ctx);
+
+/* Check if the window is fullscreen
+ * ctx - the render context to check
+ * returns: if the window is fullscreen */
 uint8_t r_is_fullscreen(r_ctx* ctx);
+
+/* Check if the window is borderless (no window decorations)
+ * ctx - the render context to check
+ * returns: if the window is borderless */
 uint8_t r_is_borderless(r_ctx* ctx);
 
+/* Create a window for the render context
+ * ctx - the render context
+ * params - the window parameters
+ * returns: success = 1, fail = 0 */
 uint8_t r_window_create(r_ctx* ctx, r_window_params params);
-void    r_window_destroy(r_ctx* ctx);
-void    r_window_request_close(r_ctx* ctx);
-uint8_t r_window_set_icon(r_ctx* ctx, unsigned char* data, uint32_t length);
 
-void r_window_center(r_ctx* ctx);
-void r_window_set_pos(r_ctx* ctx, int32_t x, int32_t y);
+/* Destroy a render context's window
+ * ctx - render context to destroy window */
+void r_window_destroy(r_ctx* ctx);
 
+/* Request close of the render context's window
+ * ctx - render context to request close window */
+void r_window_request_close(r_ctx* ctx);
+
+/* Check if the render context's window has been requested to close
+ * return: 1 = true, 0 = false */
 uint8_t r_window_should_close(r_ctx* ctx);
 
+/* Set a render context window's icon
+ * ctx - render context to affect
+ * data - raw data of the window icon
+ * length - the length of the data
+ * returns: success = 1, fail = 0 */
+uint8_t r_window_set_icon(r_ctx* ctx, unsigned char* data, uint32_t length);
+
+/* Center the window on the current monitor
+ * ctx - the render context to center the window */
+void r_window_center(r_ctx* ctx);
+
+/* Set the position of the window
+ * ctx - render context to affect
+ * x - the x position of the window
+ * y - the y position of the window */
+void r_window_set_pos(r_ctx* ctx, int32_t x, int32_t y);
+
+/* Check if a render context's window is set as resizable
+ * ctx - render context to check
+ * returns: 1 = resizable, 0 = not resizable */
 uint8_t r_window_is_resizable(r_ctx* ctx);
-void    r_window_swap_buffers(r_ctx* ctx);
-void    r_window_clear(void);
-void    r_window_clear_color(const char* str);
-void    r_window_clear_color_empty(void);
+
+/* Call for the window to swap it's buffers (show next frame)
+ * ctx - render context to affect */
+void r_window_swap_buffers(r_ctx* ctx);
+
+/* Clear the current window buffer (clear frame, opengl) */
+void r_window_clear(void);
+
+/* Set the window's clear color
+ * str - hex color code */
+void r_window_clear_color(const char* str);
+
+/* Set the current frame's clear color to transparent */
+void r_window_clear_color_empty(void);
 
 /* Get the gamma value for the current window
  * ctx - the context containing the window

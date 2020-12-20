@@ -4,8 +4,8 @@
 
 #include <astera/asset.h>
 #include <astera/render.h>
+#include <astera/sys.h>
 #include <astera/input.h>
-#include <astera/col.h>
 #include <astera/ui.h>
 
 #define SPRITE_COUNT      16
@@ -26,12 +26,7 @@ r_anim        anim, anim2, anim3;
 
 r_sprite* sprites;
 
-r_sprite col_a_sprite, col_b_sprite, col_c_sprite;
-
-c_aabb    col_a, col_b;
-c_circle  col_c;
-c_ray     ray;
-c_raycast cast;
+s_timer timer;
 
 r_shader load_shader(const char* vs, const char* fs) {
   asset_t* vs_data = asset_get(vs);
@@ -165,8 +160,6 @@ void init_render(r_ctx* ctx) {
   vec2 baked_sheet_pos = {-(BAKED_SHEET_WIDTH / 4) * 16.f,
                           -((BAKED_SHEET_SIZE / BAKED_SHEET_WIDTH) / 8) * 16.f};
 
-  printf("%.2f %.2f\n", baked_sheet_pos[0], baked_sheet_pos[1]);
-
   baked_sheet =
       r_baked_sheet_create(&sheet, quads, BAKED_SHEET_SIZE, baked_sheet_pos);
 
@@ -201,80 +194,6 @@ void init_render(r_ctx* ctx) {
   r_camera_set_size(r_ctx_get_camera(ctx), camera_size);
 }
 
-void setup_collision() {
-  vec2 position = {0.f, 0.f};
-  vec2 size     = {16.f, 16.f}, halfsize;
-
-  // format size to halfsize
-  vec2_scale(halfsize, size, 0.5f);
-  col_a = c_aabb_create(position, halfsize);
-
-  // create the sprites
-  col_a_sprite       = r_sprite_create(shader, position, size);
-  col_a_sprite.layer = 1;
-
-  r_get_color4f(col_a_sprite.color, "#f00");
-  r_sprite_set_tex(&col_a_sprite, &sheet, 0);
-
-  position[0] = 64.f;
-  position[1] = 64.f;
-  col_b       = c_aabb_create(position, halfsize);
-
-  col_b_sprite       = r_sprite_create(shader, position, size);
-  col_b_sprite.layer = 1;
-
-  r_get_color4f(col_b_sprite.color, "#00f");
-  r_sprite_set_tex(&col_b_sprite, &sheet, 0);
-
-  position[0] = 72.f;
-  position[1] = 72.f;
-  col_c       = c_circle_create(position, 8.f);
-
-  col_c_sprite       = r_sprite_create(shader, position, size);
-  col_c_sprite.layer = 1;
-
-  r_get_color4f(col_c_sprite.color, "#0f0");
-  r_sprite_set_tex(&col_c_sprite, &sheet, 0);
-}
-
-void debug_circle(vec2 center, float radius, float thickness, ui_color color){
-  vec2 center_screen;
-
-  r_camera* camera = r_ctx_get_camera(render_ctx);
-  r_camera_world_to_screen(center_screen, camera, center);
-
-  ui_im_circle_draw(u_ctx, center_screen, radius, thickness, color);
-}
-
-// worldspace points
-void debug_line(vec2 start, vec2 end, float thickness, ui_color color) {
-  vec2 start_screen, end_screen;
-
-  r_camera* camera = r_ctx_get_camera(render_ctx);
-  r_camera_world_to_screen(start_screen, camera, start);
-  r_camera_world_to_screen(end_screen, camera, end);
-
-  ui_im_line_draw(u_ctx, start_screen, end_screen, thickness, color);
-}
-
-void debug_box(vec2 start, vec2 end, ui_color color) {
-  vec2 start_screen, end_screen;
-
-  r_camera* camera = r_ctx_get_camera(render_ctx);
-  r_camera_world_to_screen(start_screen, camera, start);
-  r_camera_world_to_screen(end_screen, camera, end);
-
-  vec2 start_pos, size;
-  vec2_min(start_pos, start, end);
-  vec2_dup(size, end);
-  vec2_sub(size, size, start);
-
-  r_camera_world_to_screen(start_pos, camera, start_pos);
-  r_camera_size_to_screen(size, camera, size);
-
-  ui_im_box_draw(u_ctx, start_pos, size, color);
-}
-
 void input(float delta) {
   if (i_key_clicked(input_ctx, KEY_ESCAPE)) {
     r_window_request_close(render_ctx);
@@ -287,155 +206,48 @@ void input(float delta) {
   vec3 camera_move = {0.f, 0.f, 0.f};
 
   if (i_key_down(input_ctx, 'A')) {
-    camera_move[0] -= 1.f;
+    camera_move[0] = -1.f;
   }
   if (i_key_down(input_ctx, 'D')) {
-    camera_move[0] += 1.f;
+    camera_move[0] = 1.f;
   }
 
   if (i_key_down(input_ctx, 'W')) {
-    camera_move[1] -= 1.f;
+    camera_move[1] = -1.f;
   }
   if (i_key_down(input_ctx, 'S')) {
-    camera_move[1] += 1.f;
+    camera_move[1] = 1.f;
   }
 
   vec2_scale(camera_move, camera_move, delta * 0.1f);
-
-  // r_camera_move(r_ctx_get_camera(render_ctx), camera_move);
-
-  // Move AABB
-  // c_aabb_move(&col_a, camera_move);
-  // r_sprite_move(&col_a_sprite, camera_move);
-
-  // Move Circle
-  c_circle_move(&col_c, camera_move);
-  vec2_add(col_c_sprite.position, col_c_sprite.position, camera_move);
-
-  // vec2_add(col_c.center, col_c.center, camera_move);
-  // vec2_add(col_a_sprite.position, col_a_sprite.position, camera_move);
+  r_camera_move(r_ctx_get_camera(render_ctx), camera_move);
 }
 
-void update(float delta) {
-  r_particles_update(&particles, delta);
-
-  // Check for collision between boxes
-  // if (c_aabb_vs_aabb(col_a, col_b)) {
-  //   r_get_color4f(col_a_sprite.color, "#f00");
-  //   c_manifold solution = c_aabb_vs_aabb_man(col_a, col_b);
-
-  //   vec2 distance, old_pos;
-  //   vec2_scale(distance, solution.direction, solution.distance);
-
-
-  //   // NOTE this was modified to remove resolution
-  //   c_aabb_move(&col_a, distance);
-  //   vec2_dup(old_pos, col_a_sprite.position);
-  //   vec2_add(col_a_sprite.position, col_a_sprite.position, distance);
-
-  //   static ui_color line_color;
-  //   ui_get_color(line_color, "#0f0");
-
-  //   debug_line(col_a_sprite.position, old_pos, 3.f, line_color);
-
-  //   // printf("[%.3f %.3f] x %f\n", distance[0], distance[1],
-  //   // solution.distance);
-  //   vec2_clear(solution.direction);
-  //   solution.distance = 0.f;
-
-  //   // printf("Colliding!\n");
-  // } else {
-  //   r_get_color4f(col_a_sprite.color, "#fff");
-  // }
-
-  if (c_aabb_vs_circle(col_b, col_c)) {
-    // c_manifold man = c_aabb_vs_circle_man(col_b, col_c);
-    c_manifold man = c_circle_vs_aabb_man(col_c, col_b);
-    vec2 old_pos, distance;
-
-    // vec2_scale(distance, man.direction, man.distance);
-    // vec2_sub(old_pos, col_b.max, col_b.min);
-    vec2_dup(old_pos, col_c.center);
-
-    printf("%.2f %.2f\n", distance[0], distance[1]);
-
-    vec2_add(col_c.center, col_c.center, distance);
-    vec2_dup(col_c_sprite.position, col_c.center);
-    // c_aabb_move(&col_b, distance);
-    // vec2_sub(col_b_sprite.position, col_b.max, col_b.min);
-
-    ui_color color;
-    ui_get_color(color, "#f00");
-    debug_line(old_pos, col_c.center, 3.f, color);
-
-    r_get_color4f(col_c_sprite.color, "#0f0");
-    // printf("[%.3f %.3f] x %f\n", distance[0], distance[1], man.distance);
-
-  } else {
-    r_get_color4f(col_c_sprite.color, "#fff");
-  }
-}
-
-void check_collisions(void) {}
+void update(float delta) { r_particles_update(&particles, delta); }
 
 void render(void) {
   r_framebuffer_bind(fbo);
   r_window_clear_color_empty();
   r_window_clear();
 
-  // r_particles_draw(render_ctx, &particles, particle);
+  r_particles_draw(render_ctx, &particles, particle);
 
   r_ctx_update(render_ctx);
 
-  // r_baked_sheet_draw(render_ctx, baked, &baked_sheet);
+  r_baked_sheet_draw(render_ctx, baked, &baked_sheet);
 
   for (int i = 0; i < SPRITE_COUNT; ++i) {
     r_sprite_update(&sprites[i], 16.f);
   }
 
-  // r_sprites_draw(render_ctx, sprites, SPRITE_COUNT);
-
-  r_sprite_update(&col_a_sprite, 16.f);
-  r_sprite_update(&col_b_sprite, 16.f);
-  r_sprite_update(&col_c_sprite, 16.f);
-  r_sprite_draw(render_ctx, &col_a_sprite);
-  r_sprite_draw(render_ctx, &col_b_sprite);
-  r_sprite_draw(render_ctx, &col_c_sprite);
-
-  ui_color col_c_color;
-  ui_get_color(col_c_color, "fff");
-  vec2 circle_size, draw_size;
-  
-  r_camera* camera = r_ctx_get_camera(render_ctx);
-  r_camera_size_to_screen(draw_size, camera, circle_size);
-  debug_circle(col_c.center, col_c.radius * 2.f, 2.f, col_c_color);
+  r_sprites_draw(render_ctx, sprites, SPRITE_COUNT);
 
   r_ctx_draw(render_ctx);
-
-  r_framebuffer_bind(ui_fbo);
-  r_window_clear_color_empty();
-  r_window_clear();
-
-  ui_frame_start(u_ctx);
-
-  vec2     line_start = {0.0f, 8.f}, line_end = {64.f, 64.f};
-  ui_color line_color;
-  ui_get_color(line_color, "#f00");
-  // line_color[3] = 0.4f;
-  debug_line(line_start, line_end, 4.f, line_color);
-
-  vec2 box_start, box_end;
-
-  ui_color box_color;
-  ui_get_color(box_color, "#00f");
-  debug_box(col_b.min, col_b.max, box_color);
-
-  ui_frame_end(u_ctx);
 }
 
 int main(void) {
-  r_window_params params =
-      r_window_params_create(1280, 720, 0, 0, 0, 0, 60, "Sprites Example");
+  r_window_params params = r_window_params_create(
+      1280, 720, 0, 0, 1, 0, 60, "Sprites Example - Astera 1.0");
 
   render_ctx = r_ctx_create(params, 3, 128, 128, 4);
   r_window_clear_color("#0A0A0A");
@@ -461,16 +273,16 @@ int main(void) {
   r_ctx_make_current(render_ctx);
   r_ctx_set_i_ctx(render_ctx, input_ctx);
 
-  setup_collision();
+  timer = s_timer_create();
 
   while (!r_window_should_close(render_ctx)) {
-    // printf("Before: %i ", i_ctx_current_keys(input_ctx));
+    time_s delta = s_timer_update(&timer);
+
     i_ctx_update(input_ctx);
-    // printf("After: %i\n", i_ctx_current_keys(input_ctx));
 
-    input(0.16f);
+    input(delta);
 
-    update(16.f);
+    update(delta);
 
     if (r_can_render(render_ctx)) {
       render();

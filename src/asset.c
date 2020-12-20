@@ -29,7 +29,7 @@ static uint32_t fs_file_size(const char* fp) {
   return length;
 }
 
-static unsigned char* __file_data(const char* path, uint32_t* size_ptr) {
+static unsigned char* fs_file_data(const char* path, uint32_t* size_ptr) {
   FILE* f = fopen(path, "rb+");
 
   if (!f) {
@@ -192,7 +192,6 @@ uint8_t pak_write_to_file(pak_write_t* write) {
 
   fwrite("PACK", 1, 4, f);
   fwrite(&header.count, 1, sizeof(uint32_t), f);
-  // fwrite(&header.checksum, 1, sizeof(uint64_t), f);
 
   for (uint32_t i = 0; i < header.count; ++i) {
     pak_wfile_t* wfile = &write->files[i];
@@ -208,7 +207,7 @@ uint8_t pak_write_to_file(pak_write_t* write) {
     if (wfile->is_mem) {
       file_data = wfile->data.ptr;
     } else {
-      file_data = __file_data(wfile->data.filepath, 0);
+      file_data = fs_file_data(wfile->data.filepath, 0);
     }
 
     fwrite(file_data, sizeof(unsigned char), wfile->size, f);
@@ -256,9 +255,8 @@ pak_t* pak_open_file(const char* file) {
   }
 
   memset(pak, 0, sizeof(pak_t));
-  pak->is_mem = 0;
-  pak->count  = header.count;
-  // pak->checksum      = header.checksum;
+  pak->is_mem        = 0;
+  pak->count         = header.count;
   pak->data.filepath = file;
 
   // Seek to the end of the header size (start of entries)
@@ -475,6 +473,21 @@ char* pak_name(pak_t* pak, uint32_t index) {
   if (!pak)
     return 0;
   return (index < pak->count) ? pak->files[index].name : 0;
+}
+
+uint32_t asset_fnv1a_init(void) { return (uint32_t)ASTERA_HASH_INITIAL; }
+
+void asset_fnv1a_hash(uint32_t* hash, const void* data, uint32_t size) {
+  const unsigned char* d = data;
+  while (size--) {
+    *hash = (*hash ^ *d++) * 16777619;
+  }
+}
+
+uint32_t asset_checksum(asset_t* asset) {
+  uint32_t hash = ASTERA_HASH_INITIAL;
+  asset_fnv1a_hash(&hash, asset->data, asset->data_length);
+  return hash;
 }
 
 void asset_free(asset_t* asset) {

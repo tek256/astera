@@ -329,7 +329,7 @@ c_manifold c_aabb_vs_circle_man(c_aabb a, c_circle b) {
       float x_overlap = e[0] - abs_d[0];
       float y_overlap = e[1] - abs_d[1];
 
-      float depth;
+      float depth = 0.f;
 
       if (x_overlap < y_overlap) {
         depth            = x_overlap;
@@ -341,7 +341,7 @@ c_manifold c_aabb_vs_circle_man(c_aabb a, c_circle b) {
         man.direction[1] = (d[1] < 0) ? -1.f : 1.f;
       }
 
-      man.distance = b.radius + depth;
+      man.distance = depth;
       vec2_scale(tmp, man.direction, depth);
       vec2_sub(man.point, b.center, tmp);
     }
@@ -378,8 +378,8 @@ c_manifold c_circle_vs_circle_man(c_circle a, c_circle b) {
   return man;
 }
 
-c_manifold c_circle_vs_aabb_man(c_circle a, c_aabb b){
-c_manifold man = (c_manifold){0};
+c_manifold c_circle_vs_aabb_man(c_circle a, c_aabb b) {
+  c_manifold man = (c_manifold){0};
 
   vec2 L, ab;
   vec2_clamp(L, a.center, b.min, b.max);
@@ -406,39 +406,23 @@ c_manifold man = (c_manifold){0};
       vec2_scale(e, tmp, 0.5f);
 
       vec2_sub(d, a.center, mid);
-
       vec2_abs(abs_d, d);
 
       float x_overlap = e[0] - abs_d[0];
       float y_overlap = e[1] - abs_d[1];
 
-      vec2 overlap;
-      vec2_sub(overlap, e, abs_d);
-      float len = vec2_len(overlap);
+      if (x_overlap < y_overlap) {
+        man.distance     = x_overlap;
+        man.direction[0] = (d[0] < 0 ? 1.f : -1.f);
+        man.direction[1] = 0.f;
+      } else {
+        man.distance     = y_overlap;
+        man.direction[0] = 0.f;
+        man.direction[1] = (d[1] < 0 ? 1.f : -1.f);
+      }
 
-      printf("e: %.2f %.2f\n", e[0], e[1]);
-      printf("abs_d: %.2f %.2f\n", abs_d[0], abs_d[1]);
-      printf("overlap: %.2f %.2f, len: %f\n", overlap[0], overlap[1], len);
-
-      // Calculate contact point
-      vec2_sub(man.point, a.center, overlap);
-
-      vec2_scale(man.direction, overlap, 1.f / len);
-      man.distance = len + a.radius;
-
-      // if (x_overlap < y_overlap) {
-      //   depth            = x_overlap;
-      //   man.direction[0] = (d[0] < 0) ? -1.f : 1.f;
-      //   man.direction[1] = 0.f;
-      // } else {
-      //   depth            = y_overlap;
-      //   man.direction[0] = 0.f;
-      //   man.direction[1] = (d[1] < 0) ? -1.f : 1.f;
-      // }
-
-      // man.distance = a.radius + depth;
-      // vec2_scale(tmp, man.direction, depth);
-      // vec2_sub(man.point, b.center, tmp);
+      vec2_scale(tmp, man.direction, man.distance);
+      vec2_add(man.point, a.center, tmp);
     }
   }
 
