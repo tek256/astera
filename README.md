@@ -63,7 +63,7 @@ Example script usage (generate a release candidate):
 Example CMake usage:
 
 ```
-cmake -Bbuilld -S. 
+cmake -Bbuild -S. 
 cmake --build build
 ```
 

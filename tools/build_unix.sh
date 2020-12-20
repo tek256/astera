@@ -132,7 +132,7 @@ else
   cmake --build build >> /dev/null 2>&1
 fi
 
-if [ -z "$REALLY_QUET" ]; then
+if [ -z "$REALLY_QUIET" ]; then
   echo "BUILD INFO: Build complete"
 fi
 

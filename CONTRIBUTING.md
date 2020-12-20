@@ -28,31 +28,15 @@ Instead of returning whatever the error type is, set the context's error flag to
 
 In attempts to prevent global declarations, each system should have a `_ctx` type to hold any variables commonly be globally declared. For example, render has `r_ctx` and audio `a_ctx`. 
 
-### Context's should be privately declared
-
-This means that the context struct should be `typedef`'d in the header but `defined` in the relevent .c file. 
-For example:
-```c
-render.h:
-typedef struct r_ctx r_ctx;
-```  
-
-```c
-render.c:
-struct r_ctx {
-  ... relevent variables
-};
-```
-
 ### Code should be C99 Compliant
 
 Not GNU99 or using a lot of compiler extensions. Simplicity is key.
 
 ### C Code should remove as many pedantic warnings as possible
 
-Not strictly held, but greatly appreciated. 
+Not strictly held, but seriously considered. 
 
-### All code should be ran thru clang-format
+### All code should be formatted with clang-format 
 
 To keep code consistently formatted with the rest it's asked to run clang-format on whatever code being submitted / added:
 
