@@ -265,6 +265,74 @@ s_table s_table_get(unsigned char* data) {
   return (s_table){keys, values, line_count};
 }
 
+s_table s_table_create(uint8_t count) {
+  s_table table = (s_table){0};
+
+  table.keys   = (const char**)calloc(sizeof(char**) * count, 0);
+  table.values = (const char**)calloc(sizeof(char**) * count, 0);
+  table.count  = count;
+
+  return table;
+}
+
+uint8_t s_table_add(s_table* table, char* key, char* value) {
+  if (key && value) {
+    table->keys =
+        (const char**)realloc(table->keys, sizeof(char**) * (table->count + 1));
+
+    table->values = (const char**)realloc(table->values,
+                                          sizeof(char**) * (table->count + 1));
+
+    table->keys[table->count]   = key;
+    table->values[table->count] = value;
+
+    ++table->count;
+
+    return 1;
+  }
+
+  return 0;
+}
+
+uint8_t s_table_remove(s_table* table, char* key) {
+  uint8_t found = 0;
+  for (uint32_t i = 0; i < table->count - 1; ++i) {
+    if (!found) {
+      if (!strcmp(table->keys[i], key)) {
+        found = 1;
+      }
+    }
+    if (found) {
+      table->keys[i]   = table->keys[i + 1];
+      table->values[i] = table->values[i + 1];
+    }
+  }
+
+  if (!strcmp(table->keys[table->count], key)) {
+    found = 1;
+  }
+
+  if (found) {
+    table->keys =
+        (const char**)realloc(table->keys, sizeof(char**) * (table->count - 1));
+
+    table->values = (const char**)realloc(table->values,
+                                          sizeof(char**) * (table->count - 1));
+    --table->count;
+  }
+
+  return found;
+}
+
+const char* s_table_find(s_table* table, char* key) {
+  for (uint32_t i = 0; i < table->count; ++i) {
+    if (!strcmp(table->keys[i], key)) {
+      return table->values[i];
+    }
+  }
+  return 0;
+}
+
 uint8_t s_table_write(s_table* table, char* filepath) {
   FILE* f = fopen(filepath, "wb");
   if (!f) {

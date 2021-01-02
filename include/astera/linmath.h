@@ -155,6 +155,17 @@ LINMATH_H_FUNC double d_smoothstep(double min, double max, double value) {
   return t * t * (3.0 - 2.0 * t);
 }
 
+LINMATH_H_FUNC void vec2_angle(vec2 dst, float angle) {
+  dst[0] = cos(angle);
+  dst[1] = sin(angle);
+}
+
+LINMATH_H_FUNC float vec2_get_angle(const vec2 a) { return atan2(a[0], a[1]); }
+
+LINMATH_H_FUNC float vec2_get_angle_deg(const vec2 a) {
+  return vec2_get_angle(a) * 180 / M_PI;
+}
+
 LINMATH_H_FUNC void vec2_set(vec2 v, float x, float y) {
   v[0] = x;
   v[1] = y;

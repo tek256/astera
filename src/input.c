@@ -559,7 +559,7 @@ void i_mouse_button_callback(i_ctx* ctx, uint16_t button, int8_t toggle) {
       }
 
       if (start) {
-        if (i == ctx->mouse_b.concurrent_count - 1) {
+        if (i == (uint32_t)(ctx->mouse_b.concurrent_count - 1)) {
           ctx->mouse_b.concurrent[i] = 0;
         } else {
           ctx->mouse_b.concurrent[i] = ctx->mouse_b.concurrent[i + 1];
@@ -716,7 +716,7 @@ uint16_t i_binding_add(i_ctx* ctx, const char* name, int value, int type) {
     }
   }
 
-  strncpy(ctx->bindings[ctx->binding_count].name, name, 8);
+  strncpy(ctx->bindings[ctx->binding_count].name, name, 7 * sizeof(char));
   ctx->bindings[ctx->binding_count].value = value;
   ctx->bindings[ctx->binding_count].type  = type;
   ++ctx->binding_count;

@@ -10,6 +10,9 @@
 #include <unistd.h>
 #endif
 
+// Create a debug context
+static d_ctx _d_ctx = {0};
+
 d_ctx* d_ctx_get() { return &_d_ctx; }
 
 void d_set_log(uint8_t log, const char* fp) {

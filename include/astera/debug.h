@@ -17,9 +17,6 @@ typedef struct {
   char        time_buff[16];
 } d_ctx;
 
-// Create the global context to use, and initialize it
-static d_ctx _d_ctx;
-
 /* Get a pointer to the debug context paramters
  * returns: pointer to the debug context */
 d_ctx* d_ctx_get();

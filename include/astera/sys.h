@@ -1,3 +1,9 @@
+// TODO: Multi iterator to parse duplicate keys
+
+// MACROS:
+// ASTERA_NO_CONF - Remove INI Loading functionality
+// ASTERA_LOWP_TIME - Use single precision floats for time
+
 #ifndef ASTERA_SYS_HEADER
 #define ASTERA_SYS_HEADER
 
@@ -64,6 +70,22 @@ typedef struct {
    data - the data of the file
    returns: formatted table struct */
 s_table s_table_get(unsigned char* data);
+
+/* Create a table with count
+ * returns: basic table structure */
+s_table s_table_create(uint8_t count);
+
+/* Add a key/value to a table
+ * returns: 1 = success, 0 = fail */
+uint8_t s_table_add(s_table* table, char* key, char* value);
+
+/* Remove the first key matched from table
+ * returns: 1 = success, 0 = fail */
+uint8_t s_table_remove(s_table* table, char* key);
+
+/* Returns value of a key if found
+ * returns: value, 0 = fail */
+const char* s_table_find(s_table* table, char* key);
 
 /* Free a table struct's contents
    table - the table you want to free */

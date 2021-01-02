@@ -6,6 +6,12 @@
  * and ui_ctx_scale_get NOTE: Scale is the term used to denote normalized size
  */
 
+/* TODO:
+ * - Patch sticky mouse click between sliders
+ *   (examples/fighter.c settings menu)
+ *
+ */
+
 #ifndef ASTERA_UI_HEADER
 #define ASTERA_UI_HEADER
 
@@ -17,14 +23,15 @@ extern "C" {
 #include <stdint.h>
 
 typedef enum {
-  UI_ALIGN_LEFT   = 1 << 0,
-  UI_ALIGN_CENTER = 1 << 1,
-  UI_ALIGN_RIGHT  = 1 << 2,
+  UI_ALIGN_LEFT     = 1 << 0,
+  UI_ALIGN_MIDDLE_X = 1 << 1,
+  UI_ALIGN_RIGHT    = 1 << 2,
 
   UI_ALIGN_TOP      = 1 << 3,
-  UI_ALIGN_MIDDLE   = 1 << 4,
+  UI_ALIGN_MIDDLE_Y = 1 << 4,
   UI_ALIGN_BOTTOM   = 1 << 5,
-  UI_ALIGN_BASELINE = 1 << 6,
+
+  UI_ALIGN_CENTER = 1 << 6
 } ui_align;
 
 typedef float ui_color[4];
@@ -243,7 +250,7 @@ typedef enum {
   UI_BUTTON_PADDING,
   UI_BUTTON_FONT,
   UI_BUTTON_FONT_SIZE,
-  UI_BUTTON_TEXT_ALIGNMENT,
+  UI_BUTTON_TEXT_ALIGN,
   UI_BUTTON_COLOR,
   UI_BUTTON_BG,
   UI_BUTTON_COLOR_HOVER,
@@ -258,6 +265,7 @@ typedef enum {
   UI_DROPDOWN_BORDER_COLOR,
   UI_DROPDOWN_BORDER_COLOR_HOVER,
   UI_DROPDOWN_SIZE,
+  UI_DROPDOWN_ALIGN,
   UI_DROPDOWN_FONT_SIZE,
   UI_DROPDOWN_FONT,
   UI_DROPDOWN_COLOR,
@@ -360,7 +368,7 @@ typedef enum {
   UI_OPTION,
   UI_PROGRESS,
   UI_SLIDER,
-  UI_IMAGE
+  UI_IMG
 } ui_element_type;
 
 typedef struct {
@@ -384,7 +392,7 @@ typedef struct {
 
   // new implementation
   uint32_t mouse_hover_id, cursor_id;
-  uint32_t mouse_hover_index, cursor_index;
+  uint32_t mouse_hover_index, cursor_index, selected_index;
   int      loop;
 } ui_tree;
 
@@ -777,9 +785,9 @@ void ui_img_destroy(ui_ctx* ctx, ui_img* img);
 /* Destroy a dropdown & it's contents */
 void ui_dropdown_destroy(ui_ctx* ctx, ui_dropdown* dropdown);
 
-void ui_button_destroy(ui_ctx* ctx, ui_button* button);
+void ui_button_destroy(ui_button* button);
 void ui_option_destroy(ui_ctx* ctx, ui_option* option);
-void ui_text_destroy(ui_ctx* ctx, ui_text* text);
+void ui_text_destroy(ui_text* text);
 
 void ui_text_bounds(ui_ctx* ctx, ui_text* text, vec4 bounds);
 

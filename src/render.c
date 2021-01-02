@@ -733,14 +733,6 @@ void r_framebuffer_draw(r_ctx* ctx, r_framebuffer fbo) {
   glUseProgram(0);
 }
 
-void r_framebuffer_start_draw(r_ctx* ctx) {
-  glBindFramebuffer(GL_FRAMEBUFFER, 0);
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-  glDisable(GL_DEPTH_TEST);
-}
-
-void r_framebuffer_end_draw(r_ctx* ctx) { glEnable(GL_DEPTH_TEST); }
-
 void r_tex_bind(uint32_t tex) {
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, tex);
@@ -2163,7 +2155,7 @@ GLFWvidmode* r_get_vidmode_options(r_ctx* ctx, uint8_t* count, uint32_t width,
   uint8_t unique = 0;
   for (uint8_t i = 0; i < ctx->mode_count; ++i) {
     GLFWvidmode current_mode = ctx->modes[i];
-    if (current_mode.width == width && current_mode.height == height)
+    if (current_mode.width == (int)width && current_mode.height == (int)height)
       ++unique;
   }
 
@@ -2175,7 +2167,8 @@ GLFWvidmode* r_get_vidmode_options(r_ctx* ctx, uint8_t* count, uint32_t width,
 
   for (uint8_t i = 0; i < ctx->mode_count; ++i) {
     GLFWvidmode current_mode = ctx->modes[i];
-    if (current_mode.width == width && current_mode.height == height) {
+    if (current_mode.width == (int)width &&
+        current_mode.height == (int)height) {
       modes[mode_index] = current_mode;
       ++mode_index;
     }
@@ -2194,7 +2187,8 @@ int16_t r_get_vidmode_index(r_ctx* ctx, uint32_t width, uint32_t height,
 
   for (uint8_t i = 0; i < ctx->mode_count; ++i) {
     GLFWvidmode current_mode = ctx->modes[i];
-    if (current_mode.width == width && current_mode.height == height) {
+    if (current_mode.width == (int)width &&
+        current_mode.height == (int)height) {
       if (refresh_rate) {
         if (current_mode.refreshRate == refresh_rate) {
           return i;
@@ -2208,32 +2202,35 @@ int16_t r_get_vidmode_index(r_ctx* ctx, uint32_t width, uint32_t height,
   return -1;
 }
 
-uint8_t r_get_vidmode_str_simplei(r_ctx* ctx, char* dst, uint8_t index) {
+uint8_t r_get_vidmode_str_simplei(r_ctx* ctx, char* dst, uint32_t max_length,
+                                  uint8_t index) {
   if (index >= ctx->mode_count) {
     index = 0;
   }
 
   index = (ctx->mode_count - 1) - index;
-  return (uint8_t)r_get_vidmode_str_simple(dst, ctx->modes[index]);
+  return (uint8_t)r_get_vidmode_str_simple(dst, max_length, ctx->modes[index]);
 }
 
-uint8_t r_get_vidmode_str_simple(char* dst, GLFWvidmode mode) {
-  int str_len = sprintf(dst, "%i x %i", mode.width, mode.height);
+uint8_t r_get_vidmode_str_simple(char* dst, uint32_t max_length,
+                                 GLFWvidmode mode) {
+  int str_len = snprintf(dst, max_length, "%i x %i", mode.width, mode.height);
   return (uint8_t)str_len;
 }
 
-uint8_t r_get_vidmode_stri(r_ctx* ctx, char* dst, uint8_t index) {
+uint8_t r_get_vidmode_stri(r_ctx* ctx, char* dst, uint32_t max_length,
+                           uint8_t index) {
   if (index >= ctx->mode_count) {
     index = 0;
   }
 
   index = (ctx->mode_count - 1) - index;
-  return r_get_vidmode_str(dst, ctx->modes[index]);
+  return r_get_vidmode_str(dst, max_length, ctx->modes[index]);
 }
 
-uint8_t r_get_vidmode_str(char* dst, GLFWvidmode mode) {
-  int str_len =
-      sprintf(dst, "%ix%i@%i", mode.width, mode.height, mode.refreshRate);
+uint8_t r_get_vidmode_str(char* dst, uint32_t max_length, GLFWvidmode mode) {
+  int str_len = snprintf(dst, max_length, "%ix%i@%i", mode.width, mode.height,
+                         mode.refreshRate);
   return (uint8_t)str_len;
 }
 

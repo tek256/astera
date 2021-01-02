@@ -1,3 +1,15 @@
+/* INPUT EXAMPLE (UI & Input)
+
+This example is meant to show how to use the UI & Input system in conjunction
+with each other.
+
+CONTROLS:
+W / Up Arrow - Previous Element
+S / Down Arrow - Next Element
+Space / Left Mouse Click - Select Element
+Tab - Toggle text capture
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -26,7 +38,7 @@ r_ctx* render_ctx;
 i_ctx* input_ctx;
 
 ui_ctx*     u_ctx;
-ui_text     text, text2;
+ui_text     text, text2, title;
 ui_font     test_font;
 ui_button   button;
 ui_dropdown dropdown;
@@ -93,7 +105,7 @@ void init_ui() {
   ui_attrib_seti(u_ctx, UI_DROPDOWN_FONT, test_font);
   ui_attrib_seti(u_ctx, UI_DEFAULT_FONT, test_font);
 
-  vec2 text_pos  = {0.5f, 0.05f};
+  vec2 text_pos  = {0.5f, 0.35f};
   vec2 text_pos2 = {0.5f, 0.065f};
   font_asset     = asset_get("resources/fonts/monogram.ttf");
 
@@ -123,36 +135,38 @@ void init_ui() {
   tab_msg.shadow_size = 10.f;
   tab_msg.use_shadow  = 1;
 
-  text = ui_text_create(u_ctx, text_pos,
-                        "I wonder how well this all will scale long term.",
-                        32.f, test_font, UI_ALIGN_LEFT);
+  text = ui_text_create(u_ctx, text_pos, "Glowing!", 32.f, test_font,
+                        UI_ALIGN_CENTER);
 
-  text_time        = 0.f;
-  text_rate        = 150.f;
   text_count       = 0;
-  text.use_reveal  = 0;
   text.use_shadow  = 1;
   text.shadow_size = 25.f;
 
-  ui_color text_shadow_color = {0.f, 0.f, 0.f, 0.7f};
+  ui_color text_shadow_color = {1.f, 0.f, 0.f, 1.0f};
+  ui_color_dup(text.color, white);
   ui_color_dup(text.shadow, text_shadow_color);
 
+  // ok so use_box is obviously breaking something
   text.use_box = 1;
   vec2_clear(text.bounds);
-  text.bounds[0] = window_size[0];
+  text.bounds[0] = 0.7f;
+  text.bounds[1] = 0.5f;
 
-  text.reveal = text.text;
+  vec2 scaled_bounds;
+  ui_scale_to_px(u_ctx, scaled_bounds, text.bounds);
 
-  float max_size = ui_text_max_size(u_ctx, text, window_size, 0);
-  text.size      = max_size;
+  float max_size = ui_text_max_size(u_ctx, text, scaled_bounds, 0);
+  printf("Max size: %f\n", max_size);
+  text.size = max_size;
 
   text2 = ui_text_create(u_ctx, text_pos2, "Input Example - Astera 1.0", 32.f,
-                         test_font, UI_ALIGN_CENTER | UI_ALIGN_BOTTOM);
+                         test_font, UI_ALIGN_MIDDLE_X | UI_ALIGN_BOTTOM);
+  ui_color_dup(text2.color, white);
 
   vec2     button_pos         = {0.5f, 0.5f};
   vec2     button_size        = {0.25f, 0.1f};
   ui_color button_hover_color = {1.f, 1.f, 0.f, 1.f};
-  int      alignment          = UI_ALIGN_MIDDLE | UI_ALIGN_CENTER;
+  int      alignment          = UI_ALIGN_CENTER;
 
   button = ui_button_create(u_ctx, button_pos, button_size, "Hello world.",
                             alignment, 32.f);
@@ -172,10 +186,9 @@ void init_ui() {
   char**   option_list          = (char**)calloc(vidmode_count, sizeof(char*));
 
   for (uint8_t i = 0; i < vidmode_count; ++i) {
-    uint8_t str_len =
-        r_get_vidmode_str_simple(&options_buffer[option_index], vidmodes[i]);
+    uint8_t str_len = r_get_vidmode_str_simple(
+        &options_buffer[option_index], 1024 - option_index, vidmodes[i]);
     option_list[i] = &options_buffer[option_index];
-
     option_index += str_len + 1;
   }
 
@@ -198,7 +211,7 @@ void init_ui() {
   /*float dropdown_font_size = ui_dropdown_max_font_size(u_ctx, dropdown);
   dropdown.font_size       = dropdown_font_size;*/
 
-  dropdown.align = UI_ALIGN_MIDDLE | UI_ALIGN_CENTER;
+  dropdown.align = UI_ALIGN_CENTER;
 
   vec2     line_start = {0.25f, 0.1f};
   vec2     line_end   = {0.75f, 0.1f};
@@ -244,7 +257,7 @@ void init_ui() {
   dropdown_uid = ui_tree_add(u_ctx, &tree, &dropdown, UI_DROPDOWN, 3, 1, 1);
   button_uid   = ui_tree_add(u_ctx, &tree, &button, UI_BUTTON, 0, 1, 0);
   ui_tree_add(u_ctx, &tree, &line, UI_LINE, 0, 0, 0);
-  ui_tree_add(u_ctx, &tree, &img, UI_IMAGE, 0, 0, 0);
+  ui_tree_add(u_ctx, &tree, &img, UI_IMG, 0, 0, 0);
   ui_tree_add(u_ctx, &tree, &typed, UI_TEXT, 0, 0, 0);
   ui_tree_add(u_ctx, &tree, &explain, UI_TEXT, 0, 0, 0);
   ui_tree_add(u_ctx, &tree, &tab_msg, UI_TEXT, 0, 0, 0);
@@ -318,18 +331,18 @@ void input(time_s delta) {
   }
 
   if ((event_type = ui_tree_check_event(&tree, dropdown_uid))) {
-    if (dropdown.showing) {
+    /*if (dropdown.showing) {
       ui_dropdown_set_to_cursor(&dropdown);
       printf("%i\n", dropdown.selected);
       char tmp_str[32] = {0};
       r_get_vidmode_str_simple(
-          tmp_str, ((GLFWvidmode*)dropdown.data)[dropdown.selected]);
+          tmp_str, 32, ((GLFWvidmode*)dropdown.data)[dropdown.selected]);
       printf("%s\n", tmp_str);
 
       dropdown.showing = 0;
     } else {
       dropdown.showing = 1;
-    }
+    }*/
   }
 
   if (i_key_clicked(input_ctx, KEY_ESCAPE) ||
@@ -432,7 +445,7 @@ void input(time_s delta) {
     }
 
     if (i_binding_clicked(input_ctx, "right")) {
-      printf("Right.\n");
+      // printf("Right.\n");
     }
   }
 }

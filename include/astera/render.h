@@ -1131,28 +1131,35 @@ int16_t r_get_vidmode_index(r_ctx* ctx, uint32_t width, uint32_t height,
 /* Get string of video mode by index
  * ctx - render context to get option from
  * dst - the destination for the string
+ * max_length - the max length of the dst buffer
  * index - the option's index
  * returns: returns string with format: width x height */
-uint8_t r_get_vidmode_str_simplei(r_ctx* ctx, char* dst, uint8_t index);
+uint8_t r_get_vidmode_str_simplei(r_ctx* ctx, char* dst, uint32_t max_length,
+                                  uint8_t index);
 
 /* Get string of video mode
  * dst - the destination for the string
+ * max_length - the max length of the dst buffer
  * mode - video mode to get string of
  * returns: returns string with format: width x height */
-uint8_t r_get_vidmode_str_simple(char* dst, GLFWvidmode mode);
+uint8_t r_get_vidmode_str_simple(char* dst, uint32_t max_length,
+                                 GLFWvidmode mode);
 
 /* Get string of video mode by index
  * ctx - render context to get option from
  * dst - the destination for the string
+ * max_length - the max length of the dst buffer
  * index - the option's index
  * returns: returns string with format: `width`x`height`@`refresh rate` */
-uint8_t r_get_vidmode_stri(r_ctx* ctx, char* dst, uint8_t index);
+uint8_t r_get_vidmode_stri(r_ctx* ctx, char* dst, uint32_t max_length,
+                           uint8_t index);
 
 /* Get string of video mode
  * dst - the destination for the string
+ * max_length - the max length of the dst buffer
  * mode - video mode to get string of
  * returns: returns string with format: `width`x`height`@`refresh rate` */
-uint8_t r_get_vidmode_str(char* dst, GLFWvidmode mode);
+uint8_t r_get_vidmode_str(char* dst, uint32_t max_length, GLFWvidmode mode);
 
 uint8_t r_select_mode(r_ctx* ctx, uint8_t index, int8_t fullscreen,
                       int8_t vsync, int8_t borderless);

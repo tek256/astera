@@ -34,13 +34,6 @@ typedef enum {
 } c_types;
 
 typedef struct {
-  c_ray ray;
-
-  float distance;
-  vec2  normal, point;
-} c_raycast;
-
-typedef struct {
   vec2  point, direction;
   float distance;
 } c_manifold;
@@ -82,18 +75,31 @@ void c_aabb_get_size(vec2 dst, c_aabb aabb);
 c_circle c_circle_create(vec2 center, float radius);
 
 /* Test a ray vs aabb
- * ray - the ray to test
+ * a - the ray to test
  * b - the aabb to test
  * out - the raycast output
  * returns: 1 = colliding, 0 = not colliding */
-uint8_t c_ray_vs_aabb(c_ray ray, c_aabb b, c_raycast* out);
+uint8_t c_ray_vs_aabb(c_ray a, c_aabb b);
 
 /* Test a ray vs circle
- * ray - the ray to test
+ * a - the ray to test
  * b - the circle to test
  * out - the raycast output
  * returns: 1 = colliding, 0 = not colliding */
-uint8_t c_ray_vs_circle(c_ray ray, c_circle b, c_raycast* out);
+uint8_t c_ray_vs_circle(c_ray a, c_circle b);
+
+/* Test a ray vs aabb
+ * a - the ray to test
+ * b - the aabb to test
+ * returns: manifold, 0 length = fail/not colliding */
+c_manifold c_ray_vs_aabb_man(c_ray a, c_aabb b);
+
+/* Test a ray vs circle
+ * a - the ray to test
+ * b - the circle to test
+ * out - the raycast output
+ * returns: manifold, 0 length = fail/not colliding */
+c_manifold c_ray_vs_circle_man(c_ray a, c_circle b);
 
 /* Test an AABB vs AABB
  * a - the first aabb to test

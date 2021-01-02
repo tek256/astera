@@ -239,6 +239,10 @@ void init_audio() {
   song_id   = a_song_create(audio_ctx, song_data->data, song_data->data_length,
                           "test", 32, 4, 4096 * 4);
 
+  if (!song_id) {
+    printf("Unable to load song.\n");
+  }
+
   asset_t* blip_data = asset_get("resources/audio/blop.wav");
   blip_id = a_buf_create(audio_ctx, blip_data->data, blip_data->data_length,
                          "blip", 0);
@@ -281,22 +285,24 @@ void init() {
 static char timecode_str[16];
 
 void render(time_s delta) {
-  time_s length = a_song_get_length(audio_ctx, song_id);
-  time_s time   = a_song_get_time(audio_ctx, song_id);
+  if (song_id) {
+    time_s length = a_song_get_length(audio_ctx, song_id);
+    time_s time   = a_song_get_time(audio_ctx, song_id);
 
-  int time_min = (int)floor(time / (60 * 1000.f));
-  int time_sec = (int)(time - (time_min * 60000.f)) / 1000;
+    int time_min = (int)floor(time / (60 * 1000.f));
+    int time_sec = (int)(time - (time_min * 60000.f)) / 1000;
 
-  int len_min = (int)floor(length / (60.f * 1000.f));
-  int len_sec = (int)(length - (len_min * 60000.f)) / 1000;
+    int len_min = (int)floor(length / (60.f * 1000.f));
+    int len_sec = (int)(length - (len_min * 60000.f)) / 1000;
 
-  float prog      = time / length;
-  slider.progress = prog;
+    float prog      = time / length;
+    slider.progress = prog;
 
-  memset(timecode_str, 0, sizeof(char) * 16);
-  snprintf(timecode_str, 16, "%i:%.2i / %i:%.2i", time_min, time_sec, len_min,
-           len_sec);
-  timecode.text = timecode_str;
+    memset(timecode_str, 0, sizeof(char) * 16);
+    snprintf(timecode_str, 16, "%i:%.2i / %i:%.2i", time_min, time_sec, len_min,
+             len_sec);
+    timecode.text = timecode_str;
+  }
 
   r_window_clear();
 
@@ -353,11 +359,11 @@ void input(time_s delta) {
     running = 0;
   }
 
-  if (i_key_clicked(input_ctx, 'O')) {
+  if (i_key_clicked(input_ctx, 'O') && song_id != 0) {
     a_song_reset(audio_ctx, song_id);
   }
 
-  if (i_key_clicked(input_ctx, KEY_P)) {
+  if (i_key_clicked(input_ctx, KEY_P) && song_id != 0) {
     ALenum song_state = a_song_get_state(audio_ctx, song_id);
     vec3   song_pos   = {0.f, 0.f, 0.f};
     if (use_reverb) {

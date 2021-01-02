@@ -1,3 +1,5 @@
+// TODO Broadphase
+
 #define WINDOW_WIDTH  1280
 #define WINDOW_HEIGHT 720
 
@@ -21,14 +23,15 @@ ui_ctx* u_ctx;
 ui_font font;
 
 // actual collision code
-c_aabb    box_a, box_b;
-c_circle  circle;
-c_ray     ray;
-c_raycast raycast;
+c_aabb     box_a, box_b;
+c_circle   circle;
+c_ray      ray;
+c_manifold man;
+float      ray_angle;
 
 // formatted text buffer
 char     fmt_text[128];
-vec2     overlap_text_pos;
+vec2     overlap_text_pos, box_text_pos, angle_text_pos;
 asset_t* font_data;
 
 // Create the window to render with, ui context, and load in a font
@@ -48,6 +51,14 @@ void init_render(r_ctx* render_ctx) {
   // offset 5 px from corner
   vec2 offset = {5.f, 5.f};
   ui_scale_offset_px(u_ctx, overlap_text_pos, overlap_text_pos, offset);
+
+  offset[0] = 5.f;
+  offset[1] = 25.f;
+  ui_scale_offset_px(u_ctx, box_text_pos, box_text_pos, offset);
+
+  offset[0] = 5.f;
+  offset[1] = 45.f;
+  ui_scale_offset_px(u_ctx, angle_text_pos, angle_text_pos, offset);
 }
 
 void setup_collision() {
@@ -57,13 +68,21 @@ void setup_collision() {
   // format size to halfsize
   box_a = c_aabb_create(position, halfsize);
 
-  position[0] = 64.f;
-  position[1] = 64.f;
+  position[0] = 150.f;
+  position[1] = 150.f;
   box_b       = c_aabb_create(position, halfsize);
 
   position[0] = 72.f;
   position[1] = 72.f;
   circle      = c_circle_create(position, 16.f);
+
+  position[0] = 64.f;
+  position[1] = 64.f;
+
+  ray_angle = 0.f;
+  vec2 direction;
+  vec2_angle(direction, ray_angle);
+  ray = c_ray_create(position, direction, 64.f);
 }
 
 void debug_text(vec2 start, char* text) {
@@ -158,8 +177,13 @@ void input(time_s delta) {
 }
 
 void update(time_s delta) {
+  ray_angle += delta * 0.001f;
+  if (ray_angle > 2 * M_PI)
+    ray_angle -= (2 * M_PI);
+
+  vec2_angle(ray.direction, ray_angle);
   // Check for collision between boxes
-  /* AABB vs AABB
+  // AABB vs AABB
   if (c_aabb_vs_aabb(box_a, box_b)) {
     c_manifold solution = c_aabb_vs_aabb_man(box_a, box_b);
 
@@ -174,26 +198,102 @@ void update(time_s delta) {
 
     vec2_clear(solution.direction);
     solution.distance = 0.f;
-
   }
-  */
 
-  // AABB vs Circle
-  if (c_aabb_vs_circle(box_a, circle)) {
-    // c_manifold man = c_aabb_vs_circle_man(box_b, circle);
-    c_manifold man = c_circle_vs_aabb_man(circle, box_a);
-    vec2       old_pos, distance;
+  static int overlap_check = 0;
+  static int overlap_count = 0;
+  man                      = c_ray_vs_circle_man(ray, circle);
+  if (man.distance != 0.f) {
+    if (!overlap_check) {
+      printf("Overlap of ray (circle): %i\n", overlap_count);
+      overlap_check = 1;
+    }
+    // vec2 old_pos, distance;
 
-    vec2_scale(distance, man.direction, man.distance);
+    /*vec2 distance;
+    vec2_scale(distance, raycast.normal, raycast.distance);
+    vec2_scale(distance, distance, -1.f);*/
+
+    // vec2_scale(distance, man.direction, man.distance);
     // vec2_sub(old_pos, box_b.max, box_b.min);
     // vec2_dup(old_pos, circle.center);
 
-    debug_fmt_text(overlap_text_pos, "%.2f %.2f", distance[0], distance[1]);
-    vec2_scale(distance, distance, -1.f);
+    debug_fmt_text(overlap_text_pos, "circle vs ray: %.2f", man.distance);
+    // vec2_scale(distance, distance, -1.f);
 
     // vec2_add(.center, circle.center, distance);
     // printf("move %.2f %.2f\n", distance[0], distance[1]);
     // c_aabb_move(&box_a, distance);
+    // c_circle_move(&circle, distance);
+
+    ui_color color;
+    ui_get_color(color, "#f00");
+    debug_circle(man.point, 1.f, 3.f, color);
+  } else {
+    // I think the length isn't being applied, to test this I'll change the
+    // "direction" value of the ray when it's created to reflect the length and
+    // not just normalized direction
+    if (overlap_check) {
+      overlap_check = 0;
+      ++overlap_count;
+    }
+    man.distance = 0.f;
+  }
+
+  static int box_overlap_check = 0;
+  static int box_overlap_count = 0;
+
+  c_manifold tmp_man = c_ray_vs_aabb_man(ray, box_a);
+  if (tmp_man.distance != 0.f) {
+    if (!box_overlap_check) {
+      printf("Overlap of ray (box): %i\n", box_overlap_count);
+      box_overlap_check = 1;
+    }
+
+    man = tmp_man;
+
+    vec2 distance;
+    vec2_scale(distance, man.direction, man.distance);
+
+    debug_fmt_text(overlap_text_pos, "box vs ray: %.2f %.2f", distance[0],
+                   distance[1]);
+
+    ui_color color;
+    ui_get_color(color, "#f00");
+    debug_circle(man.point, 1.f, 3.f, color);
+  } else {
+    if (box_overlap_check) {
+      box_overlap_check = 0;
+      ++box_overlap_count;
+    }
+  }
+
+  // AABB vs Circle
+  if (c_aabb_vs_circle(box_a, circle)) {
+    c_manifold man = c_circle_vs_aabb_man(circle, box_a);
+    vec2       old_pos, distance;
+
+    vec2_scale(distance, man.direction, man.distance);
+
+    // c_aabb_move(&box_a, distance);
+
+    vec2_scale(distance, distance, -1.f);
+    c_circle_move(&circle, distance);
+
+    ui_color color;
+    ui_get_color(color, "#f00");
+    debug_circle(man.point, 1.f, 3.f, color);
+  }
+
+  if (c_aabb_vs_circle(box_b, circle)) {
+    c_manifold man = c_circle_vs_aabb_man(circle, box_b);
+    vec2       old_pos, distance;
+
+    vec2_scale(distance, man.direction, man.distance);
+
+    // c_aabb_move(&box_a, distance);
+
+    vec2_scale(distance, distance, -1.f);
     c_circle_move(&circle, distance);
 
     ui_color color;
@@ -219,15 +319,41 @@ void render(time_s delta) {
   r_camera_size_to_screen(draw_size, camera, circle_size);
   debug_circle(circle.center, circle.radius, 2.f, circle_color);
 
-  // printf("%.2f %.2f\n", circle.center[0], circle.center[1]);
-
   vec2 box_start, box_end;
 
-  ui_color box_color;
+  ui_color box_color, ray_color, box_b_color;
   ui_get_color(box_color, "#00f");
-  // debug_box(box_b.min, box_b.max, box_color);
+  ui_get_color(box_b_color, "#f0f");
+
+  ui_get_color(ray_color, "#88f");
+
+  debug_box(box_b.min, box_b.max, box_b_color);
 
   debug_box(box_a.min, box_a.max, box_color);
+
+  vec2 box_pos = {box_a.min[0] + (box_a.max[0] - box_a.min[0]),
+                  box_a.min[1] + (box_a.max[1] - box_a.min[1])};
+  debug_fmt_text(box_text_pos, "%.2f %.2f", box_pos[0], box_pos[1]);
+
+  debug_fmt_text(angle_text_pos, "angle: %.2f", ray_angle * (180.f / M_PI));
+
+  vec2 line_end;
+  if (man.distance <= 0.f) {
+    vec2_scale(line_end, ray.direction, ray.distance);
+    vec2_add(line_end, line_end, ray.center);
+  } else {
+    vec2_dup(line_end, man.point);
+  }
+
+  static int box_color_out = 0;
+  if (!box_color_out) {
+    printf("%.2f %.2f %.2f %.2f\n", ray.center[0], ray.center[1], line_end[0],
+           line_end[1]);
+    box_color_out = 1;
+  }
+
+  // just to make sure this is working
+  debug_line(ray.center, line_end, 2.f, ray_color);
 
   ui_frame_end(u_ctx);
 

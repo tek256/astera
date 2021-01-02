@@ -1,8 +1,6 @@
 #ifndef ASTERA_ASTERA_HEADER
 #define ASTERA_ASTERA_HEADER
 
-#ifndef __APPLE__
-
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -688,5 +686,4 @@ float a_layer_get_gain(a_ctx* ctx, uint16_t layer_id);
 }
 #endif
 
-#endif
 #endif

@@ -1,3 +1,13 @@
+/* ASSETS EXAMPLE (Asset)
+
+This example is meant to show how to use the various asset functions in Astera.
+
+If ASTERA_PAK_WRITE is enabled in the build it will include a pak writing example as well. _NOTE: You can enable this by setting it in your CMakeLists.txt or passing the argument `-DASTERA_PAK_WRITE=ON` initially._ This is meant to show how to use the Astera pak writing utility to store multiple files into astera's .PAK file type. For more on the specifics of this type, check out the Asset Guide's PAK Files section.
+
+NOTE:
+If you want to recreate the pak functionality outside of runtime, astera includes a pakutil tool in the tools/ directory. You can enable the compilation of this with the engine by passing -DASTERA_BUILD_TOOLS=ON or setting ASTERA_BUILD_TOOLS to ON in your CMakeLists.txt. 
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

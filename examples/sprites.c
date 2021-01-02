@@ -1,3 +1,14 @@
+/* SPRITES EXAMPLE (Rendering & Input)
+
+This example is meant to show how to use the various Rendering types in Astera.
+
+CONTROLS: 
+W / Up Arrow - Previous Element
+S / Down Arrow - Next Element
+Space / Left Mouse Click - Select Element
+Tab - Toggle text capture 
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>

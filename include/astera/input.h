@@ -432,7 +432,7 @@ double i_mouse_get_dy(i_ctx* ctx);
 int i_any_event(i_ctx* ctx);
 
 /* Add a key binding to an input context
- * name - the name of the key binding
+ * name - the name of the key binding (max length = 7 chars)
  * value - the action required to trigger the binding
  * type - the type (ASTERA_BINDING_KEY, ASTERA_BINDING_JOYA,
  *                  ASTERA_BINDING_JOYB, ASTERA_BINDING_MOUSEB)

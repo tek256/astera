@@ -1,8 +1,6 @@
 #include <astera/audio.h>
 #include <astera/debug.h>
 
-#ifndef __APPLE__
-
 #if !defined(ASTERA_AL_DISTANCE_MODEL)
 #define ASTERA_AL_DISTANCE_MODEL AL_INVERSE_DISTANCE
 #endif
@@ -66,7 +64,7 @@ static inline float _a_clamp(float value, float min, float max, float def) {
                          : value;
 }
 
-static float a_sfx_get_source_gain(a_ctx* ctx, uint16_t source) {
+/* static float a_sfx_get_source_gain(a_ctx* ctx, uint16_t source) {
   for (uint16_t i = 0; i < ctx->sfx_capacity; ++i) {
     if (ctx->sfx[i].source == source) {
       if (ctx->sfx[i].req) {
@@ -78,7 +76,7 @@ static float a_sfx_get_source_gain(a_ctx* ctx, uint16_t source) {
   }
 
   return 0;
-}
+} */
 
 static a_layer* _a_get_layer(a_ctx* ctx, uint16_t layer_id) {
   return (ctx->layers[layer_id - 1].id == 0) ? 0 : &ctx->layers[layer_id - 1];
@@ -385,7 +383,9 @@ a_ctx* a_ctx_create(const char* device, uint8_t layers, uint16_t max_sfx,
 
 #if !defined(ASTERA_AL_NO_FX)
   if (ctx->use_fx) {
-    alcGetIntegerv(al_device, ALC_MAX_AUXILIARY_SENDS, 1, &ctx->fx_per_source);
+    ALint fx_per_source;
+    alcGetIntegerv(al_device, ALC_MAX_AUXILIARY_SENDS, 1, &fx_per_source);
+    ctx->fx_per_source = (uint16_t)fx_per_source;
 
     if (!ctx->fx_per_source) {
       ASTERA_FUNC_DBG("0 effects allowed per source, disabling effects.\n");
@@ -795,14 +795,14 @@ void a_ctx_update(a_ctx* ctx) {
     alSourcef((ALuint)sfx->source, AL_MAX_DISTANCE, sfx->req->range);
     alSourcei((ALuint)sfx->source, AL_LOOPING, sfx->req->loop);
 
-    uint32_t sample_offset;
+    ALint sample_offset;
     alGetSourcei(sfx->source, AL_SAMPLE_OFFSET, &sample_offset);
-    if (sample_offset >= sfx->length) {
+    if ((uint32_t)sample_offset >= sfx->length) {
       if (sfx->req->loop)
         ++sfx->req->loop_count;
     }
 
-    alGetSourcef((ALuint)sfx->source, AL_SEC_OFFSET, &sfx->req->time);
+    alGetSourcef((ALuint)sfx->source, AL_SEC_OFFSET, (ALfloat*)&sfx->req->time);
   }
 
   ctx->sfx_count = sfx_count;
@@ -1041,7 +1041,12 @@ uint16_t a_song_create(a_ctx* ctx, unsigned char* data, uint32_t data_length,
   if (!song->vorbis) {
     song->data = 0;
     song->req  = 0;
-    ASTERA_FUNC_DBG("Unable to load vorbis, that sucks.\n");
+
+    ASTERA_FUNC_DBG("Unable to load vorbis, that sucks VORBIS Error: %i\n",
+                    error);
+
+    free(song->vorbis);
+
     return 0;
   }
 
@@ -1308,8 +1313,8 @@ uint8_t a_song_set_time(a_ctx* ctx, uint16_t song_id, time_s from_start) {
 
   a_song* song = &ctx->songs[song_id - 1];
 
-  double  conv_time     = from_start * 1000.0;
-  int32_t approx_sample = conv_time * song->info.sample_rate;
+  double   conv_time     = from_start * 1000.0;
+  uint32_t approx_sample = conv_time * song->info.sample_rate;
 
   if (approx_sample > song->sample_count) {
     ASTERA_FUNC_DBG("sample requested %i out of range of song %i\n",
@@ -2114,4 +2119,3 @@ float a_layer_get_gain(a_ctx* ctx, uint16_t layer_id) {
   return layer->gain;
 }
 
-#endif

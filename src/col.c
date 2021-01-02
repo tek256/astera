@@ -13,7 +13,7 @@ c_ray c_ray_create(vec2 center, vec2 direction, float distance) {
 }
 
 c_aabb c_aabb_create(vec2 center, vec2 halfsize) {
-  c_aabb aabb = {0.f};
+  c_aabb aabb = {0};
   vec2_sub(aabb.min, center, halfsize);
   vec2_add(aabb.max, center, halfsize);
   return aabb;
@@ -60,96 +60,7 @@ static inline float _r2plane(float da, float db) {
   }
 }
 
-uint8_t c_ray_vs_aabb(c_ray A, c_aabb B, c_raycast* out) {
-  vec2 p0, p1, tmp;
-
-  vec2_scale(tmp, A.direction, A.distance);
-  vec2_add(p0, tmp, A.center);
-
-  c_aabb a_box;
-  vec2_min(a_box.min, p0, p1);
-  vec2_max(a_box.max, p0, p1);
-
-  if (!c_aabb_vs_aabb(a_box, B))
-    return 0;
-
-  vec2 ab, n, abs_n, half, center_of_b;
-
-  vec2_sub(ab, p1, p0);
-  vec2_dup(tmp, ab);
-
-  ab[0] = -tmp[1];
-  ab[1] = tmp[0];
-
-  vec2_abs(abs_n, n);
-
-  vec2_sub(tmp, B.max, B.min);
-  vec2_scale(half, tmp, 0.5f);
-
-  vec2_add(tmp, B.max, B.min);
-  vec2_scale(center_of_b, tmp, 0.5f);
-
-  vec2_sub(tmp, p0, center_of_b);
-  float d = fabs(vec2_dot(n, tmp) - vec2_dot(abs_n, half));
-
-  if (d > 0)
-    return 0;
-
-  float da0 = _sdpo(p0[0], -1.f, B.min[0]);
-  float db0 = _sdpo(p1[0], -1.f, B.min[0]);
-  float da1 = _sdpo(p0[0], 1.f, B.max[0]);
-  float db1 = _sdpo(p1[0], 1.f, B.max[0]);
-  float da2 = _sdpo(p0[1], -1.f, B.min[1]);
-  float db2 = _sdpo(p1[1], -1.f, B.min[1]);
-  float da3 = _sdpo(p0[1], 1.f, B.max[1]);
-  float db3 = _sdpo(p1[1], 1.f, B.max[1]);
-
-  float t0 = _r2plane(da0, db0);
-  float t1 = _r2plane(da1, db1);
-  float t2 = _r2plane(da2, db2);
-  float t3 = _r2plane(da3, db3);
-
-  int hit0 = t0 < 1.f;
-  int hit1 = t1 < 1.f;
-  int hit2 = t2 < 1.f;
-  int hit3 = t3 < 1.f;
-  int hit  = hit0 | hit1 | hit2 | hit3;
-
-  if (hit) {
-    t0 = (float)hit0 * t0;
-    t1 = (float)hit1 * t1;
-    t2 = (float)hit2 * t2;
-    t3 = (float)hit3 * t3;
-
-    if (t0 >= t1 && t0 >= t2 && t0 >= t3) {
-      out->distance  = t0 * A.distance;
-      out->normal[0] = -1.f;
-      out->normal[1] = 0.f;
-    } else if (t1 >= t0 && t1 >= t2 && t1 >= t3) {
-      out->distance  = t1 * A.distance;
-      out->normal[0] = 1.f;
-      out->normal[1] = 0.f;
-    } else if (t2 >= t0 && t2 >= t1 && t2 >= t3) {
-      out->distance  = t2 * A.distance;
-      out->normal[0] = 0.f;
-      out->normal[1] = -1.f;
-    } else {
-      out->distance  = t3 * A.distance;
-      out->normal[0] = 0.f;
-      out->normal[1] = 1.f;
-    }
-
-    // Get the point of impact
-    vec2_scale(tmp, out->normal, out->distance);
-    vec2_add(out->point, A.center, tmp);
-
-    return 1;
-  }
-
-  return 0;
-}
-
-uint8_t c_ray_vs_circle(c_ray ray, c_circle B, c_raycast* out) {
+uint8_t c_ray_vs_circle(c_ray ray, c_circle B) {
   vec2 p, m;
   vec2_dup(p, B.center);
   float c, b, disc;
@@ -164,23 +75,120 @@ uint8_t c_ray_vs_circle(c_ray ray, c_circle B, c_raycast* out) {
     return 0;
 
   float t = -b - sqrtf(disc);
-  if (t >= 0 && t <= ray.distance && out) {
+  if (t >= 0 && t <= ray.distance) {
+    return 1;
+  }
+
+  return 0;
+}
+
+uint8_t c_ray_vs_aabb(c_ray A, c_aabb B) {
+  float diff_x = 1.f / A.direction[0];
+  float diff_y = 1.f / A.direction[1];
+
+  float t1 = (B.min[0] - A.center[0]) * diff_x;
+  float t2 = (B.max[0] - A.center[0]) * diff_x;
+  float t3 = (B.min[1] - A.center[1]) * diff_y;
+  float t4 = (B.max[1] - A.center[1]) * diff_y;
+
+  float tmin = fmax(fmin(t1, t2), fmin(t3, t4));
+  float tmax = fmin(fmax(t1, t2), fmax(t3, t4));
+
+  // behind ray
+  if (tmax < 0 || tmin < 0) {
+    return 0;
+  }
+
+  // non-intersectional
+  if (tmin > tmax) {
+    return 0;
+  }
+
+  // out of range
+  if (tmin > A.distance) {
+    return 0;
+  }
+
+  return 1;
+}
+
+c_manifold c_ray_vs_aabb_man(c_ray A, c_aabb B) {
+  float diff_x = 1.f / A.direction[0];
+  float diff_y = 1.f / A.direction[1];
+
+  float t1 = (B.min[0] - A.center[0]) * diff_x;
+  float t2 = (B.max[0] - A.center[0]) * diff_x;
+  float t3 = (B.min[1] - A.center[1]) * diff_y;
+  float t4 = (B.max[1] - A.center[1]) * diff_y;
+
+  float tmin = fmax(fmin(t1, t2), fmin(t3, t4));
+  float tmax = fmin(fmax(t1, t2), fmax(t3, t4));
+
+  c_manifold man = (c_manifold){0};
+
+  // behind ray
+  if (tmax < 0 || tmin < 0) {
+    return man;
+  }
+
+  if (tmin > tmax) {
+    return man;
+  }
+
+  // out of range
+  if (tmin > A.distance) {
+    return man;
+  }
+
+  man.distance = tmin;
+  vec2 delta   = {0};
+
+  vec2_scale(delta, A.direction, tmin);
+  vec2_add(man.point, A.center, delta);
+  vec2_dup(man.direction, A.direction);
+
+  return man;
+}
+
+/* Test a ray vs circle
+ * ray - the ray to test
+ * b - the circle to test
+ * out - the raycast output
+ * returns: manifold, 0 length = fail/not colliding */
+c_manifold c_ray_vs_circle_man(c_ray a, c_circle B) {
+  vec2 p, m;
+  vec2_dup(p, B.center);
+  float c, b, disc;
+
+  vec2_sub(m, a.center, p);
+  c = vec2_dot(m, m) - B.radius * B.radius;
+  b = vec2_dot(m, a.direction);
+
+  disc = b * b - c;
+
+  c_manifold man = (c_manifold){0};
+
+  if (disc < 0)
+    return man;
+
+  float t = -b - sqrtf(disc);
+  if (t >= 0 && t <= a.distance) {
     // set the output distance (time)
-    out->distance = t;
+    man.distance = t;
     vec2 impact, dist;
 
     // Calculate the impact point
-    vec2_scale(dist, ray.direction, t);
-    vec2_add(impact, dist, ray.center);
-    vec2_dup(out->point, impact);
+    vec2_scale(dist, a.direction, t);
+    vec2_add(impact, dist, a.center);
+    vec2_dup(man.point, impact);
 
     // Calculate the normal
     vec2_sub(dist, impact, p);
     vec2_norm(impact, dist);
-    vec2_dup(out->normal, impact);
+    vec2_dup(man.direction, impact);
   }
 
-  return 1;
+  return man;
 }
 
 uint8_t c_aabb_vs_aabb(c_aabb a, c_aabb b) {
@@ -193,9 +201,9 @@ uint8_t c_aabb_vs_aabb(c_aabb a, c_aabb b) {
 
 uint8_t c_aabb_vs_point(c_aabb a, vec2 point) {
   int x0 = point[0] < a.min[0];
-  int x1 = point[0] > a.max[2];
+  int x1 = point[0] > a.max[0];
   int y0 = point[1] < a.min[1];
-  int y1 = point[1] > a.max[3];
+  int y1 = point[1] > a.max[1];
   return !(x0 | x1 | y0 | y1);
 }
 
@@ -357,7 +365,7 @@ c_manifold c_circle_vs_circle_man(c_circle a, c_circle b) {
 
   float r = a.radius + b.radius;
 
-  c_manifold man = (c_manifold){0.f};
+  c_manifold man = (c_manifold){0};
 
   if (d2 < r * r) {
     float l = sqrtf(d2);
@@ -450,6 +458,10 @@ c_manifold c_test(void* a, c_types a_type, void* b, c_types b_type) {
           return c_aabb_vs_aabb_man(*(c_aabb*)a, *(c_aabb*)a);
         case C_CIRCLE:
           return c_aabb_vs_circle_man(*(c_aabb*)a, *(c_circle*)b);
+        case C_RAY:
+          return c_ray_vs_aabb_man(*(c_ray*)b, *(c_aabb*)a);
+        case C_NONE:
+          return manifold;
       }
 
       break;
@@ -459,8 +471,26 @@ c_manifold c_test(void* a, c_types a_type, void* b, c_types b_type) {
           return c_aabb_vs_circle_man(*(c_aabb*)b, *(c_circle*)a);
         case C_CIRCLE:
           return c_circle_vs_circle_man(*(c_circle*)b, *(c_circle*)a);
+        case C_RAY:
+          return c_ray_vs_circle_man(*(c_ray*)b, *(c_circle*)a);
+        case C_NONE:
+          return manifold;
       }
       break;
+    case C_RAY:
+      switch (b_type) {
+        case C_AABB:
+          return c_ray_vs_aabb_man(*(c_ray*)a, *(c_aabb*)b);
+        case C_CIRCLE:
+          return c_ray_vs_circle_man(*(c_ray*)a, *(c_circle*)b);
+        case C_RAY:
+          return manifold; // TODO ray vs ray
+        case C_NONE:
+          return manifold;
+      }
+      break;
+    case C_NONE:
+      return manifold;
   }
 
   return manifold;
