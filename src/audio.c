@@ -1,6 +1,12 @@
 #include <astera/audio.h>
 #include <astera/debug.h>
 
+#if defined(__APPLE__)
+#if !defined(ASTERA_AL_NO_FX)
+#define ASTERA_AL_NO_FX
+#endif
+#endif
+
 #if !defined(ASTERA_AL_DISTANCE_MODEL)
 #define ASTERA_AL_DISTANCE_MODEL AL_INVERSE_DISTANCE
 #endif
@@ -18,11 +24,11 @@
 #include <string.h>
 
 // TODO Temporary until solved
-#if defined(__APPLE__)
-#if !defined(ASTERA_AL_NO_FX)
-#define ASTERA_AL_NO_FX
-#endif
-#endif
+//#if defined(__APPLE__)
+//#if !defined(ASTERA_AL_NO_EFX)
+//#define ASTERA_AL_NO_EFX
+//#endif
+//#endif
 
 struct a_ctx {
   // context - the OpenAL-Soft Context
@@ -89,8 +95,8 @@ struct a_ctx {
   int32_t error;
 };
 
-#if !defined(ASTERA_AL_NO_EFX)
-#include "efx.h"
+#if !defined(ASTERA_AL_NO_FX)
+#include <efx.h>
 
 static LPALGENEFFECTS    alGenEffects;
 static LPALGENFILTERS    alGenFilters;

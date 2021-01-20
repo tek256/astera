@@ -1,5 +1,5 @@
-#ifndef ASTERA_ASTERA_HEADER
-#define ASTERA_ASTERA_HEADER
+#ifndef ASTERA_AUDIO_HEADER
+#define ASTERA_AUDIO_HEADER
 
 #ifdef __cplusplus
 extern "C" {
@@ -12,13 +12,13 @@ extern "C" {
 // NOTE: These are relative includes for portability's sake
 //       the cmake find_package exports them as relative so it'll work
 //       cross platform as expected
-//#if defined(__APPLE__)
-//#include <OpenAL/alc.h>
-//#include <OpenAL/al.h>
-//#else
-#include "alc.h"
-#include "al.h"
-//#endif /* defined(__APPLE__) */
+#if defined(__APPLE__)
+#include <OpenAL/alc.h>
+#include <OpenAL/al.h>
+#else
+#include <alc.h>
+#include <al.h>
+#endif /* defined(__APPLE__) */
 
 #define STB_VORBIS_HEADER_ONLY
 #include <stb_vorbis.c>

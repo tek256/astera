@@ -15,6 +15,8 @@ include(CMakeDependentOption)
 include(GenerateExportHeader)
 include(FetchContent)
 
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/dep/cmake")
+
 # Use OpenAL-Soft's binaries for Windows
 if (WIN32)
   FetchContent_Declare(openalwin
@@ -27,13 +29,27 @@ endif()
 
 find_package(OpenGL REQUIRED)
 
-find_package(OpenAL REQUIRED)
-if(OPENAL_FOUND)
-  if (OPENAL_LIBRARY AND OPENAL_INCLUDE_DIR AND NOT TARGET OpenAL::AL)
-    add_library(OpenAL::AL IMPORTED UNKNOWN)
-    target_include_directories(OpenAL::AL INTERFACE ${OPENAL_INCLUDE_DIR})
-    set_property(TARGET OpenAL::AL PROPERTY IMPORTED_LOCATION ${OPENAL_LIBRARY})
+# OpenAL must be installed on the system, env "OPENALDIR" must be set
+find_package(OpenALSoft)
+find_package(OpenAL)
+
+if(OPENALSOFT_FOUND)
+  if(OPENALSOFT_FOUND AND NOT TARGET OpenAL::AL)
+    add_library(OpenAL::AL UNKNOWN IMPORTED)
+    set_target_properties(OpenAL::AL PROPERTIES
+      IMPORTED_LOCATION "${OPENALSOFT_LIBRARY}"
+      INTERFACE_INCLUDE_DIRECTORIES "${OPENALSOFT_INCLUDE_DIR}")
+   endif()
+elseif(OPENAL_FOUND)
+  message("ALSOFT FOUND ${OPENAL-SOFTFOUND}")
+  if(OPENAL_FOUND AND NOT TARGET OpenAL::AL)
+    add_library(OpenAL::AL UNKNOWN IMPORTED)
+    set_target_properties(OpenAL::AL PROPERTIES
+      IMPORTED_LOCATION "${OPENAL_LIBRARY}"
+      INTERFACE_INCLUDE_DIRECTORIES "${OPENAL_INCLUDE_DIR}")
   endif()
+else()
+  message(FATAL_ERROR "Could not find OpenAL or OpenAL-Soft")
 endif()
 
 # If to build the `examples/` folder
@@ -62,11 +78,6 @@ option(ASTERA_DEBUG_ENGINE OFF)
 # Disable OpenAL Audio Effects from being compiled in
 # NOTE: Mac OSX OpenAL Effects are currently disabled by default
 option(ASTERA_DISABLE_AUDIO_FX OFF)
-
-# Disable Audio Effects for Mac
-if(APPLE)
-  set(ASTERA_DISABLE_AUDIO_FX ON)
-endif()
 
 # Set the GLFW Flags
 set(BUILD_SHARED_LIBS OFF)
@@ -131,10 +142,11 @@ endif()
 target_link_libraries(${PROJECT_NAME}
   PUBLIC
     OpenGL::GL
-    OpenAL::AL
     #    $<$<NOT:$<PLATFORM_ID:Darwin>>:OpenAL::AL>
     $<$<NOT:$<PLATFORM_ID:Windows>>:m>
-    glfw)
+    glfw
+  PRIVATE
+    OpenAL::AL)
 
 set_property(TARGET astera PROPERTY C_VISIBILITY_PRESET "hidden")
 set_property(TARGET astera PROPERTY VERSION ${PROJECT_VERSION})
