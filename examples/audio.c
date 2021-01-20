@@ -1,5 +1,3 @@
-#ifndef __APPLE__
-
 #include <stdio.h>
 
 #include <astera/debug.h>
@@ -434,10 +432,3 @@ int main(void) {
   return 0;
 }
 
-#else
-#include <stdio.h>
-int main(void) {
-  printf("Audio is currently not supported on apple devices");
-  return 0;
-}
-#endif
