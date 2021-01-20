@@ -13,6 +13,10 @@
 #include <assert.h>
 #include <stdio.h>
 
+#if !defined(ASTERA_ALLOC)
+#define ASTERA_ALLOC(a) malloc(a)
+#endif
+
 struct ui_ctx {
   vec2  size;
   float pixel_scale;
@@ -59,7 +63,7 @@ uint8_t ui_color_valid(ui_color const a) {
 
 ui_ctx* ui_ctx_create(vec2 screen_size, float pixel_scale, uint8_t use_mouse,
                       uint8_t antialias, uint8_t attribs) {
-  ui_ctx* ctx = (ui_ctx*)malloc(sizeof(ui_ctx));
+  ui_ctx* ctx = (ui_ctx*)ASTERA_ALLOC(sizeof(ui_ctx));
 
   memset(ctx, 0, sizeof(ui_ctx));
 
@@ -79,7 +83,7 @@ ui_ctx* ui_ctx_create(vec2 screen_size, float pixel_scale, uint8_t use_mouse,
   if (attribs) {
     ctx->attribs.capacity = UI_ATTRIB_LAST;
     ctx->attribs.attribs =
-        malloc(sizeof(ui_attrib_storage) * ctx->attribs.capacity);
+        ASTERA_ALLOC(sizeof(ui_attrib_storage) * ctx->attribs.capacity);
     memset(ctx->attribs.attribs, 0,
            sizeof(ui_attrib_storage) * ctx->attribs.capacity);
   } else {
@@ -100,6 +104,10 @@ void ui_ctx_update(ui_ctx* ctx, vec2 mouse_pos) {
   if (ctx->use_mouse) {
     vec2_dup(ctx->mouse_pos, mouse_pos);
   }
+}
+
+void ui_ctx_resize(ui_ctx* ctx, vec2 screen_size) {
+  vec2_dup(ctx->size, screen_size);
 }
 
 void ui_ctx_destroy(ui_ctx* ctx) {
@@ -510,11 +518,11 @@ void ui_element_center_to(ui_element element, vec2 point) {
 
 ui_tree ui_tree_create(uint16_t capacity) {
   ui_tree  tree;
-  ui_leaf* raw = malloc(sizeof(ui_leaf) * (capacity + 1));
+  ui_leaf* raw = ASTERA_ALLOC(sizeof(ui_leaf) * (capacity + 1));
   memset(raw, 0, sizeof(ui_leaf) * (capacity + 1));
   tree.raw = raw;
 
-  tree.draw_order = (ui_leaf**)malloc(sizeof(ui_leaf*) * (capacity + 1));
+  tree.draw_order = (ui_leaf**)ASTERA_ALLOC(sizeof(ui_leaf*) * (capacity + 1));
   memset(raw, 0, sizeof(ui_leaf*) * (capacity + 1));
 
   assert(raw != 0);
@@ -2584,11 +2592,11 @@ ui_dropdown ui_dropdown_create(ui_ctx* ctx, vec2 pos, vec2 size, char** options,
   ui_dropdown dropdown = (ui_dropdown){0};
 
   if (option_count > 0) {
-    char** _options = (char**)malloc(sizeof(char*) * (option_count + 1));
+    char** _options = (char**)ASTERA_ALLOC(sizeof(char*) * (option_count + 1));
     for (uint16_t i = 0; i < option_count; ++i) {
       int str_len = (int)strlen(options[i]);
 
-      _options[i] = (char*)malloc(sizeof(char) * (str_len + 1));
+      _options[i] = (char*)ASTERA_ALLOC(sizeof(char) * (str_len + 1));
       memcpy(_options[i], options[i], sizeof(char) * (str_len + 1));
 
       _options[i][str_len] = 0;
@@ -2600,7 +2608,7 @@ ui_dropdown ui_dropdown_create(ui_ctx* ctx, vec2 pos, vec2 size, char** options,
     dropdown.option_count    = option_count;
     dropdown.option_capacity = option_count + 1;
   } else {
-    dropdown.options         = (char**)malloc(sizeof(char*) * 8);
+    dropdown.options         = (char**)ASTERA_ALLOC(sizeof(char*) * 8);
     dropdown.option_count    = 0;
     dropdown.option_capacity = 8;
 
@@ -2799,7 +2807,7 @@ ui_option ui_option_create(ui_ctx* ctx, vec2 pos, vec2 size, const char* text,
 }
 
 ui_box ui_box_create(ui_ctx* ctx, vec2 pos, vec2 size) {
-  ui_box box = (ui_box){0};
+  ui_box box = {0};
   vec2_dup(box.position, pos);
 
   if (vec2_nonzero(size))
@@ -3169,6 +3177,12 @@ void ui_dropdown_prev(ui_dropdown* dropdown) {
 }
 
 void ui_dropdown_set_to_cursor(ui_dropdown* dropdown) {
+  if (dropdown->cursor >= dropdown->option_capacity) {
+    printf("Preemptive\n");
+    dropdown->cursor = dropdown->option_capacity - 1;
+    return;
+  }
+
   if (dropdown->selected != dropdown->cursor) {
     dropdown->has_change = 1;
   }
@@ -3192,6 +3206,10 @@ void ui_dropdown_set_scroll(ui_dropdown* dropdown, uint8_t top_scroll_pad,
 }
 
 void ui_dropdown_set(ui_dropdown* dropdown, uint16_t select) {
+  if (select > dropdown->option_capacity) {
+    return;
+  }
+
   if (select != dropdown->selected) {
     dropdown->has_change = 1;
   }
@@ -3387,8 +3405,9 @@ uint32_t ui_tree_select(ui_ctx* ctx, ui_tree* tree, int32_t event_type,
 
             printf("%i\n", selection);
             if (selection > -1 && dropdown->showing) {
-              ui_dropdown_set(dropdown, (uint16_t)(tree->mouse_hover_index +
-                                                   dropdown->start));
+              ui_dropdown_set(
+                  dropdown,
+                  (uint16_t)((tree->mouse_hover_index - 1) + dropdown->start));
               dropdown->showing = 0;
             } else if (selection > 0 && !dropdown->showing) {
               dropdown->showing = 1;

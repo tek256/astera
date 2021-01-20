@@ -415,6 +415,7 @@ uint8_t ui_color_valid(ui_color const a);
 ui_ctx* ui_ctx_create(vec2 screen_size, float pixel_scale, uint8_t use_mouse,
                       uint8_t antialias, uint8_t attribs);
 void    ui_ctx_update(ui_ctx* ctx, vec2 mouse_pos);
+void    ui_ctx_resize(ui_ctx* ctx, vec2 screen_size);
 void    ui_ctx_destroy(ui_ctx* ctx);
 
 /* Set the attributes to fixed

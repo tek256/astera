@@ -1,3 +1,6 @@
+// NOTE: If you want to use your own memory management system,
+// define ASTERA_ALLOC(a) here. A being size of memory requested.
+
 #ifndef ASTERA_ASTERA_HEADER
 #define ASTERA_ASTERA_HEADER
 

@@ -38,6 +38,10 @@
 #include <windows.h>
 #endif
 
+#if !defined(ASTERA_ALLOC)
+#define ASTERA_ALLOC(a) malloc(a)
+#endif
+
 /* Get time in nanoseconds from the Operating System's High performance timer */
 static uint64_t s_get_ns() {
   static uint64_t is_init = 0;
@@ -205,7 +209,7 @@ static char* s_cleaned_str(const char* str, uint32_t* size, char* str_end) {
     }
   }
 
-  char* new_str = (char*)malloc(sizeof(char) * (str_size + 1));
+  char* new_str = (char*)ASTERA_ALLOC(sizeof(char) * (str_size + 1));
   strncpy(new_str, start, str_size);
   new_str[str_size] = '\0';
 
@@ -236,8 +240,8 @@ s_table s_table_get(unsigned char* data) {
   char* data_ptr = (char*)data;
   char* line     = strtok(data_ptr, "\n");
 
-  const char** keys          = (const char**)malloc(sizeof(char*) * 16);
-  const char** values        = (const char**)malloc(sizeof(char*) * 16);
+  const char** keys          = (const char**)ASTERA_ALLOC(sizeof(char*) * 16);
+  const char** values        = (const char**)ASTERA_ALLOC(sizeof(char*) * 16);
   uint32_t     line_capacity = 16;
   uint32_t     line_count    = 0;
 
@@ -450,7 +454,7 @@ uint32_t s_destrnify(char* dst, uint32_t dst_capacity, const char* src,
 }
 
 s_buffer_t s_buff_create(uint32_t capacity) {
-  char* data = (char*)malloc(sizeof(char) * capacity);
+  char* data = (char*)ASTERA_ALLOC(sizeof(char) * capacity);
   memset(data, 0, sizeof(char) * capacity);
 
   return (s_buffer_t){

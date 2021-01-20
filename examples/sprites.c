@@ -2,17 +2,18 @@
 
 This example is meant to show how to use the various Rendering types in Astera.
 
-CONTROLS: 
+CONTROLS:
 W / Up Arrow - Previous Element
 S / Down Arrow - Next Element
 Space / Left Mouse Click - Select Element
-Tab - Toggle text capture 
+Tab - Toggle text capture
 */
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 
+#define ASTERA_ALLOC(a) printf("%d", a);
 #include <astera/asset.h>
 #include <astera/render.h>
 #include <astera/sys.h>

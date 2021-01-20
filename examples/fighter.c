@@ -1,3 +1,6 @@
+#define DEFAULT_WIDTH  1280
+#define DEFAULT_HEIGHT 720
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,11 +14,7 @@
 #include <astera/input.h>
 #include <astera/ui.h>
 
-typedef struct {
-  r_sprite sprite;
-  c_aabb   aabb;
-  int      health;
-} enemy_t;
+// ui stuff
 
 typedef enum {
   MENU_NONE     = 0,
@@ -58,7 +57,37 @@ typedef struct {
   float    scroll_timer, scroll_duration;
 } menu_t;
 
-static menu_t menu = (menu_t){0};
+// audio data
+typedef struct {
+  int sfx_layer, music_layer;
+  int s_attack, s_click, s_back, s_hit, s_die;
+} a_resources;
+
+// game data
+
+typedef struct {
+  r_sprite sprite;
+  c_aabb   aabb;
+  int      health;
+} enemy_t;
+
+typedef struct {
+  vec2     center;
+  c_aabb   aabb;
+  int      health;
+  r_sprite sprite;
+} player_t;
+
+typedef struct {
+  enemy_t* enemies;
+  int      enemy_count, enemy_capacity;
+
+  player_t player;
+} level_t;
+
+static menu_t      menu  = {0};
+static a_resources a_res = {0};
+static level_t     level = {0};
 
 vec2 window_size;
 
@@ -142,8 +171,6 @@ static void menu_set_page(int page) {
 }
 
 void init_ui(void) {
-  menu = (menu_t){0};
-
   u_ctx = ui_ctx_create(window_size, 1.f, 1, 1, 1);
   ui_get_color(menu.white, "FFF");
   ui_get_color(menu.offwhite, "EEE");
@@ -324,12 +351,23 @@ void init_ui(void) {
   uint16_t option_index         = 0;
   char**   option_list          = (char**)calloc(vidmode_count, sizeof(char*));
 
+  int32_t distance = 60000, closest = -1;
+
   for (uint8_t i = 0; i < vidmode_count; ++i) {
     uint8_t str_len = r_get_vidmode_str_simple(
         &options_buffer[option_index], 1024 - option_index, vidmodes[i]);
     option_list[i] = &options_buffer[option_index];
 
     option_index += str_len + 1;
+    const GLFWvidmode* cursor = &vidmodes[i];
+
+    int32_t cur_dist = (DEFAULT_WIDTH - cursor->width + DEFAULT_HEIGHT -
+                        cursor->height - cursor->refreshRate);
+
+    if (cur_dist < distance) {
+      closest  = i;
+      distance = cur_dist;
+    }
   }
 
   // dropdown scrolling
@@ -347,6 +385,7 @@ void init_ui(void) {
   menu.res_dd.top_scroll_pad    = 1;
   menu.res_dd.font_size         = 16.f;
   menu.res_dd.align             = UI_ALIGN_CENTER;
+  menu.res_dd.selected          = (closest > -1) ? closest : 0;
 
   // option_list is copied into the structure for safety
   free(option_list);
@@ -420,6 +459,35 @@ void init_ui(void) {
   menu_set_page(MENU_MAIN);
 }
 
+int load_sfx(const char* path, const char* name) {
+  asset_t* data = asset_get(path);
+
+  if (!data) {
+    return -1;
+  }
+
+  char*    split  = strchr(path, '.');
+  int      is_ogg = split && !strcmp(split, ".ogg");
+  uint16_t id =
+      a_buf_create(audio_ctx, data->data, data->data_length, name, is_ogg);
+  asset_free(data);
+  return id;
+}
+
+void init_audio(a_ctx* ctx) {
+  a_res.sfx_layer   = a_layer_create(ctx, "sfx", 16, 0);
+  a_res.music_layer = a_layer_create(ctx, "music", 0, 2);
+
+  a_res.s_attack = load_sfx("resources/audio/attack.wav", "attack");
+  a_res.s_click  = load_sfx("resources/audio/click.wav", "click");
+  a_res.s_back   = load_sfx("resources/audio/back.wav", "back");
+  a_res.s_hit    = load_sfx("resources/audio/hit.wav", "hit");
+  a_res.s_die    = load_sfx("resources/audio/die.wav", "die");
+  // int s_attack, s_click, s_back, s_hit, s_die;
+}
+
+void init_collision(void) {}
+
 void init_render(r_ctx* ctx) {
   shader = load_shader("resources/shaders/instanced.vert",
                        "resources/shaders/instanced.frag");
@@ -436,10 +504,10 @@ void init_render(r_ctx* ctx) {
   ui_shader =
       load_shader("resources/shaders/fbo.vert", "resources/shaders/fbo.frag");
 
-  vec2 screen_size = {1280.f, 720.f};
+  vec2 screen_size = {(float)DEFAULT_WIDTH, (float)DEFAULT_HEIGHT};
 
-  fbo    = r_framebuffer_create(1280, 720, fbo_shader, 0);
-  ui_fbo = r_framebuffer_create(1280, 720, ui_shader, 0);
+  fbo    = r_framebuffer_create(DEFAULT_WIDTH, DEFAULT_HEIGHT, fbo_shader, 0);
+  ui_fbo = r_framebuffer_create(DEFAULT_WIDTH, DEFAULT_HEIGHT, ui_shader, 0);
 
   asset_t* sheet_data = asset_get("resources/textures/Dungeon_Tileset.png");
   sheet = r_sheet_create_tiled(sheet_data->data, sheet_data->data_length, 16,
@@ -450,6 +518,17 @@ void init_render(r_ctx* ctx) {
   // 16x9 * 20
   vec2 camera_size = {320, 180};
   r_camera_set_size(r_ctx_get_camera(ctx), camera_size);
+}
+
+void game_resized_to(vec2 size) {
+  r_set_can_render(render_ctx, 0);
+  ui_ctx_resize(u_ctx, size);
+  r_framebuffer_destroy(fbo);
+  r_framebuffer_destroy(ui_fbo);
+  fbo    = r_framebuffer_create(size[0], size[1], fbo_shader, 0);
+  ui_fbo = r_framebuffer_create(size[0], size[1], ui_shader, 0);
+
+  r_set_can_render(render_ctx, 1);
 }
 
 void handle_ui(void) {
@@ -511,24 +590,34 @@ void handle_ui(void) {
 
       if (menu.master_vol.holding) {
         //
+        a_listener_set_gain(audio_ctx, menu.master_vol.value);
       }
 
       if (menu.sfx_vol.holding) {
-        //
+        a_layer_set_gain(audio_ctx, a_res.sfx_layer, menu.sfx_vol.value);
       }
       if (menu.music_vol.holding) {
-        // TODO layer handling
+        a_layer_set_gain(audio_ctx, a_res.music_layer, menu.music_vol.value);
       }
 
       int32_t event_type = 0;
-      /*if (event_type = ui_tree_check_event(menu.current_page, menu.res_dd.id))
-      { if (menu.res_dd.showing) { ui_dropdown_set_to_cursor(&menu.res_dd);
-
+      if ((event_type =
+               ui_tree_check_event(menu.current_page, menu.res_dd.id)) == 1) {
+        if (menu.res_dd.showing) {
           menu.res_dd.showing = 0;
         } else {
           menu.res_dd.showing = 1;
         }
-      }*/
+
+        if (ui_dropdown_has_change(&menu.res_dd) && !menu.res_dd.showing) {
+          printf("%i\n", menu.res_dd.selected);
+          GLFWvidmode* modes = (GLFWvidmode*)menu.res_dd.data;
+          r_select_vidmode(render_ctx, modes[menu.res_dd.selected], 0, 1, 0);
+          vec2 window_size;
+          r_window_get_vsize(render_ctx, window_size);
+          game_resized_to(window_size);
+        }
+      }
 
     } break;
     case MENU_PAUSE: { //
@@ -669,7 +758,12 @@ void render(time_s delta) {
 
   static int page_notif         = 0;
   static int page_notif_counter = 0;
+  static int ui_change          = 0;
   if (menu.current_page) {
+    if (ui_change) {
+      ui_change = 0;
+    }
+
     if (page_notif) {
       page_notif = 0;
       ++page_notif_counter;
@@ -678,7 +772,18 @@ void render(time_s delta) {
     // draw ui
     draw_ui();
   } else {
-    if (!page_notif) {
+    // check for changes so the framebuffer is cleared. (technically don't have
+    // to draw it if we don't have an actual target, but just gluing?? this
+    // together.
+    if (!ui_change) {
+      r_framebuffer_bind(ui_fbo);
+      r_window_clear_color_empty();
+      r_window_clear();
+
+      ui_change = 1;
+    }
+
+    if (!page_notif && !(game_state == GAME_PLAY || game_state == GAME_PAUSE)) {
       printf("No current page: %i\n", page_notif_counter);
       page_notif = 1;
     }
@@ -686,8 +791,18 @@ void render(time_s delta) {
 }
 
 int main(void) {
-  r_window_params params = (r_window_params){.width        = 1280,
-                                             .height       = 720,
+  audio_ctx = a_ctx_create(0, 2, 16, 16, 2, 2, 2, 4096 * 4);
+
+  if (!audio_ctx) {
+    printf("Unable to initialize audio context, exiting.\n");
+    return 1;
+  }
+
+  a_listener_set_gain(audio_ctx, 0.8f);
+  init_audio(audio_ctx);
+
+  r_window_params params = (r_window_params){.width        = DEFAULT_WIDTH,
+                                             .height       = DEFAULT_HEIGHT,
                                              .x            = 0,
                                              .y            = 0,
                                              .resizable    = 0,
@@ -717,11 +832,11 @@ int main(void) {
   }
 
   init_render(render_ctx);
-
   asset_t* icon = asset_get("resources/textures/icon.png");
   r_window_set_icon(render_ctx, icon->data, icon->data_length);
   asset_free(icon);
 
+  // Setup the render context & input context to talk to eachother
   r_ctx_make_current(render_ctx);
   r_ctx_set_i_ctx(render_ctx, input_ctx);
 
@@ -755,6 +870,7 @@ int main(void) {
 
   r_ctx_destroy(render_ctx);
   i_ctx_destroy(input_ctx);
+  a_ctx_destroy(audio_ctx);
 
   return 0;
 }

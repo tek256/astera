@@ -1,6 +1,8 @@
 // TODO Collision Layers, GJK & SAT, Broadphase, Capsules
 // Forked from RandyGaul/cute_headers/cute_c2.h
 
+// NOTE: If you want to use your own memory management system,
+// define ASTERA_ALLOC(a) here. A being size of memory requested.
 #if !defined ASTERA_COL_H
 #define ASTERA_COL_H
 
@@ -155,7 +157,6 @@ c_manifold c_circle_vs_circle_man(c_circle a, c_circle b);
  * returns: manifold, 0 length = fail/not colliding */
 c_manifold c_circle_vs_aabb_man(c_circle a, c_aabb b);
 
-// NOTE: Doesn't support rays/raycasts
 /* Test 2 Collider types
  * a - 1st collider
  * a_type - the 1st collider type

@@ -1,3 +1,6 @@
+// NOTE: If you want to use your own memory management system,
+// define ASTERA_ALLOC(a) here. A being size of memory requested.
+
 #ifndef ASTERA_RENDER_HEADER
 #define ASTERA_RENDER_HEADER
 
@@ -1092,6 +1095,11 @@ void r_set_v4xi(int loc, uint32_t count, vec4* values);
  * h - int32 pointer to be set to height */
 void r_window_get_size(r_ctx* ctx, int32_t* w, int32_t* h);
 
+/* Get the size of the window currently (vec2)
+ * ctx - context of the window
+ * vec - the vec2 to place window size in */
+void r_window_get_vsize(r_ctx* ctx, vec2 vec);
+
 /* Set the size of the window (non-fullscreen only)
  * ctx - context of the window
  * width - the width of the window
@@ -1161,8 +1169,27 @@ uint8_t r_get_vidmode_stri(r_ctx* ctx, char* dst, uint32_t max_length,
  * returns: returns string with format: `width`x`height`@`refresh rate` */
 uint8_t r_get_vidmode_str(char* dst, uint32_t max_length, GLFWvidmode mode);
 
+/* Change to vidmode with attributes
+ * ctx - context of the window
+ * mode - the GLFW vidmode to use
+ * fullscreen - if the window is fullscreen or not
+ * vsync - if the window should use vsync
+ * borderless - if the window should be borderless (makes no difference if
+ * fullscreen) returns 1 = success, 0 = fail */
+uint8_t r_select_vidmode(r_ctx* ctx, GLFWvidmode mode, int8_t fullscreen,
+                         int8_t vsync, int8_t borderless);
+
+/* Change to vidmode with attributes
+ * ctx - context of the window
+ * index - index of the vidmode
+ * fullscreen - if the window is fullscreen or not
+ * vsync - if the window should use vsync
+ * borderless - if the window should be borderless (makes no difference if
+ * fullscreen) returns 1 = success, 0 = fail */
 uint8_t r_select_mode(r_ctx* ctx, uint8_t index, int8_t fullscreen,
                       int8_t vsync, int8_t borderless);
+
+/* Get the number of vidmodes available to the render context */
 uint8_t r_get_vidmode_count(r_ctx* ctx);
 
 /* Check if the `allow_render` flag is set in the context
