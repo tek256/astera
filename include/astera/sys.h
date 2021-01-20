@@ -1,8 +1,5 @@
 // TODO: Multi iterator to parse duplicate keys
 
-// NOTE: If you want to use your own memory management system,
-// define ASTERA_ALLOC(a) here. A being size of memory requested.
-
 // MACROS:
 // ASTERA_NO_CONF - Remove INI Loading functionality
 // ASTERA_LOWP_TIME - Use single precision floats for time

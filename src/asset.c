@@ -9,10 +9,6 @@
 #define alloca(x) __builtin_alloca(x)
 #endif
 
-#if !defined(ASTERA_ALLOC)
-#define ASTERA_ALLOC(a) malloc(a)
-#endif
-
 static uint32_t fs_file_size(const char* fp) {
   if (!fp) {
     ASTERA_FUNC_DBG("no file path passed\n");
@@ -46,8 +42,7 @@ static unsigned char* fs_file_data(const char* path, uint32_t* size_ptr) {
   data_length = ftell(f);
   rewind(f);
 
-  unsigned char* data =
-      (unsigned char*)ASTERA_ALLOC(sizeof(char) * data_length);
+  unsigned char* data = (unsigned char*)malloc(sizeof(char) * data_length);
 
   if (!data) {
     fclose(f);
@@ -72,7 +67,7 @@ static unsigned char* fs_file_data(const char* path, uint32_t* size_ptr) {
 #if defined(ASTERA_PAK_WRITE)
 
 pak_write_t* pak_write_create(const char* file) {
-  pak_write_t* write = (pak_write_t*)ASTERA_ALLOC(sizeof(pak_write_t));
+  pak_write_t* write = (pak_write_t*)malloc(sizeof(pak_write_t));
 
   if (!write) {
     return 0;
@@ -251,7 +246,7 @@ pak_t* pak_open_file(const char* file) {
     return 0;
   }
 
-  pak_t* pak = (pak_t*)ASTERA_ALLOC(sizeof(pak_t));
+  pak_t* pak = (pak_t*)malloc(sizeof(pak_t));
 
   if (!pak) {
     ASTERA_FUNC_DBG("unable to alloc pak_t\n");
@@ -267,7 +262,7 @@ pak_t* pak_open_file(const char* file) {
   // Seek to the end of the header size (start of entries)
   fseek(f, sizeof(pak_header_t), SEEK_SET);
 
-  pak->files = (pak_file_t*)ASTERA_ALLOC(sizeof(pak_file_t) * header.count);
+  pak->files = (pak_file_t*)malloc(sizeof(pak_file_t) * header.count);
 
   if (!pak->files) {
     ASTERA_FUNC_DBG("unable to allocate space for entries\n");
@@ -308,7 +303,7 @@ pak_t* pak_open_mem(unsigned char* data, uint32_t data_length) {
     return 0;
   }
 
-  pak_t* pak = (pak_t*)ASTERA_ALLOC(sizeof(pak_t));
+  pak_t* pak = (pak_t*)malloc(sizeof(pak_t));
 
   if (!pak) {
     ASTERA_FUNC_DBG("unable to allocate space for pak header\n");
@@ -347,7 +342,7 @@ unsigned char* pak_extract(pak_t* pak, uint32_t index, uint32_t* size) {
     }
 
     unsigned char* data =
-        (unsigned char*)ASTERA_ALLOC(sizeof(unsigned char) * (entry->size + 1));
+        (unsigned char*)malloc(sizeof(unsigned char) * (entry->size + 1));
 
     if (!data) {
       ASTERA_FUNC_DBG("unable to allocate %i bytes\n",
@@ -542,7 +537,7 @@ asset_t* asset_map_get(asset_map_t* map, const char* file) {
   }
 
   if (map->pak) {
-    asset_t* asset = (asset_t*)ASTERA_ALLOC(sizeof(asset_t));
+    asset_t* asset = (asset_t*)malloc(sizeof(asset_t));
     asset->name    = file;
     ++map->uid_counter;
     asset->uid      = map->uid_counter;
@@ -604,7 +599,7 @@ asset_t* asset_get(const char* file) {
     return 0;
   }
 
-  asset_t* asset = (asset_t*)ASTERA_ALLOC(sizeof(asset_t));
+  asset_t* asset = (asset_t*)malloc(sizeof(asset_t));
 
   FILE* f = fopen(file, "r+b");
 
@@ -618,7 +613,7 @@ asset_t* asset_get(const char* file) {
   rewind(f);
 
   unsigned char* data =
-      (unsigned char*)ASTERA_ALLOC(sizeof(unsigned char) * (file_size + 1));
+      (unsigned char*)malloc(sizeof(unsigned char) * (file_size + 1));
 
   if (!data) {
     ASTERA_FUNC_DBG("Unable to allocate %i bytes for file %s\n", file_size,
@@ -662,7 +657,7 @@ asset_map_t asset_map_create(const char* filename, const char* name,
   asset_map_t map = (asset_map_t){
       .capacity = capacity, .name = name, .filename = filename, 0};
 
-  map.assets = (asset_t**)ASTERA_ALLOC(sizeof(asset_t*) * capacity);
+  map.assets = (asset_t**)malloc(sizeof(asset_t*) * capacity);
   memset(map.assets, 0, sizeof(asset_t*) * capacity);
 
   if (filename) {
@@ -683,7 +678,7 @@ asset_map_t asset_map_create_mem(unsigned char* data, uint32_t data_length,
   asset_map_t map =
       (asset_map_t){.capacity = capacity, .name = name, .filename = 0, 0};
 
-  map.assets = (asset_t**)ASTERA_ALLOC(sizeof(asset_t*) * capacity);
+  map.assets = (asset_t**)malloc(sizeof(asset_t*) * capacity);
   memset(map.assets, 0, sizeof(asset_t*) * capacity);
 
   if (data && data_length) {
@@ -757,7 +752,7 @@ asset_t* asset_get_chunk(const char* file, uint32_t chunk_start,
     return 0;
   }
 
-  asset_t* asset = (asset_t*)ASTERA_ALLOC(sizeof(asset_t));
+  asset_t* asset = (asset_t*)malloc(sizeof(asset_t));
   FILE*    f     = fopen(file, "r+b");
 
   if (!f) {
@@ -786,7 +781,7 @@ asset_t* asset_get_chunk(const char* file, uint32_t chunk_start,
                             : chunk_length;
 
   unsigned char* data =
-      (unsigned char*)ASTERA_ALLOC(sizeof(unsigned char) * (max_length + 1));
+      (unsigned char*)malloc(sizeof(unsigned char) * (max_length + 1));
 
   if (!data) {
     ASTERA_FUNC_DBG("Unable to allocate [%i] bytes for file chunk %s\n",

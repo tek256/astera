@@ -13,6 +13,7 @@
 #define STB_VORBIS_MAX_CHANNELS 2
 #include <stb_vorbis.c>
 
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -25,11 +26,6 @@
 
 #if !defined(ASTERA_AL_NO_EFX)
 #include "efx.h"
-
-#if !defined(ASTERA_ALLOC)
-#include <stdlib.h>
-#define ASTERA_ALLOC(a) malloc(a)
-#endif
 
 static LPALGENEFFECTS    alGenEffects;
 static LPALGENFILTERS    alGenFilters;
@@ -336,11 +332,11 @@ uint8_t a_ctx_play_allowed(a_ctx* ctx) { return ctx->allow; }
 a_ctx* a_ctx_create(const char* device, uint8_t layers, uint16_t max_sfx,
                     uint16_t max_buffers, uint16_t max_songs, uint16_t max_fx,
                     uint16_t max_filters, uint32_t pcm_size) {
-  a_ctx* ctx = (a_ctx*)ASTERA_ALLOC(sizeof(a_ctx));
+  a_ctx* ctx = (a_ctx*)malloc(sizeof(a_ctx));
   memset(ctx, 0, sizeof(a_ctx));
 
   if (!ctx) {
-    ASTERA_FUNC_DBG("unable to ASTERA_ALLOC initial space for context.\n");
+    ASTERA_FUNC_DBG("unable to malloc initial space for context.\n");
     return 0;
   }
 
@@ -435,7 +431,7 @@ a_ctx* a_ctx_create(const char* device, uint8_t layers, uint16_t max_sfx,
     ctx->fx_count    = 0;
 
     if (max_fx) {
-      ctx->fx_slots = (a_fx*)ASTERA_ALLOC(sizeof(a_fx) * ctx->fx_capacity);
+      ctx->fx_slots = (a_fx*)malloc(sizeof(a_fx) * ctx->fx_capacity);
       memset(ctx->fx_slots, 0, sizeof(a_fx) * ctx->fx_capacity);
 
       if (!ctx->fx_slots) {
@@ -460,7 +456,7 @@ a_ctx* a_ctx_create(const char* device, uint8_t layers, uint16_t max_sfx,
 
     if (max_filters) {
       ctx->filter_slots =
-          (a_filter*)ASTERA_ALLOC(sizeof(a_filter) * ctx->filter_capacity);
+          (a_filter*)malloc(sizeof(a_filter) * ctx->filter_capacity);
       memset(ctx->filter_slots, 0, sizeof(a_filter) * ctx->filter_capacity);
 
       if (!ctx->filter_slots) {
@@ -487,7 +483,7 @@ a_ctx* a_ctx_create(const char* device, uint8_t layers, uint16_t max_sfx,
   ctx->pcm_length = pcm_size;
   ctx->pcm_index  = 0;
   if (pcm_size) {
-    ctx->pcm = (uint16_t*)ASTERA_ALLOC(sizeof(uint16_t) * pcm_size);
+    ctx->pcm = (uint16_t*)malloc(sizeof(uint16_t) * pcm_size);
     memset(ctx->pcm, 0, sizeof(uint16_t) * pcm_size);
   }
 
@@ -497,9 +493,8 @@ a_ctx* a_ctx_create(const char* device, uint8_t layers, uint16_t max_sfx,
   ctx->song_high     = 0;
 
   if (max_songs) {
-    ctx->songs = (a_song*)ASTERA_ALLOC(sizeof(a_song) * ctx->song_capacity);
-    ctx->song_names =
-        (const char**)ASTERA_ALLOC(sizeof(char*) * ctx->song_capacity);
+    ctx->songs      = (a_song*)malloc(sizeof(a_song) * ctx->song_capacity);
+    ctx->song_names = (const char**)malloc(sizeof(char*) * ctx->song_capacity);
 
     memset(ctx->songs, 0, sizeof(a_song) * ctx->song_capacity);
     memset(ctx->song_names, 0, sizeof(char*) * ctx->song_capacity);
@@ -516,8 +511,8 @@ a_ctx* a_ctx_create(const char* device, uint8_t layers, uint16_t max_sfx,
   ctx->buffer_high     = 0;
 
   if (max_buffers) {
-    ctx->buffers      = (a_buf*)ASTERA_ALLOC(sizeof(a_buf) * max_buffers);
-    ctx->buffer_names = (const char**)ASTERA_ALLOC(sizeof(char*) * max_buffers);
+    ctx->buffers      = (a_buf*)malloc(sizeof(a_buf) * max_buffers);
+    ctx->buffer_names = (const char**)malloc(sizeof(char*) * max_buffers);
 
     for (uint16_t i = 0; i < max_buffers; ++i) {
       ctx->buffers[i].id   = i + 1;
@@ -531,7 +526,7 @@ a_ctx* a_ctx_create(const char* device, uint8_t layers, uint16_t max_sfx,
   ctx->sfx_high     = 0;
 
   if (max_sfx) {
-    ctx->sfx = (a_sfx*)ASTERA_ALLOC(sizeof(a_sfx) * ctx->sfx_capacity);
+    ctx->sfx = (a_sfx*)malloc(sizeof(a_sfx) * ctx->sfx_capacity);
 
     for (uint16_t i = 0; i < max_sfx; ++i) {
       ctx->sfx[i].id = i + 1;
@@ -544,7 +539,7 @@ a_ctx* a_ctx_create(const char* device, uint8_t layers, uint16_t max_sfx,
   ctx->layer_capacity = layers;
 
   if (layers) {
-    ctx->layers = (a_layer*)ASTERA_ALLOC(sizeof(a_layer) * layers);
+    ctx->layers = (a_layer*)malloc(sizeof(a_layer) * layers);
     memset(ctx->layers, 0, sizeof(a_layer) * layers);
 
     for (uint16_t i = 0; i < layers; ++i) {
@@ -1078,8 +1073,8 @@ uint16_t a_song_create(a_ctx* ctx, unsigned char* data, uint32_t data_length,
   song->format   = (song->channels > 1) ? AL_FORMAT_STEREO16 : AL_FORMAT_MONO16;
   song->channels = song->info.channels;
 
-  song->buffers      = (uint32_t*)ASTERA_ALLOC(sizeof(uint32_t) * buffers);
-  song->buffer_sizes = (uint32_t*)ASTERA_ALLOC(sizeof(uint32_t) * buffers);
+  song->buffers      = (uint32_t*)malloc(sizeof(uint32_t) * buffers);
+  song->buffer_sizes = (uint32_t*)malloc(sizeof(uint32_t) * buffers);
   song->buffer_count = buffers;
   song->sample_count = stb_vorbis_stream_length_in_samples(song->vorbis);
   song->length = stb_vorbis_stream_length_in_seconds(song->vorbis) * 1000.f;
@@ -2028,12 +2023,12 @@ uint16_t a_layer_create(a_ctx* ctx, const char* name, uint32_t max_sfx,
 
   layer->name = name;
 
-  layer->sfx = (uint32_t*)ASTERA_ALLOC(sizeof(uint32_t) * max_sfx);
+  layer->sfx = (uint32_t*)malloc(sizeof(uint32_t) * max_sfx);
   memset(layer->sfx, 0, sizeof(uint32_t) * max_sfx);
   layer->sfx_capacity = max_sfx;
   layer->sfx_count    = 0;
 
-  layer->songs = (uint32_t*)ASTERA_ALLOC(sizeof(uint32_t) * max_songs);
+  layer->songs = (uint32_t*)malloc(sizeof(uint32_t) * max_songs);
   memset(layer->songs, 0, sizeof(uint32_t) * max_songs);
   layer->song_capacity = max_songs;
   layer->song_count    = 0;

@@ -5,11 +5,6 @@
 #include <string.h>
 #include <stdio.h>
 
-#if !defined(ASTERA_ALLOC)
-#include <stdlib.h>
-#define ASTERA_ALLOC(a) malloc(a)
-#endif
-
 typedef struct {
   double x, y;
   double dx, dy;
@@ -96,19 +91,19 @@ static inline uint8_t i_contains(int val, int* arr, uint16_t count) {
 }
 
 static void i_create_s(i_states* states, uint16_t size) {
-  states->curr = (int*)ASTERA_ALLOC(sizeof(int) * size);
+  states->curr = (int*)malloc(sizeof(int) * size);
 
   if (!states->curr) {
     goto fail;
   }
 
-  states->prev = (int*)ASTERA_ALLOC(sizeof(int) * size);
+  states->prev = (int*)malloc(sizeof(int) * size);
 
   if (!states->prev) {
     goto fail;
   }
 
-  states->concurrent = (int*)ASTERA_ALLOC(sizeof(int) * size);
+  states->concurrent = (int*)malloc(sizeof(int) * size);
 
   if (!states->concurrent) {
     goto fail;
@@ -145,7 +140,7 @@ static inline i_positions i_create_p() {
 i_ctx* i_ctx_create(uint16_t max_mouse_buttons, uint16_t max_keys,
                     uint16_t max_bindings, uint8_t max_joys,
                     uint16_t max_chars) {
-  i_ctx* ctx = (i_ctx*)ASTERA_ALLOC(sizeof(i_ctx));
+  i_ctx* ctx = (i_ctx*)malloc(sizeof(i_ctx));
   memset(ctx, 0, sizeof(i_ctx));
 
   i_create_s(&ctx->mouse_b, max_mouse_buttons);
@@ -162,7 +157,7 @@ i_ctx* i_ctx_create(uint16_t max_mouse_buttons, uint16_t max_keys,
 
   ctx->binding_count   = 0;
   ctx->tracked_binding = 0;
-  ctx->bindings = (i_binding*)ASTERA_ALLOC(sizeof(i_binding) * max_bindings);
+  ctx->bindings        = (i_binding*)malloc(sizeof(i_binding) * max_bindings);
   memset(ctx->bindings, 0, sizeof(i_binding) * max_bindings);
   ctx->max_bindings = max_bindings;
 
@@ -170,7 +165,7 @@ i_ctx* i_ctx_create(uint16_t max_mouse_buttons, uint16_t max_keys,
   ctx->joy_count    = 0;
 
   if (ctx->joy_capacity != 0) {
-    ctx->joys = (i_joy*)ASTERA_ALLOC(sizeof(i_joy) * ctx->joy_capacity);
+    ctx->joys = (i_joy*)malloc(sizeof(i_joy) * ctx->joy_capacity);
     for (uint16_t i = 0; i < ctx->joy_capacity; ++i) {
       ctx->joys[i].id         = -1;
       ctx->joys[i].is_gamepad = 0;
@@ -179,7 +174,7 @@ i_ctx* i_ctx_create(uint16_t max_mouse_buttons, uint16_t max_keys,
     ctx->joys = 0;
   }
 
-  ctx->chars      = (char*)ASTERA_ALLOC(sizeof(char) * max_chars);
+  ctx->chars      = (char*)malloc(sizeof(char) * max_chars);
   ctx->char_count = 0;
 
   ctx->max_chars = max_chars;

@@ -8,17 +8,13 @@
 #include <math.h>
 #include <assert.h>
 #include <string.h>
+#include <stdlib.h>
 #include <stdio.h>
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
 // For callbacks only
 static r_ctx* _r_ctx;
-
-#if !defined(ASTERA_ALLOC)
-#include <stdlib.h>
-#define ASTERA_ALLOC(a) malloc(a)
-#endif
 
 static void glfw_err_cb(int error, const char* msg) {
   ASTERA_DBG("GLFW ERROR: %i %s\n", error, msg);
@@ -115,27 +111,27 @@ static void r_batch_check(r_batch* batch) {
   }
 
   if (!batch->mats) {
-    batch->mats = (mat4x4*)ASTERA_ALLOC(sizeof(mat4x4) * batch->capacity);
+    batch->mats = (mat4x4*)malloc(sizeof(mat4x4) * batch->capacity);
     memset(batch->mats, 0, sizeof(mat4x4) * batch->capacity);
   }
 
   if (!batch->coords) {
-    batch->coords = (vec4*)ASTERA_ALLOC(sizeof(vec4) * batch->capacity);
+    batch->coords = (vec4*)malloc(sizeof(vec4) * batch->capacity);
     memset(batch->coords, 0, sizeof(vec4) * batch->capacity);
   }
 
   if (!batch->colors) {
-    batch->colors = (vec4*)ASTERA_ALLOC(sizeof(vec4) * batch->capacity);
+    batch->colors = (vec4*)malloc(sizeof(vec4) * batch->capacity);
     memset(batch->colors, 0, sizeof(vec4) * batch->capacity);
   }
 
   if (!batch->flip_x) {
-    batch->flip_x = (uint8_t*)ASTERA_ALLOC(sizeof(uint8_t) * batch->capacity);
+    batch->flip_x = (uint8_t*)malloc(sizeof(uint8_t) * batch->capacity);
     memset(batch->flip_x, 0, sizeof(uint8_t) * batch->capacity);
   }
 
   if (!batch->flip_y) {
-    batch->flip_y = (uint8_t*)ASTERA_ALLOC(sizeof(uint8_t) * batch->capacity);
+    batch->flip_y = (uint8_t*)malloc(sizeof(uint8_t) * batch->capacity);
     memset(batch->flip_y, 0, sizeof(uint8_t) * batch->capacity);
   }
 }
@@ -402,7 +398,7 @@ r_window_params r_window_params_create(uint32_t width, uint32_t height,
 r_ctx* r_ctx_create(r_window_params params, uint8_t batch_count,
                     uint32_t batch_size, uint16_t anim_map_size,
                     uint8_t shader_map_size) {
-  r_ctx* ctx = (r_ctx*)ASTERA_ALLOC(sizeof(r_ctx));
+  r_ctx* ctx = (r_ctx*)malloc(sizeof(r_ctx));
 
   if (!r_window_create(ctx, params)) {
     ASTERA_FUNC_DBG("unable to create window.\n");
@@ -411,7 +407,7 @@ r_ctx* r_ctx_create(r_window_params params, uint8_t batch_count,
   }
 
   if (batch_count > 0) {
-    ctx->batches = (r_batch*)ASTERA_ALLOC(sizeof(r_batch) * batch_count);
+    ctx->batches = (r_batch*)malloc(sizeof(r_batch) * batch_count);
     memset(ctx->batches, 0, sizeof(r_batch) * batch_count);
   } else {
     ctx->batches = 0;
@@ -426,8 +422,8 @@ r_ctx* r_ctx_create(r_window_params params, uint8_t batch_count,
   }
 
   if (anim_map_size > 0) {
-    ctx->anim_names = (char**)ASTERA_ALLOC(sizeof(char*) * anim_map_size);
-    ctx->anims      = (r_anim*)ASTERA_ALLOC(sizeof(r_anim) * anim_map_size);
+    ctx->anim_names = (char**)malloc(sizeof(char*) * anim_map_size);
+    ctx->anims      = (r_anim*)malloc(sizeof(r_anim) * anim_map_size);
   } else {
     ctx->anim_names = 0;
     ctx->anims      = 0;
@@ -437,8 +433,8 @@ r_ctx* r_ctx_create(r_window_params params, uint8_t batch_count,
   ctx->anim_capacity = anim_map_size;
 
   if (shader_map_size > 0) {
-    ctx->shaders = (r_shader*)ASTERA_ALLOC(sizeof(r_shader) * shader_map_size);
-    ctx->shader_names = (char**)ASTERA_ALLOC(sizeof(char*) * shader_map_size);
+    ctx->shaders      = (r_shader*)malloc(sizeof(r_shader) * shader_map_size);
+    ctx->shader_names = (char**)malloc(sizeof(char*) * shader_map_size);
   } else {
     ctx->shaders      = 0;
     ctx->shader_names = 0;
@@ -828,7 +824,7 @@ r_sheet r_sheet_create_tiled(unsigned char* data, uint32_t length,
   uint32_t rows      = h / sub_height;
   uint32_t sub_count = rows * per_width;
 
-  r_subtex* subtexs = (r_subtex*)ASTERA_ALLOC(sizeof(r_subtex) * sub_count);
+  r_subtex* subtexs = (r_subtex*)malloc(sizeof(r_subtex) * sub_count);
 
   for (uint32_t i = 0; i < sub_count; ++i) {
     uint32_t x = i % per_width;
@@ -879,8 +875,8 @@ r_baked_sheet r_baked_sheet_create(r_sheet* sheet, r_baked_quad* quads,
   uint32_t ind_cap = quad_count * 6, ind_count = 0;
   uint32_t uvert_count = 0;
 
-  float*    verts = (float*)ASTERA_ALLOC(sizeof(float) * vert_cap);
-  uint32_t* inds  = (uint32_t*)ASTERA_ALLOC(sizeof(uint32_t) * ind_cap);
+  float*    verts = (float*)malloc(sizeof(float) * vert_cap);
+  uint32_t* inds  = (uint32_t*)malloc(sizeof(uint32_t) * ind_cap);
 
   uint32_t _inds[6]  = {0, 1, 2, 2, 3, 0};
   float    _verts[8] = {-0.5f, 0.5f, 0.5f, 0.5f, 0.5f, -0.5f, -0.5f, -0.5f};
@@ -1037,9 +1033,9 @@ r_particles r_particles_create(uint32_t emit_rate, float particle_life,
   particles.emission_count = 0;
 
   if (calculate) {
-    particles.mats   = (mat4x4*)ASTERA_ALLOC(sizeof(mat4x4) * uniform_cap);
-    particles.colors = (vec4*)ASTERA_ALLOC(sizeof(vec4) * uniform_cap);
-    particles.coords = (vec4*)ASTERA_ALLOC(sizeof(vec4) * uniform_cap);
+    particles.mats   = (mat4x4*)malloc(sizeof(mat4x4) * uniform_cap);
+    particles.colors = (vec4*)malloc(sizeof(vec4) * uniform_cap);
+    particles.coords = (vec4*)malloc(sizeof(vec4) * uniform_cap);
   }
 
   particles.uniform_cap = uniform_cap;
@@ -1057,8 +1053,7 @@ r_particles r_particles_create(uint32_t emit_rate, float particle_life,
   particles.size[0] = 0.f;
   particles.size[1] = 0.f;
 
-  particles.list =
-      (r_particle*)ASTERA_ALLOC(sizeof(r_particle) * particle_capacity);
+  particles.list = (r_particle*)malloc(sizeof(r_particle) * particle_capacity);
   memset(particles.list, 0, sizeof(r_particle) * particle_capacity);
 
   particles.capacity = particle_capacity;
@@ -1444,7 +1439,7 @@ static GLuint r_shader_create_sub(unsigned char* data, int type) {
     int len;
     glGetShaderiv(id, GL_INFO_LOG_LENGTH, &maxlen);
 
-    char* log = ASTERA_ALLOC(maxlen);
+    char* log = malloc(maxlen);
 
     glGetShaderInfoLog(id, maxlen, &len, log);
     printf("%s: %s\n", (type == GL_FRAGMENT_SHADER) ? "FRAGMENT" : "VERTEX",
@@ -1483,7 +1478,7 @@ r_shader r_shader_create(unsigned char* vert_data, unsigned char* frag_data) {
     int maxlen = 0;
     int len;
     glGetProgramiv(id, GL_INFO_LOG_LENGTH, &maxlen);
-    char* log = ASTERA_ALLOC(maxlen);
+    char* log = malloc(maxlen);
     glGetProgramInfoLog(id, maxlen, &len, log);
     ASTERA_FUNC_DBG("%s\n", log);
     printf("%s\n", log);
@@ -1655,7 +1650,7 @@ uint32_t r_anim_frame_at(r_anim* anim, time_s time) {
 
 r_anim r_anim_create_fixed(r_sheet* sheet, uint32_t* frames, uint32_t count,
                            uint32_t rate) {
-  uint32_t* cpy_frames = (uint32_t*)ASTERA_ALLOC(sizeof(uint32_t) * count);
+  uint32_t* cpy_frames = (uint32_t*)malloc(sizeof(uint32_t) * count);
 
   time_s _rate = MS_TO_SEC / rate;
 
@@ -1674,8 +1669,8 @@ r_anim r_anim_create_fixed(r_sheet* sheet, uint32_t* frames, uint32_t count,
 
 r_anim r_anim_create(r_sheet* sheet, uint32_t* frames, time_s* lengths,
                      uint32_t count) {
-  uint32_t* cpy_frames = (uint32_t*)ASTERA_ALLOC(sizeof(uint32_t) * count);
-  time_s*   cpy_times  = (time_s*)ASTERA_ALLOC(sizeof(time_s) * count);
+  uint32_t* cpy_frames = (uint32_t*)malloc(sizeof(uint32_t) * count);
+  time_s*   cpy_times  = (time_s*)malloc(sizeof(time_s) * count);
 
   for (uint32_t i = 0; i < count; ++i) {
     cpy_frames[i] = frames[i];
@@ -2119,7 +2114,7 @@ GLFWvidmode* r_get_vidmodes_by_usize(r_ctx* ctx, uint8_t* count) {
     return 0;
 
   uint16_t     ucount = 0, ucapacity = 8;
-  GLFWvidmode* umodes = ASTERA_ALLOC(sizeof(GLFWvidmode) * ucapacity);
+  GLFWvidmode* umodes = malloc(sizeof(GLFWvidmode) * ucapacity);
   memset(umodes, 0, sizeof(GLFWvidmode) * ucapacity);
   for (uint16_t i = 0; i < ctx->mode_count; ++i) {
     GLFWvidmode current_mode = ctx->modes[i];
@@ -2170,7 +2165,7 @@ GLFWvidmode* r_get_vidmode_options(r_ctx* ctx, uint8_t* count, uint32_t width,
   if (!unique)
     return 0;
 
-  GLFWvidmode* modes = (GLFWvidmode*)ASTERA_ALLOC(sizeof(GLFWvidmode) * unique);
+  GLFWvidmode* modes = (GLFWvidmode*)malloc(sizeof(GLFWvidmode) * unique);
   memset(modes, 0, sizeof(GLFWvidmode) * unique);
   uint8_t mode_index = 0;
 

@@ -12,11 +12,7 @@
 
 #include <assert.h>
 #include <stdio.h>
-
-#if !defined(ASTERA_ALLOC)
 #include <stdlib.h>
-#define ASTERA_ALLOC(a) malloc(a)
-#endif
 
 struct ui_ctx {
   vec2  size;
@@ -64,7 +60,7 @@ uint8_t ui_color_valid(ui_color const a) {
 
 ui_ctx* ui_ctx_create(vec2 screen_size, float pixel_scale, uint8_t use_mouse,
                       uint8_t antialias, uint8_t attribs) {
-  ui_ctx* ctx = (ui_ctx*)ASTERA_ALLOC(sizeof(ui_ctx));
+  ui_ctx* ctx = (ui_ctx*)malloc(sizeof(ui_ctx));
 
   memset(ctx, 0, sizeof(ui_ctx));
 
@@ -84,7 +80,7 @@ ui_ctx* ui_ctx_create(vec2 screen_size, float pixel_scale, uint8_t use_mouse,
   if (attribs) {
     ctx->attribs.capacity = UI_ATTRIB_LAST;
     ctx->attribs.attribs =
-        ASTERA_ALLOC(sizeof(ui_attrib_storage) * ctx->attribs.capacity);
+        malloc(sizeof(ui_attrib_storage) * ctx->attribs.capacity);
     memset(ctx->attribs.attribs, 0,
            sizeof(ui_attrib_storage) * ctx->attribs.capacity);
   } else {
@@ -519,11 +515,11 @@ void ui_element_center_to(ui_element element, vec2 point) {
 
 ui_tree ui_tree_create(uint16_t capacity) {
   ui_tree  tree;
-  ui_leaf* raw = ASTERA_ALLOC(sizeof(ui_leaf) * (capacity + 1));
+  ui_leaf* raw = malloc(sizeof(ui_leaf) * (capacity + 1));
   memset(raw, 0, sizeof(ui_leaf) * (capacity + 1));
   tree.raw = raw;
 
-  tree.draw_order = (ui_leaf**)ASTERA_ALLOC(sizeof(ui_leaf*) * (capacity + 1));
+  tree.draw_order = (ui_leaf**)malloc(sizeof(ui_leaf*) * (capacity + 1));
   memset(raw, 0, sizeof(ui_leaf*) * (capacity + 1));
 
   assert(raw != 0);
@@ -2593,11 +2589,11 @@ ui_dropdown ui_dropdown_create(ui_ctx* ctx, vec2 pos, vec2 size, char** options,
   ui_dropdown dropdown = (ui_dropdown){0};
 
   if (option_count > 0) {
-    char** _options = (char**)ASTERA_ALLOC(sizeof(char*) * (option_count + 1));
+    char** _options = (char**)malloc(sizeof(char*) * (option_count + 1));
     for (uint16_t i = 0; i < option_count; ++i) {
       int str_len = (int)strlen(options[i]);
 
-      _options[i] = (char*)ASTERA_ALLOC(sizeof(char) * (str_len + 1));
+      _options[i] = (char*)malloc(sizeof(char) * (str_len + 1));
       memcpy(_options[i], options[i], sizeof(char) * (str_len + 1));
 
       _options[i][str_len] = 0;
@@ -2609,7 +2605,7 @@ ui_dropdown ui_dropdown_create(ui_ctx* ctx, vec2 pos, vec2 size, char** options,
     dropdown.option_count    = option_count;
     dropdown.option_capacity = option_count + 1;
   } else {
-    dropdown.options         = (char**)ASTERA_ALLOC(sizeof(char*) * 8);
+    dropdown.options         = (char**)malloc(sizeof(char*) * 8);
     dropdown.option_count    = 0;
     dropdown.option_capacity = 8;
 

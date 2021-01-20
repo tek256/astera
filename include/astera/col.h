@@ -1,8 +1,6 @@
 // TODO Collision Layers, GJK & SAT, Broadphase, Capsules
 // Forked from RandyGaul/cute_headers/cute_c2.h
 
-// NOTE: If you want to use your own memory management system,
-// define ASTERA_ALLOC(a) here. A being size of memory requested.
 #if !defined ASTERA_COL_H
 #define ASTERA_COL_H
 
