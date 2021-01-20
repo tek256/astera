@@ -12,13 +12,13 @@ extern "C" {
 // NOTE: These are relative includes for portability's sake
 //       the cmake find_package exports them as relative so it'll work
 //       cross platform as expected
-#if defined(__APPLE__)
-#include <OpenAL/alc.h>
-#include <OpenAL/al.h>
-#else
+//#if defined(__APPLE__)
+//#include <OpenAL/alc.h>
+//#include <OpenAL/al.h>
+//#else
 #include "alc.h"
 #include "al.h"
-#endif /* defined(__APPLE__) */
+//#endif /* defined(__APPLE__) */
 
 #define STB_VORBIS_HEADER_ONLY
 #include <stb_vorbis.c>
@@ -234,70 +234,8 @@ typedef struct {
   float gain;
 } a_layer;
 
-typedef struct {
-  // context - the OpenAL-Soft Context
-  // device - the device OpenAL-Soft is using
-  ALCcontext* context;
-  ALCdevice*  device;
-
-  // listener - the listener values for OpenAL
-  a_listener listener;
-
-  // songs - the list of songs
-  // song_names - a list of song names
-  // song_count - the current amount of songs
-  // song_capacity - the max amount of songs
-  // song_high - the high water mark for songs in the song list
-  a_song*      songs;
-  const char** song_names;
-  uint16_t     song_count, song_capacity, song_high;
-
-  // sfx - the list of sound effects (sounds)
-  // sfx_count - the current amount of sfx
-  // sfx_capacity - the max amount of sfx
-  // sfx_high - the high water mark for sfx in the sfx list
-  a_sfx*   sfx;
-  uint16_t sfx_count, sfx_capacity, sfx_high;
-
-  // buffers - the list of audio buffers (sounds / raw data)
-  // buffer_names - a list of names for audio buffers in the list
-  // buffer_count - the current amount of buffers in the list
-  // buffer_capacity - the max amount of buffers
-  // buffer_high - the high water mark for buffers in the the list
-  a_buf*       buffers;
-  const char** buffer_names;
-  uint16_t     buffer_count, buffer_capacity, buffer_high;
-
-  // fx_slots - a list of slots for OpenAL Effects
-  // fx_count - the amount of effects currently in the list
-  // fx_capacity - the max amount of effects
-  // fx_high - the high water mark for the effects in the list
-  a_fx*    fx_slots;
-  uint16_t fx_count, fx_capacity;
-
-  a_filter* filter_slots;
-  uint16_t  filter_count, filter_capacity;
-
-  // fx_per_source - the OpenAL Defined max FX per source
-  // max_fx - the OpenAL defined max FX
-  uint16_t fx_per_source, max_fx;
-
-  uint8_t resizable; // allow for dynamic resizing of arrays
-  uint8_t allow;     // allow playback
-  uint8_t use_fx;    // allow effect usage
-
-  // pcm - a buffer for decoding
-  // pcm_length - the number of shorts the pcm can hold
-  // pcm_index - the index of the last element in the pcm
-  uint16_t* pcm;
-  uint32_t  pcm_length, pcm_index;
-
-  a_layer* layers;
-  uint16_t layer_count, layer_capacity;
-
-  // error - the last error value set
-  int32_t error;
-} a_ctx;
+// See audio.c for a_ctx definition
+typedef struct a_ctx a_ctx;
 
 /* Print various info about the OpenAL EFX Extension capabilities on this
  * machine */
@@ -445,10 +383,12 @@ uint8_t a_song_reset(a_ctx* ctx, uint16_t song_id);
 
 /* Get the state of a song (stop, play, pause)
  * ctx - the context containing the song
- * song_id - the ID of the song returned on creation */
-ALenum a_song_get_state(a_ctx* ctx, uint16_t song_id);
+ * song_id - the ID of the song returned on creation
+ * returns: song's state (OpenAL Enum) */
+uint32_t a_song_get_state(a_ctx* ctx, uint16_t song_id);
 
-/* Find the ID of a song based on it's name */
+/* Find the ID of a song based on it's name
+ * returns: song's ID */
 uint16_t a_song_get_id(a_ctx* ctx, const char* name);
 
 /* Create an audio buffer (generally small sounds)

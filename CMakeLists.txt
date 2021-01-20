@@ -27,9 +27,8 @@ endif()
 
 find_package(OpenGL REQUIRED)
 
-if(NOT APPLE)
-  find_package(OpenAL REQUIRED)
-
+find_package(OpenAL REQUIRED)
+if(OPENAL_FOUND)
   if (OPENAL_LIBRARY AND OPENAL_INCLUDE_DIR AND NOT TARGET OpenAL::AL)
     add_library(OpenAL::AL IMPORTED UNKNOWN)
     target_include_directories(OpenAL::AL INTERFACE ${OPENAL_INCLUDE_DIR})
@@ -132,7 +131,8 @@ endif()
 target_link_libraries(${PROJECT_NAME}
   PUBLIC
     OpenGL::GL
-    $<$<NOT:$<PLATFORM_ID:Darwin>>:OpenAL::AL>
+    OpenAL::AL
+    #    $<$<NOT:$<PLATFORM_ID:Darwin>>:OpenAL::AL>
     $<$<NOT:$<PLATFORM_ID:Windows>>:m>
     glfw)
 
