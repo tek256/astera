@@ -14,6 +14,7 @@
 #include <stdio.h>
 
 #if !defined(ASTERA_ALLOC)
+#include <stdlib.h>
 #define ASTERA_ALLOC(a) malloc(a)
 #endif
 

@@ -16,6 +16,7 @@
 static r_ctx* _r_ctx;
 
 #if !defined(ASTERA_ALLOC)
+#include <stdlib.h>
 #define ASTERA_ALLOC(a) malloc(a)
 #endif
 

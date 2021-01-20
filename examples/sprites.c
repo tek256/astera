@@ -13,7 +13,6 @@ Tab - Toggle text capture
 #include <stdlib.h>
 #include <time.h>
 
-#define ASTERA_ALLOC(a) printf("%d", a);
 #include <astera/asset.h>
 #include <astera/render.h>
 #include <astera/sys.h>
