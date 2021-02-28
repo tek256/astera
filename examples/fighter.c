@@ -14,6 +14,11 @@
 #include <astera/input.h>
 #include <astera/ui.h>
 
+#define BAKED_SHEET_SIZE  16 * 16
+#define BAKED_SHEET_WIDTH 16
+
+#define MAX_ENEMIES 32
+
 // ui stuff
 
 typedef enum {
@@ -65,10 +70,20 @@ typedef struct {
 
 // game data
 
+typedef enum {
+  ENEMY_IDLE = 0,
+  ENEMY_WALK,
+  ENEMY_HIT,
+  ENEMY_ATTACK,
+  ENEMY_DIE,
+  ENEMY_DEAD,
+} ENEMY_STATE;
+
 typedef struct {
   r_sprite sprite;
   c_aabb   aabb;
-  int      health;
+  int      health, max_health;
+  int      state, state_change;
 } enemy_t;
 
 typedef struct {
@@ -91,20 +106,21 @@ static level_t     level = {0};
 
 vec2 window_size;
 
-r_shader shader, baked, fbo_shader, ui_shader;
-r_sprite sprite;
-r_sheet  sheet, character_sheet;
-r_ctx*   render_ctx;
-i_ctx*   input_ctx;
-ui_ctx*  u_ctx;
-a_ctx*   audio_ctx;
+r_shader      shader, baked, fbo_shader, ui_shader;
+r_baked_sheet baked_sheet;
+r_sprite      sprite;
+r_sheet       sheet, character_sheet;
+r_ctx*        render_ctx;
+i_ctx*        input_ctx;
+ui_ctx*       u_ctx;
+a_ctx*        audio_ctx;
 
 GLFWvidmode* vidmodes;
 uint8_t      vidmode_count;
 
 // MENU LAYOUT
 // PLAY
-// SETTINGS??? ----- mmmmmmaybe
+// SETTINGS
 // QUIT
 
 typedef enum {
@@ -123,6 +139,15 @@ r_sprite* sprites;
 s_timer render_timer;
 s_timer update_timer;
 
+int rnd_range(int min, int max) {
+  int value = rand() % (max - min);
+  return value + min;
+}
+
+int rnd_rangef(float min, float max) {
+  return min + (((float)rand() / (float)(RAND_MAX)) * (max - min));
+}
+
 r_shader load_shader(const char* vs, const char* fs) {
   asset_t* vs_data = asset_get(vs);
   asset_t* fs_data = asset_get(fs);
@@ -133,6 +158,39 @@ r_shader load_shader(const char* vs, const char* fs) {
   asset_free(fs_data);
 
   return shader;
+}
+
+r_sheet load_sheet(const char* sheet_file, int sub_width, int sub_height) {
+  asset_t* sheet_data = asset_get(sheet_file);
+  r_sheet  sheet      = r_sheet_create_tiled(
+      sheet_data->data, sheet_data->data_length, sub_width, sub_height, 0, 0);
+  asset_free(sheet_data);
+  return sheet;
+}
+
+r_anim* load_anim(r_sheet* sheet, const char* name, int* frames, int length,
+                  int rate, int loop) {
+  r_anim anim = r_anim_create_fixed(sheet, frames, length, rate);
+  anim.loop   = loop;
+  return r_anim_cache(render_ctx, anim, name);
+}
+
+// setup keybindings / etc
+void init_input(void) {
+  i_binding_add(input_ctx, "left", KEY_A, ASTERA_BINDING_KEY);
+  i_binding_add_alt(input_ctx, "left", KEY_LEFT, ASTERA_BINDING_KEY);
+
+  i_binding_add(input_ctx, "right", KEY_D, ASTERA_BINDING_KEY);
+  i_binding_add_alt(input_ctx, "right", KEY_RIGHT, ASTERA_BINDING_KEY);
+
+  i_binding_add(input_ctx, "up", KEY_W, ASTERA_BINDING_KEY);
+  i_binding_add_alt(input_ctx, "up", KEY_UP, ASTERA_BINDING_KEY);
+
+  i_binding_add(input_ctx, "down", KEY_S, ASTERA_BINDING_KEY);
+  i_binding_add_alt(input_ctx, "down", KEY_DOWN, ASTERA_BINDING_KEY);
+
+  i_binding_add(input_ctx, "select", KEY_SPACE, ASTERA_BINDING_KEY);
+  i_binding_add_alt(input_ctx, "select", KEY_ENTER, ASTERA_BINDING_KEY);
 }
 
 // set the menu page based on enum
@@ -147,21 +205,34 @@ static void menu_set_page(int page) {
   menu.last_page   = menu.page_number;
   menu.page_number = page;
 
+  switch (menu.page_number) {
+    case MENU_NONE: {
+    } break;
+    case MENU_MAIN: {
+      ui_tree_reset(&menu.main_page);
+    } break;
+    case MENU_SETTINGS: {
+      ui_tree_reset(&menu.settings_page);
+    } break;
+    case MENU_PAUSE: {
+      ui_tree_reset(&menu.pause_page);
+    } break;
+    default:
+      printf("Woah.\n");
+      break;
+  }
+
   switch (page) {
     case MENU_NONE: {
-      printf("Woah-1.\n");
       menu.current_page = 0;
     } break;
     case MENU_MAIN: {
-      printf("Woah0.\n");
       menu.current_page = &menu.main_page;
     } break;
     case MENU_SETTINGS: {
-      printf("Woah1.\n");
       menu.current_page = &menu.settings_page;
     } break;
     case MENU_PAUSE: {
-      printf("Woah2.\n");
       menu.current_page = &menu.pause_page;
     } break;
     default:
@@ -222,8 +293,8 @@ void init_ui(void) {
   vec2 temp = {0.5f, 0.2f}, temp2 = {0.25f, 0.1f};
 
   // -- MAIN MENU --
-  menu.main_title = ui_text_create(u_ctx, temp, "FIGHTERESWEFSDKAJDSF", 48.f,
-                                   menu.font, UI_ALIGN_CENTER);
+  menu.main_title =
+      ui_text_create(u_ctx, temp, "FIGHTER", 48.f, menu.font, UI_ALIGN_CENTER);
 
   /* vec4 text_bounds;
   ui_text_bounds(u_ctx, &menu.main_title, text_bounds); */
@@ -404,6 +475,7 @@ void init_ui(void) {
 
   menu.back_button = ui_button_create(u_ctx, temp, temp2, "BACK",
                                       UI_ALIGN_LEFT | UI_ALIGN_MIDDLE_Y, 24.f);
+  ui_color_dup(menu.back_button.hover_bg, menu.clear);
 
   menu.settings_page = ui_tree_create(16);
   ui_tree_add(u_ctx, &menu.settings_page, &menu.settings_title, UI_TEXT, 0, 0,
@@ -427,27 +499,27 @@ void init_ui(void) {
   temp[0] = 0.5f;
   temp[1] = 0.25f;
   menu.p_title =
-      ui_text_create(u_ctx, temp, "SETTINGS", 32.f, menu.font, UI_ALIGN_CENTER);
+      ui_text_create(u_ctx, temp, "SETTINGS", 48.f, menu.font, UI_ALIGN_CENTER);
 
   vec2 zero         = {0.f, 0.f};
   menu.p_bg         = ui_box_create(u_ctx, zero, zero);
   menu.p_bg.size[0] = 1.f;
   menu.p_bg.size[1] = 1.f;
-
+  // ui_box_set_colors(&menu.p_bg, menu.red, 0, 0, 0);
   ui_get_color(menu.p_bg.bg, "000");
-  menu.p_bg.bg[3] = 0.4f;
+  menu.p_bg.bg[3] = 0.2f;
 
   temp[1] += 0.2f;
   menu.p_resume =
-      ui_button_create(u_ctx, temp, temp2, "RESUME", UI_ALIGN_CENTER, 16.f);
+      ui_button_create(u_ctx, temp, temp2, "RESUME", UI_ALIGN_CENTER, 32.f);
 
   temp[1] += 0.15f;
   menu.p_settings =
-      ui_button_create(u_ctx, temp, temp2, "SETTINGS", UI_ALIGN_CENTER, 16.f);
+      ui_button_create(u_ctx, temp, temp2, "SETTINGS", UI_ALIGN_CENTER, 32.f);
 
   temp[1] += 0.15f;
   menu.p_quit =
-      ui_button_create(u_ctx, temp, temp2, "QUIT", UI_ALIGN_CENTER, 16.f);
+      ui_button_create(u_ctx, temp, temp2, "QUIT", UI_ALIGN_CENTER, 32.f);
 
   menu.pause_page = ui_tree_create(8);
   ui_tree_add(u_ctx, &menu.pause_page, &menu.p_title, UI_TEXT, 0, 0, 1);
@@ -486,7 +558,9 @@ void init_audio(a_ctx* ctx) {
   // int s_attack, s_click, s_back, s_hit, s_die;
 }
 
-void init_collision(void) {}
+void init_collision(void) {
+  for (uint16_t i = 0; i < level.enemy_count; ++i) {}
+}
 
 void init_render(r_ctx* ctx) {
   shader = load_shader("resources/shaders/instanced.vert",
@@ -509,19 +583,188 @@ void init_render(r_ctx* ctx) {
   fbo    = r_framebuffer_create(DEFAULT_WIDTH, DEFAULT_HEIGHT, fbo_shader, 0);
   ui_fbo = r_framebuffer_create(DEFAULT_WIDTH, DEFAULT_HEIGHT, ui_shader, 0);
 
-  asset_t* sheet_data = asset_get("resources/textures/Dungeon_Tileset.png");
-  sheet = r_sheet_create_tiled(sheet_data->data, sheet_data->data_length, 16,
-                               16, 0, 0);
+  sheet = load_sheet("resources/textures/Dungeon_Tileset.png", 16, 16);
+  // TODO: Character sheet
+  character_sheet =
+      load_sheet("resources/textures/Dungeon_Tileset.png", 16, 16);
 
-  asset_free(sheet_data);
+  int sheet_width  = (320 / 16) + 1;
+  int sheet_height = (180 / 16) + 1;
+
+  int torch_count    = (sheet_height * 2) + (sheet_width);
+  int torches_placed = 0;
+
+  static int floor_tiles[1] = {23};
+
+  // create baked sheet
+  r_baked_quad* quads = (r_baked_quad*)malloc(
+      sizeof(r_baked_quad) * ((sheet_width * sheet_height) + torch_count));
+  for (int i = 0; i < (sheet_width * sheet_height); ++i) {
+    int texture = 23;
+    int flip_x  = 0;
+    int flip_y  = 0;
+    int x       = i % sheet_width;
+    int y       = i / sheet_width;
+
+    if (x == 0 && y == 0) {
+      texture = 0;
+    } else if (x >= sheet_width - 1 && y == 0) {
+      texture = 0;
+      flip_x  = 1;
+    } else if (x == 0 && y >= sheet_height - 1) {
+      texture = 40;
+    } else if (x >= sheet_width - 1 && y >= sheet_height - 1) {
+      texture = 40;
+      flip_x  = 1;
+    } else if (x == 0) {
+      texture = 10;
+    } else if (x >= sheet_width - 1) {
+      texture = 10;
+      flip_x  = 1;
+    } else if (y == 0) {
+      texture = 1;
+    } else if (y >= sheet_height - 1) {
+      texture = 41;
+      // bottom left corner
+    } else if (y == sheet_height - 2 && x == 1) {
+      texture = 31;
+      // top left corner
+    } else if (y == 1 && x == 1) {
+      texture = 11;
+      // top right corner
+    } else if (x == sheet_width - 2 && y == 1) {
+      texture = 14;
+      // bottom right corner
+    } else if (x == sheet_width - 2 && y == sheet_height - 2) {
+      texture = 34;
+      // right edge
+    } else if (x == sheet_width - 2 && !(y == 1 || y == sheet_height - 2)) {
+      texture = 24;
+      flip_y  = rand() % 2;
+      // left edge
+    } else if (x == 1 && !(y == 1 || y == sheet_height - 2)) {
+      texture = 21;
+      flip_y  = rand() % 2;
+      // top edge
+    } else if (y == 1 && !(x == 1 || x == sheet_width - 2)) {
+      texture = 13;
+      flip_x  = rand() % 2;
+      // bottom edge
+    } else if (y == sheet_height - 1 && !(x == 1 || x == sheet_width - 2)) {
+      texture = 32;
+      flip_x  = rand() % 2;
+    }
+
+    // left side torches
+    if (x == 1 && !(y == 0 || y >= sheet_height - 1) && y % 2 == 1) {
+      quads[(sheet_width * sheet_height) + torches_placed] =
+          (r_baked_quad){.x      = (float)x * 16.f,
+                         .y      = (float)y * 16.f,
+                         .width  = 16.f,
+                         .height = 16.f,
+                         .subtex = 91,
+                         .layer  = 1,
+                         .flip_x = 0,
+                         .flip_y = 0};
+      ++torches_placed;
+      // right side torches
+    } else if (x == sheet_width - 2 && !(y == 0 || y >= sheet_height - 1) &&
+               y % 2 == 1) {
+      quads[(sheet_width * sheet_height) + torches_placed] =
+          (r_baked_quad){.x      = (float)x * 16.f,
+                         .y      = (float)y * 16.f,
+                         .width  = 16.f,
+                         .height = 16.f,
+                         .subtex = 91,
+                         .layer  = 1,
+                         .flip_x = 1,
+                         .flip_y = 0};
+      ++torches_placed;
+      // top torches
+    } else if (y == 0 && !(x == 0 || x >= sheet_width - 1) && x % 2 == 1) {
+      quads[(sheet_width * sheet_height) + torches_placed] =
+          (r_baked_quad){.x      = (float)x * 16.f,
+                         .y      = (float)y * 16.f,
+                         .width  = 16.f,
+                         .height = 16.f,
+                         .subtex = 90,
+                         .layer  = 1,
+                         .flip_x = 0,
+                         .flip_y = 0};
+      ++torches_placed;
+    }
+
+    quads[i] = (r_baked_quad){.x      = (float)x * 16.f,
+                              .y      = (float)y * 16.f,
+                              .width  = 16.f,
+                              .height = 16.f,
+                              .subtex = texture,
+                              .layer  = 0,
+                              .flip_x = flip_x,
+                              .flip_y = flip_y};
+  }
+
+  vec2 baked_sheet_pos = {0.f, 8.f};
+
+  baked_sheet = r_baked_sheet_create(
+      &sheet, quads, (sheet_width * sheet_height) + torches_placed,
+      baked_sheet_pos);
+
+  free(quads);
+
+  int     idle[] = {1, 2, 3, 4};
+  r_anim* anim   = load_anim(&character_sheet, "enemy_idle", idle, 4, 3, 1);
+  if (!anim) {
+    printf("No anim loaded.\n");
+  }
 
   // 16x9 * 20
   vec2 camera_size = {320, 180};
   r_camera_set_size(r_ctx_get_camera(ctx), camera_size);
 }
 
+void init_game(void) {
+  int width  = 320 / 16.f;
+  int height = 180 / 16.f;
+
+  level.enemy_count    = rnd_range(16, MAX_ENEMIES);
+  level.enemy_capacity = MAX_ENEMIES;
+  level.enemies        = (enemy_t*)calloc(sizeof(enemy_t), MAX_ENEMIES);
+
+  vec2     zero = {0.f, 0.f}, halfsize = {8.f, 8.f};
+  vec2     sprite_size = {16.f, 16.f};
+  r_sprite base_sprite = r_sprite_create(shader, zero, sprite_size);
+  base_sprite.layer    = 8;
+  r_anim_list_cache(render_ctx);
+  r_anim* anim = r_anim_get_name(render_ctx, "enemy_idle");
+  r_sprite_set_anim(&base_sprite, anim);
+
+  for (int i = 0; i < level.enemy_count; ++i) {
+    // keep within middle 6/8ths of screen
+    int x = rnd_range(20, 300);
+    int y = rnd_range(20, 160);
+
+    printf("%ix%i\n", x, y);
+
+    vec2 position = {x, y};
+
+    enemy_t* en      = &level.enemies[i];
+    en->sprite       = base_sprite;
+    en->state        = ENEMY_IDLE;
+    en->aabb         = c_aabb_create(position, halfsize);
+    en->max_health   = 3;
+    en->health       = en->max_health;
+    en->state_change = 0;
+    vec2_dup(en->sprite.position, position);
+    r_sprite_set_anim(&en->sprite, anim);
+    r_sprite_anim_play(&en->sprite);
+    // r_sprite_anim_play(&base_sprite);
+  }
+}
+
 void game_resized_to(vec2 size) {
   r_set_can_render(render_ctx, 0);
+
   ui_ctx_resize(u_ctx, size);
   r_framebuffer_destroy(fbo);
   r_framebuffer_destroy(ui_fbo);
@@ -542,6 +785,7 @@ void handle_ui(void) {
       break;
     case MENU_MAIN: { //
       if (ui_tree_check_event(menu.current_page, menu.play.id) == 1) {
+        game_state = GAME_PLAY;
         menu_set_page(MENU_NONE);
         return;
       }
@@ -558,8 +802,7 @@ void handle_ui(void) {
       }
     } break;
     case MENU_SETTINGS: { //
-      if (i_key_clicked(input_ctx, 'D') ||
-          i_key_clicked(input_ctx, KEY_RIGHT)) { // up vol
+      if (i_binding_clicked(input_ctx, "right")) {
         if (ui_tree_is_active(u_ctx, menu.current_page, menu.master_vol.id)) {
           ui_slider_next_step(&menu.master_vol);
         } else if (ui_tree_is_active(u_ctx, menu.current_page,
@@ -571,8 +814,7 @@ void handle_ui(void) {
         }
       }
 
-      if (i_key_clicked(input_ctx, 'A') ||
-          i_key_clicked(input_ctx, KEY_LEFT)) { // down vol
+      if (i_binding_clicked(input_ctx, "left")) {
         if (ui_tree_is_active(u_ctx, menu.current_page, menu.master_vol.id)) {
           ui_slider_prev_step(&menu.master_vol);
         } else if (ui_tree_is_active(u_ctx, menu.current_page,
@@ -625,8 +867,19 @@ void handle_ui(void) {
         menu_set_page(MENU_SETTINGS);
       }
 
-      if (ui_tree_check_event(menu.current_page, menu.p_quit.id) == 1) {
+      if (ui_tree_check_event(menu.current_page, menu.p_resume.id) == 1) {
         menu_set_page(MENU_NONE);
+        game_state = GAME_PLAY;
+      }
+
+      if (ui_tree_check_event(menu.current_page, menu.p_quit.id) == 1) {
+        // clear old framebuffer
+        r_framebuffer_bind(fbo);
+        r_window_clear_color_empty();
+        r_window_clear();
+        r_framebuffer_unbind();
+        menu_set_page(MENU_MAIN);
+        game_state = GAME_START;
         return;
       }
     } break;
@@ -664,6 +917,7 @@ void input(float delta) {
         } break;
         case MENU_PAUSE: {
           // resume
+          game_state = GAME_PLAY;
           menu_set_page(MENU_NONE);
           return;
         } break;
@@ -674,15 +928,15 @@ void input(float delta) {
       }
     }
 
-    if (i_key_clicked(input_ctx, 'S') || i_key_clicked(input_ctx, KEY_DOWN)) {
+    if (i_binding_clicked(input_ctx, "down")) {
       ui_tree_next(menu.current_page);
     }
 
-    if (i_key_clicked(input_ctx, 'W') || i_key_clicked(input_ctx, KEY_UP)) {
+    if (i_binding_clicked(input_ctx, "up")) {
       ui_tree_prev(menu.current_page);
     }
 
-    if (i_key_clicked(input_ctx, KEY_SPACE)) {
+    if (i_binding_clicked(input_ctx, "select")) {
       ui_tree_select(u_ctx, menu.current_page, 1, 0);
     }
 
@@ -711,20 +965,20 @@ void input(float delta) {
 
     // Handle User Input normally now
     vec2 move = {0.f};
-    if (i_key_down(input_ctx, 'W') || i_key_down(input_ctx, KEY_UP)) {
-      move[1] = 1.f;
-    }
-    if (i_key_down(input_ctx, 'A') || i_key_down(input_ctx, KEY_LEFT)) {
-      move[1] = 1.f;
-    }
-    if (i_key_down(input_ctx, 'S') || i_key_down(input_ctx, KEY_DOWN)) {
+    if (i_binding_down(input_ctx, "up")) {
       move[1] = -1.f;
+    } else if (i_binding_down(input_ctx, "down")) {
+      move[1] = 1.f;
     }
-    if (i_key_down(input_ctx, 'D') || i_key_down(input_ctx, KEY_RIGHT)) {
+
+    if (i_binding_down(input_ctx, "left")) {
       move[0] = -1.f;
+    } else if (i_binding_down(input_ctx, "right")) {
+      move[0] = 1.f;
     }
 
     // move player or something
+    r_camera_move(r_ctx_get_camera(render_ctx), move);
   }
 }
 
@@ -746,6 +1000,13 @@ void draw_game(time_s delta) {
   r_window_clear();
 
   r_ctx_update(render_ctx);
+  r_baked_sheet_draw(render_ctx, baked, &baked_sheet);
+
+  for (int i = 0; i < level.enemy_count; ++i) {
+    r_sprite* sprite = &level.enemies[i].sprite;
+    r_sprite_update(&level.enemies[i].sprite, delta);
+    r_sprite_draw_batch(render_ctx, &level.enemies[i].sprite);
+  }
 
   r_ctx_draw(render_ctx);
 }
@@ -824,12 +1085,14 @@ int main(void) {
     return 1;
   }
 
-  input_ctx = i_ctx_create(16, 32, 4, 1, 32);
+  input_ctx = i_ctx_create(16, 32, 16, 1, 32);
 
   if (!input_ctx) {
     printf("Input context failed.\n");
     return 1;
   }
+
+  init_input();
 
   init_render(render_ctx);
   asset_t* icon = asset_get("resources/textures/icon.png");
@@ -844,6 +1107,11 @@ int main(void) {
   render_timer = s_timer_create();
 
   init_ui();
+
+  // game -> collision so we have the enemies we need to update
+  init_game();
+
+  init_collision();
 
   while (!r_window_should_close(render_ctx) && game_state != GAME_QUIT) {
     time_s delta = s_timer_update(&update_timer);

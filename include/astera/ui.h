@@ -825,6 +825,10 @@ int16_t ui_element_contains(ui_ctx* ctx, ui_element element, vec2 point);
  * returns: the event type / value */
 int32_t ui_tree_check_event(ui_tree* tree, uint32_t uid);
 
+/* Reset state/cursors of a tree
+ * tree - the tree to reset*/
+void ui_tree_reset(ui_tree* tree);
+
 /* Create an element structure from a UI type */
 ui_element ui_element_get(void* data, int type);
 

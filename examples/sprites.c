@@ -19,11 +19,16 @@ Tab - Toggle text capture
 #include <astera/input.h>
 #include <astera/ui.h>
 
-#define SPRITE_COUNT      16
-#define BAKED_SHEET_SIZE  16 * 16 * 16
-#define BAKED_SHEET_WIDTH 32
+#define SPRITE_COUNT 16
+
+#define BAKED_SHEET_SIZE  2048
+#define BAKED_SHEET_WIDTH 64
+
+#define BATCH_SIZE  256
+#define USE_BATCHES 1
 
 r_shader      shader, baked, particle, fbo_shader, ui_shader;
+r_shader      single;
 r_sprite      sprite;
 r_sheet       sheet, character_sheet;
 r_ctx*        render_ctx;
@@ -93,6 +98,11 @@ void init_render(r_ctx* ctx) {
                        "resources/shaders/instanced.frag");
   r_shader_cache(ctx, shader, "main");
 
+  single = load_shader("resources/shaders/single.vert",
+                       "resources/shaders/single.frag");
+
+  r_shader_cache(ctx, single, "single");
+
   baked = load_shader("resources/shaders/simple.vert",
                       "resources/shaders/simple.frag");
 
@@ -124,6 +134,7 @@ void init_render(r_ctx* ctx) {
   time_s   anim_times[6]  = {1000.0, 2000.0, 1000.0, 1000.0, 1000.0, 1600.0};
   anim                    = r_anim_create(&sheet, anim_frames, anim_times, 6);
   anim.loop               = 1;
+  r_anim_cache(render_ctx, anim, "Test");
 
   uint32_t anim2_frames[6] = {6, 7, 8, 9, 10, 12};
   time_s   anim2_times[6]  = {1000.0, 2000.0, 1000.0, 2000.0, 1000.0, 500.0};
@@ -133,7 +144,7 @@ void init_render(r_ctx* ctx) {
   uint32_t anim3_frames[4] = {18, 19, 20, 21};
   anim3                    = r_anim_create_fixed(&sheet, anim3_frames, 4, 6);
 
-  sprites                = (r_sprite*)malloc(sizeof(r_sprite) * SPRITE_COUNT);
+  sprites                = (r_sprite*)calloc(SPRITE_COUNT, sizeof(r_sprite));
   static int SHEET_WIDTH = 128;
   vec2       sprite_size = {16.f, 16.f};
 
@@ -141,7 +152,11 @@ void init_render(r_ctx* ctx) {
     int  x = i % SHEET_WIDTH, y = i / SHEET_WIDTH;
     vec2 sprite_pos = {16.f * x, 16.f * y};
 
-    sprites[i]       = r_sprite_create(shader, sprite_pos, sprite_size);
+#ifdef USE_BATCHES
+    sprites[i] = r_sprite_create(shader, sprite_pos, sprite_size);
+#else
+    sprites[i] = r_sprite_create(single, sprite_pos, sprite_size);
+#endif
     sprites[i].layer = 5;
     int test         = 40 + (rand() % 20);
 
@@ -150,7 +165,7 @@ void init_render(r_ctx* ctx) {
   }
 
   r_baked_quad* quads =
-      (r_baked_quad*)malloc(sizeof(r_baked_quad) * BAKED_SHEET_SIZE);
+      (r_baked_quad*)calloc(BAKED_SHEET_SIZE, sizeof(r_baked_quad));
   for (int i = 0; i < BAKED_SHEET_SIZE; ++i) {
     int texture = rand() % 32;
     int flip_x  = rand() % 2;
@@ -176,7 +191,8 @@ void init_render(r_ctx* ctx) {
 
   free(quads);
 
-  particles = r_particles_create(5, 10000.f, 500, 0, PARTICLE_ANIMATED, 1, 512);
+  particles =
+      r_particles_create(5, 10000.f, 500, 0, PARTICLE_ANIMATED, 1, BATCH_SIZE);
 
   r_particles_set_spawner(&particles, particle_spawn);
   r_particles_set_animator(&particles, particle_animate);
@@ -241,17 +257,22 @@ void render(void) {
   r_window_clear_color_empty();
   r_window_clear();
 
-  r_particles_draw(render_ctx, &particles, particle);
+  // r_particles_draw(render_ctx, &particles, particle);
 
   r_ctx_update(render_ctx);
 
   r_baked_sheet_draw(render_ctx, baked, &baked_sheet);
 
   for (int i = 0; i < SPRITE_COUNT; ++i) {
-    r_sprite_update(&sprites[i], 16.f);
+    // r_sprite_update(&sprites[i], 16.f);
+#ifndef USE_BATCHES
+    // r_sprite_draw(render_ctx, &sprites[i]);
+#endif
   }
 
-  r_sprites_draw(render_ctx, sprites, SPRITE_COUNT);
+#ifdef USE_BATCHES
+  // r_sprites_draw(render_ctx, sprites, SPRITE_COUNT);
+#endif
 
   r_ctx_draw(render_ctx);
 }

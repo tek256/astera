@@ -11,9 +11,11 @@
 #endif
 
 // Create a debug context
-static d_ctx _d_ctx = {0};
+static d_ctx _d_ctx = {0, .timestamp_fmt = "%H:%M"};
 
 d_ctx* d_ctx_get() { return &_d_ctx; }
+
+void d_set_format_func(log_format_func func) { _d_ctx.log_func = func; }
 
 void d_set_log(uint8_t log, const char* fp) {
   if (log) {
@@ -32,6 +34,8 @@ void d_set_log_fp(const char* fp) {
 
 void d_use_timestamp(uint8_t timestamp) { _d_ctx.timestamp = timestamp; }
 
+void d_set_timestamp_fmt(const char* fmt) { _d_ctx.timestamp_fmt = fmt; }
+
 uint8_t d_is_logging() { return _d_ctx.logging; }
 
 /* Get the current timestamp and put it in the timebuff */
@@ -41,7 +45,7 @@ static void d_get_timestamp() {
   time(&raw);
   ti = localtime(&raw);
   memset(_d_ctx.time_buff, 0, sizeof(char) * 16);
-  strftime(_d_ctx.time_buff, 16, "%d%Om%Y_%H%M", ti);
+  strftime(_d_ctx.time_buff, 16, _d_ctx.timestamp_fmt, ti);
 }
 
 uint8_t d_post_to_err() {
@@ -103,6 +107,15 @@ void _l(const char* format, ...) {
   va_start(args, format);
 
   if (!_d_ctx.silent) {
+    if (_d_ctx.log_func) {
+      fprintf(stdout, "%s", (*_d_ctx.log_func)());
+    }
+
+    if (_d_ctx.timestamp) {
+      d_get_timestamp();
+      fprintf(stdout, "%s: ", _d_ctx.time_buff);
+    }
+
     vfprintf(stdout, format, args);
   }
 
@@ -115,6 +128,9 @@ void _l(const char* format, ...) {
 
     if (_d_ctx.timestamp) {
       d_get_timestamp();
+      if (_d_ctx.log_func) {
+        fprintf(f, "%s", (*_d_ctx.log_func)());
+      }
       fprintf(f, "%s: ", _d_ctx.time_buff);
     }
 

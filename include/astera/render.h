@@ -253,6 +253,7 @@ typedef struct {
   r_shader shader;
   r_sheet* sheet;
 
+  // anim - current animation (if using)
   // tex - the base texture ID
   union {
     r_anim_viewer anim;
@@ -268,6 +269,31 @@ typedef struct {
   uint8_t change, animated, visible, group;
 } r_sprite;
 
+/* TODO (uniform buffers) follows layout of sprite_data:
+ layout(std140, binding=1) uniform sprite_data {
+  vec4 coords;
+  vec4 color;
+  int  flip_x;
+  int  flip_y;
+  mat4 model;
+}; */
+
+typedef struct {
+  vec4   coord;
+  vec4   color;
+  int    flip_x;
+  int    flip_y;
+  mat4x4 model;
+} r_sprite_data;
+
+// TODO this -> sub_buffer and swap in at draw call not buffer at draw call
+typedef struct {
+  uint32_t       binding_point, block_index;
+  uint32_t       buffer;
+  int            count, capacity;
+  r_sprite_data* sprite_data;
+} r_ubo;
+
 typedef struct {
   r_shader shader;
   r_sheet* sheet;
@@ -280,7 +306,11 @@ typedef struct {
   vec4*    coords;
 
   uint32_t count, capacity;
+  uint8_t  use_ubo;
+  r_ubo    ubo;
 } r_batch;
+
+// reading uniform buffer docs one sec
 
 typedef struct {
   float   life, last;
@@ -338,6 +368,7 @@ struct r_particles {
 
   // sheet - the texture sheet to use (note: only needed for PARTICLE_TEXTURED)
   r_sheet* sheet;
+
   union {
     r_anim_viewer anim;
     uint32_t      subtex;
@@ -720,6 +751,9 @@ void r_anim_destroy(r_ctx* ctx, r_anim* anim);
  * returns - the pointer to the cached animation */
 r_anim* r_anim_cache(r_ctx* ctx, r_anim anim, const char* name);
 
+/* DEBUG -- TODO REMOVE*/
+void r_anim_list_cache(r_ctx* ctx);
+
 /* Get an animation from cache by name
  * ctx - the context to search cache for
  * name - the name to search for */
@@ -806,6 +840,11 @@ void r_sprite_set_tex(r_sprite* sprite, r_sheet* sheet, uint32_t tex);
 void r_sprite_update(r_sprite* sprite, long delta);
 
 /* Call for a sprite to be drawn in the next batch
+ * ctx - the context to draw the sprite in
+ * sprite - the sprite to draw */
+void r_sprite_draw_batch(r_ctx* ctx, r_sprite* sprite);
+
+/* Call for a sprite to be drawn
  * ctx - the context to draw the sprite in
  * sprite - the sprite to draw */
 void r_sprite_draw(r_ctx* ctx, r_sprite* sprite);

@@ -121,7 +121,7 @@ else
     cmake -S. -Bbuild -DCMAKE_BUILD_TYPE="$BUILD_TYPE" -DASTERA_BUILD_EXAMPLES="$BUILD_EXAMPLES" >> /dev/null 2>&1
 fi
 
-# BUild the actual project
+# Build the actual project
 if [ -z "$REALLY_QUIET" ]; then
   echo "BUILD INFO: Building astera"
 fi

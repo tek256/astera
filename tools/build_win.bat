@@ -62,7 +62,7 @@ exit /B
 
 :BUILD_ASTERA
 
-REM change directories to the root directory
+REM Change directories to the root directory
 cd ../
 
 IF NOT DEFINED QUIET (
@@ -103,7 +103,7 @@ IF NOT DEFINED QUIET (
   echo BUILD INFO: Building libraries
 )
 
-REM BUild the libraries
+REM Build the libraries
 IF DEFINED QUIET (
   cmake --build build > NUL 2&1
 ) ELSE (
@@ -114,7 +114,7 @@ IF NOT DEFINED QUIET (
   echo BUILD INFO: Complete
 )
 
-REM move back to the tools directory
+REM Move back to the tools directory
 cd tools/
 
 exit /B

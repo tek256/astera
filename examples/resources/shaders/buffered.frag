@@ -17,4 +17,3 @@ void main() {
   out_color = sample_color * pass_color;
 }
 
-

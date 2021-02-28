@@ -943,6 +943,12 @@ void ui_box_draw(ui_ctx* ctx, ui_box* box, int8_t focused) {
       nvgFillColor(ctx->nvg, ui_u_color(box->bg));
     }
     nvgStroke(ctx->nvg);
+  } else {
+    if (focused) {
+      nvgFillColor(ctx->nvg, ui_u_color(box->hover_bg));
+    } else {
+      nvgFillColor(ctx->nvg, ui_u_color(box->bg));
+    }
   }
 
   if (box->border_radius != 0.f) {
@@ -2123,6 +2129,14 @@ int32_t ui_tree_check_event(ui_tree* tree, uint32_t uid) {
   }
 
   return -1;
+}
+
+void ui_tree_reset(ui_tree* tree) {
+  tree->mouse_hover_id    = 0;
+  tree->cursor_id         = 0;
+  tree->mouse_hover_index = 0;
+  tree->cursor_index      = 0;
+  tree->selected_index    = 0;
 }
 
 uint32_t ui_tree_get_cursor_id(ui_tree* tree) { return tree->cursor_id; }

@@ -49,12 +49,6 @@ static void glfw_key_cb(GLFWwindow* window, int key, int scancode, int action,
 
   i_key_callback(_r_ctx->input_ctx, key, scancode,
                  (action == GLFW_PRESS || action == GLFW_REPEAT));
-
-  /*if (action == GLFW_PRESS || action == GLFW_REPEAT) {
-    i_key_callback(_r_ctx->input_ctx, key, scancode, 1);
-  } else if (action == GLFW_RELEASE) {
-    i_key_callback(_r_ctx->input_ctx, key, scancode, 0);
-  }*/
 }
 
 static void glfw_char_cb(GLFWwindow* window, uint32_t c) {
@@ -203,6 +197,21 @@ static r_batch* r_batch_get(r_ctx* ctx, r_sheet* sheet, r_shader shader) {
       r_batch_check(batch);
       batch->sheet  = sheet;
       batch->shader = shader;
+
+      r_ubo* ubo = &batch->ubo;
+
+      glGenBuffers(1, &ubo->buffer);
+      glBindBuffer(GL_UNIFORM_BUFFER, ubo->buffer);
+      glBufferData(GL_UNIFORM_BUFFER, sizeof(r_sprite_data), 0, GL_STATIC_DRAW);
+      glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+      ubo->block_index = glGetUniformBlockIndex(shader, "sprite_data");
+      if (ubo->block_index != GL_INVALID_INDEX) {
+        ubo->binding_point = 0;
+        glUniformBlockBinding(shader, ubo->block_index, ubo->binding_point);
+      }
+
+      // printf("block index: %i\n", ubo->block_index);
       return batch;
     }
   }
@@ -235,11 +244,21 @@ static void r_batch_draw(r_ctx* ctx, r_batch* batch) {
   r_set_m4(batch->shader, "view", ctx->camera.view);
   r_set_m4(batch->shader, "projection", ctx->camera.projection);
 
-  r_set_ix(batch->shader, batch->count, "flip_x", (int*)batch->flip_x);
-  r_set_ix(batch->shader, batch->count, "flip_y", (int*)batch->flip_y);
-  r_set_v4x(batch->shader, batch->count, "coords", batch->coords);
-  r_set_v4x(batch->shader, batch->count, "colors", batch->colors);
-  r_set_m4x(batch->shader, batch->count, "mats", batch->mats);
+  if (batch->use_ubo && batch->ubo.buffer) {
+    r_ubo* ubo = &batch->ubo;
+    glBindBuffer(GL_UNIFORM_BUFFER, ubo->buffer);
+    glBufferData(GL_UNIFORM_BUFFER, sizeof(r_sprite_data), ubo->count,
+                 GL_STATIC_DRAW);
+    glBindBuffer(GL_UNIFORM_BUFFER, 0);
+    glBindBufferRange(GL_UNIFORM_BUFFER, 0, ubo->buffer, 0,
+                      ubo->count * sizeof(r_sprite_data));
+  } else {
+    r_set_ix(batch->shader, batch->count, "flip_x", (int*)batch->flip_x);
+    r_set_ix(batch->shader, batch->count, "flip_y", (int*)batch->flip_y);
+    r_set_v4x(batch->shader, batch->count, "coords", batch->coords);
+    r_set_v4x(batch->shader, batch->count, "colors", batch->colors);
+    r_set_m4x(batch->shader, batch->count, "mats", batch->mats);
+  }
 
   glBindVertexArray(ctx->default_quad.vao);
   glBindBuffer(GL_ARRAY_BUFFER, ctx->default_quad.vbo);
@@ -398,7 +417,7 @@ r_window_params r_window_params_create(uint32_t width, uint32_t height,
 r_ctx* r_ctx_create(r_window_params params, uint8_t batch_count,
                     uint32_t batch_size, uint16_t anim_map_size,
                     uint8_t shader_map_size) {
-  r_ctx* ctx = (r_ctx*)malloc(sizeof(r_ctx));
+  r_ctx* ctx = (r_ctx*)calloc(1, sizeof(r_ctx));
 
   if (!r_window_create(ctx, params)) {
     ASTERA_FUNC_DBG("unable to create window.\n");
@@ -407,8 +426,7 @@ r_ctx* r_ctx_create(r_window_params params, uint8_t batch_count,
   }
 
   if (batch_count > 0) {
-    ctx->batches = (r_batch*)malloc(sizeof(r_batch) * batch_count);
-    memset(ctx->batches, 0, sizeof(r_batch) * batch_count);
+    ctx->batches = (r_batch*)calloc(batch_count, sizeof(r_batch));
   } else {
     ctx->batches = 0;
   }
@@ -422,8 +440,8 @@ r_ctx* r_ctx_create(r_window_params params, uint8_t batch_count,
   }
 
   if (anim_map_size > 0) {
-    ctx->anim_names = (char**)malloc(sizeof(char*) * anim_map_size);
-    ctx->anims      = (r_anim*)malloc(sizeof(r_anim) * anim_map_size);
+    ctx->anim_names = (char**)calloc(anim_map_size, sizeof(char*));
+    ctx->anims      = (r_anim*)calloc(anim_map_size, sizeof(r_anim));
   } else {
     ctx->anim_names = 0;
     ctx->anims      = 0;
@@ -433,8 +451,8 @@ r_ctx* r_ctx_create(r_window_params params, uint8_t batch_count,
   ctx->anim_capacity = anim_map_size;
 
   if (shader_map_size > 0) {
-    ctx->shaders      = (r_shader*)malloc(sizeof(r_shader) * shader_map_size);
-    ctx->shader_names = (char**)malloc(sizeof(char*) * shader_map_size);
+    ctx->shaders      = (r_shader*)calloc(shader_map_size, sizeof(r_shader));
+    ctx->shader_names = (char**)calloc(shader_map_size, sizeof(char*));
   } else {
     ctx->shaders      = 0;
     ctx->shader_names = 0;
@@ -469,6 +487,10 @@ void r_ctx_destroy(r_ctx* ctx) {
   }
 
   if (ctx->anim_names) {
+    for (int i = 0; i < ctx->anim_capacity; ++i) {
+      if (ctx->anim_names[i])
+        free(ctx->anim_names[i]);
+    }
     free(ctx->anim_names);
   }
 
@@ -871,12 +893,15 @@ r_baked_sheet r_baked_sheet_create(r_sheet* sheet, r_baked_quad* quads,
     return (r_baked_sheet){0};
   }
 
-  uint32_t vert_cap = quad_count * 20, vert_count = 0;
+  // vert: (x, y, z, s, t)
+  uint32_t vert_cap = quad_count * 4 * 5, vert_count = 0;
+  // ind: (0, 1, 2, 2, 3, 0)
   uint32_t ind_cap = quad_count * 6, ind_count = 0;
+  // unique verts added (for ind offset calculation)
   uint32_t uvert_count = 0;
 
-  float*    verts = (float*)malloc(sizeof(float) * vert_cap);
-  uint32_t* inds  = (uint32_t*)malloc(sizeof(uint32_t) * ind_cap);
+  float*    verts = (float*)calloc(vert_cap, sizeof(float));
+  uint32_t* inds  = (uint32_t*)calloc(ind_cap, sizeof(uint32_t));
 
   uint32_t _inds[6]  = {0, 1, 2, 2, 3, 0};
   float    _verts[8] = {-0.5f, 0.5f, 0.5f, 0.5f, 0.5f, -0.5f, -0.5f, -0.5f};
@@ -900,7 +925,7 @@ r_baked_sheet r_baked_sheet_create(r_sheet* sheet, r_baked_quad* quads,
     vec2 _tex_size   = {subtex->coords[2], subtex->coords[3]};
     vec2_sub(_tex_size, _tex_size, _tex_offset);
 
-    for (uint32_t j = 0; j < 4; ++j) {
+    for (uint8_t j = 0; j < 4; ++j) {
       verts[vert_count]     = (_verts[j * 2] * _size[0]) + _offset[0];
       verts[vert_count + 1] = (_verts[(j * 2) + 1] * _size[1]) + _offset[1];
       verts[vert_count + 2] = (float)(quad->layer * ASTERA_RENDER_LAYER_MOD);
@@ -922,7 +947,7 @@ r_baked_sheet r_baked_sheet_create(r_sheet* sheet, r_baked_quad* quads,
       vert_count += 5;
     }
 
-    for (uint32_t j = 0; j < 6; ++j) {
+    for (uint8_t j = 0; j < 6; ++j) {
       inds[ind_count] = _inds[j] + uvert_count;
       ++ind_count;
     }
@@ -946,8 +971,8 @@ r_baked_sheet r_baked_sheet_create(r_sheet* sheet, r_baked_quad* quads,
   glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 20, (const void*)12);
 
   glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vboi);
-  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint16_t) * ind_count, inds,
-               GL_STATIC_DRAW);
+  glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(uint32_t) * ind_count, inds,
+               GL_STREAM_DRAW);
 
   glBindVertexArray(0);
 
@@ -997,7 +1022,7 @@ void r_baked_sheet_draw(r_ctx* ctx, r_shader shader, r_baked_sheet* sheet) {
   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 20, (const void*)0);
   glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 20, (const void*)12);
 
-  glDrawElements(GL_TRIANGLES, sheet->quad_count * 2, GL_UNSIGNED_INT, 0);
+  glDrawElements(GL_TRIANGLES, sheet->quad_count * 8, GL_UNSIGNED_INT, 0);
 
   glDisableVertexAttribArray(0);
   glDisableVertexAttribArray(1);
@@ -1354,6 +1379,59 @@ void r_sprite_draw(r_ctx* ctx, r_sprite* sprite) {
     return;
   }
 
+  r_shader_bind(sprite->shader);
+
+  r_sheet* sheet = sprite->sheet;
+  r_tex_bind(sheet->id);
+
+  vec2 sheet_size = {(float)sheet->width, (float)sheet->height};
+  r_set_v2(sprite->shader, "sheet_size", sheet_size);
+
+  r_set_m4(sprite->shader, "view", ctx->camera.view);
+  r_set_m4(sprite->shader, "projection", ctx->camera.projection);
+
+  r_set_uniformi(sprite->shader, "flip_x", sprite->flip_x);
+  r_set_uniformi(sprite->shader, "flip_y", sprite->flip_y);
+
+  r_set_v4(sprite->shader, "color", sprite->color);
+  r_set_v4(sprite->shader, "coords", sprite->color);
+  r_set_m4(sprite->shader, "model", sprite->model);
+
+  if (sprite->animated) {
+    r_set_v4(sprite->shader, "coords",
+             sheet
+                 ->subtexs[sprite->render.anim.anim
+                               ->frames[sprite->render.anim.curr]]
+                 .coords);
+  } else {
+    r_set_v4(sprite->shader, "coords",
+             sheet->subtexs[sprite->render.tex].coords);
+  }
+
+  glBindVertexArray(ctx->default_quad.vao);
+  glBindBuffer(GL_ARRAY_BUFFER, ctx->default_quad.vbo);
+  glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ctx->default_quad.vboi);
+
+  glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 20, (const void*)0);
+  glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 20, (const void*)12);
+
+  glEnableVertexAttribArray(0);
+  glEnableVertexAttribArray(1);
+
+  glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, 0);
+
+  glDisableVertexAttribArray(0);
+  glDisableVertexAttribArray(1);
+  glBindVertexArray(0);
+  r_tex_bind(0);
+  r_shader_bind(0);
+}
+
+void r_sprite_draw_batch(r_ctx* ctx, r_sprite* sprite) {
+  if (!sprite->visible) {
+    return;
+  }
+
   r_batch* batch = r_batch_get(ctx, sprite->sheet, sprite->shader);
 
   if (batch) {
@@ -1698,22 +1776,42 @@ r_anim* r_anim_cache(r_ctx* ctx, r_anim anim, const char* name) {
     return 0;
   }
 
-  for (uint32_t i = 0; i < ctx->anim_high; ++i) {
+  for (uint32_t i = 0; i < ctx->anim_capacity; ++i) {
     r_anim* slot = &ctx->anims[i];
 
     if (!slot->frames) {
       *slot              = anim;
-      ctx->anim_names[i] = (char*)name;
+      uint32_t len       = strlen(name);
+      ctx->anim_names[i] = (char*)calloc(sizeof(char), len + 1);
+      strcpy(ctx->anim_names[i], name);
 
       if (i > ctx->anim_high) {
-        ctx->anim_high = (uint16_t)i;
+        ctx->anim_high = i;
       }
+
+      slot->id = i;
+
+      ++ctx->anim_count;
 
       return slot;
     }
   }
 
   return 0;
+}
+
+void r_anim_list_cache(r_ctx* ctx) {
+  if (ctx->anim_count == 0) {
+    ASTERA_FUNC_DBG("No anims in cache\n");
+    return;
+  }
+  for (uint32_t i = 0; i < ctx->anim_capacity; ++i) {
+    r_anim* slot = &ctx->anims[i];
+
+    if (slot->frames && ctx->anim_names[i]) {
+      ASTERA_DBG("%i: %s\n", i, ctx->anim_names[i]);
+    }
+  }
 }
 
 void r_anim_play(r_anim_viewer* anim) {
@@ -1758,7 +1856,7 @@ r_anim* r_anim_get_name(r_ctx* ctx, const char* name) {
     return 0;
   }
 
-  for (uint32_t i = 0; i < ctx->anim_high; ++i) {
+  for (uint32_t i = 0; i < ctx->anim_capacity; ++i) {
     if (ctx->anim_names[i]) {
       if (strcmp(ctx->anim_names[i], name) == 0) {
         return &ctx->anims[i];

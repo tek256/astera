@@ -145,7 +145,6 @@ uint8_t pak_write_to_file(pak_write_t* write);
 
 /* Open a file as a pak in file mode
  * file - path to the pak file
- * mode - the file mode to use with the pak file (r, rw, a)
  * return: pointer to pak_t struct for usage, fail = 0 */
 pak_t* pak_open_file(const char* file);
 
