@@ -30,6 +30,12 @@ void c_aabb_move(c_aabb* aabb, vec2 distance) {
   vec2_add(aabb->max, aabb->max, distance);
 }
 
+void c_aabb_adjust(c_aabb* aabb, c_manifold manifold) {
+  vec2 dist = {manifold.direction[0] * manifold.distance,
+               manifold.direction[1] * manifold.distance};
+  c_aabb_move(aabb, dist);
+}
+
 void c_circle_move(c_circle* circle, vec2 distance) {
   vec2_add(circle->center, circle->center, distance);
 }
@@ -40,6 +46,11 @@ void c_ray_move(c_ray* ray, vec2 distance) {
 
 void c_aabb_get_size(vec2 dst, c_aabb aabb) {
   vec2_sub(dst, aabb.max, aabb.min);
+}
+
+void c_aabb_get_center(vec2 dst, c_aabb aabb) {
+  dst[0] = aabb.min[0] + ((aabb.max[0] - aabb.min[0]) * 0.5f);
+  dst[1] = aabb.min[1] + ((aabb.max[1] - aabb.min[1]) * 0.5f);
 }
 
 // signed distance point to plane one dimensional

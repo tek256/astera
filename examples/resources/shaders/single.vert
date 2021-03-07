@@ -28,8 +28,6 @@ void main() {
     mod_coord.y = 1.0 - mod_coord.y;
   }
 
-  vec2 fix = vec2(sign(mod_coord.x - 0.51) * -0.005, sign(mod_coord.y - 0.51) * -0.005);
-
   vec2 tex_size = vec2(raw_coord.w - raw_coord.y, raw_coord.z - raw_coord.x);
 
   vec2 offset = raw_coord.xy;

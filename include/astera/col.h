@@ -58,6 +58,11 @@ c_aabb c_aabb_create(vec2 center, vec2 halfsize);
  * distance - the distance to move the aabb */
 void c_aabb_move(c_aabb* aabb, vec2 distance);
 
+/* Move an AABB by adjustment manifold
+ * aabb - the AABB to adjust
+ * manifold - manifold to move/adjust by */
+void c_aabb_adjust(c_aabb* aabb, c_manifold manifold);
+
 /* Move a circle by distance
  * circle - the circle to move
  * distance - the distance to move the circle*/
@@ -67,6 +72,11 @@ void c_circle_move(c_circle* circle, vec2 distance);
  * dst - the destination to store the size
  * aabb - the aabb to get size of */
 void c_aabb_get_size(vec2 dst, c_aabb aabb);
+
+/* Get the center point of an AABB
+ * dst - the destination to store the center
+ * aabb - the aabb to get the center of */
+void c_aabb_get_center(vec2 dst, c_aabb aabb);
 
 /* Create a Circle
  * center - the center of the circle

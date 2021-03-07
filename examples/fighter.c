@@ -19,6 +19,8 @@
 
 #define MAX_ENEMIES 32
 
+#define MAX_PLAYER_HEALTH 10
+
 // ui stuff
 
 typedef enum {
@@ -79,23 +81,33 @@ typedef enum {
   ENEMY_DEAD,
 } ENEMY_STATE;
 
+typedef enum {
+  ENEMY_EYE    = 0,
+  ENEMY_SLIME  = 1,
+  ENEMY_GOBLIN = 2,
+} ENEMY_TYPES;
+
 typedef struct {
   r_sprite sprite;
-  c_aabb   aabb;
+  c_circle circle;
   int      health, max_health;
   int      state, state_change;
+  int      type;
 } enemy_t;
 
 typedef struct {
   vec2     center;
   c_aabb   aabb;
-  int      health;
+  int      health, is_idle;
   r_sprite sprite;
 } player_t;
 
 typedef struct {
   enemy_t* enemies;
   int      enemy_count, enemy_capacity;
+
+  c_aabb* env;
+  int     env_cols;
 
   player_t player;
 } level_t;
@@ -106,7 +118,7 @@ static level_t     level = {0};
 
 vec2 window_size;
 
-r_shader      shader, baked, fbo_shader, ui_shader;
+r_shader      shader, baked, fbo_shader, ui_shader, single;
 r_baked_sheet baked_sheet;
 r_sprite      sprite;
 r_sheet       sheet, character_sheet;
@@ -218,7 +230,6 @@ static void menu_set_page(int page) {
       ui_tree_reset(&menu.pause_page);
     } break;
     default:
-      printf("Woah.\n");
       break;
   }
 
@@ -236,7 +247,6 @@ static void menu_set_page(int page) {
       menu.current_page = &menu.pause_page;
     } break;
     default:
-      printf("Woah.\n");
       break;
   }
 }
@@ -333,7 +343,8 @@ void init_ui(void) {
   tmp_ele = ui_element_get(&menu.quit, UI_BUTTON);
   ui_element_center_to(tmp_ele, temp);
 
-  menu.main_page = ui_tree_create(8);
+  menu.main_page      = ui_tree_create(8);
+  menu.main_page.loop = 1;
   ui_tree_add(u_ctx, &menu.main_page, &menu.main_title, UI_TEXT, 0, 0, 0);
   ui_tree_add(u_ctx, &menu.main_page, &menu.logo_img, UI_IMG, 0, 0, 0);
   ui_tree_add(u_ctx, &menu.main_page, &menu.play, UI_BUTTON, 1, 1, 1);
@@ -477,7 +488,8 @@ void init_ui(void) {
                                       UI_ALIGN_LEFT | UI_ALIGN_MIDDLE_Y, 24.f);
   ui_color_dup(menu.back_button.hover_bg, menu.clear);
 
-  menu.settings_page = ui_tree_create(16);
+  menu.settings_page      = ui_tree_create(16);
+  menu.settings_page.loop = 1;
   ui_tree_add(u_ctx, &menu.settings_page, &menu.settings_title, UI_TEXT, 0, 0,
               0);
   ui_tree_add(u_ctx, &menu.settings_page, &menu.master_label, UI_TEXT, 0, 0, 0);
@@ -521,7 +533,8 @@ void init_ui(void) {
   menu.p_quit =
       ui_button_create(u_ctx, temp, temp2, "QUIT", UI_ALIGN_CENTER, 32.f);
 
-  menu.pause_page = ui_tree_create(8);
+  menu.pause_page      = ui_tree_create(8);
+  menu.pause_page.loop = 1;
   ui_tree_add(u_ctx, &menu.pause_page, &menu.p_title, UI_TEXT, 0, 0, 1);
   ui_tree_add(u_ctx, &menu.pause_page, &menu.p_resume, UI_BUTTON, 1, 1, 2);
   ui_tree_add(u_ctx, &menu.pause_page, &menu.p_settings, UI_BUTTON, 1, 1, 2);
@@ -560,17 +573,42 @@ void init_audio(a_ctx* ctx) {
 
 void init_collision(void) {
   for (uint16_t i = 0; i < level.enemy_count; ++i) {}
+
+  vec2 level_min = {0.f, 0.f};
+  vec2 level_max = {320.f, 180.f};
+  vec2 wall_size = {16.f, 16.f};
+
+  level.env_cols = 4;
+  level.env      = (c_aabb*)calloc(sizeof(c_aabb), 4);
+
+  // left
+  vec2 left_size = {wall_size[0], level_max[1]};
+  vec2 left_pos  = {-(wall_size[0] * 0.5f), level_max[1] * 0.5f};
+  level.env[0]   = c_aabb_create(left_pos, left_size);
+
+  // right
+  vec2 right_pos = {320.f + (wall_size[0] * 0.5f), left_pos[1]};
+  level.env[1]   = c_aabb_create(right_pos, left_size);
+
+  // top
+  vec2 top_pos  = {level_max[0] * 0.5f, -(wall_size[1] * 0.5f)};
+  vec2 top_size = {level_max[0], wall_size[1]};
+  level.env[2]  = c_aabb_create(top_pos, top_size);
+
+  // bottom
+  vec2 bottom_pos = {top_pos[0], level_max[1] + (wall_size[1] * 0.75f)};
+  level.env[3]    = c_aabb_create(bottom_pos, top_size);
 }
 
 void init_render(r_ctx* ctx) {
   shader = load_shader("resources/shaders/instanced.vert",
                        "resources/shaders/instanced.frag");
-  r_shader_cache(ctx, shader, "main");
+
+  single = load_shader("resources/shaders/single.vert",
+                       "resources/shaders/single.frag");
 
   baked = load_shader("resources/shaders/simple.vert",
                       "resources/shaders/simple.frag");
-
-  r_shader_cache(ctx, baked, "baked");
 
   fbo_shader =
       load_shader("resources/shaders/fbo.vert", "resources/shaders/fbo.frag");
@@ -578,23 +616,17 @@ void init_render(r_ctx* ctx) {
   ui_shader =
       load_shader("resources/shaders/fbo.vert", "resources/shaders/fbo.frag");
 
-  vec2 screen_size = {(float)DEFAULT_WIDTH, (float)DEFAULT_HEIGHT};
-
   fbo    = r_framebuffer_create(DEFAULT_WIDTH, DEFAULT_HEIGHT, fbo_shader, 0);
   ui_fbo = r_framebuffer_create(DEFAULT_WIDTH, DEFAULT_HEIGHT, ui_shader, 0);
 
-  sheet = load_sheet("resources/textures/Dungeon_Tileset.png", 16, 16);
-  // TODO: Character sheet
-  character_sheet =
-      load_sheet("resources/textures/Dungeon_Tileset.png", 16, 16);
+  sheet           = load_sheet("resources/textures/tilemap.png", 16, 16);
+  character_sheet = load_sheet("resources/textures/spritesheet.png", 16, 16);
 
   int sheet_width  = (320 / 16) + 1;
   int sheet_height = (180 / 16) + 1;
 
   int torch_count    = (sheet_height * 2) + (sheet_width);
   int torches_placed = 0;
-
-  static int floor_tiles[1] = {23};
 
   // create baked sheet
   r_baked_quad* quads = (r_baked_quad*)malloc(
@@ -712,10 +744,38 @@ void init_render(r_ctx* ctx) {
 
   free(quads);
 
-  int     idle[] = {1, 2, 3, 4};
-  r_anim* anim   = load_anim(&character_sheet, "enemy_idle", idle, 4, 3, 1);
-  if (!anim) {
-    printf("No anim loaded.\n");
+  int     eye_idle_frames[] = {0, 1, 2, 3};
+  r_anim* eye_idle =
+      load_anim(&character_sheet, "eye_idle", eye_idle_frames, 4, 12, 1);
+
+  int     goblin_idle_frames[] = {7, 8, 9, 10, 11, 12};
+  r_anim* goblin_idle =
+      load_anim(&character_sheet, "goblin_idle", goblin_idle_frames, 6, 16, 1);
+
+  int     goblin_run_frames[] = {14, 15, 16, 17, 18, 19};
+  r_anim* goblin_run =
+      load_anim(&character_sheet, "goblin_run", goblin_run_frames, 6, 19, 1);
+
+  int     slime_idle_frames[] = {21, 22, 23, 24, 25, 26};
+  r_anim* slime_idle =
+      load_anim(&character_sheet, "slime_idle", slime_idle_frames, 6, 16, 1);
+
+  int     slime_bounce_frames[] = {28, 29, 30, 31, 32, 33};
+  r_anim* slime_bounce          = load_anim(&character_sheet, "slime_bounce",
+                                   slime_bounce_frames, 6, 16, 1);
+
+  int     player_idle_frames[] = {35, 36, 37, 38, 39, 40};
+  r_anim* player_idle =
+      load_anim(&character_sheet, "player_idle", player_idle_frames, 6, 12, 1);
+  if (!player_idle) {
+    printf("No player walk\n");
+  }
+
+  int     player_walk_frames[] = {42, 43, 44, 45, 46, 47};
+  r_anim* player_walk =
+      load_anim(&character_sheet, "player_walk", player_walk_frames, 6, 19, 1);
+  if (!player_walk) {
+    printf("No player walk\n");
   }
 
   // 16x9 * 20
@@ -731,35 +791,59 @@ void init_game(void) {
   level.enemy_capacity = MAX_ENEMIES;
   level.enemies        = (enemy_t*)calloc(sizeof(enemy_t), MAX_ENEMIES);
 
-  vec2     zero = {0.f, 0.f}, halfsize = {8.f, 8.f};
-  vec2     sprite_size = {16.f, 16.f};
-  r_sprite base_sprite = r_sprite_create(shader, zero, sprite_size);
-  base_sprite.layer    = 8;
+  vec2 zero = {0.f, 0.f}, halfsize = {8.f, 8.f};
+  vec2 sprite_size = {16.f, 16.f};
+
+  // TODO REMOVE (DEBUG)
   r_anim_list_cache(render_ctx);
-  r_anim* anim = r_anim_get_name(render_ctx, "enemy_idle");
-  r_sprite_set_anim(&base_sprite, anim);
 
   for (int i = 0; i < level.enemy_count; ++i) {
     // keep within middle 6/8ths of screen
     int x = rnd_range(20, 300);
     int y = rnd_range(20, 160);
 
-    printf("%ix%i\n", x, y);
-
     vec2 position = {x, y};
 
     enemy_t* en      = &level.enemies[i];
-    en->sprite       = base_sprite;
+    en->sprite       = r_sprite_create(shader, position, sprite_size);
     en->state        = ENEMY_IDLE;
-    en->aabb         = c_aabb_create(position, halfsize);
-    en->max_health   = 3;
-    en->health       = en->max_health;
+    en->circle       = c_circle_create(position, 7.f);
     en->state_change = 0;
-    vec2_dup(en->sprite.position, position);
+    en->type         = rand() % 3;
+
+    r_anim* anim = 0;
+
+    switch (en->type) {
+      case ENEMY_EYE:
+        en->max_health = 2;
+        anim           = r_anim_get_name(render_ctx, "eye_idle");
+        break;
+      case ENEMY_GOBLIN:
+        en->max_health = 4;
+        anim           = r_anim_get_name(render_ctx, "goblin_idle");
+        break;
+      case ENEMY_SLIME:
+        en->max_health = 3;
+        anim           = r_anim_get_name(render_ctx, "slime_idle");
+        break;
+    }
+    en->health = en->max_health;
     r_sprite_set_anim(&en->sprite, anim);
     r_sprite_anim_play(&en->sprite);
-    // r_sprite_anim_play(&base_sprite);
   }
+
+  // initialize player data
+
+  // (320 / 2) - (16 / 2), (180 / 2) - (16 / 2)
+  // centered position
+  vec2   player_pos      = {152.f, 82.f};
+  vec2   player_halfsize = {8.f, 8.f};
+  c_aabb player_col      = c_aabb_create(player_pos, player_halfsize);
+
+  level.player = (player_t){.health = MAX_PLAYER_HEALTH, .aabb = player_col, 0};
+  vec2_dup(level.player.center, player_pos);
+  level.player.sprite = r_sprite_create(shader, player_pos, sprite_size);
+  r_sprite_set_tex(&level.player.sprite, &character_sheet, 42);
 }
 
 void game_resized_to(vec2 size) {
@@ -977,12 +1061,59 @@ void input(float delta) {
       move[0] = 1.f;
     }
 
+    if (move[0] > 0.f) {
+      level.player.sprite.flip_x = 0;
+    } else if (move[0] < 0.f) {
+      level.player.sprite.flip_x = 1;
+    }
+
+    r_anim* player_anim = 0;
+    int     change      = 0;
+    if (move[0] != 0.f || move[1] != 0.f) {
+      if (level.player.is_idle) {
+        player_anim          = r_anim_get_name(render_ctx, "player_walk");
+        level.player.is_idle = 0;
+        change               = 1;
+      }
+    } else {
+      if (!level.player.is_idle) {
+        player_anim          = r_anim_get_name(render_ctx, "player_idle");
+        level.player.is_idle = 1;
+        change               = 1;
+      }
+    }
+
+    if (change && player_anim) {
+      r_sprite_set_anim(&level.player.sprite, player_anim);
+      r_sprite_anim_play(&level.player.sprite);
+    }
+
     // move player or something
-    r_camera_move(r_ctx_get_camera(render_ctx), move);
+    // r_camera_move(r_ctx_get_camera(render_ctx), move);
+    c_aabb_move(&level.player.aabb, move);
+    vec2 center = {0.f};
+    c_aabb_get_center(center, level.player.aabb);
+    r_sprite_set_pos(&level.player.sprite, center);
   }
 }
 
-void update(time_s delta) {}
+void update(time_s delta) {
+  // test player vs enemies
+  for (int i = 0; i < level.enemy_count; ++i) {
+    c_manifold man =
+        c_aabb_vs_circle_man(level.player.aabb, level.enemies[i].circle);
+    if (man.distance != 0.f) {
+      // take damage I guess :shrug:
+    }
+  }
+  // test player vs environment
+  for (int i = 0; i < level.env_cols; ++i) {
+    c_manifold man = c_aabb_vs_aabb_man(level.player.aabb, level.env[i]);
+    if (man.distance != 0.f) {
+      c_aabb_adjust(&level.player.aabb, man);
+    }
+  }
+}
 
 void draw_ui(void) {
   r_framebuffer_bind(ui_fbo);
@@ -999,15 +1130,22 @@ void draw_game(time_s delta) {
   r_window_clear_color_empty();
   r_window_clear();
 
+  // draw the background world
   r_ctx_update(render_ctx);
   r_baked_sheet_draw(render_ctx, baked, &baked_sheet);
 
+  // draw the enemies
   for (int i = 0; i < level.enemy_count; ++i) {
     r_sprite* sprite = &level.enemies[i].sprite;
     r_sprite_update(&level.enemies[i].sprite, delta);
     r_sprite_draw_batch(render_ctx, &level.enemies[i].sprite);
   }
 
+  // draw the player
+  r_sprite_update(&level.player.sprite, delta);
+  r_sprite_draw_batch(render_ctx, &level.player.sprite);
+
+  // issue a draw command for anything left in the batches
   r_ctx_draw(render_ctx);
 }
 
@@ -1077,7 +1215,7 @@ int main(void) {
   window_size[0] = params.width;
   window_size[1] = params.height;
 
-  render_ctx = r_ctx_create(params, 3, 128, 128, 4);
+  render_ctx = r_ctx_create(params, 4, 128, 128, 16);
   r_window_clear_color("#0A0A0A");
 
   if (!render_ctx) {
@@ -1095,6 +1233,8 @@ int main(void) {
   init_input();
 
   init_render(render_ctx);
+  r_check_error_loc("Post init");
+
   asset_t* icon = asset_get("resources/textures/icon.png");
   r_window_set_icon(render_ctx, icon->data, icon->data_length);
   asset_free(icon);
@@ -1130,7 +1270,16 @@ int main(void) {
       r_window_clear_color("#0a0a0a");
       r_window_clear();
 
+      r_shader_bind(fbo_shader);
+      r_set_uniformf(fbo_shader, "use_vig", 1.f);
+      r_set_v2(fbo_shader, "resolution", window_size);
+      r_set_uniformf(fbo_shader, "vig_intensity", 25.f);
+      r_set_uniformf(fbo_shader, "vig_scale", 0.25f);
+
       r_framebuffer_draw(render_ctx, fbo);
+
+      r_shader_bind(fbo_shader);
+      r_set_uniformf(fbo_shader, "use_vig", 0.f);
       r_framebuffer_draw(render_ctx, ui_fbo);
       r_window_swap_buffers(render_ctx);
     }

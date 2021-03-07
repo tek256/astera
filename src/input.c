@@ -190,6 +190,22 @@ i_ctx* i_ctx_create(uint16_t max_mouse_buttons, uint16_t max_keys,
 
 uint32_t i_ctx_current_keys(i_ctx* ctx) { return ctx->keyboard.curr_count; }
 
+void i_ctx_debug_out(i_ctx* ctx) {
+  /*  uint16_t concurrent_count;
+  uint16_t curr_count;
+  uint16_t prev_count;
+*/
+  printf("Curr:\n");
+  for (int i = 0; i < ctx->keyboard.curr_count; ++i) {
+    printf("%i ", ctx->keyboard.curr[i]);
+  }
+  printf("\nConcurr:\n");
+  for (int i = 0; i < ctx->keyboard.concurrent_count; ++i) {
+    printf("%i ", ctx->keyboard.concurrent[i]);
+  }
+  printf("\n");
+}
+
 void i_ctx_update(i_ctx* ctx) {
   glfwPollEvents();
 
@@ -201,17 +217,17 @@ void i_ctx_update(i_ctx* ctx) {
 
   memset(ctx->keyboard.prev, 0, sizeof(int) * ctx->keyboard.prev_count);
   memcpy(ctx->keyboard.prev, ctx->keyboard.curr,
-         sizeof(uint16_t) * ctx->keyboard.curr_count);
+         sizeof(int) * ctx->keyboard.curr_count);
   ctx->keyboard.prev_count = ctx->keyboard.curr_count;
 
   memset(ctx->keyboard.curr, 0, ctx->keyboard.curr_count * sizeof(int));
   memcpy(ctx->keyboard.curr, ctx->keyboard.concurrent,
-         sizeof(uint16_t) * ctx->keyboard.concurrent_count);
+         sizeof(int) * ctx->keyboard.concurrent_count);
   ctx->keyboard.curr_count = ctx->keyboard.concurrent_count;
 
   memset(ctx->mouse_b.prev, 0, sizeof(int) * ctx->mouse_b.prev_count);
   memcpy(ctx->mouse_b.prev, ctx->mouse_b.curr,
-         sizeof(uint16_t) * ctx->mouse_b.prev_count);
+         sizeof(int) * ctx->mouse_b.prev_count);
   ctx->mouse_b.prev_count = ctx->mouse_b.curr_count;
 
   memset(ctx->mouse_b.curr, 0, sizeof(int) * ctx->mouse_b.curr_count);

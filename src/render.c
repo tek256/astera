@@ -94,8 +94,8 @@ static void r_batch_clear(r_batch* batch) {
   memset(batch->mats, 0, sizeof(mat4x4) * batch->count);
   memset(batch->coords, 0, sizeof(vec4) * batch->count);
   memset(batch->colors, 0, sizeof(vec4) * batch->count);
-  memset(batch->flip_x, 0, sizeof(uint8_t) * batch->count);
-  memset(batch->flip_y, 0, sizeof(uint8_t) * batch->count);
+  memset(batch->flip_x, 0, sizeof(int) * batch->count);
+  memset(batch->flip_y, 0, sizeof(int) * batch->count);
   batch->count = 0;
 }
 
@@ -120,13 +120,13 @@ static void r_batch_check(r_batch* batch) {
   }
 
   if (!batch->flip_x) {
-    batch->flip_x = (uint8_t*)malloc(sizeof(uint8_t) * batch->capacity);
-    memset(batch->flip_x, 0, sizeof(uint8_t) * batch->capacity);
+    batch->flip_x = (int*)malloc(sizeof(int) * batch->capacity);
+    memset(batch->flip_x, 0, sizeof(int) * batch->capacity);
   }
 
   if (!batch->flip_y) {
-    batch->flip_y = (uint8_t*)malloc(sizeof(uint8_t) * batch->capacity);
-    memset(batch->flip_y, 0, sizeof(uint8_t) * batch->capacity);
+    batch->flip_y = (int*)malloc(sizeof(int) * batch->capacity);
+    memset(batch->flip_y, 0, sizeof(int) * batch->capacity);
   }
 }
 
@@ -198,20 +198,6 @@ static r_batch* r_batch_get(r_ctx* ctx, r_sheet* sheet, r_shader shader) {
       batch->sheet  = sheet;
       batch->shader = shader;
 
-      r_ubo* ubo = &batch->ubo;
-
-      glGenBuffers(1, &ubo->buffer);
-      glBindBuffer(GL_UNIFORM_BUFFER, ubo->buffer);
-      glBufferData(GL_UNIFORM_BUFFER, sizeof(r_sprite_data), 0, GL_STATIC_DRAW);
-      glBindBuffer(GL_UNIFORM_BUFFER, 0);
-
-      ubo->block_index = glGetUniformBlockIndex(shader, "sprite_data");
-      if (ubo->block_index != GL_INVALID_INDEX) {
-        ubo->binding_point = 0;
-        glUniformBlockBinding(shader, ubo->block_index, ubo->binding_point);
-      }
-
-      // printf("block index: %i\n", ubo->block_index);
       return batch;
     }
   }
@@ -244,21 +230,11 @@ static void r_batch_draw(r_ctx* ctx, r_batch* batch) {
   r_set_m4(batch->shader, "view", ctx->camera.view);
   r_set_m4(batch->shader, "projection", ctx->camera.projection);
 
-  if (batch->use_ubo && batch->ubo.buffer) {
-    r_ubo* ubo = &batch->ubo;
-    glBindBuffer(GL_UNIFORM_BUFFER, ubo->buffer);
-    glBufferData(GL_UNIFORM_BUFFER, sizeof(r_sprite_data), ubo->count,
-                 GL_STATIC_DRAW);
-    glBindBuffer(GL_UNIFORM_BUFFER, 0);
-    glBindBufferRange(GL_UNIFORM_BUFFER, 0, ubo->buffer, 0,
-                      ubo->count * sizeof(r_sprite_data));
-  } else {
-    r_set_ix(batch->shader, batch->count, "flip_x", (int*)batch->flip_x);
-    r_set_ix(batch->shader, batch->count, "flip_y", (int*)batch->flip_y);
-    r_set_v4x(batch->shader, batch->count, "coords", batch->coords);
-    r_set_v4x(batch->shader, batch->count, "colors", batch->colors);
-    r_set_m4x(batch->shader, batch->count, "mats", batch->mats);
-  }
+  r_set_ix(batch->shader, batch->count, "flip_x", (int*)batch->flip_x);
+  r_set_ix(batch->shader, batch->count, "flip_y", (int*)batch->flip_y);
+  r_set_v4x(batch->shader, batch->count, "coords", batch->coords);
+  r_set_v4x(batch->shader, batch->count, "colors", batch->colors);
+  r_set_m4x(batch->shader, batch->count, "mats", batch->mats);
 
   glBindVertexArray(ctx->default_quad.vao);
   glBindBuffer(GL_ARRAY_BUFFER, ctx->default_quad.vbo);
@@ -846,12 +822,13 @@ r_sheet r_sheet_create_tiled(unsigned char* data, uint32_t length,
   uint32_t rows      = h / sub_height;
   uint32_t sub_count = rows * per_width;
 
-  r_subtex* subtexs = (r_subtex*)malloc(sizeof(r_subtex) * sub_count);
+  r_subtex* subtexs = (r_subtex*)calloc(sub_count, sizeof(r_subtex));
 
   for (uint32_t i = 0; i < sub_count; ++i) {
     uint32_t x = i % per_width;
     uint32_t y = i / per_width;
 
+    // px values
     float x_offset = (float)((x * sub_width) + width_pad);
     float y_offset = (float)((y * sub_height) + height_pad);
     float width    = (float)(sub_width - (width_pad * 2));
@@ -1394,7 +1371,6 @@ void r_sprite_draw(r_ctx* ctx, r_sprite* sprite) {
   r_set_uniformi(sprite->shader, "flip_y", sprite->flip_y);
 
   r_set_v4(sprite->shader, "color", sprite->color);
-  r_set_v4(sprite->shader, "coords", sprite->color);
   r_set_m4(sprite->shader, "model", sprite->model);
 
   if (sprite->animated) {
@@ -1972,6 +1948,14 @@ void r_sprite_set(r_sprite* sprite, uint8_t layer, uint8_t flip_x,
   sprite->layer  = layer;
   sprite->flip_x = flip_x;
   sprite->flip_y = flip_y;
+}
+
+void r_sprite_set_pos(r_sprite* sprite, vec2 pos) {
+  vec2_dup(sprite->position, pos);
+}
+
+void r_sprite_get_pos(vec2 dst, r_sprite* sprite) {
+  vec2_dup(dst, sprite->position);
 }
 
 void r_sprite_set_anim(r_sprite* sprite, r_anim* anim) {

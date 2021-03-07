@@ -36,6 +36,7 @@ i_ctx*        input_ctx;
 ui_ctx*       u_ctx;
 r_baked_sheet baked_sheet;
 r_particles   particles;
+vec2          screen_size;
 
 r_framebuffer fbo, ui_fbo;
 r_anim        anim, anim2, anim3;
@@ -118,18 +119,21 @@ void init_render(r_ctx* ctx) {
   ui_shader =
       load_shader("resources/shaders/fbo.vert", "resources/shaders/fbo.frag");
 
-  vec2 screen_size = {1280.f, 720.f};
-  u_ctx            = ui_ctx_create(screen_size, 1.f, 0, 1, 0);
+  screen_size[0] = 1280.f;
+  screen_size[1] = 720.f;
+
+  u_ctx = ui_ctx_create(screen_size, 1.f, 0, 1, 0);
 
   fbo    = r_framebuffer_create(1280, 720, fbo_shader, 0);
   ui_fbo = r_framebuffer_create(1280, 720, ui_shader, 0);
 
-  asset_t* sheet_data = asset_get("resources/textures/Dungeon_Tileset.png");
+  asset_t* sheet_data = asset_get("resources/textures/tilemap.png");
   sheet = r_sheet_create_tiled(sheet_data->data, sheet_data->data_length, 16,
                                16, 0, 0);
 
   asset_free(sheet_data);
 
+  // variable time animations
   uint32_t anim_frames[6] = {0, 1, 2, 3, 4, 5};
   time_s   anim_times[6]  = {1000.0, 2000.0, 1000.0, 1000.0, 1000.0, 1600.0};
   anim                    = r_anim_create(&sheet, anim_frames, anim_times, 6);
@@ -148,6 +152,8 @@ void init_render(r_ctx* ctx) {
   static int SHEET_WIDTH = 128;
   vec2       sprite_size = {16.f, 16.f};
 
+  srand(time(NULL));
+
   for (int i = 0; i < SPRITE_COUNT; ++i) {
     int  x = i % SHEET_WIDTH, y = i / SHEET_WIDTH;
     vec2 sprite_pos = {16.f * x, 16.f * y};
@@ -160,8 +166,14 @@ void init_render(r_ctx* ctx) {
     sprites[i].layer = 5;
     int test         = 40 + (rand() % 20);
 
-    r_sprite_set_anim(&sprites[i], &anim);
-    r_sprite_anim_play(&sprites[i]);
+    sprites[i].flip_x = rand() % 2;
+    sprites[i].flip_y = rand() % 2;
+
+    printf("%i: %i, %i\n", i, sprites[i].flip_x, sprites[i].flip_y);
+
+    // r_sprite_set_anim(&sprites[i], &anim);
+    r_sprite_set_tex(&sprites[i], anim.sheet, 1);
+    // r_sprite_anim_play(&sprites[i]);
   }
 
   r_baked_quad* quads =
@@ -261,17 +273,17 @@ void render(void) {
 
   r_ctx_update(render_ctx);
 
-  r_baked_sheet_draw(render_ctx, baked, &baked_sheet);
+  // r_baked_sheet_draw(render_ctx, baked, &baked_sheet);
 
   for (int i = 0; i < SPRITE_COUNT; ++i) {
-    // r_sprite_update(&sprites[i], 16.f);
+    r_sprite_update(&sprites[i], 16.f);
 #ifndef USE_BATCHES
-    // r_sprite_draw(render_ctx, &sprites[i]);
+    r_sprite_draw(render_ctx, &sprites[i]);
 #endif
   }
 
 #ifdef USE_BATCHES
-  // r_sprites_draw(render_ctx, sprites, SPRITE_COUNT);
+  r_sprites_draw(render_ctx, sprites, SPRITE_COUNT);
 #endif
 
   r_ctx_draw(render_ctx);
@@ -323,7 +335,15 @@ int main(void) {
       r_window_clear_color("#0a0a0a");
       r_window_clear();
 
+      r_shader_bind(fbo_shader);
+      r_set_uniformf(fbo_shader, "use_vig", 1.f);
+      r_set_v2(fbo_shader, "resolution", screen_size);
+      r_set_uniformf(fbo_shader, "vig_intensity", 16.f);
+      r_set_uniformf(fbo_shader, "vig_scale", 0.1f);
+
       r_framebuffer_draw(render_ctx, fbo);
+
+      r_set_uniformf(fbo_shader, "use_vig", 0.f);
       r_framebuffer_draw(render_ctx, ui_fbo);
       r_window_swap_buffers(render_ctx);
     }

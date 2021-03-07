@@ -170,6 +170,10 @@ i_ctx* i_ctx_create(uint16_t max_mouse_buttons, uint16_t max_keys,
 /* Get the current number of keys pressed */
 uint32_t i_ctx_current_keys(i_ctx* ctx);
 
+/* DEBUG ONLY TODO REMOVE
+ * output current keyboard states */
+void i_ctx_debug_out(i_ctx* ctx);
+
 /* Destroy an input context and all of it's resources
  * ctx - the context to destroy */
 void i_ctx_destroy(i_ctx* ctx);
@@ -439,11 +443,10 @@ int i_any_event(i_ctx* ctx);
  * returns: binding ID, 0 = failure */
 uint16_t i_binding_add(i_ctx* ctx, const char* name, int value, int type);
 
-/* Add an alternate key binding to an input context (doesn't override original)
- * name - the name of the key binding
- * value - the action required to trigger the binding
- * type - the type (ASTERA_BINDING_KEY, ASTERA_BINDING_JOYA,
- *                  ASTERA_BINDING_JOYB, ASTERA_BINDING_MOUSEB)
+/* Add an alternate key binding to an input context (doesn't override
+ * original) name - the name of the key binding value - the action required to
+ * trigger the binding type - the type (ASTERA_BINDING_KEY,
+ * ASTERA_BINDING_JOYA, ASTERA_BINDING_JOYB, ASTERA_BINDING_MOUSEB)
  *
  * returns: binding ID, 0 = failure */
 uint16_t i_binding_add_alt(i_ctx* ctx, const char* name, int value, int type);
@@ -463,12 +466,11 @@ uint16_t i_enable_binding_track(i_ctx* ctx, const char* key_binding,
  * returns: binding ID, 0 = failure */
 uint16_t i_enable_bindingi_track(i_ctx* ctx, uint16_t binding_id, uint8_t alt);
 
-/* Add an alternate key binding to an input context (doesn't override original)
- * binding_id - the ID of the key binding
- * value - the action required to trigger the binding
- * type - the type (ASTERA_BINDING_KEY, ASTERA_BINDING_JOYA,
- *                  ASTERA_BINDING_JOYB, ASTERA_BINDING_MOUSEB)
- * returns: binding ID, 0 = failure */
+/* Add an alternate key binding to an input context (doesn't override
+ * original) binding_id - the ID of the key binding value - the action
+ * required to trigger the binding type - the type (ASTERA_BINDING_KEY,
+ * ASTERA_BINDING_JOYA, ASTERA_BINDING_JOYB, ASTERA_BINDING_MOUSEB) returns:
+ * binding ID, 0 = failure */
 uint16_t i_bindingi_add_alt(i_ctx* ctx, uint16_t binding_id, int value,
                             int type);
 
@@ -517,16 +519,14 @@ uint8_t i_binding_clicked(i_ctx* ctx, const char* key_binding);
 uint8_t i_binding_released(i_ctx* ctx, const char* key_binding);
 
 /* Check if the binding is down this frame
- * NOTE: if type is joystick axis this will check if it's negative value (< 0.f)
- * ctx - context to check
- * key_binding - the name of the key binding
+ * NOTE: if type is joystick axis this will check if it's negative value (<
+ * 0.f) ctx - context to check key_binding - the name of the key binding
  * returns: 1 = true, 0 = false */
 uint8_t i_binding_down(i_ctx* ctx, const char* key_binding);
 
 /* Check if the binding is up this frame
- * NOTE: if type is joystick axis this will check if it's positive value (> 0.f)
- * ctx - context to check
- * key_binding - the name of the key binding
+ * NOTE: if type is joystick axis this will check if it's positive value (>
+ * 0.f) ctx - context to check key_binding - the name of the key binding
  * returns: 1 = true, 0 = false */
 uint8_t i_binding_up(i_ctx* ctx, const char* key_binding);
 
@@ -569,16 +569,14 @@ uint8_t i_bindingi_clicked(i_ctx* ctx, uint16_t binding_id);
 uint8_t i_bindingi_released(i_ctx* ctx, uint16_t binding_id);
 
 /* Check if the binding is down this frame
- * NOTE: if type is joystick axis this will check if it's negative value (< 0.f)
- * ctx - context to check
- * binding_id - the id of the key binding
+ * NOTE: if type is joystick axis this will check if it's negative value (<
+ * 0.f) ctx - context to check binding_id - the id of the key binding
  * returns: 1 = true, 0 = false */
 uint8_t i_bindingi_down(i_ctx* ctx, uint16_t binding_id);
 
 /* Check if the binding is up this frame
- * NOTE: if type is joystick axis this will check if it's positive value (> 0.f)
- * ctx - context to check
- * binding_id - the id of the key binding
+ * NOTE: if type is joystick axis this will check if it's positive value (>
+ * 0.f) ctx - context to check binding_id - the id of the key binding
  * returns: 1 = true, 0 = false */
 uint8_t i_bindingi_up(i_ctx* ctx, uint16_t binding_id);
 

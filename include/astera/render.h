@@ -253,6 +253,8 @@ typedef struct {
   r_shader shader;
   r_sheet* sheet;
 
+  // brb -- water
+
   // anim - current animation (if using)
   // tex - the base texture ID
   union {
@@ -299,11 +301,11 @@ typedef struct {
   r_sheet* sheet;
 
   // Uniform Arrays
-  mat4x4*  mats;
-  uint8_t* flip_x;
-  uint8_t* flip_y;
-  vec4*    colors;
-  vec4*    coords;
+  mat4x4* mats;
+  int*    flip_x;
+  int*    flip_y;
+  vec4*   colors;
+  vec4*   coords;
 
   uint32_t count, capacity;
   uint8_t  use_ubo;
@@ -822,6 +824,16 @@ r_subtex* r_subtex_create(r_sheet* sheet, uint32_t x, uint32_t y,
  * flip_y - if to flip the sprite on the Y Axis */
 void r_sprite_set(r_sprite* sprite, uint8_t layer, uint8_t flip_x,
                   uint8_t flip_y);
+
+/* Set the position of a sprite
+ * sprite - the sprite to modify
+ * pos - the position to set the sprite to */
+void r_sprite_set_pos(r_sprite* sprite, vec2 pos);
+
+/* Get the position of a sprite
+ * dst - the destination to store the position
+ * sprite - the sprite to get the position of */
+void r_sprite_get_pos(vec2 dst, r_sprite* sprite);
 
 /* Set a sprite to draw an animation
  * sprite - the sprite to affect
