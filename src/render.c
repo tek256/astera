@@ -696,6 +696,10 @@ void r_framebuffer_destroy(r_framebuffer fbo) {
 
 void r_framebuffer_bind(r_framebuffer fbo) {
   glBindFramebuffer(GL_FRAMEBUFFER, fbo.fbo);
+  if (!fbo.color_only) {
+    glEnable(GL_DEPTH_TEST);
+    glDepthMask(GL_TRUE);
+  }
 }
 
 void r_framebuffer_draw(r_ctx* ctx, r_framebuffer fbo) {
@@ -1356,6 +1360,8 @@ void r_sprite_draw(r_ctx* ctx, r_sprite* sprite) {
     return;
   }
 
+  printf("sprite layer: %i\n", sprite->layer);
+
   r_shader_bind(sprite->shader);
 
   r_sheet* sheet = sprite->sheet;
@@ -1425,6 +1431,7 @@ uint32_t r_sprites_draw(r_ctx* ctx, r_sprite* sprites, uint32_t sprite_count) {
     return 0;
   }
 
+  printf("sprite layer: %i\n", sprites[0].layer);
   r_batch* batch = r_batch_get(ctx, sprites[0].sheet, sprites[0].shader);
 
   if (batch) {
@@ -2019,7 +2026,6 @@ void r_sprite_update(r_sprite* sprite, long delta) {
             view->state  = R_ANIM_STOP;
             view->pstate = R_ANIM_PLAY;
           }
-
           view->curr = 0;
         } else {
           view->curr++;

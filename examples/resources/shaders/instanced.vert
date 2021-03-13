@@ -32,8 +32,12 @@ void main() {
 
   vec2 offset = raw_coord.xy;
 
+  // sprite ordering based on how far down on the screen it is
+  vec4 mod_pos = vec4(in_pos, 1.0f);
+  mod_pos.z += (180.f - mod_pos.y) * 0.01f;
+
   pass_texcoord = offset + (tex_size *  mod_coord);
   pass_color = colors[gl_InstanceID];
 
-  gl_Position = projection * view * mats[gl_InstanceID] * vec4(in_pos, 1.0f);
+  gl_Position = projection * view * mats[gl_InstanceID] * mod_pos;
 }

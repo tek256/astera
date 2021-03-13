@@ -361,9 +361,8 @@ void render(time_s delta) {
 }
 
 int main(void) {
-  r_window_params params =
-      r_window_params_create(WINDOW_WIDTH, WINDOW_HEIGHT, 0, 0, 0, 0, 60,
-                             "Collision Example - Astera 1.0");
+  r_window_params params = r_window_params_create(
+      WINDOW_WIDTH, WINDOW_HEIGHT, 0, 0, 0, 0, 60, "Collision Example");
 
   // Create an empty render ctx (just window) so we can draw with the UI
   // system

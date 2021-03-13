@@ -157,9 +157,9 @@ void init_ui() {
 
   float max_size = ui_text_max_size(u_ctx, text, scaled_bounds, 0);
   printf("Max size: %f\n", max_size);
-  text.size = max_size;
+  text.size = max_size * 0.75f;
 
-  text2 = ui_text_create(u_ctx, text_pos2, "Input Example - Astera 1.0", 32.f,
+  text2 = ui_text_create(u_ctx, text_pos2, "Input Example - Astera", 32.f,
                          test_font, UI_ALIGN_MIDDLE_X | UI_ALIGN_BOTTOM);
   ui_color_dup(text2.color, white);
 

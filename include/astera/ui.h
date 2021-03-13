@@ -813,6 +813,11 @@ void ui_im_circle_draw(ui_ctx* ctx, vec2 pos, float radius, float thickness,
 void ui_im_line_draw(ui_ctx* ctx, vec2 start, vec2 end, float thickness,
                      ui_color color);
 
+/* Get the max font size for a specific bounding box (px)
+ * ctx - context to check against
+ * text - the text object to use
+ * bounds - the bounds of the text box (px)
+ * allow_reveal - calculate based on revealed test */
 float ui_text_max_size(ui_ctx* ctx, ui_text text, vec2 bounds,
                        int allow_reveal);
 float ui_dropdown_max_font_size(ui_ctx* ctx, ui_dropdown dropdown);

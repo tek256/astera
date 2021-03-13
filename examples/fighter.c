@@ -20,6 +20,7 @@
 #define MAX_ENEMIES 32
 
 #define MAX_PLAYER_HEALTH 10
+#define DAMAGE_DURATION   750
 
 // ui stuff
 
@@ -92,14 +93,16 @@ typedef struct {
   c_circle circle;
   int      health, max_health;
   int      state, state_change;
-  int      type;
+  int      type, take_damage;
+  float    damage_timer;
 } enemy_t;
 
 typedef struct {
   vec2     center;
-  c_aabb   aabb;
-  int      health, is_idle;
-  r_sprite sprite;
+  c_aabb   aabb, hitbox;
+  int      health, is_idle, take_damage;
+  float    damage_timer, damage_duration;
+  r_sprite sprite, sword, swoosh;
 } player_t;
 
 typedef struct {
@@ -115,6 +118,9 @@ typedef struct {
 static menu_t      menu  = {0};
 static a_resources a_res = {0};
 static level_t     level = {0};
+
+static vec4 color_red;
+static vec4 color_white;
 
 vec2 window_size;
 
@@ -160,6 +166,14 @@ int rnd_rangef(float min, float max) {
   return min + (((float)rand() / (float)(RAND_MAX)) * (max - min));
 }
 
+// check if other point is within radius of point
+int within_range_of(vec2 point, float radius, vec2 other_point) {
+  vec2 norm = {0.f};
+  vec2_sub(norm, point, other_point);
+  float dot = vec2_dot(norm, norm);
+  return dot < radius * radius;
+}
+
 r_shader load_shader(const char* vs, const char* fs) {
   asset_t* vs_data = asset_get(vs);
   asset_t* fs_data = asset_get(fs);
@@ -203,6 +217,9 @@ void init_input(void) {
 
   i_binding_add(input_ctx, "select", KEY_SPACE, ASTERA_BINDING_KEY);
   i_binding_add_alt(input_ctx, "select", KEY_ENTER, ASTERA_BINDING_KEY);
+
+  i_binding_add(input_ctx, "attack", KEY_F, ASTERA_BINDING_KEY);
+  i_binding_add_alt(input_ctx, "attack", KEY_SPACE, ASTERA_BINDING_KEY);
 }
 
 // set the menu page based on enum
@@ -625,6 +642,9 @@ void init_render(r_ctx* ctx) {
   int sheet_width  = (320 / 16) + 1;
   int sheet_height = (180 / 16) + 1;
 
+  r_get_color4f(color_red, "#f00");
+  r_get_color4f(color_white, "#fff");
+
   int torch_count    = (sheet_height * 2) + (sheet_width);
   int torches_placed = 0;
 
@@ -748,6 +768,10 @@ void init_render(r_ctx* ctx) {
   r_anim* eye_idle =
       load_anim(&character_sheet, "eye_idle", eye_idle_frames, 4, 12, 1);
 
+  int     sword_swoosh_frames[] = {4, 5, 6};
+  r_anim* sword_swoosh          = load_anim(&character_sheet, "sword_swoosh",
+                                   sword_swoosh_frames, 3, 24, 0);
+
   int     goblin_idle_frames[] = {7, 8, 9, 10, 11, 12};
   r_anim* goblin_idle =
       load_anim(&character_sheet, "goblin_idle", goblin_idle_frames, 6, 16, 1);
@@ -787,25 +811,60 @@ void init_game(void) {
   int width  = 320 / 16.f;
   int height = 180 / 16.f;
 
+  // initialize player stuff _before_ enemies so they're not within range of
+  // spawn
+  vec2   player_pos      = {152.f, 82.f};
+  vec2   player_halfsize = {8.f, 8.f};
+  c_aabb player_col      = c_aabb_create(player_pos, player_halfsize);
+  vec2   sword_pos       = {player_pos[0] + 12.f, player_pos[1] + 4.f};
+  vec2   sword_halfsize  = {10.f, 4.f};
+  c_aabb sword_col       = c_aabb_create(sword_pos, sword_halfsize);
+  vec2   zero = {0.f, 0.f}, halfsize = {8.f, 8.f};
+  vec2   sprite_size = {16.f, 16.f};
+
+  level.player = (player_t){
+      .health = MAX_PLAYER_HEALTH, .aabb = player_col, .hitbox = sword_col, 0};
+  vec2_dup(level.player.center, player_pos);
+  level.player.sprite       = r_sprite_create(shader, player_pos, sprite_size);
+  level.player.sprite.layer = 4;
+  r_sprite_set_tex(&level.player.sprite, &character_sheet, 42);
+
+  level.player.sword       = r_sprite_create(shader, player_pos, sprite_size);
+  level.player.sword.layer = 5;
+  r_sprite_set_tex(&level.player.sword, &character_sheet, 13);
+
+  level.player.swoosh       = r_sprite_create(shader, player_pos, sprite_size);
+  level.player.swoosh.layer = 6;
+  r_anim* sword_swoosh      = r_anim_get_name(render_ctx, "sword_swoosh");
+  r_sprite_set_anim(&level.player.swoosh, sword_swoosh);
+
   level.enemy_count    = rnd_range(16, MAX_ENEMIES);
   level.enemy_capacity = MAX_ENEMIES;
   level.enemies        = (enemy_t*)calloc(sizeof(enemy_t), MAX_ENEMIES);
-
-  vec2 zero = {0.f, 0.f}, halfsize = {8.f, 8.f};
-  vec2 sprite_size = {16.f, 16.f};
 
   // TODO REMOVE (DEBUG)
   r_anim_list_cache(render_ctx);
 
   for (int i = 0; i < level.enemy_count; ++i) {
     // keep within middle 6/8ths of screen
-    int x = rnd_range(20, 300);
-    int y = rnd_range(20, 160);
-
+    int  x        = rnd_range(20, 300);
+    int  y        = rnd_range(20, 160);
     vec2 position = {x, y};
+
+    int within_range = 0;
+    if ((within_range = within_range_of(level.player.center, 32.f, position))) {
+      while (within_range) {
+        x            = rnd_range(20, 300);
+        y            = rnd_range(20, 160);
+        position[0]  = (float)x;
+        position[1]  = (float)y;
+        within_range = within_range_of(level.player.center, 32.f, position);
+      }
+    }
 
     enemy_t* en      = &level.enemies[i];
     en->sprite       = r_sprite_create(shader, position, sprite_size);
+    en->sprite.layer = 4;
     en->state        = ENEMY_IDLE;
     en->circle       = c_circle_create(position, 7.f);
     en->state_change = 0;
@@ -836,14 +895,6 @@ void init_game(void) {
 
   // (320 / 2) - (16 / 2), (180 / 2) - (16 / 2)
   // centered position
-  vec2   player_pos      = {152.f, 82.f};
-  vec2   player_halfsize = {8.f, 8.f};
-  c_aabb player_col      = c_aabb_create(player_pos, player_halfsize);
-
-  level.player = (player_t){.health = MAX_PLAYER_HEALTH, .aabb = player_col, 0};
-  vec2_dup(level.player.center, player_pos);
-  level.player.sprite = r_sprite_create(shader, player_pos, sprite_size);
-  r_sprite_set_tex(&level.player.sprite, &character_sheet, 42);
 }
 
 void game_resized_to(vec2 size) {
@@ -852,8 +903,10 @@ void game_resized_to(vec2 size) {
   ui_ctx_resize(u_ctx, size);
   r_framebuffer_destroy(fbo);
   r_framebuffer_destroy(ui_fbo);
-  fbo    = r_framebuffer_create(size[0], size[1], fbo_shader, 0);
-  ui_fbo = r_framebuffer_create(size[0], size[1], ui_shader, 0);
+  fbo            = r_framebuffer_create(size[0], size[1], fbo_shader, 0);
+  ui_fbo         = r_framebuffer_create(size[0], size[1], ui_shader, 0);
+  window_size[0] = size[0];
+  window_size[1] = size[1];
 
   r_set_can_render(render_ctx, 1);
 }
@@ -1055,16 +1108,38 @@ void input(float delta) {
       move[1] = 1.f;
     }
 
+    if (i_binding_clicked(input_ctx, "attack")) {
+      r_sprite_anim_play(&level.player.swoosh);
+    }
+
+    // it's a bit like godmode, but less interesting
+    if (i_key_clicked(input_ctx, 'E')) {
+      for (int i = 0; i < level.enemy_count; ++i) {
+        enemy_t* en      = &level.enemies[i];
+        en->take_damage  = 1;
+        en->damage_timer = DAMAGE_DURATION;
+      }
+    }
+
     if (i_binding_down(input_ctx, "left")) {
       move[0] = -1.f;
     } else if (i_binding_down(input_ctx, "right")) {
       move[0] = 1.f;
     }
 
+    int swoosh_state = r_sprite_get_anim_state(&level.player.swoosh);
+
     if (move[0] > 0.f) {
       level.player.sprite.flip_x = 0;
+      level.player.sword.flip_x  = 0;
+
+      if (!swoosh_state)
+        level.player.swoosh.flip_x = 0;
     } else if (move[0] < 0.f) {
       level.player.sprite.flip_x = 1;
+      level.player.sword.flip_x  = 1;
+      if (!swoosh_state)
+        level.player.swoosh.flip_x = 1;
     }
 
     r_anim* player_anim = 0;
@@ -1089,23 +1164,109 @@ void input(float delta) {
     }
 
     // move player or something
-    // r_camera_move(r_ctx_get_camera(render_ctx), move);
+    if (move[0] != 0.f && move[1] != 0.f) {
+      move[0] *= 0.75f;
+      move[1] *= 0.75f;
+    }
     c_aabb_move(&level.player.aabb, move);
     vec2 center = {0.f};
+
+    vec2 hitbox_pos = {
+        level.player.center[0] + (level.player.sprite.flip_x) ? -20.f : 12.f,
+        level.player.center[1] + 4.f};
+    vec2 hitbox_halfsize = {10.f, 4.f};
+    c_aabb_set(&level.player.hitbox, hitbox_pos, hitbox_halfsize);
+
     c_aabb_get_center(center, level.player.aabb);
     r_sprite_set_pos(&level.player.sprite, center);
+    vec2 sword_pos;
+    vec2_dup(sword_pos, level.player.sprite.position);
+    sword_pos[0] += (level.player.sprite.flip_x) ? -9.f : 9.f;
+    sword_pos[1] -= 2.f;
+
+    level.player.sword.flip_x = level.player.sprite.flip_x;
+    r_sprite_set_pos(&level.player.sword, sword_pos);
+    sword_pos[0] += (level.player.sprite.flip_x) ? -5.f : 5.f;
+    sword_pos[1] += 2.f;
+    if (!swoosh_state)
+      r_sprite_set_pos(&level.player.swoosh, sword_pos);
+
+    if (level.player.sword.flip_x) {
+      level.player.sword.layer = 9;
+    } else {
+      level.player.sword.layer = 5;
+    }
   }
 }
 
+// weight (0 = 100% a, 1 = 100% b, .50 = 50 a 50 b)
+static void blend(vec4 dst, vec4 a, vec4 b, float weight) {
+  dst[0] = (a[0] * (1.f - weight)) + (b[0] * weight);
+  dst[1] = (a[1] * (1.f - weight)) + (b[1] * weight);
+  dst[2] = (a[2] * (1.f - weight)) + (b[2] * weight);
+}
+
 void update(time_s delta) {
-  // test player vs enemies
-  for (int i = 0; i < level.enemy_count; ++i) {
-    c_manifold man =
-        c_aabb_vs_circle_man(level.player.aabb, level.enemies[i].circle);
-    if (man.distance != 0.f) {
-      // take damage I guess :shrug:
+  if (level.player.take_damage) {
+    level.player.damage_timer -= delta;
+    if (level.player.damage_timer <= 0.f) {
+      level.player.take_damage = 0;
+    }
+
+    blend(level.player.sprite.color, color_white, color_red,
+          level.player.damage_timer / DAMAGE_DURATION);
+    blend(level.player.sword.color, color_white, color_red,
+          level.player.damage_timer / DAMAGE_DURATION);
+  }
+
+  int swoosh_state = r_sprite_get_anim_state(&level.player.swoosh);
+  if (swoosh_state) {
+    // test sword vs enemies
+    for (int i = 0; i < level.enemy_count; ++i) {
+      enemy_t* en = &level.enemies[i];
+
+      // only allow damage after a 3rd of the damage timer has elapsed
+      if (!en->damage_timer > (DAMAGE_DURATION * 0.33f)) {
+        c_manifold man = c_aabb_vs_circle_man(level.player.hitbox, en->circle);
+        if (man.distance != 0.f) {
+          // apply opposite directional force to enemy
+          en->take_damage  = 1;
+          en->damage_timer = DAMAGE_DURATION;
+          en->health--;
+
+          if (en->health <= 0) {
+            // death animation/etc
+          }
+        }
+      }
     }
   }
+
+  // test player vs enemies
+  for (int i = 0; i < level.enemy_count; ++i) {
+    enemy_t* en = &level.enemies[i];
+
+    // animate damaged enemies
+    if (en->take_damage) {
+      en->damage_timer -= delta;
+      blend(en->sprite.color, color_white, color_red,
+            en->damage_timer / DAMAGE_DURATION);
+
+      if (en->damage_timer <= 0.f) {
+        en->take_damage = 0;
+      }
+    }
+
+    c_manifold man = c_aabb_vs_circle_man(level.player.aabb, en->circle);
+    if (man.distance != 0.f) {
+      // take damage I guess :shrug:
+      if (!level.player.take_damage) {
+        level.player.take_damage  = 1;
+        level.player.damage_timer = DAMAGE_DURATION;
+      }
+    }
+  }
+
   // test player vs environment
   for (int i = 0; i < level.env_cols; ++i) {
     c_manifold man = c_aabb_vs_aabb_man(level.player.aabb, level.env[i]);
@@ -1134,16 +1295,31 @@ void draw_game(time_s delta) {
   r_ctx_update(render_ctx);
   r_baked_sheet_draw(render_ctx, baked, &baked_sheet);
 
+  // draw the player
+  r_sprite_update(&level.player.sprite, delta);
+  r_sprite_draw_batch(render_ctx, &level.player.sprite);
+
+  // draw the sword
+  r_sprite_update(&level.player.sword, delta);
+  r_sprite_draw_batch(render_ctx, &level.player.sword);
+
+  // draw (or don't) the swoosh
+  r_sprite_update(&level.player.swoosh, delta);
+  int swoosh_state = r_sprite_get_anim_state(&level.player.swoosh);
+  if (swoosh_state == R_ANIM_STOP) {
+    level.player.swoosh.visible = 0;
+  } else {
+    level.player.swoosh.visible = 1;
+  }
+
+  r_sprite_draw_batch(render_ctx, &level.player.swoosh);
+
   // draw the enemies
   for (int i = 0; i < level.enemy_count; ++i) {
     r_sprite* sprite = &level.enemies[i].sprite;
     r_sprite_update(&level.enemies[i].sprite, delta);
     r_sprite_draw_batch(render_ctx, &level.enemies[i].sprite);
   }
-
-  // draw the player
-  r_sprite_update(&level.player.sprite, delta);
-  r_sprite_draw_batch(render_ctx, &level.player.sprite);
 
   // issue a draw command for anything left in the batches
   r_ctx_draw(render_ctx);
@@ -1171,9 +1347,9 @@ void render(time_s delta) {
     // draw ui
     draw_ui();
   } else {
-    // check for changes so the framebuffer is cleared. (technically don't have
-    // to draw it if we don't have an actual target, but just gluing?? this
-    // together.
+    // check for changes so the framebuffer is cleared. (technically don't
+    // have to draw it if we don't have an actual target, but just gluing??
+    // this together.
     if (!ui_change) {
       r_framebuffer_bind(ui_fbo);
       r_window_clear_color_empty();
@@ -1190,6 +1366,7 @@ void render(time_s delta) {
 }
 
 int main(void) {
+  srand(time(0));
   audio_ctx = a_ctx_create(0, 2, 16, 16, 2, 2, 2, 4096 * 4);
 
   if (!audio_ctx) {

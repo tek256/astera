@@ -15,6 +15,7 @@ extern "C" {
 #include <astera/sys.h>
 #include <stdint.h>
 
+// The Z Offset calculated for each layer
 #if !defined(ASTERA_RENDER_LAYER_MOD)
 #define ASTERA_RENDER_LAYER_MOD 0.01f
 #endif
@@ -204,7 +205,7 @@ typedef struct {
 typedef enum {
   R_ANIM_STOP  = 0,
   R_ANIM_PLAY  = 1,
-  R_ANIM_PAUSE = 2
+  R_ANIM_PAUSE = 2,
 } r_anim_state;
 
 // NOTE: Animation IDs will be non-zero if valid
@@ -558,7 +559,9 @@ r_framebuffer r_framebuffer_create(uint32_t width, uint32_t height,
 void r_framebuffer_destroy(r_framebuffer fbo);
 
 /* Bind a framebuffer for OpenGL to draw to
- * fbo - the framebuffer to bind */
+ * fbo - the framebuffer to bind
+ * NOTE: if the fbo is not color_only, it enables GL_DEPTH_MASK and
+         GL_DEPTH_TEST each binding */
 void r_framebuffer_bind(r_framebuffer fbo);
 
 /* Bind the base window framebuffer for drawing */

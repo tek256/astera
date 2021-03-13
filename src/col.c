@@ -19,6 +19,11 @@ c_aabb c_aabb_create(vec2 center, vec2 halfsize) {
   return aabb;
 }
 
+void c_aabb_set(c_aabb* aabb, vec2 center, vec2 halfsize) {
+  vec2_sub(aabb->min, center, halfsize);
+  vec2_add(aabb->max, center, halfsize);
+}
+
 c_circle c_circle_create(vec2 center, float radius) {
   c_circle circle = (c_circle){.radius = radius};
   vec2_dup(circle.center, center);

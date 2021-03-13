@@ -248,9 +248,9 @@ void init_audio() {
 }
 
 void init() {
-  r_window_params params = r_window_params_create(1280, 720, 0, 0, 1, 0, 0,
-                                                  "Audio Example - Astera 1.0");
-  params.vsync           = 1;
+  r_window_params params =
+      r_window_params_create(1280, 720, 0, 0, 1, 0, 0, "Audio Example");
+  params.vsync = 1;
 
   // Create a shell of a render context, since we're not using it for actual
   // drawing

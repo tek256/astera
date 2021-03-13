@@ -53,6 +53,11 @@ c_ray c_ray_create(vec2 center, vec2 direction, float distance);
  * returns: aabb structure */
 c_aabb c_aabb_create(vec2 center, vec2 halfsize);
 
+/* Change an existing AABB to match the passed values
+ * center - the center of the aabb
+ * halfsize - the size / 2 */
+void c_aabb_set(c_aabb* aabb, vec2 center, vec2 halfsize);
+
 /* Move an AABB by distance
  * aabb - the AABB to move
  * distance - the distance to move the aabb */

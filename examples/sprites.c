@@ -290,8 +290,8 @@ void render(void) {
 }
 
 int main(void) {
-  r_window_params params = r_window_params_create(
-      1280, 720, 0, 0, 1, 0, 60, "Sprites Example - Astera 1.0");
+  r_window_params params =
+      r_window_params_create(1280, 720, 0, 0, 1, 0, 60, "Sprites Example");
 
   render_ctx = r_ctx_create(params, 3, 128, 128, 4);
   r_window_clear_color("#0A0A0A");
