@@ -254,8 +254,6 @@ typedef struct {
   r_shader shader;
   r_sheet* sheet;
 
-  // brb -- water
-
   // anim - current animation (if using)
   // tex - the base texture ID
   union {
@@ -398,7 +396,8 @@ struct r_particles {
   //    function of type `void xxx(r_particles*, r_particle*)`
   // Use Spawner -- Whether to use custom spawning function
   //    of type `void xxx(r_particles*, r_particle* particle)
-  int8_t calculate, type, use_animator, use_spawner;
+  // alive - if the particle system is alive and functioning
+  int8_t calculate, type, use_animator, use_spawner, alive;
 };
 
 // typedef struct r_ctx r_ctx;
@@ -631,8 +630,8 @@ void r_baked_sheet_destroy(r_baked_sheet* sheet);
 
 /* Create a particle system
  * emit_rate - the amount of particles to emit per second
- * particle_capacity - the maximum amount of particles alive at any given
- * moment emit_count - the max amount of particles to emit (0 = infinite)
+ * particle_capacity - the maximum amount of particles alive at once
+ * emit_count - the max amount of particles to emit (0 = infinite)
  * particle_type - reference r_particle_type
  *                 (i.e PARTICLE_COLORED |  PARTICLE_ANIMATED)
  * calculate - whether or not to automatically calculate uniform arrays
@@ -642,6 +641,18 @@ r_particles r_particles_create(uint32_t emit_rate, float particle_life,
                                uint32_t particle_capacity, uint32_t emit_count,
                                int8_t particle_type, int8_t calculate,
                                uint16_t uniform_cap);
+
+/* Start emission of the particles
+ * particles - the particle system to start */
+void r_particles_start(r_particles* particles);
+
+/* Reset the emitter to animate again
+ * particles - the emitter to reset */
+void r_particles_reset(r_particles* particles);
+
+/* Check if the particle system has emitted all the particles it was told to
+ * returns: 1 = true, 0 = false */
+uint8_t r_particles_finished(r_particles* particles);
 
 /* Get the frame a particle is supposed to show at a given time
  * system - the system to check against
@@ -653,6 +664,16 @@ uint32_t r_particles_frame_at(r_particles* system, time_s time);
  * prespawn - the amount of time to simulate before updating */
 void r_particles_set_system(r_particles* system, float lifetime,
                             float prespawn);
+
+/* Set a particle system's position
+ * system - system to move
+ * position - the point to set to */
+void r_particles_set_position(r_particles* system, vec2 position);
+
+/* Set a particle system's size (system size, not particle size)
+ * system - system to change size
+ * size - the size of the system */
+void r_particles_set_size(r_particles* system, vec2 size);
 
 /* Set particle system variables related to individual particles
  * NOTE: vectors can be passed as 0/NULL, and they won't be set
@@ -1169,12 +1190,10 @@ GLFWwindow* r_window_get_glfw(r_ctx* ctx);
  *  returns: list of unique modes */
 GLFWvidmode* r_get_vidmodes_by_usize(r_ctx* ctx, uint8_t* count);
 
-/* Get vide mode options by resolution (refresh rate is usually the difference)
- * ctx - render context to get options from
- * count - a pointer to set to the number of options returned
- * width - resolution width
- * height - resolution height
- * returns: list of options with the same resolution */
+/* Get vide mode options by resolution (refresh rate is usually the
+ * difference) ctx - render context to get options from count - a pointer to
+ * set to the number of options returned width - resolution width height -
+ * resolution height returns: list of options with the same resolution */
 GLFWvidmode* r_get_vidmode_options(r_ctx* ctx, uint8_t* count, uint32_t width,
                                    uint32_t height);
 

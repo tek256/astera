@@ -32,6 +32,9 @@ void main() {
 
   pass_color = colors[gl_InstanceID];
 
+  vec4 mod_pos = vec4(in_pos, 1.0f);
+  mod_pos.z += (180.f - mod_pos.y) * 0.01f;
+
   gl_Position =
-      projection * view * mats[gl_InstanceID] * vec4(in_pos, 1.0f);
+      projection * view * mats[gl_InstanceID] * mod_pos;
 }

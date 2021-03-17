@@ -1032,6 +1032,7 @@ r_particles r_particles_create(uint32_t emit_rate, float particle_life,
 
   particles.time       = 0;
   particles.spawn_time = 0;
+  particles.alive      = 0;
   particles.spawn_rate = MS_TO_SEC / emit_rate;
 
   particles.calculate      = calculate;
@@ -1068,6 +1069,26 @@ r_particles r_particles_create(uint32_t emit_rate, float particle_life,
   return particles;
 }
 
+void r_particles_start(r_particles* particles) {
+  r_particles_reset(particles);
+  particles->alive = 1;
+}
+
+void r_particles_reset(r_particles* particles) {
+  particles->time           = 0.f;
+  particles->spawn_time     = 0.f;
+  particles->count          = 0;
+  particles->emission_count = 0;
+  particles->uniform_count  = 0;
+  memset(particles->mats, 0, sizeof(mat4x4) * particles->uniform_cap);
+  memset(particles->colors, 0, sizeof(vec4) * particles->uniform_cap);
+  memset(particles->coords, 0, sizeof(vec4) * particles->uniform_cap);
+}
+
+uint8_t r_particles_finished(r_particles* particles) {
+  return !particles->alive;
+}
+
 uint32_t r_particles_frame_at(r_particles* system, time_s time) {
   if (system->type == PARTICLE_ANIMATED) {
     return r_anim_frame_at(system->render.anim.anim, time);
@@ -1096,6 +1117,14 @@ void r_particles_set_system(r_particles* system, float lifetime,
   }
 }
 
+void r_particles_set_position(r_particles* system, vec2 position) {
+  vec2_dup(system->position, position);
+}
+
+void r_particles_set_size(r_particles* system, vec2 size) {
+  vec2_dup(system->size, size);
+}
+
 void r_particles_set_particle(r_particles* system, vec4 color,
                               float particle_life, vec2 particle_size,
                               vec2 particle_velocity) {
@@ -1120,80 +1149,91 @@ void r_particles_set_particle(r_particles* system, vec4 color,
 }
 
 void r_particles_update(r_particles* system, time_s delta) {
-  system->time += (float)delta;
-  system->spawn_time += (float)delta;
+  if (system->alive) {
+    system->time += (float)delta;
+    system->spawn_time += (float)delta;
+    int32_t to_spawn = (int32_t)system->spawn_time / system->spawn_rate;
 
-  int32_t to_spawn = (int32_t)system->spawn_time / system->spawn_rate;
+    if (system->count + to_spawn >= system->capacity) {
+      to_spawn = system->capacity - system->count;
+    }
 
-  if (system->count + to_spawn >= system->capacity) {
-    to_spawn = system->capacity - system->count;
-  }
+    system->spawn_time -= system->spawn_rate * to_spawn;
 
-  system->spawn_time -= system->spawn_rate * to_spawn;
+    for (int i = 0; i < to_spawn; ++i) {
+      r_particle* open = 0;
 
-  for (int i = 0; i < to_spawn; ++i) {
-    r_particle* open = 0;
+      for (uint32_t j = 0; j < system->capacity; ++j) {
+        if (system->list[j].life <= 0.f) {
+          open = &system->list[j];
+          break;
+        }
+      }
 
-    for (uint32_t j = 0; j < system->capacity; ++j) {
-      if (system->list[j].life <= 0.f) {
-        open = &system->list[j];
+      if (!open) {
         break;
       }
-    }
 
-    if (!open) {
-      break;
-    }
+      open->life = system->particle_life;
+      vec2_dup(open->size, system->particle_size);
+      vec2_dup(open->velocity, system->particle_velocity);
+      vec4_dup(open->color, system->color);
 
-    open->life = system->particle_life;
-    vec2_dup(open->size, system->particle_size);
-    vec2_dup(open->velocity, system->particle_velocity);
-    vec4_dup(open->color, system->color);
+      if (system->use_spawner) {
+        system->spawner_func(system, open);
+      } else {
+        open->position[0] = fmodf((float)rand(), system->size[0]);
+        open->position[1] = fmodf((float)rand(), system->size[1]);
 
-    if (system->use_spawner) {
-      system->spawner_func(system, open);
-    } else {
-      open->position[0] = fmodf((float)rand(), system->size[0]);
-      open->position[1] = fmodf((float)rand(), system->size[1]);
+        open->layer = system->particle_layer;
 
-      open->layer = system->particle_layer;
-
-      if (system->type == PARTICLE_ANIMATED) {
-        open->frame = 0;
-      } else if (system->type == PARTICLE_TEXTURED) {
-        open->frame = system->render.subtex;
+        if (system->type == PARTICLE_ANIMATED) {
+          open->frame = 0;
+        } else if (system->type == PARTICLE_TEXTURED) {
+          open->frame = system->render.subtex;
+        }
       }
+
+      ++system->emission_count;
+      ++system->count;
     }
 
-    ++system->count;
+    // kill off the system if we've exceeded max emission or system lifetime
+    if ((system->time > system->system_life && system->system_life > 0.f) ||
+        (system->emission_count > system->max_emission &&
+         system->max_emission > 0)) {
+      system->alive = 0;
+    }
   }
 
-  // Update particles
-  for (uint32_t i = 0; i < system->capacity; ++i) {
-    r_particle* particle = &system->list[i];
-    if (particle->life > 0.f) {
-      particle->life -= (float)delta;
-    } else {
-      continue;
-    }
+  if (system->count > 0) {
+    // Update particles
+    for (uint32_t i = 0; i < system->capacity; ++i) {
+      r_particle* particle = &system->list[i];
+      if (particle->life > 0.f) {
+        particle->life -= (float)delta;
+      } else {
+        continue;
+      }
 
-    if (particle->life <= 0.f) {
-      particle->life = 0.f;
-      --system->count;
-      continue;
-    }
+      if (particle->life <= 0.f) {
+        particle->life = 0.f;
+        --system->count;
+        continue;
+      }
 
-    vec2 movement = {0.f, 0.f};
-    vec2_scale(movement, particle->velocity, (const float)delta);
-    vec2_add(particle->position, particle->position, movement);
+      vec2 movement = {0.f, 0.f};
+      vec2_scale(movement, particle->velocity, (const float)delta);
+      vec2_add(particle->position, particle->position, movement);
 
-    if (system->use_animator) {
-      (*system->animator_func)(system, &system->list[i]);
-    } else if (system->type == PARTICLE_ANIMATED) {
-      float lifespan  = system->particle_life - particle->life;
-      particle->frame = r_anim_frame_at(system->render.anim.anim, lifespan);
-      if (particle->frame > system->render.anim.count) {
-        particle->frame = system->render.anim.count;
+      if (system->use_animator) {
+        (*system->animator_func)(system, &system->list[i]);
+      } else if (system->type == PARTICLE_ANIMATED) {
+        float lifespan  = system->particle_life - particle->life;
+        particle->frame = r_anim_frame_at(system->render.anim.anim, lifespan);
+        if (particle->frame > system->render.anim.count) {
+          particle->frame = system->render.anim.count;
+        }
       }
     }
   }

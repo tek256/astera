@@ -21,6 +21,7 @@
 
 #define MAX_PLAYER_HEALTH 10
 #define DAMAGE_DURATION   750
+#define KNOCKBACK_AMOUNT  5
 
 // ui stuff
 
@@ -95,6 +96,7 @@ typedef struct {
   int      state, state_change;
   int      type, take_damage;
   float    damage_timer;
+  int      alive;
 } enemy_t;
 
 typedef struct {
@@ -113,6 +115,9 @@ typedef struct {
   int     env_cols;
 
   player_t player;
+
+  r_particles emitters[4];
+  int         emitter_count;
 } level_t;
 
 static menu_t      menu  = {0};
@@ -124,7 +129,8 @@ static vec4 color_white;
 
 vec2 window_size;
 
-r_shader      shader, baked, fbo_shader, ui_shader, single;
+r_shader      shader, baked, fbo_shader, ui_shader, single, particle_shader;
+r_particles   particles;
 r_baked_sheet baked_sheet;
 r_sprite      sprite;
 r_sheet       sheet, character_sheet;
@@ -199,6 +205,51 @@ r_anim* load_anim(r_sheet* sheet, const char* name, int* frames, int length,
   r_anim anim = r_anim_create_fixed(sheet, frames, length, rate);
   anim.loop   = loop;
   return r_anim_cache(render_ctx, anim, name);
+}
+
+// move in direction / amount of vec2 (non-normalized)
+void move_enemy(enemy_t* en, vec2 amount) {
+  r_sprite_move(&en->sprite, amount);
+  c_circle_move(&en->circle, amount);
+}
+
+void particle_spawn(r_particles* system, r_particle* particle) {
+  float x = system->position[0] + fmod(rand(), system->size[0]);
+  float y = system->position[1] + fmod(rand(), system->size[1]);
+
+  particle->position[0] = x;
+  particle->position[1] = y;
+  particle->layer       = system->particle_layer;
+
+  int dir_x = 0, dir_y = 0;
+
+  dir_x = rnd_range(-2, 2);
+  dir_y = rnd_range(-2, 0);
+
+  particle->direction[0] = dir_x;
+  particle->direction[1] = dir_y;
+}
+
+void particle_animate(r_particles* system, r_particle* particle) {
+  float life_span = system->particle_life - particle->life;
+  float progress  = life_span / system->particle_life;
+
+  particle->frame = r_particles_frame_at(system, life_span);
+
+  particle->velocity[0] =
+      (sin(progress * 3.1459) * particle->direction[0]) * 0.015f;
+  particle->velocity[1] =
+      (sin(progress * 3.1459) * particle->direction[1]) * 0.015f;
+}
+
+void create_emitter(vec2 position) {
+  if (level.emitter_count < 3) {
+    r_particles_reset(&level.emitters[level.emitter_count]);
+    r_particles_set_position(&level.emitters[level.emitter_count], position);
+    ++level.emitter_count;
+  } else {
+    printf("No free slots\n");
+  }
 }
 
 // setup keybindings / etc
@@ -633,6 +684,9 @@ void init_render(r_ctx* ctx) {
   ui_shader =
       load_shader("resources/shaders/fbo.vert", "resources/shaders/fbo.frag");
 
+  particle_shader = load_shader("resources/shaders/particles.vert",
+                                "resources/shaders/particles.frag");
+
   fbo    = r_framebuffer_create(DEFAULT_WIDTH, DEFAULT_HEIGHT, fbo_shader, 0);
   ui_fbo = r_framebuffer_create(DEFAULT_WIDTH, DEFAULT_HEIGHT, ui_shader, 0);
 
@@ -802,6 +856,54 @@ void init_render(r_ctx* ctx) {
     printf("No player walk\n");
   }
 
+  particles = r_particles_create(50, 500.f, 128, 200, PARTICLE_COLORED, 1, 128);
+  particles.particle_layer = 100;
+  vec2 particle_size       = {2.f, 2.f};
+  vec4 particle_color;
+  vec2 system_position   = {160.f, 90.f};
+  vec2 system_size       = {8.f, 8.f};
+  vec4 particle_velocity = {0.0f, 0.0f};
+  r_get_color4f(particle_color, "#de1f1f");
+  printf("%.2f %.2f %.2f %.2f\n", particle_color[0], particle_color[1],
+         particle_color[2], particle_color[3]);
+  r_particles_set_particle(&particles, particle_color, 500.f, particle_size,
+                           particle_velocity);
+  r_particles_set_color(&particles, particle_color, 1);
+
+  r_particles_set_position(&particles, system_position);
+  r_particles_set_size(&particles, system_size);
+
+  // set the custom particle animator & spawn
+  r_particles_set_spawner(&particles, particle_spawn);
+  r_particles_set_animator(&particles, particle_animate);
+
+  r_particles_start(&particles);
+
+  // level.emitters[i] = particles;
+  // duplicate particle emitters
+  /*for (int i = 0; i < 4; ++i) {
+    r_particles particles =
+        r_particles_create(50, 500.f, 64, 50, PARTICLE_COLORED, 1, 50);
+    particles.particle_layer = 50;
+    vec2 particle_size       = {4.f, 4.f};
+    vec4 particle_color;
+    vec2 system_size       = {32.f, 32.f};
+    vec4 particle_velocity = {0.5f, 100.f};
+    r_get_color4f(particle_color, "#DB5751");
+    printf("%.2f %.2f %.2f %.2f\n", particle_color[0], particle_color[1],
+           particle_color[2], particle_color[3]);
+    r_particles_set_particle(&particles, particle_color, 500.f, particle_size,
+                             particle_velocity);
+    r_particles_set_color(&particles, particle_color, 1);
+    r_particles_set_size(&particles, system_size);
+
+    // set the custom particle animator & spawn
+    r_particles_set_spawner(&particles, particle_spawn);
+    r_particles_set_animator(&particles, particle_animate);
+
+    level.emitters[i] = particles;
+  }*/
+
   // 16x9 * 20
   vec2 camera_size = {320, 180};
   r_camera_set_size(r_ctx_get_camera(ctx), camera_size);
@@ -834,7 +936,7 @@ void init_game(void) {
   r_sprite_set_tex(&level.player.sword, &character_sheet, 13);
 
   level.player.swoosh       = r_sprite_create(shader, player_pos, sprite_size);
-  level.player.swoosh.layer = 6;
+  level.player.swoosh.layer = 100;
   r_anim* sword_swoosh      = r_anim_get_name(render_ctx, "sword_swoosh");
   r_sprite_set_anim(&level.player.swoosh, sword_swoosh);
 
@@ -869,6 +971,9 @@ void init_game(void) {
     en->circle       = c_circle_create(position, 7.f);
     en->state_change = 0;
     en->type         = rand() % 3;
+    en->damage_timer = 0.f;
+    en->take_damage  = 0;
+    en->alive        = 1;
 
     r_anim* anim = 0;
 
@@ -1115,8 +1220,10 @@ void input(float delta) {
     // it's a bit like godmode, but less interesting
     if (i_key_clicked(input_ctx, 'E')) {
       for (int i = 0; i < level.enemy_count; ++i) {
-        enemy_t* en      = &level.enemies[i];
-        en->take_damage  = 1;
+        enemy_t* en     = &level.enemies[i];
+        en->take_damage = 1;
+        // update enemy state
+        en->state        = ENEMY_HIT;
         en->damage_timer = DAMAGE_DURATION;
       }
     }
@@ -1168,13 +1275,14 @@ void input(float delta) {
       move[0] *= 0.75f;
       move[1] *= 0.75f;
     }
+
     c_aabb_move(&level.player.aabb, move);
     vec2 center = {0.f};
 
-    vec2 hitbox_pos = {
-        level.player.center[0] + (level.player.sprite.flip_x) ? -20.f : 12.f,
-        level.player.center[1] + 4.f};
-    vec2 hitbox_halfsize = {10.f, 4.f};
+    vec2 hitbox_pos, hitbox_halfsize;
+    vec2_dup(hitbox_pos, level.player.swoosh.position);
+    vec2_dup(hitbox_halfsize, level.player.swoosh.size);
+    vec2_scale(hitbox_halfsize, hitbox_halfsize, 0.5f);
     c_aabb_set(&level.player.hitbox, hitbox_pos, hitbox_halfsize);
 
     c_aabb_get_center(center, level.player.aabb);
@@ -1219,29 +1327,6 @@ void update(time_s delta) {
           level.player.damage_timer / DAMAGE_DURATION);
   }
 
-  int swoosh_state = r_sprite_get_anim_state(&level.player.swoosh);
-  if (swoosh_state) {
-    // test sword vs enemies
-    for (int i = 0; i < level.enemy_count; ++i) {
-      enemy_t* en = &level.enemies[i];
-
-      // only allow damage after a 3rd of the damage timer has elapsed
-      if (!en->damage_timer > (DAMAGE_DURATION * 0.33f)) {
-        c_manifold man = c_aabb_vs_circle_man(level.player.hitbox, en->circle);
-        if (man.distance != 0.f) {
-          // apply opposite directional force to enemy
-          en->take_damage  = 1;
-          en->damage_timer = DAMAGE_DURATION;
-          en->health--;
-
-          if (en->health <= 0) {
-            // death animation/etc
-          }
-        }
-      }
-    }
-  }
-
   // test player vs enemies
   for (int i = 0; i < level.enemy_count; ++i) {
     enemy_t* en = &level.enemies[i];
@@ -1257,12 +1342,55 @@ void update(time_s delta) {
       }
     }
 
+    // animate death animations
+    if (en->state == ENEMY_DIE) {
+      //
+    }
+
     c_manifold man = c_aabb_vs_circle_man(level.player.aabb, en->circle);
     if (man.distance != 0.f) {
       // take damage I guess :shrug:
       if (!level.player.take_damage) {
         level.player.take_damage  = 1;
         level.player.damage_timer = DAMAGE_DURATION;
+      }
+    }
+  }
+
+  int swoosh_state = r_sprite_get_anim_state(&level.player.swoosh);
+  if (swoosh_state) {
+    // test sword vs enemies
+    for (int i = 0; i < level.enemy_count; ++i) {
+      enemy_t* en = &level.enemies[i];
+
+      // only allow damage after a 3rd of the damage timer has elapsed
+      if (en->damage_timer < (DAMAGE_DURATION * 0.66f)) {
+        c_manifold man = c_aabb_vs_circle_man(level.player.hitbox, en->circle);
+        if (man.distance != 0.f) {
+          en->take_damage  = 1;
+          en->state        = ENEMY_HIT;
+          en->damage_timer = DAMAGE_DURATION;
+          en->health--;
+
+          // TODO (this)
+          float d = (en->circle.center[1] - level.player.center[1]) /
+                    (en->circle.center[0] - level.player.center[0]);
+          float a       = atan(d);
+          vec2  stagger = {sinf(a) * KNOCKBACK_AMOUNT,
+                          cosf(a) * KNOCKBACK_AMOUNT};
+          move_enemy(en, stagger);
+
+          // apply opposite directional force to enemy
+          printf("Enemy takes damage\n");
+
+          if (en->health <= 0) {
+            // death animation/etc
+            en->alive = 0;
+            en->state = ENEMY_DIE;
+            create_emitter(en->circle.center);
+            printf("OH no, it died!\n");
+          }
+        }
       }
     }
   }
@@ -1320,6 +1448,16 @@ void draw_game(time_s delta) {
     r_sprite_update(&level.enemies[i].sprite, delta);
     r_sprite_draw_batch(render_ctx, &level.enemies[i].sprite);
   }
+
+  // draw particle effects & prune any finished ones
+  // for (int i = 0; i < level.emitter_count; ++i) {
+  if (!r_particles_finished(&particles)) {
+    r_particles_update(&particles, delta);
+    r_particles_draw(render_ctx, &particles, particle_shader);
+  } else {
+    // printf("Particles finished.\n");
+  }
+  //  }
 
   // issue a draw command for anything left in the batches
   r_ctx_draw(render_ctx);
