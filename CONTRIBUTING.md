@@ -1,11 +1,8 @@
 Here are some things you can do to help contribute!
 - [Bug Review & Search](https://github.com/tek256/astera/labels/bug)
-- [Wiki / Code Documentation](https://github.com/tek256/astera/tree/master/docs)
-- [Example Creation](https://github.com/tek256/astera/tree/master/examples)
-- Platform Testing
+- [Wiki / Code Documentation](https://github.com/tek256/astera/wiki)
 - Optimizations
 - [Feature Implementations or Requests](https://github.com/tek256/astera/labels/feature-request)
-- [Task Completion](https://github.com/tek256/astera/projects)
 - Become a [GitHub Sponsor](https://github.com/sponsors/tek256)
 
 ## Community

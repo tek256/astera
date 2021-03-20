@@ -106,6 +106,13 @@
     }                                                                          \
     return r;                                                                  \
   }                                                                            \
+  LINMATH_H_FUNC float vec##n##_dist(vec##n const a, vec##n const b) {         \
+    float add = 0.f;                                                           \
+    for (int i = 0; i < n; ++i) {                                              \
+      add += (a[i] - b[i]) * (a[i] - b[i]);                                    \
+    }                                                                          \
+    return sqrtf(add);                                                         \
+  }                                                                            \
   LINMATH_H_FUNC void vec##n##_nlerp(vec##n dst, vec##n start, vec##n end,     \
                                      float percent) {                          \
     for (int i = 0; i < n; ++i) {                                              \
@@ -157,6 +164,12 @@ LINMATH_H_FUNC float f_smoothstep(float min, float max, float value) {
 LINMATH_H_FUNC double d_smoothstep(double min, double max, double value) {
   double t = d_clamp((value - min) / (max - min), 0.0, 1.0);
   return t * t * (3.0 - 2.0 * t);
+}
+
+LINMATH_H_FUNC float f_invquad(float min, float max, float value) {
+  float delta    = max - min;
+  float progress = (value - min) / delta;
+  return (((1.f - progress) * (1.f - progress)) * delta) + min;
 }
 
 LINMATH_H_FUNC void vec2_angle(vec2 dst, float angle) {

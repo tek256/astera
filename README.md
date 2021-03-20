@@ -1,6 +1,5 @@
 <div id="header">
     <p align="center">
-      <img width="64px" height="64px" style="border-radius: 6px;" src="examples/resources/textures/icon.png"/><br>
       <b>astera</b><br>
   	  <span font-size="16px">a cross platform game library</span><br>
       <span font-size="12px">Made by <a href="http://tek256.com">Devon</a> with love.</span><br><br>
@@ -10,7 +9,7 @@
 </div>
 
 ### About
-Astera is a 2D game library written in C99 focused on performance, portability, and maintainability. Astera aims to rely on as few dependencies as possible. 
+Astera is a 2D game library written in C99 focused on portability. 
 
 ### Features
 ```
@@ -69,5 +68,5 @@ For more information see the relevant [wiki page](https://github.com/tek256/aste
 ### Special Thanks
 [Isabella Muerte](https://github.com/slurps-mad-rips) for being a patient friend and helping create the build system.  
 [Sharlock93](https://github.com/sharlock93) for helping diagnose issues.  
-[Dan Bechard](https://github.com/dbechrd) for helping test on Windows & discuss ideas with.  
+[Dan Bechard](https://github.com/dbechrd) for helping test on Windows.  
 

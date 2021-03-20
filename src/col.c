@@ -42,7 +42,8 @@ void c_aabb_adjust(c_aabb* aabb, c_manifold manifold) {
 }
 
 void c_circle_move(c_circle* circle, vec2 distance) {
-  vec2_add(circle->center, circle->center, distance);
+  circle->center[0] += distance[0];
+  circle->center[1] += distance[1];
 }
 
 void c_ray_move(c_ray* ray, vec2 distance) {

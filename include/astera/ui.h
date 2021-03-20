@@ -803,13 +803,46 @@ void ui_option_draw(ui_ctx* ctx, ui_option* option, int8_t focused);
 void ui_img_draw(ui_ctx* ctx, ui_img* img, int8_t focused);
 
 /* -- Immediate mode drawing --  */
+/* Draw aligned text in immediate mode (non struct based)
+ * ctx - ui context to draw with
+ * pos - the position (in screen scale 0-1.f)
+ * font_size - the size of the text to draw (px)
+ * font - the font to use
+ * alignment - the alignment attributes to use
+ * text - the string to draw */
 void ui_im_text_draw_aligned(ui_ctx* ctx, vec2 pos, float font_size,
                              ui_font font, int alignment, char* text);
+
+/* Draw text in immediate mode (non struct based)
+ * ctx - ui context to draw with
+ * pos - the position of the text (in screen scale 0-1.f)
+ * font - the font to use
+ * text - the string to draw */
 void ui_im_text_draw(ui_ctx* ctx, vec2 pos, float font_size, ui_font font,
                      char* text);
+
+/* Draw a box in immediate mode (non struct based)
+ * ctx - ui context to draw with
+ * pos - the position of the box (in screen scale (0-1.f))
+ * size - the size of the box (in screen scale 0-1.f)
+ * color - the color of the box */
 void ui_im_box_draw(ui_ctx* ctx, vec2 pos, vec2 size, ui_color color);
+
+/* Draw a circle in immediate mode (non struct based)
+ * ctx - ui context to draw with
+ * pos - position of the circle (in screen scale (0-1.f))
+ * radius - the radius of the cirlce in px
+ * thickness - thickness of the circle in px
+ * color - color of the circle to draw */
 void ui_im_circle_draw(ui_ctx* ctx, vec2 pos, float radius, float thickness,
                        ui_color color);
+
+/* Draw a line in immediate mode (non struct based)
+ * ctx - ui context to draw with
+ * start - start position to draw the line (in screen scale (0-1.f))
+ * end - end position to draw the line (in screen scale (0-1.f))
+ * thickness - thickness of the line to draw in px
+ * color - color of the line to draw*/
 void ui_im_line_draw(ui_ctx* ctx, vec2 start, vec2 end, float thickness,
                      ui_color color);
 

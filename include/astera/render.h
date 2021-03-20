@@ -363,6 +363,7 @@ struct r_particles {
   // position - The center position of the particle system
   // size - the size (width, height) of the particle system
   vec2 position, size;
+
   // particle_size - the size of particles (width, height)
   // particle_velocity - the default velocity of particles
   vec2 particle_size, particle_velocity;
@@ -643,8 +644,17 @@ r_particles r_particles_create(uint32_t emit_rate, float particle_life,
                                uint16_t uniform_cap);
 
 /* Start emission of the particles
+ * NOTE: this resets uniforms, see resume to start after stopping
  * particles - the particle system to start */
 void r_particles_start(r_particles* particles);
+
+/* Stop emission of particles
+ * particles - the particle system to stop */
+void r_particles_stop(r_particles* particles);
+
+/* Resume emitting particles
+ * particles - particle system to resume emitting from */
+void r_particles_resume(r_particles* particles);
 
 /* Reset the emitter to animate again
  * particles - the emitter to reset */

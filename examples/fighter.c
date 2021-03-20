@@ -1,3 +1,5 @@
+// TODO resolve enemy vs environment collision overlap issue
+// TODO particle system rotation based on hit direction
 #define DEFAULT_WIDTH  1280
 #define DEFAULT_HEIGHT 720
 
@@ -14,14 +16,18 @@
 #include <astera/input.h>
 #include <astera/ui.h>
 
+#define DEBUG_HITBOXES
+
 #define BAKED_SHEET_SIZE  16 * 16
 #define BAKED_SHEET_WIDTH 16
 
-#define MAX_ENEMIES 32
+#define MAX_ENEMIES           32
+#define MAX_PARTICLE_EMITTERS 8
 
 #define MAX_PLAYER_HEALTH 10
 #define DAMAGE_DURATION   750
-#define KNOCKBACK_AMOUNT  5
+#define STAGGER_DURATION  100
+#define KNOCKBACK_AMOUNT  12
 
 // ui stuff
 
@@ -92,6 +98,7 @@ typedef enum {
 typedef struct {
   r_sprite sprite;
   c_circle circle;
+  vec2     stagger;
   int      health, max_health;
   int      state, state_change;
   int      type, take_damage;
@@ -116,8 +123,8 @@ typedef struct {
 
   player_t player;
 
-  r_particles emitters[4];
-  int         emitter_count;
+  r_particles emitters[MAX_PARTICLE_EMITTERS];
+  float       emitter_rotations[MAX_PARTICLE_EMITTERS];
 } level_t;
 
 static menu_t      menu  = {0};
@@ -127,10 +134,10 @@ static level_t     level = {0};
 static vec4 color_red;
 static vec4 color_white;
 
-vec2 window_size;
+vec2 window_size, ui_scale;
 
-r_shader      shader, baked, fbo_shader, ui_shader, single, particle_shader;
-r_particles   particles;
+r_shader shader, baked, fbo_shader, ui_shader, single, particle_shader;
+// r_particles   particles;
 r_baked_sheet baked_sheet;
 r_sprite      sprite;
 r_sheet       sheet, character_sheet;
@@ -138,6 +145,8 @@ r_ctx*        render_ctx;
 i_ctx*        input_ctx;
 ui_ctx*       u_ctx;
 a_ctx*        audio_ctx;
+
+static vec2 camera_size;
 
 GLFWvidmode* vidmodes;
 uint8_t      vidmode_count;
@@ -209,8 +218,8 @@ r_anim* load_anim(r_sheet* sheet, const char* name, int* frames, int length,
 
 // move in direction / amount of vec2 (non-normalized)
 void move_enemy(enemy_t* en, vec2 amount) {
-  r_sprite_move(&en->sprite, amount);
   c_circle_move(&en->circle, amount);
+  vec2_dup(en->sprite.position, en->circle.center);
 }
 
 void particle_spawn(r_particles* system, r_particle* particle) {
@@ -242,13 +251,13 @@ void particle_animate(r_particles* system, r_particle* particle) {
       (sin(progress * 3.1459) * particle->direction[1]) * 0.015f;
 }
 
-void create_emitter(vec2 position) {
-  if (level.emitter_count < 3) {
-    r_particles_reset(&level.emitters[level.emitter_count]);
-    r_particles_set_position(&level.emitters[level.emitter_count], position);
-    ++level.emitter_count;
-  } else {
-    printf("No free slots\n");
+void create_emitter(vec2 position, vec2 dir) {
+  for (int i = 0; i < MAX_PARTICLE_EMITTERS; ++i) {
+    r_particles* emitter = &level.emitters[i];
+    if (r_particles_finished(emitter)) {
+      r_particles_set_position(emitter, position);
+      r_particles_start(emitter);
+    }
   }
 }
 
@@ -644,27 +653,27 @@ void init_collision(void) {
 
   vec2 level_min = {0.f, 0.f};
   vec2 level_max = {320.f, 180.f};
-  vec2 wall_size = {16.f, 16.f};
+  vec2 wall_size = {8.f, 8.f};
 
   level.env_cols = 4;
   level.env      = (c_aabb*)calloc(sizeof(c_aabb), 4);
 
   // left
   vec2 left_size = {wall_size[0], level_max[1]};
-  vec2 left_pos  = {-(wall_size[0] * 0.5f), level_max[1] * 0.5f};
+  vec2 left_pos  = {0.f, level_max[1] * 0.5f};
   level.env[0]   = c_aabb_create(left_pos, left_size);
 
   // right
-  vec2 right_pos = {320.f + (wall_size[0] * 0.5f), left_pos[1]};
+  vec2 right_pos = {320.f, left_pos[1]};
   level.env[1]   = c_aabb_create(right_pos, left_size);
 
   // top
   vec2 top_pos  = {level_max[0] * 0.5f, -(wall_size[1] * 0.5f)};
-  vec2 top_size = {level_max[0], wall_size[1]};
+  vec2 top_size = {level_max[0], wall_size[1] + (wall_size[1] * 0.25f)};
   level.env[2]  = c_aabb_create(top_pos, top_size);
 
   // bottom
-  vec2 bottom_pos = {top_pos[0], level_max[1] + (wall_size[1] * 0.75f)};
+  vec2 bottom_pos = {top_pos[0], level_max[1] + (wall_size[1] * 0.5f)};
   level.env[3]    = c_aabb_create(bottom_pos, top_size);
 }
 
@@ -856,56 +865,32 @@ void init_render(r_ctx* ctx) {
     printf("No player walk\n");
   }
 
-  particles = r_particles_create(50, 500.f, 128, 200, PARTICLE_COLORED, 1, 128);
-  particles.particle_layer = 100;
-  vec2 particle_size       = {2.f, 2.f};
   vec4 particle_color;
+  vec2 particle_size     = {2.f, 2.f};
   vec2 system_position   = {160.f, 90.f};
   vec2 system_size       = {8.f, 8.f};
   vec4 particle_velocity = {0.0f, 0.0f};
   r_get_color4f(particle_color, "#de1f1f");
-  printf("%.2f %.2f %.2f %.2f\n", particle_color[0], particle_color[1],
-         particle_color[2], particle_color[3]);
-  r_particles_set_particle(&particles, particle_color, 500.f, particle_size,
-                           particle_velocity);
-  r_particles_set_color(&particles, particle_color, 1);
 
-  r_particles_set_position(&particles, system_position);
-  r_particles_set_size(&particles, system_size);
-
-  // set the custom particle animator & spawn
-  r_particles_set_spawner(&particles, particle_spawn);
-  r_particles_set_animator(&particles, particle_animate);
-
-  r_particles_start(&particles);
-
-  // level.emitters[i] = particles;
-  // duplicate particle emitters
-  /*for (int i = 0; i < 4; ++i) {
-    r_particles particles =
-        r_particles_create(50, 500.f, 64, 50, PARTICLE_COLORED, 1, 50);
-    particles.particle_layer = 50;
-    vec2 particle_size       = {4.f, 4.f};
-    vec4 particle_color;
-    vec2 system_size       = {32.f, 32.f};
-    vec4 particle_velocity = {0.5f, 100.f};
-    r_get_color4f(particle_color, "#DB5751");
-    printf("%.2f %.2f %.2f %.2f\n", particle_color[0], particle_color[1],
-           particle_color[2], particle_color[3]);
-    r_particles_set_particle(&particles, particle_color, 500.f, particle_size,
+  for (int i = 0; i < MAX_PARTICLE_EMITTERS; ++i) {
+    r_particles* emitter = &level.emitters[i];
+    *emitter = r_particles_create(50, 500.f, 128, 25, PARTICLE_COLORED, 1, 128);
+    emitter->particle_layer = 100;
+    r_particles_set_particle(emitter, particle_color, 500.f, particle_size,
                              particle_velocity);
-    r_particles_set_color(&particles, particle_color, 1);
-    r_particles_set_size(&particles, system_size);
+    r_particles_set_color(emitter, particle_color, 1);
+
+    r_particles_set_position(emitter, system_position);
+    r_particles_set_size(emitter, system_size);
 
     // set the custom particle animator & spawn
-    r_particles_set_spawner(&particles, particle_spawn);
-    r_particles_set_animator(&particles, particle_animate);
-
-    level.emitters[i] = particles;
-  }*/
+    r_particles_set_spawner(emitter, particle_spawn);
+    r_particles_set_animator(emitter, particle_animate);
+  }
 
   // 16x9 * 20
-  vec2 camera_size = {320, 180};
+  camera_size[0] = 320.f;
+  camera_size[1] = 180.f;
   r_camera_set_size(r_ctx_get_camera(ctx), camera_size);
 }
 
@@ -916,7 +901,7 @@ void init_game(void) {
   // initialize player stuff _before_ enemies so they're not within range of
   // spawn
   vec2   player_pos      = {152.f, 82.f};
-  vec2   player_halfsize = {8.f, 8.f};
+  vec2   player_halfsize = {6.f, 5.f};
   c_aabb player_col      = c_aabb_create(player_pos, player_halfsize);
   vec2   sword_pos       = {player_pos[0] + 12.f, player_pos[1] + 4.f};
   vec2   sword_halfsize  = {10.f, 4.f};
@@ -945,7 +930,7 @@ void init_game(void) {
   level.enemies        = (enemy_t*)calloc(sizeof(enemy_t), MAX_ENEMIES);
 
   // TODO REMOVE (DEBUG)
-  r_anim_list_cache(render_ctx);
+  // r_anim_list_cache(render_ctx);
 
   for (int i = 0; i < level.enemy_count; ++i) {
     // keep within middle 6/8ths of screen
@@ -968,7 +953,6 @@ void init_game(void) {
     en->sprite       = r_sprite_create(shader, position, sprite_size);
     en->sprite.layer = 4;
     en->state        = ENEMY_IDLE;
-    en->circle       = c_circle_create(position, 7.f);
     en->state_change = 0;
     en->type         = rand() % 3;
     en->damage_timer = 0.f;
@@ -977,10 +961,13 @@ void init_game(void) {
 
     r_anim* anim = 0;
 
+    float radius = 7.f;
+
     switch (en->type) {
       case ENEMY_EYE:
         en->max_health = 2;
         anim           = r_anim_get_name(render_ctx, "eye_idle");
+        radius         = 5.f;
         break;
       case ENEMY_GOBLIN:
         en->max_health = 4;
@@ -989,8 +976,10 @@ void init_game(void) {
       case ENEMY_SLIME:
         en->max_health = 3;
         anim           = r_anim_get_name(render_ctx, "slime_idle");
+        radius         = 8.f;
         break;
     }
+    en->circle = c_circle_create(position, radius);
     en->health = en->max_health;
     r_sprite_set_anim(&en->sprite, anim);
     r_sprite_anim_play(&en->sprite);
@@ -1043,7 +1032,7 @@ void handle_ui(void) {
         return;
       }
     } break;
-    case MENU_SETTINGS: { //
+    case MENU_SETTINGS: {
       if (i_binding_clicked(input_ctx, "right")) {
         if (ui_tree_is_active(u_ctx, menu.current_page, menu.master_vol.id)) {
           ui_slider_next_step(&menu.master_vol);
@@ -1073,7 +1062,6 @@ void handle_ui(void) {
       }
 
       if (menu.master_vol.holding) {
-        //
         a_listener_set_gain(audio_ctx, menu.master_vol.value);
       }
 
@@ -1104,7 +1092,7 @@ void handle_ui(void) {
       }
 
     } break;
-    case MENU_PAUSE: { //
+    case MENU_PAUSE: {
       if (ui_tree_check_event(menu.current_page, menu.p_settings.id) == 1) {
         menu_set_page(MENU_SETTINGS);
       }
@@ -1279,9 +1267,8 @@ void input(float delta) {
     c_aabb_move(&level.player.aabb, move);
     vec2 center = {0.f};
 
-    vec2 hitbox_pos, hitbox_halfsize;
+    vec2 hitbox_pos, hitbox_halfsize = {16.f, 24.f};
     vec2_dup(hitbox_pos, level.player.swoosh.position);
-    vec2_dup(hitbox_halfsize, level.player.swoosh.size);
     vec2_scale(hitbox_halfsize, hitbox_halfsize, 0.5f);
     c_aabb_set(&level.player.hitbox, hitbox_pos, hitbox_halfsize);
 
@@ -1337,6 +1324,17 @@ void update(time_s delta) {
       blend(en->sprite.color, color_white, color_red,
             en->damage_timer / DAMAGE_DURATION);
 
+      // calculate elapsed time
+      float elapsed = DAMAGE_DURATION - en->damage_timer;
+      if (elapsed < STAGGER_DURATION) {
+        float lerp =
+            f_invquad(0.f, STAGGER_DURATION, elapsed) / STAGGER_DURATION;
+
+        vec2 move_amount;
+        vec2_scale(move_amount, en->stagger, lerp);
+        move_enemy(en, move_amount);
+      }
+
       if (en->damage_timer <= 0.f) {
         en->take_damage = 0;
       }
@@ -1344,7 +1342,7 @@ void update(time_s delta) {
 
     // animate death animations
     if (en->state == ENEMY_DIE) {
-      //
+      // TODO enemy death animations
     }
 
     c_manifold man = c_aabb_vs_circle_man(level.player.aabb, en->circle);
@@ -1353,6 +1351,24 @@ void update(time_s delta) {
       if (!level.player.take_damage) {
         level.player.take_damage  = 1;
         level.player.damage_timer = DAMAGE_DURATION;
+      }
+    }
+
+    for (int i = 0; i < level.env_cols; ++i) {
+      c_aabb     col = level.env[i];
+      c_manifold man = c_aabb_vs_circle_man(col, en->circle);
+      if (man.distance != 0.f) {
+        printf("[%.2f %.2f] [%.2f %.2f]\n", col.min[0], col.min[1], col.max[0],
+               col.max[1]);
+
+        vec2 move_amount;
+        vec2_scale(move_amount, man.direction, man.distance);
+        move_enemy(en, move_amount);
+
+        float elapsed = DAMAGE_DURATION - en->damage_timer;
+        if (elapsed < STAGGER_DURATION) {
+          vec2_clear(en->stagger);
+        }
       }
     }
   }
@@ -1372,22 +1388,21 @@ void update(time_s delta) {
           en->damage_timer = DAMAGE_DURATION;
           en->health--;
 
+          printf("%.2f %.2f\n", level.player.center[0], level.player.center[1]);
+
           // TODO (this)
-          float d = (en->circle.center[1] - level.player.center[1]) /
-                    (en->circle.center[0] - level.player.center[0]);
-          float a       = atan(d);
-          vec2  stagger = {sinf(a) * KNOCKBACK_AMOUNT,
-                          cosf(a) * KNOCKBACK_AMOUNT};
-          move_enemy(en, stagger);
+          vec2 a = {0.f, 0.f};
+          vec2_sub(a, en->circle.center, level.player.center);
+          vec2_norm(a, a);
+          vec2 stagger = {a[0] * KNOCKBACK_AMOUNT, a[1] * KNOCKBACK_AMOUNT};
+          vec2_dup(en->stagger, stagger);
 
           // apply opposite directional force to enemy
-          printf("Enemy takes damage\n");
-
           if (en->health <= 0) {
             // death animation/etc
             en->alive = 0;
             en->state = ENEMY_DIE;
-            create_emitter(en->circle.center);
+            create_emitter(en->circle.center, man.direction);
             printf("OH no, it died!\n");
           }
         }
@@ -1402,6 +1417,66 @@ void update(time_s delta) {
       c_aabb_adjust(&level.player.aabb, man);
     }
   }
+
+  c_aabb_get_center(level.player.center, level.player.aabb);
+}
+
+static void debug_circle(vec2 px, float radius_px, vec4 color) {
+  vec2 _px;
+  vec2_div(_px, px, camera_size);
+  float _radius = radius_px * (window_size[0] / camera_size[0]);
+  ui_im_circle_draw(u_ctx, _px, _radius, 1.f, color);
+}
+
+static void debug_box(vec2 center, vec2 size, vec4 color) {
+  vec2 _center, _size;
+
+  center[0] -= size[0] * 0.5f;
+  center[1] -= size[1] * 0.5f;
+
+  vec2_div(_center, center, camera_size);
+  vec2_div(_size, size, camera_size);
+  ui_im_box_draw(u_ctx, _center, _size, color);
+}
+
+void debug_game(void) {
+  ui_frame_start(u_ctx);
+
+  vec4 enemy_color, swoosh_color, player_color, env_color;
+  r_get_color4f(enemy_color, "#0f0");
+  r_get_color4f(swoosh_color, "#f0f");
+  r_get_color4f(player_color, "#fff");
+  r_get_color4f(env_color, "#f00");
+  enemy_color[3]  = 0.4f;
+  swoosh_color[3] = 0.4f;
+  player_color[3] = 0.3f;
+  env_color[3]    = 0.3f;
+
+  for (int i = 0; i < level.enemy_count; ++i) {
+    enemy_t* en = &level.enemies[i];
+
+    debug_circle(en->circle.center, en->circle.radius, enemy_color);
+  }
+
+  vec2 center = {0.f, 0.f}, size = {0.f, 0.f};
+  if (level.player.swoosh.visible) {
+    c_aabb_get_center(center, level.player.hitbox);
+    c_aabb_get_size(size, level.player.hitbox);
+    debug_box(center, size, swoosh_color);
+  }
+
+  for (int i = 0; i < level.env_cols; ++i) {
+    c_aabb level_col = level.env[i];
+    c_aabb_get_center(center, level_col);
+    c_aabb_get_size(size, level_col);
+    debug_box(center, size, env_color);
+  }
+
+  c_aabb_get_center(center, level.player.aabb);
+  c_aabb_get_size(size, level.player.aabb);
+  debug_box(center, size, player_color);
+
+  ui_frame_end(u_ctx);
 }
 
 void draw_ui(void) {
@@ -1410,7 +1485,10 @@ void draw_ui(void) {
   r_window_clear();
 
   ui_frame_start(u_ctx);
+
   ui_tree_draw(u_ctx, menu.current_page);
+  debug_game();
+
   ui_frame_end(u_ctx);
 }
 
@@ -1450,14 +1528,13 @@ void draw_game(time_s delta) {
   }
 
   // draw particle effects & prune any finished ones
-  // for (int i = 0; i < level.emitter_count; ++i) {
-  if (!r_particles_finished(&particles)) {
-    r_particles_update(&particles, delta);
-    r_particles_draw(render_ctx, &particles, particle_shader);
-  } else {
-    // printf("Particles finished.\n");
+  for (int i = 0; i < MAX_PARTICLE_EMITTERS; ++i) {
+    r_particles* emitter = &level.emitters[i];
+    if (!r_particles_finished(emitter)) {
+      r_particles_update(emitter, delta);
+      r_particles_draw(render_ctx, emitter, particle_shader);
+    }
   }
-  //  }
 
   // issue a draw command for anything left in the batches
   r_ctx_draw(render_ctx);
@@ -1488,13 +1565,15 @@ void render(time_s delta) {
     // check for changes so the framebuffer is cleared. (technically don't
     // have to draw it if we don't have an actual target, but just gluing??
     // this together.
-    if (!ui_change) {
-      r_framebuffer_bind(ui_fbo);
-      r_window_clear_color_empty();
-      r_window_clear();
 
-      ui_change = 1;
-    }
+    // if (!ui_change) {
+    r_framebuffer_bind(ui_fbo);
+    r_window_clear_color_empty();
+    r_window_clear();
+
+    debug_game();
+    ui_change = 1;
+    //}
 
     if (!page_notif && !(game_state == GAME_PLAY || game_state == GAME_PAUSE)) {
       printf("No current page: %i\n", page_notif_counter);
@@ -1596,6 +1675,7 @@ int main(void) {
       r_shader_bind(fbo_shader);
       r_set_uniformf(fbo_shader, "use_vig", 0.f);
       r_framebuffer_draw(render_ctx, ui_fbo);
+
       r_window_swap_buffers(render_ctx);
     }
   }

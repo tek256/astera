@@ -1074,6 +1074,10 @@ void r_particles_start(r_particles* particles) {
   particles->alive = 1;
 }
 
+void r_particles_stop(r_particles* particles) { particles->alive = 0; }
+
+void r_particles_resume(r_particles* particles) { particles->alive = 1; }
+
 void r_particles_reset(r_particles* particles) {
   particles->time           = 0.f;
   particles->spawn_time     = 0.f;
