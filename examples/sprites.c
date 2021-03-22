@@ -30,7 +30,7 @@ Tab - Toggle text capture
 r_shader      shader, baked, particle, fbo_shader, ui_shader;
 r_shader      single;
 r_sprite      sprite;
-r_sheet       sheet, character_sheet;
+r_sheet       sheet, sprite_sheet;
 r_ctx*        render_ctx;
 i_ctx*        input_ctx;
 ui_ctx*       u_ctx;
@@ -39,7 +39,7 @@ r_particles   particles;
 vec2          screen_size;
 
 r_framebuffer fbo, ui_fbo;
-r_anim        anim, anim2, anim3;
+r_anim        anim, anim2;
 
 r_sprite* sprites;
 
@@ -133,20 +133,21 @@ void init_render(r_ctx* ctx) {
 
   asset_free(sheet_data);
 
+  asset_t* sprite_sheet_data = asset_get("resources/textures/spritesheet.png");
+  sprite_sheet               = r_sheet_create_tiled(
+      sprite_sheet_data->data, sprite_sheet_data->data_length, 16, 16, 0, 0);
+  asset_free(sprite_sheet_data);
+
   // variable time animations
-  uint32_t anim_frames[6] = {0, 1, 2, 3, 4, 5};
-  time_s   anim_times[6]  = {1000.0, 2000.0, 1000.0, 1000.0, 1000.0, 1600.0};
-  anim                    = r_anim_create(&sheet, anim_frames, anim_times, 6);
-  anim.loop               = 1;
+  uint32_t anim_frames[4] = {0, 1, 2, 3};
+  time_s   anim_times[4]  = {85.0f, 80.0f, 45.0f, 50.5f};
+  anim      = r_anim_create(&sprite_sheet, anim_frames, anim_times, 4);
+  anim.loop = 1;
   r_anim_cache(render_ctx, anim, "Test");
 
-  uint32_t anim2_frames[6] = {6, 7, 8, 9, 10, 12};
-  time_s   anim2_times[6]  = {1000.0, 2000.0, 1000.0, 2000.0, 1000.0, 500.0};
-  anim2      = r_anim_create(&sheet, anim2_frames, anim2_times, 6);
+  uint32_t anim2_frames[6] = {7, 8, 9, 10, 11, 12};
+  anim2      = r_anim_create_fixed(&sprite_sheet, anim2_frames, 6, 18);
   anim2.loop = 1;
-
-  uint32_t anim3_frames[4] = {18, 19, 20, 21};
-  anim3                    = r_anim_create_fixed(&sheet, anim3_frames, 4, 6);
 
   sprites                = (r_sprite*)calloc(SPRITE_COUNT, sizeof(r_sprite));
   static int SHEET_WIDTH = 128;
@@ -169,11 +170,10 @@ void init_render(r_ctx* ctx) {
     sprites[i].flip_x = rand() % 2;
     sprites[i].flip_y = rand() % 2;
 
-    printf("%i: %i, %i\n", i, sprites[i].flip_x, sprites[i].flip_y);
-
-    // r_sprite_set_anim(&sprites[i], &anim);
-    r_sprite_set_tex(&sprites[i], anim.sheet, 1);
-    // r_sprite_anim_play(&sprites[i]);
+    int use_anim2 = rand() % 2;
+    r_sprite_set_anim(&sprites[i], (use_anim2) ? &anim2 : &anim);
+    // r_sprite_set_tex(&sprites[i], anim.sheet, 1);
+    r_sprite_anim_play(&sprites[i]);
   }
 
   r_baked_quad* quads =
@@ -269,11 +269,11 @@ void render(void) {
   r_window_clear_color_empty();
   r_window_clear();
 
-  // r_particles_draw(render_ctx, &particles, particle);
+  r_particles_draw(render_ctx, &particles, particle);
 
   r_ctx_update(render_ctx);
 
-  // r_baked_sheet_draw(render_ctx, baked, &baked_sheet);
+  r_baked_sheet_draw(render_ctx, baked, &baked_sheet);
 
   for (int i = 0; i < SPRITE_COUNT; ++i) {
     r_sprite_update(&sprites[i], 16.f);

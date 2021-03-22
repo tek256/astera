@@ -1404,8 +1404,6 @@ void r_sprite_draw(r_ctx* ctx, r_sprite* sprite) {
     return;
   }
 
-  printf("sprite layer: %i\n", sprite->layer);
-
   r_shader_bind(sprite->shader);
 
   r_sheet* sheet = sprite->sheet;
@@ -1475,7 +1473,6 @@ uint32_t r_sprites_draw(r_ctx* ctx, r_sprite* sprites, uint32_t sprite_count) {
     return 0;
   }
 
-  printf("sprite layer: %i\n", sprites[0].layer);
   r_batch* batch = r_batch_get(ctx, sprites[0].sheet, sprites[0].shader);
 
   if (batch) {
