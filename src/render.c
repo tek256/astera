@@ -2485,8 +2485,8 @@ static const GLFWvidmode* r_find_closest_mode(r_ctx*          ctx,
   for (int i = 0; i < ctx->mode_count; ++i) {
     const GLFWvidmode* cursor = &ctx->modes[i];
 
-    int32_t cur_dist = (params.width - cursor->width + params.height -
-                        cursor->height - cursor->refreshRate);
+    int32_t cur_dist = (params.width - cursor->width) +
+                       (params.height - cursor->height) - cursor->refreshRate;
 
     if (cur_dist < distance) {
       closest  = cursor;

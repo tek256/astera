@@ -23,13 +23,6 @@
 #include <stdio.h>
 #include <string.h>
 
-// TODO Temporary until solved
-//#if defined(__APPLE__)
-//#if !defined(ASTERA_AL_NO_EFX)
-//#define ASTERA_AL_NO_EFX
-//#endif
-//#endif
-
 struct a_ctx {
   // context - the OpenAL-Soft Context
   // device - the device OpenAL-Soft is using
@@ -51,9 +44,8 @@ struct a_ctx {
   // sfx - the list of sound effects (sounds)
   // sfx_count - the current amount of sfx
   // sfx_capacity - the max amount of sfx
-  // sfx_high - the high water mark for sfx in the sfx list
   a_sfx*   sfx;
-  uint16_t sfx_count, sfx_capacity, sfx_high;
+  uint16_t sfx_count, sfx_capacity;
 
   // buffers - the list of audio buffers (sounds / raw data)
   // buffer_names - a list of names for audio buffers in the list
@@ -88,6 +80,9 @@ struct a_ctx {
   uint16_t* pcm;
   uint32_t  pcm_length, pcm_index;
 
+  // layers - array of layers used to manage playback
+  // layer_count - the number of layers in the array currently
+  // layer_capacity - the max number of layers in array
   a_layer* layers;
   uint16_t layer_count, layer_capacity;
 
@@ -155,11 +150,14 @@ static a_layer* _a_get_layer(a_ctx* ctx, uint16_t layer_id) {
 
 static uint8_t _a_layer_add(a_layer* layer, uint32_t id, uint8_t is_sfx) {
   if (is_sfx) {
-    if (layer->sfx_count == layer->sfx_capacity)
+    if (layer->sfx_count == layer->sfx_capacity - 1) {
+      ASTERA_FUNC_DBG("no free sfx slots in layer\n");
       return 0;
+    }
 
     for (uint16_t i = 0; i < layer->sfx_capacity; ++i) {
       if (layer->sfx[i] == id) {
+        ASTERA_FUNC_DBG("sfx id already in layer\n");
         return 0;
       }
 
@@ -170,11 +168,14 @@ static uint8_t _a_layer_add(a_layer* layer, uint32_t id, uint8_t is_sfx) {
       }
     }
   } else {
-    if (layer->song_count == layer->song_capacity)
+    if (layer->song_count == layer->song_capacity - 1) {
+      ASTERA_FUNC_DBG("no free song slots in layer\n");
       return 0;
+    }
 
     for (uint16_t i = 0; i < layer->song_capacity; ++i) {
       if (layer->songs[i] == id) {
+        ASTERA_FUNC_DBG("song already in layer\n");
         return 0;
       }
 
@@ -196,8 +197,9 @@ static uint8_t _a_layer_remove(a_layer* layer, uint32_t id, uint8_t is_sfx) {
 
   uint8_t start = 0;
   if (is_sfx) {
-    if (layer->sfx_count == 0)
+    if (layer->sfx_count == 0) {
       return 0;
+    }
 
     for (uint16_t i = 0; i < layer->sfx_capacity - 1; ++i) {
       if (layer->sfx[i] == id) {
@@ -398,7 +400,7 @@ const char* a_ctx_get_device(a_ctx* ctx, uint8_t* string_length) {
   return name;
 }
 
-uint8_t a_ctx_play_allowed(a_ctx* ctx) { return ctx->allow; }
+uint8_t a_can_play(a_ctx* ctx) { return ctx->allow; }
 
 a_ctx* a_ctx_create(const char* device, uint8_t layers, uint16_t max_sfx,
                     uint16_t max_buffers, uint16_t max_songs, uint16_t max_fx,
@@ -594,7 +596,6 @@ a_ctx* a_ctx_create(const char* device, uint8_t layers, uint16_t max_sfx,
 
   ctx->sfx_capacity = max_sfx;
   ctx->sfx_count    = 0;
-  ctx->sfx_high     = 0;
 
   if (max_sfx) {
     ctx->sfx = (a_sfx*)malloc(sizeof(a_sfx) * ctx->sfx_capacity);
@@ -809,7 +810,6 @@ void a_ctx_update(a_ctx* ctx) {
     }
   }
 
-  uint32_t sfx_count = 0, sfx_high = 0;
   for (uint16_t i = 0; i < ctx->sfx_capacity; ++i) {
     a_sfx* sfx = &ctx->sfx[i];
 
@@ -820,13 +820,11 @@ void a_ctx_update(a_ctx* ctx) {
       continue;
     }
 
-    if (!sfx->req)
-      continue;
-
     ALenum state;
     alGetSourcei(sfx->source, AL_SOURCE_STATE, &state);
 
-    int8_t remove = state == AL_STOPPED || sfx->req->stop;
+    int8_t remove =
+        (state != AL_PLAYING && sfx->req->time > 0.f) || sfx->req->stop;
 
     if (remove) {
       for (uint16_t j = 0; j < ctx->layer_capacity; ++j) {
@@ -848,13 +846,6 @@ void a_ctx_update(a_ctx* ctx) {
       alSourcei(sfx->source, AL_BUFFER, 0);
 
       continue;
-    } else {
-      if (i > ctx->sfx_high) {
-        ctx->sfx_high = i;
-      }
-
-      ++sfx_count;
-      sfx_high = i;
     }
 
     gain = _a_get_gain(ctx, sfx->id, 1);
@@ -875,13 +866,10 @@ void a_ctx_update(a_ctx* ctx) {
 
     alGetSourcef((ALuint)sfx->source, AL_SEC_OFFSET, (ALfloat*)&sfx->req->time);
   }
-
-  ctx->sfx_count = sfx_count;
-  ctx->sfx_high  = sfx_high;
 }
 
 uint16_t a_sfx_play(a_ctx* ctx, uint16_t layer, uint16_t buf_id, a_req* req) {
-  if (ctx->sfx_count == ctx->sfx_capacity) {
+  if (ctx->sfx_count == ctx->sfx_capacity - 1) {
     ASTERA_FUNC_DBG("no free sfx slots.\n");
     return 0;
   }
@@ -890,7 +878,8 @@ uint16_t a_sfx_play(a_ctx* ctx, uint16_t layer, uint16_t buf_id, a_req* req) {
   if (layer) {
     a_layer* _layer = _a_get_layer(ctx, layer);
     gain *= _layer->gain;
-    if (_layer->sfx_count == _layer->sfx_capacity) {
+    if (_layer->sfx_count == _layer->sfx_capacity - 1) {
+      ASTERA_FUNC_DBG("no free slots in layer\n");
       return 0;
     }
   }
@@ -975,46 +964,7 @@ uint16_t a_sfx_play(a_ctx* ctx, uint16_t layer, uint16_t buf_id, a_req* req) {
   return slot->id;
 }
 
-uint8_t a_sfx_remove(a_ctx* ctx, uint16_t sfx_id) {
-  if (ctx->sfx_high < sfx_id - 1) {
-    ASTERA_FUNC_DBG("no sfx in slot %i\n", sfx_id);
-    return 0;
-  }
-
-  a_sfx* sfx = &ctx->sfx[sfx_id - 1];
-
-  if (sfx->req) {
-    sfx->req->valid = 0;
-    sfx->req->state = AL_STOPPED;
-  }
-
-  sfx->buffer = 0;
-  sfx->length = 0;
-
-  --ctx->sfx_count;
-
-  if (ctx->sfx_high == sfx->id - 1) {
-    if (ctx->sfx_count > 0) {
-      for (uint16_t i = sfx->id - 1; i > 0; --i) {
-        if (ctx->sfx[i].buffer) {
-          ctx->sfx_high = i;
-          break;
-        }
-      }
-    } else {
-      ctx->sfx_high = 0;
-    }
-  }
-
-  return 1;
-}
-
 uint8_t a_sfx_stop(a_ctx* ctx, uint16_t sfx_id) {
-  if (ctx->sfx_high < sfx_id - 1) {
-    ASTERA_FUNC_DBG("no sfx in slot %i\n", sfx_id);
-    return 0;
-  }
-
   a_sfx* sfx = &ctx->sfx[sfx_id - 1];
 
   if (sfx->req) {
@@ -1022,38 +972,31 @@ uint8_t a_sfx_stop(a_ctx* ctx, uint16_t sfx_id) {
     sfx->req->state = AL_STOPPED;
   }
 
-  alSourceStop(sfx->source);
+  if (sfx->source && sfx->buffer) {
+    alSourceStop(sfx->source);
+  }
 
+  for (uint16_t i = 0; i < ctx->layer_capacity; ++i) {
+    _a_layer_remove(&ctx->layers[i], sfx->id, 1);
+  }
+
+  alSourcei(sfx->source, AL_BUFFER, 0);
+
+  sfx->req    = 0;
   sfx->buffer = 0;
   sfx->length = 0;
 
   --ctx->sfx_count;
-
-  if (ctx->sfx_high == sfx->id - 1) {
-    if (ctx->sfx_count > 0) {
-      for (uint16_t i = sfx->id - 1; i > 0; --i) {
-        if (ctx->sfx[i].buffer) {
-          ctx->sfx_high = i;
-          break;
-        }
-      }
-    } else {
-      ctx->sfx_high = 0;
-    }
-  }
 
   return 1;
 }
 
 uint8_t a_sfx_pause(a_ctx* ctx, uint16_t sfx_id) {
-  if (ctx->sfx_high < sfx_id - 1) {
-    ASTERA_FUNC_DBG("no sfx in slot %i\n", sfx_id);
-    return 0;
-  }
-
   a_sfx* sfx = &ctx->sfx[sfx_id - 1];
 
-  alSourcePause(sfx->source);
+  if (sfx->buffer && sfx->source) {
+    alSourcePause(sfx->source);
+  }
 
   if (sfx->req) {
     sfx->req->state = AL_PAUSED;
@@ -1063,14 +1006,11 @@ uint8_t a_sfx_pause(a_ctx* ctx, uint16_t sfx_id) {
 }
 
 uint8_t a_sfx_resume(a_ctx* ctx, uint16_t sfx_id) {
-  if (ctx->sfx_high < sfx_id - 1) {
-    ASTERA_FUNC_DBG("no sfx in slot %i\n", sfx_id);
-    return 0;
-  }
-
   a_sfx* sfx = &ctx->sfx[sfx_id - 1];
 
-  alSourcePlay(sfx->source);
+  if (sfx->buffer && sfx->source) {
+    alSourcePlay(sfx->source);
+  }
 
   return 1;
 }

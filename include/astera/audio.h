@@ -249,7 +249,7 @@ const char* a_ctx_get_device(a_ctx* ctx, uint8_t* string_length);
 
 /* Check if the context is allowing playback
  * returns 1 = yes, 0 = no */
-uint8_t a_ctx_play_allowed(a_ctx* ctx);
+uint8_t a_can_play(a_ctx* ctx);
 
 /* Create an audio context for playback
  * device - the device's name to use (NULL for default)
@@ -277,12 +277,6 @@ void a_ctx_update(a_ctx* ctx);
  * req - the request callback for specifics of where / how to play the sfx
  * returns: the ID of the sfx (non-zero, 0 = error) */
 uint16_t a_sfx_play(a_ctx* ctx, uint16_t layer, uint16_t buf_id, a_req* req);
-
-/* Removes an SFX from it's slot
- * ctx - the context containing the sfx
- * sfx_id - the ID of the SFX returned when played
- * returns: success = 1, fail = 0 */
-uint8_t a_sfx_remove(a_ctx* ctx, uint16_t sfx_id);
 
 /* Stops and removes the SFX from it's slot
  * ctx - the context to use to find the sfx

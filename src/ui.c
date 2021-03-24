@@ -115,6 +115,24 @@ void ui_ctx_destroy(ui_ctx* ctx) {
   free(ctx);
 }
 
+float ui_px_scale_width(ui_ctx* ctx, float px_width) {
+  return px_width / ctx->size[0];
+}
+
+float ui_px_scale_height(ui_ctx* ctx, float px_height) {
+  return px_height / ctx->size[1];
+}
+
+float ui_square_width(ui_ctx* ctx, float width) {
+  float px_value = width * ctx->size[0];
+  return px_value / ctx->size[1];
+}
+
+float ui_square_height(ui_ctx* ctx, float height) {
+  float px_value = height * ctx->size[1];
+  return px_value / ctx->size[0];
+}
+
 void ui_ctx_set_attribs_fixed(ui_ctx* ctx) {
   ui_attrib_map* map = &ctx->attribs;
   map->allow_resize  = 0;
@@ -1802,13 +1820,16 @@ void ui_img_draw(ui_ctx* ctx, ui_img* img, int8_t focused) {
 
 void ui_im_text_draw(ui_ctx* ctx, vec2 pos, float font_size, ui_font font,
                      char* text) {
+  vec2 text_pos;
+  ui_scale_to_px(ctx, text_pos, pos);
+
   nvgBeginPath(ctx->nvg);
   nvgFontSize(ctx->nvg, font_size);
   ui_color im_text_color = {1.f, 1.f, 1.f, 1.f};
   nvgFillColor(ctx->nvg, ui_u_color(im_text_color));
   nvgFontFaceId(ctx->nvg, font);
   nvgTextAlign(ctx->nvg, UI_ALIGN_LEFT);
-  nvgText(ctx->nvg, pos[0], pos[1], text, 0);
+  nvgText(ctx->nvg, text_pos[0], text_pos[1], text, 0);
 }
 
 void ui_im_text_draw_aligned(ui_ctx* ctx, vec2 pos, float font_size,
@@ -1868,6 +1889,38 @@ void ui_im_line_draw(ui_ctx* ctx, vec2 start, vec2 end, float thickness,
   nvgLineCap(ctx->nvg, NVG_ROUND);
 
   nvgStroke(ctx->nvg);
+}
+
+void ui_im_img_draw(ui_ctx* ctx, ui_img img, vec2 pos, vec2 size) {
+  vec2 img_position, img_size;
+  ui_scale_to_px(ctx, img_position, pos);
+  ui_scale_to_px(ctx, img_size, size);
+
+  // Draw border
+  if (img.border_size != 0.f) {
+    nvgBeginPath(ctx->nvg);
+    nvgStrokeColor(ctx->nvg, ui_u_color(img.border_color));
+
+    nvgStrokeWidth(ctx->nvg, img.border_size);
+    nvgStroke(ctx->nvg);
+  }
+
+  // Draw picture
+  nvgBeginPath(ctx->nvg);
+  NVGpaint img_paint =
+      nvgImagePattern(ctx->nvg, img_position[0], img_position[1], img_size[0],
+                      img_size[1], 0.f, img.handle, 1.0f);
+
+  if (img.border_radius != 0.f) {
+    nvgRoundedRect(ctx->nvg, img_position[0], img_position[1], img_size[0],
+                   img_size[1], img.border_radius);
+  } else {
+    nvgRect(ctx->nvg, img_position[0], img_position[1], img_size[0],
+            img_size[1]);
+  }
+
+  nvgFillPaint(ctx->nvg, img_paint);
+  nvgFill(ctx->nvg);
 }
 
 static int ui_text_fits(ui_ctx* ctx, ui_text text, float size, vec2 scaled_pos,

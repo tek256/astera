@@ -163,10 +163,21 @@ char* s_itoa(int32_t value, char* string, int8_t base) {
 
 #if !defined(ASTERA_NO_CONF)
 void s_table_free(s_table table) {
-  if (table.keys)
+  if (table.keys) {
+    for (int i = 0; i < table.count; ++i) {
+      if (table.keys[i])
+        free(table.keys[i]);
+    }
     free(table.keys);
-  if (table.values)
+  }
+  if (table.values) {
+    for (int i = 0; i < table.count; ++i) {
+      if (table.values[i])
+        free(table.values[i]);
+    }
+
     free(table.values);
+  }
 }
 
 static char* s_cleaned_str(const char* str, uint32_t* size, char* str_end) {
@@ -195,7 +206,7 @@ static char* s_cleaned_str(const char* str, uint32_t* size, char* str_end) {
       str++;
     }
   } else {
-    while (!*str) {
+    while (*str) {
       if (!isspace(*str)) {
         ++str_size;
         str++;
@@ -236,8 +247,8 @@ s_table s_table_get(unsigned char* data) {
   char* data_ptr = (char*)data;
   char* line     = strtok(data_ptr, "\n");
 
-  const char** keys          = (const char**)malloc(sizeof(char*) * 16);
-  const char** values        = (const char**)malloc(sizeof(char*) * 16);
+  const char** keys          = (const char**)calloc(16, sizeof(char*));
+  const char** values        = (const char**)calloc(16, sizeof(char*));
   uint32_t     line_capacity = 16;
   uint32_t     line_count    = 0;
 
@@ -248,8 +259,9 @@ s_table s_table_get(unsigned char* data) {
     uint32_t value_length = 0;
 
     if (line_count == line_capacity) {
-      keys   = realloc(keys, sizeof(char*) * (line_capacity + 8));
-      values = realloc(values, sizeof(char*) * (line_capacity + 8));
+      keys = (const char**)realloc(keys, sizeof(char*) * (line_capacity + 8));
+      values =
+          (const char**)realloc(values, sizeof(char*) * (line_capacity + 8));
       line_capacity += 8;
     }
 
@@ -268,11 +280,28 @@ s_table s_table_get(unsigned char* data) {
 s_table s_table_create(uint8_t count) {
   s_table table = (s_table){0};
 
-  table.keys   = (const char**)calloc(sizeof(char**) * count, 0);
-  table.values = (const char**)calloc(sizeof(char**) * count, 0);
+  table.keys   = (const char**)calloc(count, sizeof(char**));
+  table.values = (const char**)calloc(count, sizeof(char**));
   table.count  = count;
 
   return table;
+}
+
+static char conv_buffer[32] = {0};
+uint8_t     s_table_add_float(s_table* table, char* key, float value) {
+  memset(conv_buffer, 0, sizeof(char) * 32);
+  uint32_t len        = snprintf(conv_buffer, 32, "%.2f", value);
+  char*    new_buffer = calloc(len + 1, sizeof(char));
+  memcpy(new_buffer, conv_buffer, len * sizeof(char));
+  return s_table_add(table, key, new_buffer);
+}
+
+uint8_t s_table_add_int(s_table* table, char* key, int value) {
+  memset(conv_buffer, 0, sizeof(char) * 32);
+  uint32_t len        = snprintf(conv_buffer, 32, "%i", value);
+  char*    new_buffer = calloc(len + 1, sizeof(char));
+  memcpy(new_buffer, conv_buffer, len * sizeof(char));
+  return s_table_add(table, key, new_buffer);
 }
 
 uint8_t s_table_add(s_table* table, char* key, char* value) {
@@ -339,18 +368,28 @@ uint8_t s_table_write(s_table* table, char* filepath) {
     return 0;
   }
 
-  char   str_buff[128];
-  int8_t str_size = 0;
+  char   str_buff[128] = {0};
+  int8_t str_size      = 0;
 
   for (uint32_t i = 0; i < table->count; ++i) {
+    // skip empty slots in the table
+    if (!table->keys[i] && !table->values[i])
+      continue;
+
+    // add new line to it
     str_size =
         snprintf(str_buff, 128, "%s = %s\n", table->keys[i], table->values[i]);
+    // write new line
     uint32_t written = fwrite(str_buff, str_size, sizeof(char), f);
+
+    // if error exit
     if (written == 0) {
       fclose(f);
       return 0;
     }
-    memset(str_buff, 0, sizeof(char) * str_size);
+
+    // clear out str_buff
+    memset(str_buff, 0, sizeof(char) * 128);
   }
 
   fwrite("\0", 1, sizeof(char), f);
@@ -450,8 +489,7 @@ uint32_t s_destrnify(char* dst, uint32_t dst_capacity, const char* src,
 }
 
 s_buffer_t s_buff_create(uint32_t capacity) {
-  char* data = (char*)malloc(sizeof(char) * capacity);
-  memset(data, 0, sizeof(char) * capacity);
+  char* data = (char*)calloc(capacity, sizeof(char));
 
   return (s_buffer_t){
       .data     = data,

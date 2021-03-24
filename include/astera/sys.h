@@ -75,6 +75,14 @@ s_table s_table_get(unsigned char* data);
  * returns: basic table structure */
 s_table s_table_create(uint8_t count);
 
+/* Add a key/(int) value to a table
+ * returns: 1 = success, 0 = fail */
+uint8_t s_table_add_int(s_table* table, char* key, int value);
+
+/* Add a key/(float) value to a table
+ * returns: 1 = success, 0 = fail */
+uint8_t s_table_add_float(s_table* table, char* key, float value);
+
 /* Add a key/value to a table
  * returns: 1 = success, 0 = fail */
 uint8_t s_table_add(s_table* table, char* key, char* value);

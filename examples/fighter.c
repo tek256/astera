@@ -1,4 +1,3 @@
-// TODO resolve enemy vs environment collision overlap issue
 // TODO particle system rotation based on hit direction
 #define DEFAULT_WIDTH  1280
 #define DEFAULT_HEIGHT 720
@@ -16,7 +15,7 @@
 #include <astera/input.h>
 #include <astera/ui.h>
 
-#define DEBUG_HITBOXES
+//#define DEBUG_HITBOXES
 
 #define BAKED_SHEET_SIZE  16 * 16
 #define BAKED_SHEET_WIDTH 16
@@ -24,10 +23,14 @@
 #define MAX_ENEMIES           32
 #define MAX_PARTICLE_EMITTERS 8
 
+#define MAX_HEALTH_ORBS   8
 #define MAX_PLAYER_HEALTH 10
 #define DAMAGE_DURATION   750
 #define STAGGER_DURATION  100
 #define KNOCKBACK_AMOUNT  12
+
+// ms
+#define ATTACK_COOLDOWN 400
 
 // ui stuff
 
@@ -58,6 +61,9 @@ typedef struct {
   ui_box    p_bg;
   ui_button p_resume, p_settings, p_quit;
 
+  // --- IN GAME ---
+  ui_img heart_full, heart_half, heart_empty;
+
   // --- PAGES ---
   ui_tree  main_page, settings_page, pause_page;
   ui_tree* current_page;
@@ -75,7 +81,15 @@ typedef struct {
 // audio data
 typedef struct {
   int sfx_layer, music_layer;
-  int s_attack, s_click, s_back, s_hit, s_die;
+
+  int s_enemy_hit, s_eye_die, s_menu_move, s_player_die, s_player_hit, s_select,
+      s_slime_die, s_goblin_die, s_attack;
+
+  a_req reqs[16];
+  int   req_count;
+
+  a_req menu_move_req, menu_select_req;
+  int   menu_move_sfx, menu_select_sfx;
 } a_resources;
 
 // game data
@@ -102,7 +116,7 @@ typedef struct {
   int      health, max_health;
   int      state, state_change;
   int      type, take_damage;
-  float    damage_timer;
+  float    damage_timer, move_speed;
   int      alive;
 } enemy_t;
 
@@ -110,9 +124,15 @@ typedef struct {
   vec2     center;
   c_aabb   aabb, hitbox;
   int      health, is_idle, take_damage;
-  float    damage_timer, damage_duration;
+  float    damage_timer, damage_duration, attack_timer;
   r_sprite sprite, sword, swoosh;
 } player_t;
+
+typedef struct {
+  r_sprite sprite;
+  vec2     center;
+  int      active;
+} health_orb_t;
 
 typedef struct {
   enemy_t* enemies;
@@ -125,11 +145,19 @@ typedef struct {
 
   r_particles emitters[MAX_PARTICLE_EMITTERS];
   float       emitter_rotations[MAX_PARTICLE_EMITTERS];
+
+  health_orb_t health_orbs[MAX_HEALTH_ORBS];
 } level_t;
 
-static menu_t      menu  = {0};
-static a_resources a_res = {0};
-static level_t     level = {0};
+typedef struct {
+  float master_vol, sfx_vol, music_vol;
+  int   res_width, res_height;
+} user_preferences;
+
+static user_preferences user_prefs = {0};
+static menu_t           menu       = {0};
+static a_resources      a_res      = {0};
+static level_t          level      = {0};
 
 static vec4 color_red;
 static vec4 color_white;
@@ -183,10 +211,8 @@ int rnd_rangef(float min, float max) {
 
 // check if other point is within radius of point
 int within_range_of(vec2 point, float radius, vec2 other_point) {
-  vec2 norm = {0.f};
-  vec2_sub(norm, point, other_point);
-  float dot = vec2_dot(norm, norm);
-  return dot < radius * radius;
+  float dist = vec2_dist(point, other_point);
+  return dist < radius;
 }
 
 r_shader load_shader(const char* vs, const char* fs) {
@@ -255,6 +281,7 @@ void create_emitter(vec2 position, vec2 dir) {
   for (int i = 0; i < MAX_PARTICLE_EMITTERS; ++i) {
     r_particles* emitter = &level.emitters[i];
     if (r_particles_finished(emitter)) {
+      r_particles_reset(emitter);
       r_particles_set_position(emitter, position);
       r_particles_start(emitter);
     }
@@ -446,12 +473,12 @@ void init_ui(void) {
   temp3[1] = 0.15f;
 
   // master
-
   menu.master_label =
       ui_text_create(u_ctx, temp, "MASTER", 16.f, menu.font, UI_ALIGN_LEFT);
   temp[1] += 0.05f;
-  menu.master_vol =
-      ui_slider_create(u_ctx, temp, temp2, temp3, 1, 0.8f, 0.f, 1.f, 20);
+  float master_percent = a_listener_get_gain(audio_ctx);
+  menu.master_vol      = ui_slider_create(u_ctx, temp, temp2, temp3, 1,
+                                     master_percent, 0.f, 1.f, 20);
 
   tmp_ele = ui_element_get(&menu.master_vol, UI_SLIDER);
   ui_element_center_to(tmp_ele, temp);
@@ -461,7 +488,6 @@ void init_ui(void) {
   menu.master_label.position[0] = left_pos;
 
   // music
-
   temp[0] = left_pos;
   temp[1] += temp2[1] + 0.025f;
 
@@ -470,15 +496,15 @@ void init_ui(void) {
 
   temp[1] += 0.05;
 
-  menu.music_vol =
-      ui_slider_create(u_ctx, temp, temp2, temp3, 1, 1.f, 0.f, 1.f, 20);
+  float music_percent = a_layer_get_gain(audio_ctx, a_res.music_layer);
+  menu.music_vol = ui_slider_create(u_ctx, temp, temp2, temp3, 1, music_percent,
+                                    0.f, 1.f, 20);
 
   temp[0] = 0.5f;
   tmp_ele = ui_element_get(&menu.music_vol, UI_SLIDER);
   ui_element_center_to(tmp_ele, temp);
 
   // sfx
-
   temp[0] = left_pos;
   temp[1] += temp2[1] + 0.025f;
 
@@ -487,14 +513,14 @@ void init_ui(void) {
 
   temp[0] = 0.5f;
   temp[1] += 0.05f;
+  float sfx_percent = a_layer_get_gain(audio_ctx, a_res.sfx_layer);
   menu.sfx_vol =
-      ui_slider_create(u_ctx, temp, temp2, temp3, 1, 1.f, 0.f, 1.f, 20);
+      ui_slider_create(u_ctx, temp, temp2, temp3, 1, sfx_percent, 0.f, 1.f, 20);
 
   tmp_ele = ui_element_get(&menu.sfx_vol, UI_SLIDER);
   ui_element_center_to(tmp_ele, temp);
 
   // resolution
-
   temp[0] = left_pos;
   temp[1] += temp2[1] + 0.025f;
   menu.res_label =
@@ -520,14 +546,19 @@ void init_ui(void) {
     option_index += str_len + 1;
     const GLFWvidmode* cursor = &vidmodes[i];
 
-    int32_t cur_dist = (DEFAULT_WIDTH - cursor->width + DEFAULT_HEIGHT -
-                        cursor->height - cursor->refreshRate);
+    int cur_dist = (_max(window_size[0], cursor->width) -
+                    _min(window_size[0], cursor->width)) +
+                   (_max(window_size[1], cursor->height) -
+                    _min(window_size[1], cursor->height)) -
+                   cursor->refreshRate;
 
     if (cur_dist < distance) {
       closest  = i;
       distance = cur_dist;
     }
   }
+
+  printf("closest: %i\n", closest);
 
   // dropdown scrolling
   menu.scroll_timer    = 0.f;
@@ -618,6 +649,25 @@ void init_ui(void) {
   ui_tree_add(u_ctx, &menu.pause_page, &menu.p_quit, UI_BUTTON, 1, 1, 2);
   ui_tree_add(u_ctx, &menu.pause_page, &menu.p_bg, UI_BOX, 0, 0, 0);
 
+  // IN GAME
+
+  vec2 img_pos = {0.f, 0.f}, img_size = {0.025f, 0.015};
+  img_size[1]    = ui_square_width(u_ctx, img_size[0]);
+  asset_t* asset = asset_get("resources/textures/heart_full.png");
+
+  menu.heart_full = ui_img_create(u_ctx, asset->data, asset->data_length,
+                                  IMG_NEAREST, img_pos, img_size);
+  asset_free(asset);
+  asset           = asset_get("resources/textures/heart_half.png");
+  menu.heart_half = ui_img_create(u_ctx, asset->data, asset->data_length,
+                                  IMG_NEAREST, img_pos, img_size);
+
+  asset_free(asset);
+  asset            = asset_get("resources/textures/heart_empty.png");
+  menu.heart_empty = ui_img_create(u_ctx, asset->data, asset->data_length,
+                                   IMG_NEAREST, img_pos, img_size);
+  asset_free(asset);
+
   menu_set_page(MENU_MAIN);
 }
 
@@ -636,16 +686,84 @@ int load_sfx(const char* path, const char* name) {
   return id;
 }
 
-void init_audio(a_ctx* ctx) {
-  a_res.sfx_layer   = a_layer_create(ctx, "sfx", 16, 0);
-  a_res.music_layer = a_layer_create(ctx, "music", 0, 2);
+void init_audio() {
+  a_res.sfx_layer   = a_layer_create(audio_ctx, "sfx", 16, 0);
+  a_res.music_layer = a_layer_create(audio_ctx, "music", 0, 2);
 
-  a_res.s_attack = load_sfx("resources/audio/attack.wav", "attack");
-  a_res.s_click  = load_sfx("resources/audio/click.wav", "click");
-  a_res.s_back   = load_sfx("resources/audio/back.wav", "back");
-  a_res.s_hit    = load_sfx("resources/audio/hit.wav", "hit");
-  a_res.s_die    = load_sfx("resources/audio/die.wav", "die");
-  // int s_attack, s_click, s_back, s_hit, s_die;
+  a_layer_set_gain(audio_ctx, a_res.sfx_layer, user_prefs.sfx_vol);
+  a_layer_set_gain(audio_ctx, a_res.music_layer, user_prefs.music_vol);
+
+  a_res.s_enemy_hit  = load_sfx("resources/audio/enemy_hit.wav", "enemy_hit");
+  a_res.s_attack     = load_sfx("resources/audio/attack.wav", "attack");
+  a_res.s_eye_die    = load_sfx("resources/audio/eye_die.wav", "eye_die");
+  a_res.s_menu_move  = load_sfx("resources/audio/menu_move.wav", "menu_move");
+  a_res.s_player_die = load_sfx("resources/audio/player_die.wav", "player_die");
+  a_res.s_player_hit = load_sfx("resources/audio/player_hit.wav", "player_hit");
+  a_res.s_select     = load_sfx("resources/audio/select.wav", "select");
+  a_res.s_goblin_die = load_sfx("resources/audio/goblin_die.wav", "goblin_die");
+  a_res.s_slime_die  = load_sfx("resources/audio/slime_die.wav", "slime_die");
+}
+
+void update_reqs(void) {
+  for (int i = 0; i < a_res.req_count; ++i) {
+    a_req* req = &a_res.reqs[i];
+    if (req->state != AL_PLAYING) {
+      if (i != a_res.req_count) {
+        a_req tmp                   = a_res.reqs[a_res.req_count];
+        a_res.reqs[a_res.req_count] = a_res.reqs[i];
+        a_res.reqs[i]               = tmp;
+      } else {
+        memset(&a_res.reqs[i], 0, sizeof(a_req));
+      }
+      --a_res.req_count;
+    }
+  }
+}
+
+void play_sfx(int sfx_id) {
+  if (!a_can_play(audio_ctx)) {
+    return;
+  }
+
+  a_req* req = 0;
+  update_reqs();
+  if (a_res.req_count < 16) {
+    req = &a_res.reqs[a_res.req_count];
+    ++a_res.req_count;
+  }
+  vec3 a_pos = {0.f, 0.f, 0.f};
+  *req       = a_req_create(a_pos, 1.f, 0.f, 0, 0, 0, 0, 0);
+  a_sfx_play(audio_ctx, a_res.sfx_layer, sfx_id, req);
+}
+
+void menu_select_sfx() {
+  if (!a_can_play(audio_ctx)) {
+    return;
+  }
+
+  if (a_res.menu_select_sfx) {
+    a_sfx_stop(audio_ctx, a_res.menu_select_sfx);
+  }
+
+  vec3 pos              = {0.f, 0.f, 0.f};
+  a_res.menu_select_req = a_req_create(pos, 1.f, 0.f, 0, 0, 0, 0, 0);
+  a_res.menu_select_sfx = a_sfx_play(audio_ctx, a_res.sfx_layer, a_res.s_select,
+                                     &a_res.menu_select_req);
+}
+
+void menu_move_sfx() {
+  if (!a_can_play(audio_ctx)) {
+    return;
+  }
+
+  if (a_res.menu_move_sfx) {
+    a_sfx_stop(audio_ctx, a_res.menu_move_sfx);
+  }
+
+  vec3 pos            = {0.f, 0.f, 0.f};
+  a_res.menu_move_req = a_req_create(pos, 1.f, 0.f, 0, 0, 0, 0, 0);
+  a_res.menu_move_sfx = a_sfx_play(audio_ctx, a_res.sfx_layer,
+                                   a_res.s_menu_move, &a_res.menu_move_req);
 }
 
 void init_collision(void) {
@@ -677,7 +795,7 @@ void init_collision(void) {
   level.env[3]    = c_aabb_create(bottom_pos, top_size);
 }
 
-void init_render(r_ctx* ctx) {
+void init_render(void) {
   shader = load_shader("resources/shaders/instanced.vert",
                        "resources/shaders/instanced.frag");
 
@@ -841,15 +959,15 @@ void init_render(r_ctx* ctx) {
 
   int     goblin_run_frames[] = {14, 15, 16, 17, 18, 19};
   r_anim* goblin_run =
-      load_anim(&character_sheet, "goblin_run", goblin_run_frames, 6, 19, 1);
+      load_anim(&character_sheet, "goblin_walk", goblin_run_frames, 6, 19, 1);
 
   int     slime_idle_frames[] = {21, 22, 23, 24, 25, 26};
   r_anim* slime_idle =
       load_anim(&character_sheet, "slime_idle", slime_idle_frames, 6, 16, 1);
 
   int     slime_bounce_frames[] = {28, 29, 30, 31, 32, 33};
-  r_anim* slime_bounce          = load_anim(&character_sheet, "slime_bounce",
-                                   slime_bounce_frames, 6, 16, 1);
+  r_anim* slime_bounce =
+      load_anim(&character_sheet, "slime_walk", slime_bounce_frames, 6, 16, 1);
 
   int     player_idle_frames[] = {35, 36, 37, 38, 39, 40};
   r_anim* player_idle =
@@ -866,7 +984,7 @@ void init_render(r_ctx* ctx) {
   }
 
   vec4 particle_color;
-  vec2 particle_size     = {2.f, 2.f};
+  vec2 particle_size     = {1.5f, 1.5f};
   vec2 system_position   = {160.f, 90.f};
   vec2 system_size       = {8.f, 8.f};
   vec4 particle_velocity = {0.0f, 0.0f};
@@ -874,7 +992,7 @@ void init_render(r_ctx* ctx) {
 
   for (int i = 0; i < MAX_PARTICLE_EMITTERS; ++i) {
     r_particles* emitter = &level.emitters[i];
-    *emitter = r_particles_create(50, 500.f, 128, 25, PARTICLE_COLORED, 1, 128);
+    *emitter = r_particles_create(50, 500.f, 15, 15, PARTICLE_COLORED, 1, 128);
     emitter->particle_layer = 100;
     r_particles_set_particle(emitter, particle_color, 500.f, particle_size,
                              particle_velocity);
@@ -888,10 +1006,18 @@ void init_render(r_ctx* ctx) {
     r_particles_set_animator(emitter, particle_animate);
   }
 
+  // health orb initialization
+  for (int i = 0; i < MAX_HEALTH_ORBS; ++i) {
+    r_sprite sprite;
+    level.health_orbs[i].sprite = sprite;
+    level.health_orbs[i].active = 0;
+    vec2_clear(level.health_orbs[i].center);
+  }
+
   // 16x9 * 20
   camera_size[0] = 320.f;
   camera_size[1] = 180.f;
-  r_camera_set_size(r_ctx_get_camera(ctx), camera_size);
+  r_camera_set_size(r_ctx_get_camera(render_ctx), camera_size);
 }
 
 void init_game(void) {
@@ -901,7 +1027,7 @@ void init_game(void) {
   // initialize player stuff _before_ enemies so they're not within range of
   // spawn
   vec2   player_pos      = {152.f, 82.f};
-  vec2   player_halfsize = {6.f, 5.f};
+  vec2   player_halfsize = {4.5f, 5.f};
   c_aabb player_col      = c_aabb_create(player_pos, player_halfsize);
   vec2   sword_pos       = {player_pos[0] + 12.f, player_pos[1] + 4.f};
   vec2   sword_halfsize  = {10.f, 4.f};
@@ -909,8 +1035,8 @@ void init_game(void) {
   vec2   zero = {0.f, 0.f}, halfsize = {8.f, 8.f};
   vec2   sprite_size = {16.f, 16.f};
 
-  level.player = (player_t){
-      .health = MAX_PLAYER_HEALTH, .aabb = player_col, .hitbox = sword_col, 0};
+  level.player        = (player_t){.aabb = player_col, .hitbox = sword_col, 0};
+  level.player.health = MAX_PLAYER_HEALTH;
   vec2_dup(level.player.center, player_pos);
   level.player.sprite       = r_sprite_create(shader, player_pos, sprite_size);
   level.player.sprite.layer = 4;
@@ -924,13 +1050,19 @@ void init_game(void) {
   level.player.swoosh.layer = 100;
   r_anim* sword_swoosh      = r_anim_get_name(render_ctx, "sword_swoosh");
   r_sprite_set_anim(&level.player.swoosh, sword_swoosh);
+}
 
+// initialize player data
+
+// (320 / 2) - (16 / 2), (180 / 2) - (16 / 2)
+// centered position
+
+void clear_level(void) { free(level.enemies); }
+
+void init_level(void) {
   level.enemy_count    = rnd_range(16, MAX_ENEMIES);
   level.enemy_capacity = MAX_ENEMIES;
   level.enemies        = (enemy_t*)calloc(sizeof(enemy_t), MAX_ENEMIES);
-
-  // TODO REMOVE (DEBUG)
-  // r_anim_list_cache(render_ctx);
 
   for (int i = 0; i < level.enemy_count; ++i) {
     // keep within middle 6/8ths of screen
@@ -949,19 +1081,20 @@ void init_game(void) {
       }
     }
 
-    enemy_t* en      = &level.enemies[i];
-    en->sprite       = r_sprite_create(shader, position, sprite_size);
-    en->sprite.layer = 4;
-    en->state        = ENEMY_IDLE;
-    en->state_change = 0;
-    en->type         = rand() % 3;
-    en->damage_timer = 0.f;
-    en->take_damage  = 0;
-    en->alive        = 1;
+    vec2     sprite_size = {16.f, 16.f};
+    enemy_t* en          = &level.enemies[i];
+    en->sprite           = r_sprite_create(shader, position, sprite_size);
+    en->sprite.layer     = 4;
+    en->state            = ENEMY_IDLE;
+    en->state_change     = 0;
+    en->type             = rand() % 3;
+    en->damage_timer     = 0.f;
+    en->take_damage      = 0;
+    en->alive            = 1;
 
     r_anim* anim = 0;
 
-    float radius = 7.f;
+    float radius = 6.f;
 
     switch (en->type) {
       case ENEMY_EYE:
@@ -976,19 +1109,14 @@ void init_game(void) {
       case ENEMY_SLIME:
         en->max_health = 3;
         anim           = r_anim_get_name(render_ctx, "slime_idle");
-        radius         = 8.f;
         break;
     }
+
     en->circle = c_circle_create(position, radius);
     en->health = en->max_health;
     r_sprite_set_anim(&en->sprite, anim);
     r_sprite_anim_play(&en->sprite);
   }
-
-  // initialize player data
-
-  // (320 / 2) - (16 / 2), (180 / 2) - (16 / 2)
-  // centered position
 }
 
 void game_resized_to(vec2 size) {
@@ -1017,6 +1145,7 @@ void handle_ui(void) {
     case MENU_MAIN: { //
       if (ui_tree_check_event(menu.current_page, menu.play.id) == 1) {
         game_state = GAME_PLAY;
+        init_level();
         menu_set_page(MENU_NONE);
         return;
       }
@@ -1033,27 +1162,43 @@ void handle_ui(void) {
       }
     } break;
     case MENU_SETTINGS: {
+      vec3 listener_pos;
+      a_listener_get_pos(audio_ctx, listener_pos);
+      vec2 play_pos = {listener_pos[0], listener_pos[1]};
+
       if (i_binding_clicked(input_ctx, "right")) {
         if (ui_tree_is_active(u_ctx, menu.current_page, menu.master_vol.id)) {
           ui_slider_next_step(&menu.master_vol);
+          user_prefs.master_vol = menu.master_vol.value;
+          menu_move_sfx();
         } else if (ui_tree_is_active(u_ctx, menu.current_page,
                                      menu.sfx_vol.id)) {
           ui_slider_next_step(&menu.sfx_vol);
+          user_prefs.sfx_vol = menu.sfx_vol.value;
+          menu_move_sfx();
         } else if (ui_tree_is_active(u_ctx, menu.current_page,
                                      menu.music_vol.id)) {
           ui_slider_next_step(&menu.music_vol);
+          user_prefs.music_vol = menu.music_vol.value;
+          menu_move_sfx();
         }
       }
 
       if (i_binding_clicked(input_ctx, "left")) {
         if (ui_tree_is_active(u_ctx, menu.current_page, menu.master_vol.id)) {
           ui_slider_prev_step(&menu.master_vol);
+          user_prefs.master_vol = menu.master_vol.value;
+          menu_move_sfx();
         } else if (ui_tree_is_active(u_ctx, menu.current_page,
                                      menu.sfx_vol.id)) {
           ui_slider_prev_step(&menu.sfx_vol);
+          user_prefs.sfx_vol = menu.sfx_vol.value;
+          menu_move_sfx();
         } else if (ui_tree_is_active(u_ctx, menu.current_page,
                                      menu.music_vol.id)) {
           ui_slider_prev_step(&menu.music_vol);
+          user_prefs.music_vol = menu.music_vol.value;
+          menu_move_sfx();
         }
       }
 
@@ -1062,14 +1207,31 @@ void handle_ui(void) {
       }
 
       if (menu.master_vol.holding) {
+        float gain_prev = a_listener_get_gain(audio_ctx);
+        if (gain_prev != menu.master_vol.value) {
+          menu_move_sfx();
+        }
         a_listener_set_gain(audio_ctx, menu.master_vol.value);
+        user_prefs.master_vol = menu.master_vol.value;
       }
 
       if (menu.sfx_vol.holding) {
+        float gain_prev = a_layer_get_gain(audio_ctx, a_res.sfx_layer);
+        if (gain_prev != menu.sfx_vol.value) {
+          menu_move_sfx();
+        }
+
         a_layer_set_gain(audio_ctx, a_res.sfx_layer, menu.sfx_vol.value);
+        user_prefs.sfx_vol = menu.sfx_vol.value;
       }
       if (menu.music_vol.holding) {
+        float gain_prev = a_layer_get_gain(audio_ctx, a_res.music_layer);
+        if (gain_prev != menu.music_vol.value) {
+          menu_move_sfx();
+        }
+
         a_layer_set_gain(audio_ctx, a_res.music_layer, menu.music_vol.value);
+        user_prefs.music_vol = menu.music_vol.value;
       }
 
       int32_t event_type = 0;
@@ -1108,6 +1270,7 @@ void handle_ui(void) {
         r_window_clear_color_empty();
         r_window_clear();
         r_framebuffer_unbind();
+        clear_level();
         menu_set_page(MENU_MAIN);
         game_state = GAME_START;
         return;
@@ -1127,6 +1290,7 @@ void input(float delta) {
 
     if (i_mouse_clicked(input_ctx, MOUSE_LEFT)) {
       ui_tree_select(u_ctx, menu.current_page, 1, 1);
+      menu_select_sfx();
     }
 
     if (i_mouse_released(input_ctx, MOUSE_LEFT)) {
@@ -1158,16 +1322,23 @@ void input(float delta) {
       }
     }
 
+    vec3 listener_pos;
+    a_listener_get_pos(audio_ctx, listener_pos);
+    vec2 play_pos = {listener_pos[0], listener_pos[1]};
+
     if (i_binding_clicked(input_ctx, "down")) {
       ui_tree_next(menu.current_page);
+      menu_move_sfx();
     }
 
     if (i_binding_clicked(input_ctx, "up")) {
       ui_tree_prev(menu.current_page);
+      menu_move_sfx();
     }
 
     if (i_binding_clicked(input_ctx, "select")) {
       ui_tree_select(u_ctx, menu.current_page, 1, 0);
+      menu_move_sfx();
     }
 
     if (menu.scroll_timer > menu.scroll_duration) {
@@ -1202,14 +1373,20 @@ void input(float delta) {
     }
 
     if (i_binding_clicked(input_ctx, "attack")) {
-      r_sprite_anim_play(&level.player.swoosh);
+      if (level.player.attack_timer <= 0.f) {
+        r_sprite_anim_play(&level.player.swoosh);
+        play_sfx(a_res.s_attack);
+        level.player.attack_timer = ATTACK_COOLDOWN;
+      }
     }
 
     // it's a bit like godmode, but less interesting
     if (i_key_clicked(input_ctx, 'E')) {
+      play_sfx(a_res.s_enemy_hit);
       for (int i = 0; i < level.enemy_count; ++i) {
         enemy_t* en     = &level.enemies[i];
         en->take_damage = 1;
+
         // update enemy state
         en->state        = ENEMY_HIT;
         en->damage_timer = DAMAGE_DURATION;
@@ -1267,8 +1444,9 @@ void input(float delta) {
     c_aabb_move(&level.player.aabb, move);
     vec2 center = {0.f};
 
-    vec2 hitbox_pos, hitbox_halfsize = {16.f, 24.f};
-    vec2_dup(hitbox_pos, level.player.swoosh.position);
+    vec2 hitbox_pos, hitbox_halfsize = {19.5f, 24.f};
+    vec2_dup(hitbox_pos, level.player.center);
+    hitbox_pos[0] += (level.player.sprite.flip_x) ? -9.75f : 9.75f;
     vec2_scale(hitbox_halfsize, hitbox_halfsize, 0.5f);
     c_aabb_set(&level.player.hitbox, hitbox_pos, hitbox_halfsize);
 
@@ -1302,133 +1480,216 @@ static void blend(vec4 dst, vec4 a, vec4 b, float weight) {
 }
 
 void update(time_s delta) {
-  if (level.player.take_damage) {
-    level.player.damage_timer -= delta;
-    if (level.player.damage_timer <= 0.f) {
-      level.player.take_damage = 0;
+  if (game_state == GAME_PLAY) {
+    if (level.player.attack_timer > 0.f) {
+      level.player.attack_timer -= delta;
     }
 
-    blend(level.player.sprite.color, color_white, color_red,
-          level.player.damage_timer / DAMAGE_DURATION);
-    blend(level.player.sword.color, color_white, color_red,
-          level.player.damage_timer / DAMAGE_DURATION);
-  }
-
-  // test player vs enemies
-  for (int i = 0; i < level.enemy_count; ++i) {
-    enemy_t* en = &level.enemies[i];
-
-    // animate damaged enemies
-    if (en->take_damage) {
-      en->damage_timer -= delta;
-      blend(en->sprite.color, color_white, color_red,
-            en->damage_timer / DAMAGE_DURATION);
-
-      // calculate elapsed time
-      float elapsed = DAMAGE_DURATION - en->damage_timer;
-      if (elapsed < STAGGER_DURATION) {
-        float lerp =
-            f_invquad(0.f, STAGGER_DURATION, elapsed) / STAGGER_DURATION;
-
-        vec2 move_amount;
-        vec2_scale(move_amount, en->stagger, lerp);
-        move_enemy(en, move_amount);
+    if (level.player.take_damage) {
+      level.player.damage_timer -= delta;
+      if (level.player.damage_timer <= 0.f) {
+        level.player.take_damage = 0;
       }
 
-      if (en->damage_timer <= 0.f) {
-        en->take_damage = 0;
+      blend(level.player.sprite.color, color_white, color_red,
+            level.player.damage_timer / DAMAGE_DURATION);
+      blend(level.player.sword.color, color_white, color_red,
+            level.player.damage_timer / DAMAGE_DURATION);
+    }
+
+    // test player vs enemies
+    for (int i = 0; i < level.enemy_count; ++i) {
+      enemy_t* en = &level.enemies[i];
+
+      if (!en->alive)
+        continue;
+
+      // enemy AI
+      float dist = vec2_dist(en->circle.center, level.player.center);
+      // if within range, move towards
+      if (dist <= 45.f && dist > 7.f) {
+        float move_speed = 2.f;
+
+        switch (en->type) {
+          case ENEMY_SLIME:
+            move_speed = 4.f;
+            break;
+          case ENEMY_GOBLIN:
+            move_speed = 3.f;
+            break;
+        }
+
+        int is_left = level.player.center[0] < en->circle.center[0];
+        if (is_left) {
+          en->sprite.flip_x = 1;
+        } else {
+          en->sprite.flip_x = 0;
+        }
+
+        float move_factor = 0.005f;
+        vec2  move        = {level.player.center[0] - en->circle.center[0],
+                     level.player.center[1] - en->circle.center[1]};
+        vec2_norm(move, move);
+        vec2_scale(move, move, move_speed * (delta * move_factor));
+        move_enemy(en, move);
+        if (en->state != ENEMY_WALK) {
+          en->state = ENEMY_WALK;
+
+          // eyes only have the one animation
+          if (en->type != ENEMY_EYE) {
+            r_anim* anim = 0;
+            switch (en->type) {
+              case ENEMY_SLIME:
+                anim = r_anim_get_name(render_ctx, "slime_walk");
+                break;
+              case ENEMY_GOBLIN:
+                anim = r_anim_get_name(render_ctx, "goblin_walk");
+                break;
+            }
+
+            r_sprite_set_anim(&en->sprite, anim);
+            r_sprite_anim_play(&en->sprite);
+          }
+        }
+      } else {
+        if (en->state == ENEMY_WALK) {
+          en->state = ENEMY_IDLE;
+
+          if (en->type != ENEMY_EYE) {
+            r_anim* anim = 0;
+            switch (en->type) {
+              case ENEMY_SLIME:
+                anim = r_anim_get_name(render_ctx, "slime_idle");
+                break;
+              case ENEMY_GOBLIN:
+                anim = r_anim_get_name(render_ctx, "goblin_idle");
+                break;
+            }
+
+            r_sprite_set_anim(&en->sprite, anim);
+            r_sprite_anim_play(&en->sprite);
+          }
+        }
       }
-    }
 
-    // animate death animations
-    if (en->state == ENEMY_DIE) {
-      // TODO enemy death animations
-    }
+      // animate damaged enemies
+      if (en->take_damage) {
+        en->damage_timer -= delta;
+        blend(en->sprite.color, color_white, color_red,
+              en->damage_timer / DAMAGE_DURATION);
 
-    c_manifold man = c_aabb_vs_circle_man(level.player.aabb, en->circle);
-    if (man.distance != 0.f) {
-      // take damage I guess :shrug:
-      if (!level.player.take_damage) {
-        level.player.take_damage  = 1;
-        level.player.damage_timer = DAMAGE_DURATION;
-      }
-    }
-
-    for (int i = 0; i < level.env_cols; ++i) {
-      c_aabb     col = level.env[i];
-      c_manifold man = c_aabb_vs_circle_man(col, en->circle);
-      if (man.distance != 0.f) {
-        printf("[%.2f %.2f] [%.2f %.2f]\n", col.min[0], col.min[1], col.max[0],
-               col.max[1]);
-
-        vec2 move_amount;
-        vec2_scale(move_amount, man.direction, man.distance);
-        move_enemy(en, move_amount);
-
+        // calculate elapsed time
         float elapsed = DAMAGE_DURATION - en->damage_timer;
         if (elapsed < STAGGER_DURATION) {
+          float lerp =
+              f_invquad(0.f, STAGGER_DURATION, elapsed) / STAGGER_DURATION;
+
+          vec2 move_amount;
+          vec2_scale(move_amount, en->stagger, lerp);
+          move_enemy(en, move_amount);
+        }
+
+        if (en->damage_timer <= 0.f) {
+          en->take_damage = 0;
+        }
+      }
+
+      // i frame player when attacking for 3/4ths of cooldown
+      if (level.player.attack_timer < ATTACK_COOLDOWN * 0.25f) {
+        c_manifold man = c_aabb_vs_circle_man(level.player.aabb, en->circle);
+        if (man.distance != 0.f) {
+          // take damage I guess :shrug:
+          if (!level.player.take_damage) {
+            level.player.take_damage = 1;
+            --level.player.health;
+
+            vec2 zero = {0.f, 0.f};
+            if (level.player.health <= 0) {
+              play_sfx(a_res.s_player_die);
+            } else {
+              play_sfx(a_res.s_player_hit);
+            }
+
+            level.player.damage_timer = DAMAGE_DURATION;
+          }
+        }
+      }
+
+      // enemy vs environment
+      for (int i = 0; i < level.env_cols; ++i) {
+        c_aabb     col = level.env[i];
+        c_manifold man = c_aabb_vs_circle_man(col, en->circle);
+        if (man.distance != 0.f) {
+          vec2 move_amount = {0.f, 0.f};
+          vec2_scale(move_amount, man.direction, -1.f * man.distance);
+          move_enemy(en, move_amount);
           vec2_clear(en->stagger);
         }
       }
     }
-  }
 
-  int swoosh_state = r_sprite_get_anim_state(&level.player.swoosh);
-  if (swoosh_state) {
-    // test sword vs enemies
-    for (int i = 0; i < level.enemy_count; ++i) {
-      enemy_t* en = &level.enemies[i];
+    int swoosh_state = r_sprite_get_anim_state(&level.player.swoosh);
+    if (swoosh_state) {
+      // test sword vs enemies
+      for (int i = 0; i < level.enemy_count; ++i) {
+        enemy_t* en = &level.enemies[i];
 
-      // only allow damage after a 3rd of the damage timer has elapsed
-      if (en->damage_timer < (DAMAGE_DURATION * 0.66f)) {
-        c_manifold man = c_aabb_vs_circle_man(level.player.hitbox, en->circle);
-        if (man.distance != 0.f) {
-          en->take_damage  = 1;
-          en->state        = ENEMY_HIT;
-          en->damage_timer = DAMAGE_DURATION;
-          en->health--;
+        // only allow damage after a 3rd of the damage timer has elapsed
+        if (en->damage_timer < (DAMAGE_DURATION * 0.66f)) {
+          c_manifold man =
+              c_aabb_vs_circle_man(level.player.hitbox, en->circle);
+          if (man.distance != 0.f) {
+            en->take_damage = 1;
 
-          printf("%.2f %.2f\n", level.player.center[0], level.player.center[1]);
+            en->state        = ENEMY_HIT;
+            en->damage_timer = DAMAGE_DURATION;
+            en->health--;
 
-          // TODO (this)
-          vec2 a = {0.f, 0.f};
-          vec2_sub(a, en->circle.center, level.player.center);
-          vec2_norm(a, a);
-          vec2 stagger = {a[0] * KNOCKBACK_AMOUNT, a[1] * KNOCKBACK_AMOUNT};
-          vec2_dup(en->stagger, stagger);
+            vec2 a = {0.f, 0.f};
+            vec2_sub(a, en->circle.center, level.player.center);
+            vec2_norm(a, a);
+            vec2 stagger = {a[0] * KNOCKBACK_AMOUNT, a[1] * KNOCKBACK_AMOUNT};
+            vec2_dup(en->stagger, stagger);
 
-          // apply opposite directional force to enemy
-          if (en->health <= 0) {
-            // death animation/etc
-            en->alive = 0;
-            en->state = ENEMY_DIE;
-            create_emitter(en->circle.center, man.direction);
-            printf("OH no, it died!\n");
+            // apply opposite directional force to enemy
+            if (en->health <= 0) {
+              // death animation/etc
+              en->alive = 0;
+              en->state = ENEMY_DIE;
+              create_emitter(en->circle.center, man.direction);
+
+              play_sfx(a_res.s_goblin_die);
+            } else {
+              play_sfx(a_res.s_enemy_hit);
+            }
           }
         }
       }
     }
-  }
 
-  // test player vs environment
-  for (int i = 0; i < level.env_cols; ++i) {
-    c_manifold man = c_aabb_vs_aabb_man(level.player.aabb, level.env[i]);
-    if (man.distance != 0.f) {
-      c_aabb_adjust(&level.player.aabb, man);
+    // test player vs environment
+    for (int i = 0; i < level.env_cols; ++i) {
+      c_manifold man = c_aabb_vs_aabb_man(level.player.aabb, level.env[i]);
+      if (man.distance != 0.f) {
+        c_aabb_adjust(&level.player.aabb, man);
+      }
     }
-  }
 
-  c_aabb_get_center(level.player.center, level.player.aabb);
+    c_aabb_get_center(level.player.center, level.player.aabb);
+  }
 }
 
 static void debug_circle(vec2 px, float radius_px, vec4 color) {
+#ifdef DEBUG_HITBOXES
   vec2 _px;
   vec2_div(_px, px, camera_size);
   float _radius = radius_px * (window_size[0] / camera_size[0]);
   ui_im_circle_draw(u_ctx, _px, _radius, 1.f, color);
+#endif
 }
 
 static void debug_box(vec2 center, vec2 size, vec4 color) {
+#ifdef DEBUG_HITBOXES
   vec2 _center, _size;
 
   center[0] -= size[0] * 0.5f;
@@ -1437,9 +1698,11 @@ static void debug_box(vec2 center, vec2 size, vec4 color) {
   vec2_div(_center, center, camera_size);
   vec2_div(_size, size, camera_size);
   ui_im_box_draw(u_ctx, _center, _size, color);
+#endif
 }
 
 void debug_game(void) {
+#ifdef DEBUG_HITBOXES
   ui_frame_start(u_ctx);
 
   vec4 enemy_color, swoosh_color, player_color, env_color;
@@ -1477,6 +1740,7 @@ void debug_game(void) {
   debug_box(center, size, player_color);
 
   ui_frame_end(u_ctx);
+#endif
 }
 
 void draw_ui(void) {
@@ -1486,7 +1750,32 @@ void draw_ui(void) {
 
   ui_frame_start(u_ctx);
 
-  ui_tree_draw(u_ctx, menu.current_page);
+  if (game_state == GAME_PLAY || game_state == GAME_PAUSE) {
+    vec2  pos       = {0.0025f, 0.025f};
+    float slot_size = 0.03f;
+
+    // ui_im_text_draw(u_ctx, pos, 16.f, menu.font, "Test goes here");
+
+    for (int i = 0; i < (MAX_PLAYER_HEALTH / 2); ++i) {
+      pos[0] += slot_size;
+      int round = (i + 1) * 2;
+      if (round > level.player.health) {
+        if (round - 1 == level.player.health) {
+          ui_im_img_draw(u_ctx, menu.heart_half, pos, menu.heart_empty.size);
+        } else {
+          ui_im_img_draw(u_ctx, menu.heart_empty, pos, menu.heart_empty.size);
+        }
+      } else {
+        ui_im_img_draw(u_ctx, menu.heart_full, pos, menu.heart_full.size);
+      }
+    }
+  } else {
+  }
+
+  if (game_state != GAME_PLAY) {
+    ui_tree_draw(u_ctx, menu.current_page);
+  }
+
   debug_game();
 
   ui_frame_end(u_ctx);
@@ -1502,15 +1791,17 @@ void draw_game(time_s delta) {
   r_baked_sheet_draw(render_ctx, baked, &baked_sheet);
 
   // draw the player
-  r_sprite_update(&level.player.sprite, delta);
+  if (game_state == GAME_PLAY) {
+    r_sprite_update(&level.player.sprite, delta);
+    r_sprite_update(&level.player.sword, delta);
+    r_sprite_update(&level.player.swoosh, delta);
+  }
   r_sprite_draw_batch(render_ctx, &level.player.sprite);
 
   // draw the sword
-  r_sprite_update(&level.player.sword, delta);
   r_sprite_draw_batch(render_ctx, &level.player.sword);
 
   // draw (or don't) the swoosh
-  r_sprite_update(&level.player.swoosh, delta);
   int swoosh_state = r_sprite_get_anim_state(&level.player.swoosh);
   if (swoosh_state == R_ANIM_STOP) {
     level.player.swoosh.visible = 0;
@@ -1522,16 +1813,21 @@ void draw_game(time_s delta) {
 
   // draw the enemies
   for (int i = 0; i < level.enemy_count; ++i) {
-    r_sprite* sprite = &level.enemies[i].sprite;
-    r_sprite_update(&level.enemies[i].sprite, delta);
+    if (!level.enemies[i].alive)
+      continue;
+
+    if (game_state == GAME_PLAY)
+      r_sprite_update(&level.enemies[i].sprite, delta);
+
     r_sprite_draw_batch(render_ctx, &level.enemies[i].sprite);
   }
 
-  // draw particle effects & prune any finished ones
+  // draw particle effects
   for (int i = 0; i < MAX_PARTICLE_EMITTERS; ++i) {
     r_particles* emitter = &level.emitters[i];
     if (!r_particles_finished(emitter)) {
-      r_particles_update(emitter, delta);
+      if (game_state == GAME_PLAY)
+        r_particles_update(emitter, delta);
       r_particles_draw(render_ctx, emitter, particle_shader);
     }
   }
@@ -1565,15 +1861,7 @@ void render(time_s delta) {
     // check for changes so the framebuffer is cleared. (technically don't
     // have to draw it if we don't have an actual target, but just gluing??
     // this together.
-
-    // if (!ui_change) {
-    r_framebuffer_bind(ui_fbo);
-    r_window_clear_color_empty();
-    r_window_clear();
-
-    debug_game();
-    ui_change = 1;
-    //}
+    draw_ui();
 
     if (!page_notif && !(game_state == GAME_PLAY || game_state == GAME_PAUSE)) {
       printf("No current page: %i\n", page_notif_counter);
@@ -1582,8 +1870,73 @@ void render(time_s delta) {
   }
 }
 
+user_preferences load_config(void) {
+  // now to patch the very much broken table loading system
+  asset_t* raw_table = asset_get("user_prefs.ini");
+
+  user_preferences prefs = {0};
+
+  if (raw_table) {
+    s_table table = s_table_get(raw_table->data);
+
+    printf("table size: %i\n", table.count);
+    for (int i = 0; i < table.count; ++i) {
+      printf("%s: %s\n", table.keys[i], table.values[i]);
+    }
+
+    const char* value = 0;
+    value             = s_table_find(&table, "width");
+    int valid_res     = 1;
+    if (!value) {
+      valid_res = 0;
+    }
+    prefs.res_width  = (value && valid_res) ? atoi(value) : DEFAULT_WIDTH;
+    value            = s_table_find(&table, "height");
+    prefs.res_height = (value && valid_res) ? atoi(value) : DEFAULT_HEIGHT;
+
+    value            = s_table_find(&table, "master");
+    prefs.master_vol = (value) ? atof(value) : 0.8f;
+
+    value         = s_table_find(&table, "sfx");
+    prefs.sfx_vol = (value) ? atof(value) : 1.0f;
+
+    value           = s_table_find(&table, "music");
+    prefs.music_vol = (value) ? atof(value) : 1.0f;
+
+    s_table_free(table);
+  } else {
+    prefs.master_vol = 1.0f;
+    prefs.sfx_vol    = 1.0f;
+    prefs.music_vol  = 1.0f;
+    prefs.res_width  = DEFAULT_WIDTH;
+    prefs.res_height = DEFAULT_HEIGHT;
+  }
+
+  return prefs;
+}
+
+static char pref_buffer[16] = {0};
+static void table_add_float();
+
+void save_config(void) {
+  s_table table = s_table_create(5);
+
+  s_table_add_float(&table, "master_vol", user_prefs.master_vol);
+  s_table_add_float(&table, "sfx_vol", user_prefs.sfx_vol);
+  s_table_add_float(&table, "music_vol", user_prefs.music_vol);
+  s_table_add_int(&table, "width", user_prefs.res_width);
+  s_table_add_int(&table, "height", user_prefs.res_height);
+
+  s_table_write(&table, "user_prefs");
+
+  s_table_free(table);
+}
+
 int main(void) {
   srand(time(0));
+
+  user_prefs = load_config();
+
   audio_ctx = a_ctx_create(0, 2, 16, 16, 2, 2, 2, 4096 * 4);
 
   if (!audio_ctx) {
@@ -1591,14 +1944,14 @@ int main(void) {
     return 1;
   }
 
-  a_listener_set_gain(audio_ctx, 0.8f);
-  init_audio(audio_ctx);
+  a_listener_set_gain(audio_ctx, user_prefs.master_vol);
+  init_audio();
 
-  r_window_params params = (r_window_params){.width        = DEFAULT_WIDTH,
-                                             .height       = DEFAULT_HEIGHT,
-                                             .x            = 0,
-                                             .y            = 0,
-                                             .resizable    = 0,
+  r_window_params params = (r_window_params){.width     = user_prefs.res_width,
+                                             .height    = user_prefs.res_height,
+                                             .x         = 0,
+                                             .y         = 0,
+                                             .resizable = 0,
                                              .fullscreen   = 0,
                                              .vsync        = 1,
                                              .borderless   = 0,
@@ -1626,8 +1979,9 @@ int main(void) {
 
   init_input();
 
-  init_render(render_ctx);
+  init_render();
   r_check_error_loc("Post init");
+  r_anim_list_cache(render_ctx);
 
   asset_t* icon = asset_get("resources/textures/icon.png");
   r_window_set_icon(render_ctx, icon->data, icon->data_length);
@@ -1656,6 +2010,11 @@ int main(void) {
 
     update(delta);
 
+    if (a_can_play(audio_ctx)) {
+      a_ctx_update(audio_ctx);
+      update_reqs();
+    }
+
     if (r_can_render(render_ctx)) {
       time_s render_delta = s_timer_update(&render_timer);
       render(render_delta);
@@ -1683,6 +2042,8 @@ int main(void) {
   r_ctx_destroy(render_ctx);
   i_ctx_destroy(input_ctx);
   a_ctx_destroy(audio_ctx);
+
+  save_config();
 
   return 0;
 }

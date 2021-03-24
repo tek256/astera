@@ -418,6 +418,30 @@ void    ui_ctx_update(ui_ctx* ctx, vec2 mouse_pos);
 void    ui_ctx_resize(ui_ctx* ctx, vec2 screen_size);
 void    ui_ctx_destroy(ui_ctx* ctx);
 
+/* Square size to match same px count as scale width
+ * ctx - context to square to
+ * width - the width in scale to square to in height
+ * returns: equal px amount height in scale units */
+float ui_square_width(ui_ctx* ctx, float width);
+
+/* Square size to match same px count as scale height
+ * ctx - context to square to
+ * height - the height in scale to square to in width
+ * returns: equal px amount width in scale units */
+float ui_square_height(ui_ctx* ctx, float height);
+
+/* Convert width to scale
+ * ctx - context to square to
+ * width - the width in px to convert
+ * returns: scale adjusted value */
+float ui_px_scale_width(ui_ctx* ctx, float width);
+
+/* Convert height to scale
+ * ctx - context to square to
+ * width - the height in px to convert
+ * returns: scale adjusted value */
+float ui_px_scale_height(ui_ctx* ctx, float height);
+
 /* Set the attributes to fixed
  * ctx - the context to affect */
 void ui_ctx_set_attribs_fixed(ui_ctx* ctx);
@@ -845,6 +869,13 @@ void ui_im_circle_draw(ui_ctx* ctx, vec2 pos, float radius, float thickness,
  * color - color of the line to draw*/
 void ui_im_line_draw(ui_ctx* ctx, vec2 start, vec2 end, float thickness,
                      ui_color color);
+
+/* Draw an image in immediate mode
+ * ctx - ui context to draw with
+ * img - image to draw (has to be loaded beforehand)
+ * pos - position to draw the image (in screen scale (0-1.f))
+ * size - the size of the image (in screen scale (0-1.f))*/
+void ui_im_img_draw(ui_ctx* ctx, ui_img img, vec2 pos, vec2 size);
 
 /* Get the max font size for a specific bounding box (px)
  * ctx - context to check against
