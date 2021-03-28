@@ -1,8 +1,8 @@
 // TODO: Multi iterator to parse duplicate keys
 
-// MACROS:
-// ASTERA_NO_CONF - Remove INI Loading functionality
-// ASTERA_LOWP_TIME - Use single precision floats for time
+/* MACROS:
+ * ASTERA_NO_CONF - Remove INI Loading functionality
+ * ASTERA_LOWP_TIME - Use single precision floats for time */
 
 #ifndef ASTERA_SYS_HEADER
 #define ASTERA_SYS_HEADER
@@ -60,10 +60,13 @@ typedef struct {
 typedef struct {
   /* keys - an array of the key strings
      values - an array of the value strings
-     count - the number of strings (length of each array individually) */
+     count - the number of strings (length of each array individually)
+     capacity - the max number of strings in the arrays
+     allow_grow - if to allow for array growth */
   const char** keys;
   const char** values;
-  uint32_t     count;
+  uint32_t     count, capacity;
+  uint8_t      allow_grow;
 } s_table;
 
 /* Parse data as a psuedo-ini loader
@@ -72,8 +75,10 @@ typedef struct {
 s_table s_table_get(unsigned char* data);
 
 /* Create a table with count
+ * capacity - the max number of key/value pairs in array
+ * allow_grow - if to allow for the table to auto grow when adding at capacity
  * returns: basic table structure */
-s_table s_table_create(uint8_t count);
+s_table s_table_create(uint32_t capacity, uint8_t allow_grow);
 
 /* Add a key/(int) value to a table
  * returns: 1 = success, 0 = fail */

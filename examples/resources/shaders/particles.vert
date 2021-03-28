@@ -6,6 +6,7 @@ layout(location = 1) in vec2 in_texc;
 
 uniform mat4 projection;
 uniform mat4 view;
+uniform mat4 model;
 
 uniform mat4 mats[MAX_BATCH_SIZE];
 uniform vec4 coords[MAX_BATCH_SIZE];

@@ -241,7 +241,7 @@ void init_audio() {
     printf("Unable to load song.\n");
   }
 
-  asset_t* blip_data = asset_get("resources/audio/blop.wav");
+  asset_t* blip_data = asset_get("resources/audio/select.wav");
   blip_id = a_buf_create(audio_ctx, blip_data->data, blip_data->data_length,
                          "blip", 0);
   asset_free(blip_data);

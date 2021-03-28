@@ -9,9 +9,9 @@ extern "C" {
 #include <astera/linmath.h>
 #include <stdint.h>
 
-// NOTE: These are relative includes for portability's sake
-//       the cmake find_package exports them as relative so it'll work
-//       cross platform as expected
+/* NOTE: These are relative includes for portability's sake
+ *       the cmake find_package exports them as relative so it'll work
+ *       cross platform as expected */
 #if defined(__APPLE__)
 #include <OpenAL/alc.h>
 #include <OpenAL/al.h>
@@ -120,42 +120,38 @@ typedef struct {
 } a_filter;
 
 typedef struct {
-  // FIXED:
-  // these variables are only used at initialization
-
-  // fx - the list of effects to use with the song/sound
-  // filters - a list of filters to use with the song/sound
-  // fx_count - the number of fx to use
+  /* FIXED:
+   * these variables are only used at initialization
+   * fx - the list of effects to use with the song/sound
+   * filters - a list of filters to use with the song/sound
+   * fx_count - the number of fx to use */
   uint16_t *fx, *filters;
   uint16_t  fx_count, filter_count;
 
-  // REALTIME:
-  // these variables are updated in realtime
-  // DYNAMIC:
-  // these variables affect the song / sound in real time
+  /* DYNAMIC:
+   * these variables affect the song / sound in real time
 
-  // position - the position to set the sound/song
-  // velocity - the velocity to set the sound/song (doesn't move it)
-  // gain - the gain of the sound/song
-  // range - the range of the sound/song
+   * position - the position to set the sound/song
+   * velocity - the velocity to set the sound/song (doesn't move it)
+   * gain - the gain of the sound/song
+   * range - the range of the sound/song */
   vec3  position, velocity;
   float gain, range;
 
-  // max_loop - the max amount of times the sound/song can loop
+  /* max_loop - the max amount of times the sound/song can loop */
   uint16_t max_loop;
 
-  // loop - if the sound/song should loop (1 = true, 0 = false)
-  // stop - if the sound/song should stop (1 = true, 0 = false)
-  // destroy - if the sound/song should be destroyed (1 = true, 0 = false)
+  /* loop - if the sound/song should loop (1 = true, 0 = false)
+   * stop - if the sound/song should stop (1 = true, 0 = false)
+   * destroy - if the sound/song should be destroyed (1 = true, 0 = false) */
   uint8_t loop;
   uint8_t stop, destroy;
 
-  // OBSERVATIONAL:
-  // these variables are updated in real time for observation
-
-  // loop_count - the amount of times the sound/song has looped
-  // time - the current time in the sound/song
-  // state - the current state of the sound/song
+  /* OBSERVATIONAL:
+   * these variables are updated in real time for observation
+   * loop_count - the amount of times the sound/song has looped
+   * time - the current time in the sound/song
+   * state - the current state of the sound/song */
   uint16_t loop_count;
   time_s   time;
   int8_t   valid;
@@ -163,61 +159,61 @@ typedef struct {
 } a_req;
 
 typedef struct {
-  // id - the ID for this song in an a_ctx
+  /* id - the ID for this song in an a_ctx */
   uint16_t id;
 
-  // format - the OpenAL format of the song
-  // channels - the number of channels in the song
+  /* format - the OpenAL format of the song
+   * channels - the number of channels in the song */
   int32_t format, channels;
 
-  // source - the OpenAL source for the song
-  // buffers - the OpenAL buffers for the song
-  // buffer_count - the number of OpenAL Buffers
-  // gain - the gain of the song
+  /* source - the OpenAL source for the song
+   * buffers - the OpenAL buffers for the song
+   * buffer_count - the number of OpenAL Buffers
+   * gain - the gain of the song */
   uint32_t  source;
   uint32_t* buffers;
   uint32_t* buffer_sizes;
   uint8_t   buffer_count;
 
-  // delta - the realtime position of the song
-  // length - the length of the song
-  // curr - the current offset before playing buffer
+  /* delta - the realtime position of the song
+   * length - the length of the song
+   * curr - the current offset before playing buffer */
   time_s delta, length, curr;
 
-  // vorbis - the STB_Vorbis handle for OGG Decoding
-  // info - the stb vorbis info handle
+  /* vorbis - the STB_Vorbis handle for OGG Decoding
+   * info - the stb vorbis info handle */
   stb_vorbis*     vorbis;
   stb_vorbis_info info;
 
-  // sample_count - the total number of samples in the vorbis stream
-  // sample_offset - the overall offset of the buffer
+  /* sample_count - the total number of samples in the vorbis stream
+   * sample_offset - the overall offset of the buffer */
   uint32_t sample_count, sample_offset;
 
-  // packets_per_buffer - the amount of packets to decode per buffer
+  /* packets_per_buffer - the amount of packets to decode per buffer */
   uint16_t packets_per_buffer;
 
-  // data - the raw data of the OGG Vorbis track
+  /* data - the raw data of the OGG Vorbis track */
   uint8_t* data;
 
-  // req - where & how to play the song
+  /* req - where & how to play the song */
   a_req* req;
 
-  // loop - if the song should loop or not
+  /* loop - if the song should loop or not */
   uint8_t loop;
 } a_song;
 
 typedef struct {
-  // id - the id / index of this sfx in an a_ctx
+  /* id - the id / index of this sfx in an a_ctx */
   uint16_t id;
 
-  // buffer - the OpenAL Buffer attached to this slot
-  // source - the OpenAL source attached to this slot
+  /* buffer - the OpenAL Buffer attached to this slot
+   * source - the OpenAL source attached to this slot */
   uint32_t buffer, source;
 
-  // length - the length in samples
+  /* length - the length in samples */
   uint32_t length;
 
-  // req - the request attached
+  /* req - the request attached */
   a_req* req;
 } a_sfx;
 

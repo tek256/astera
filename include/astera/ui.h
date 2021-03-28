@@ -3,13 +3,12 @@
  * i.e 0 -> 1, you can use the functions ui_px_to_scale and inversely
  * ui_scale_to_px in order to translate between them. Scale is set within the
  * ui_ctx struct, you can modify & get a copy of it from both ui_ctx_scale_set
- * and ui_ctx_scale_get NOTE: Scale is the term used to denote normalized size
- */
+ * and ui_ctx_scale_get
+ * NOTE: Scale is the term used to denote normalized size */
 
 /* TODO:
  * - Patch sticky mouse click between sliders
  *   (examples/fighter.c settings menu)
- *
  */
 
 #ifndef ASTERA_UI_HEADER
@@ -71,47 +70,47 @@ typedef struct {
 } ui_button;
 
 typedef struct {
-  // id - the internal unique UI ID for this element
+  /* id - the internal unique UI ID for this element */
   uint32_t id;
-  // position - the position of the box (in relative size)
-  // size - the size of the box (in relative size)
+  /* position - the position of the box (in relative size)
+   * size - the size of the box (in relative size) */
   vec2 position, size;
 
-  // bg - the background color
-  // hover_bg - the background color when hovered (0 just defaults to bg)
+  /* bg - the background color
+   * hover_bg - the background color when hovered (0 just defaults to bg) */
   ui_color bg, hover_bg;
-  // border_color - the color of the border if drawn
-  // hover_border_color - the color of the border when hovered if drawn
+  /* border_color - the color of the border if drawn
+   * hover_border_color - the color of the border when hovered if drawn */
   ui_color border_color, hover_border_color;
 
-  // border_size - the size of the border in px (0 = not drawn)
-  // border_radius - the rounding of the corners in px
-  //                  (not affected by border_size)
+  /* border_size - the size of the border in px (0 = not drawn)
+   * border_radius - the rounding of the corners in px
+   *                  (not affected by border_size) */
   float border_size, border_radius;
 } ui_box;
 
 typedef struct {
   uint32_t id;
-  // options - the array of strings for option strings
-  // data - optional data pointer to other list
+  /* options - the array of strings for option strings
+   data - optional data pointer to other list */
   char** options;
   void*  data;
 
-  // option_count - the number of total options
-  // option_capacity - the max number of options stored in `options`
+  /* option_count - the number of total options
+   * option_capacity - the max number of options stored in `options` */
   uint16_t option_count, option_capacity;
 
-  // -- SCROLLING --
-  // option_display - the number of options to display
-  // start - the start index for the scroll offset
+  /* -- SCROLLING --
+   * option_display - the number of options to display
+   * start - the start index for the scroll offset */
   uint16_t option_display, start;
-  // top_scroll_pad - the # of options to leave at the top when scrolling
-  // bottom_scroll_pad - the # of options to leave at the bottom when scrolling
+  /* top_scroll_pad - # of options to leave at the top when scrolling
+   * bottom_scroll_pad - # of options to leave at the bottom when scrolling */
   uint16_t top_scroll_pad, bottom_scroll_pad;
 
-  // selected - current selected option
-  // cursor - the current hovered option
-  // mouse_cursor - the current mouse hovered option
+  /* selected - current selected option
+   * cursor - the current hovered option
+   * mouse_cursor - the current mouse hovered option */
   uint16_t selected, cursor, mouse_cursor;
 
   ui_font font;
@@ -128,8 +127,8 @@ typedef struct {
 
   float border_size, border_radius;
 
-  // has_change - if there has been a change
-  // use_mouse - if to use the mouse_cursor over cursor
+  /* has_change - if there has been a change
+   * use_mouse - if to use the mouse_cursor over cursor */
   uint8_t showing, has_change, use_mouse;
 } ui_dropdown;
 
@@ -169,7 +168,7 @@ typedef enum {
 typedef struct {
   uint32_t id;
   vec2     position, size;
-  float    fill_padding; // padding amount between border & fill
+  float    fill_padding; /* padding amount between border & fill */
   ui_color active_bg, active_fg, active_border_color;
   ui_color bg, fg, border_color;
 
@@ -184,7 +183,7 @@ typedef struct {
 typedef struct {
   uint32_t id;
   vec2     position, size, button_size;
-  float    fill_padding; // padding amount between border & fill
+  float    fill_padding; /* padding amount between border & fill */
   ui_color active_bg, active_fg, active_border_color;
   ui_color bg, fg, border_color;
   ui_color button_color, active_button_color;
@@ -196,7 +195,7 @@ typedef struct {
 
   int8_t vertical_fill;
   int8_t flip;
-  int8_t active, holding; // holding is if the button is being dragged
+  int8_t active, holding; /* holding is if the button is being dragged */
   int8_t button_fill, button_hover;
   int8_t button_circle;
   int8_t auto_hide_button;
@@ -227,7 +226,7 @@ typedef struct {
 } ui_img;
 
 typedef enum {
-  UI_DEFAULT_FONT, // Global fallback font
+  UI_DEFAULT_FONT, /* Global fallback font */
 
   UI_TEXT_FONT,
   UI_TEXT_FONT_SIZE,
@@ -390,7 +389,7 @@ typedef struct {
   ui_leaf** draw_order;
   uint16_t  capacity, count;
 
-  // new implementation
+  /* new implementation */
   uint32_t mouse_hover_id, cursor_id;
   uint32_t mouse_hover_index, cursor_index, selected_index;
   int      loop;
@@ -487,31 +486,31 @@ void ui_scale_offset_px(ui_ctx* ctx, vec2 dst, vec2 val, vec2 px);
  * px - the pixel size to convert */
 void ui_px_to_scale(ui_ctx* ctx, vec2 dst, vec2 px);
 
-// Convert Screen Scale to Pixels
+/* Convert Screen Scale to Pixels */
 void ui_scale_to_px(ui_ctx* ctx, vec2 dst, vec2 scale);
 
-// Convert Screen Scale to Pixels (4f)
-// min x max, [min_x, min_y, max_x, max_y]
+/* Convert Screen Scale to Pixels (4f)
+ * min x max, [min_x, min_y, max_x, max_y] */
 void ui_scale_to_px4f(ui_ctx* ctx, vec4 dst, vec4 scale);
 
-// Adjust a scaled position by pixels
+/* Adjust a scaled position by pixels */
 void ui_scale_move_px(ui_ctx* ctx, vec2 dst, vec2 scale, vec2 px);
 
-// Adjust a pixel position by scale
+/* Adjust a pixel position by scale */
 void ui_px_move_scale(ui_ctx* ctx, vec2 dst, vec2 px, vec2 scale);
 
-// Function to calculate new scale from pixel size within 'screen' size
+/* Function to calculate new scale from pixel size within 'screen' size */
 void ui_px_from_scale(vec2 dst, vec2 px, vec2 screen);
 
-// Set the UI's screensize (px)
+/* Set the UI's screensize (px) */
 void ui_ctx_scale_set(ui_ctx* ctx, vec2 size_px);
 
-// Get the UI's screensize (px)
+/* Get the UI's screensize (px) */
 void ui_ctx_scale_get(ui_ctx* ctx, vec2 dst_px);
 
-// Start the NanoVG Frame
+/* Start the NanoVG Frame */
 void ui_frame_start(ui_ctx* ctx);
-// End the NanoVG Frame
+/* End the NanoVG Frame */
 void ui_frame_end(ui_ctx* ctx);
 
 /* Set a vec2 attribute by type & size

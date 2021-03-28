@@ -15,22 +15,21 @@
 #include <astera/input.h>
 #include <astera/ui.h>
 
-//#define DEBUG_HITBOXES
+// #define DEBUG_HITBOXES
 
-#define BAKED_SHEET_SIZE  16 * 16
-#define BAKED_SHEET_WIDTH 16
+#define USER_PREFS_FILE "user_prefs.ini"
 
 #define MAX_ENEMIES           32
 #define MAX_PARTICLE_EMITTERS 8
 
-#define MAX_HEALTH_ORBS   8
-#define MAX_PLAYER_HEALTH 10
-#define DAMAGE_DURATION   750
-#define STAGGER_DURATION  100
-#define KNOCKBACK_AMOUNT  12
+#define MAX_HEALTH_ORBS     8
+#define MAX_HEALTH_ORB_LIFE 5000 // 5 sec
+#define MAX_PLAYER_HEALTH   10
+#define DAMAGE_DURATION     750 // ms
+#define STAGGER_DURATION    100 // ms
+#define KNOCKBACK_AMOUNT    12  // units
 
-// ms
-#define ATTACK_COOLDOWN 400
+#define ATTACK_COOLDOWN 400 // ms
 
 // ui stuff
 
@@ -39,6 +38,7 @@ typedef enum {
   MENU_MAIN     = 1,
   MENU_SETTINGS = 2,
   MENU_PAUSE    = 3,
+  MENU_END      = 4,
 } MENU_PAGES;
 
 typedef struct {
@@ -61,11 +61,16 @@ typedef struct {
   ui_box    p_bg;
   ui_button p_resume, p_settings, p_quit;
 
+  // --- END ---
+  ui_button w_again, w_quit;
+  ui_text   w_title;
+  ui_box    w_bg;
+
   // --- IN GAME ---
   ui_img heart_full, heart_half, heart_empty;
 
   // --- PAGES ---
-  ui_tree  main_page, settings_page, pause_page;
+  ui_tree  main_page, settings_page, pause_page, end_page;
   ui_tree* current_page;
   int      page_number, last_page;
 
@@ -82,8 +87,8 @@ typedef struct {
 typedef struct {
   int sfx_layer, music_layer;
 
-  int s_enemy_hit, s_eye_die, s_menu_move, s_player_die, s_player_hit, s_select,
-      s_slime_die, s_goblin_die, s_attack;
+  int s_enemy_hit, s_menu_move, s_player_die, s_player_hit, s_select,
+      s_goblin_die, s_attack;
 
   a_req reqs[16];
   int   req_count;
@@ -132,6 +137,7 @@ typedef struct {
   r_sprite sprite;
   vec2     center;
   int      active;
+  float    timer;
 } health_orb_t;
 
 typedef struct {
@@ -188,6 +194,8 @@ typedef enum {
   GAME_START = 0,
   GAME_PLAY  = 1,
   GAME_PAUSE = 2,
+  GAME_WIN   = 3,
+  GAME_LOSE  = 4,
   GAME_QUIT  = -1,
 } GAME_STATE;
 
@@ -249,8 +257,8 @@ void move_enemy(enemy_t* en, vec2 amount) {
 }
 
 void particle_spawn(r_particles* system, r_particle* particle) {
-  float x = system->position[0] + fmod(rand(), system->size[0]);
-  float y = system->position[1] + fmod(rand(), system->size[1]);
+  float x = fmod(rand(), system->size[0]);
+  float y = fmod(rand(), system->size[1]);
 
   particle->position[0] = x;
   particle->position[1] = y;
@@ -284,8 +292,167 @@ void create_emitter(vec2 position, vec2 dir) {
       r_particles_reset(emitter);
       r_particles_set_position(emitter, position);
       r_particles_start(emitter);
+      break;
     }
   }
+}
+
+void spawn_enemy() {
+  if (level.enemy_count == level.enemy_capacity - 1) {
+    return;
+  }
+
+  enemy_t* en = 0;
+  for (int i = 0; i < level.enemy_capacity; ++i) {
+    if (!level.enemies[i].alive) {
+      en = &level.enemies[i];
+      break;
+    }
+  }
+
+  if (!en) {
+    printf("Unable to find open slot for new enemy");
+  }
+
+  // keep within middle 6/8ths of screen
+  int  x        = rnd_range(20, 300);
+  int  y        = rnd_range(20, 160);
+  vec2 position = {x, y};
+
+  int within_range = 0;
+  if ((within_range = within_range_of(level.player.center, 32.f, position))) {
+    while (within_range) {
+      x            = rnd_range(20, 300);
+      y            = rnd_range(20, 160);
+      position[0]  = (float)x;
+      position[1]  = (float)y;
+      within_range = within_range_of(level.player.center, 32.f, position);
+    }
+  }
+
+  vec2 sprite_size = {16.f, 16.f};
+  en->sprite       = r_sprite_create(shader, position, sprite_size);
+  en->sprite.layer = 4;
+  en->state        = ENEMY_IDLE;
+  en->state_change = 0;
+  en->type         = rand() % 3;
+  en->damage_timer = 0.f;
+  en->take_damage  = 0;
+  en->alive        = 1;
+
+  r_anim* anim = 0;
+
+  float radius = 6.f;
+
+  switch (en->type) {
+    case ENEMY_EYE:
+      en->max_health = 2;
+      anim           = r_anim_get_name(render_ctx, "eye_idle");
+      radius         = 5.f;
+      break;
+    case ENEMY_GOBLIN:
+      en->max_health = 4;
+      anim           = r_anim_get_name(render_ctx, "goblin_idle");
+      break;
+    case ENEMY_SLIME:
+      en->max_health = 3;
+      anim           = r_anim_get_name(render_ctx, "slime_idle");
+      break;
+  }
+
+  float rand_anim_advance = (float)(rand() % 1500);
+
+  en->circle = c_circle_create(position, radius);
+  en->health = en->max_health;
+  r_sprite_set_anim(&en->sprite, anim);
+  r_sprite_anim_play(&en->sprite);
+  r_sprite_update(&en->sprite, rand_anim_advance);
+
+  ++level.enemy_count;
+}
+
+void spawn_health_orb(vec2 pos) {
+  for (int i = 0; i < MAX_HEALTH_ORBS; ++i) {
+    health_orb_t* orb = &level.health_orbs[i];
+    if (!orb->active) {
+      orb->timer = 0.f;
+      vec2_dup(orb->center, pos);
+      r_sprite_set_pos(&level.health_orbs[i].sprite, pos);
+      orb->active = 1;
+      break;
+    }
+  }
+}
+
+void update_player_sprites(void) {
+  int  swoosh_state = r_sprite_get_anim_state(&level.player.swoosh);
+  vec2 center       = {0.f};
+
+  vec2 hitbox_pos, hitbox_halfsize = {19.5f, 24.f};
+  vec2_dup(hitbox_pos, level.player.center);
+  hitbox_pos[0] += (level.player.sprite.flip_x) ? -9.75f : 9.75f;
+  vec2_scale(hitbox_halfsize, hitbox_halfsize, 0.5f);
+  c_aabb_set(&level.player.hitbox, hitbox_pos, hitbox_halfsize);
+
+  c_aabb_get_center(center, level.player.aabb);
+  r_sprite_set_pos(&level.player.sprite, center);
+  vec2 sword_pos;
+  vec2_dup(sword_pos, level.player.sprite.position);
+  sword_pos[0] += (level.player.sprite.flip_x) ? -9.f : 9.f;
+  sword_pos[1] -= 2.f;
+
+  level.player.sword.flip_x = level.player.sprite.flip_x;
+  r_sprite_set_pos(&level.player.sword, sword_pos);
+  sword_pos[0] += (level.player.sprite.flip_x) ? -5.f : 5.f;
+  sword_pos[1] += 2.f;
+  if (!swoosh_state)
+    r_sprite_set_pos(&level.player.swoosh, sword_pos);
+
+  if (level.player.sword.flip_x) {
+    level.player.sword.layer = 9;
+  } else {
+    level.player.sword.layer = 5;
+  }
+}
+
+// set the menu page based on enum
+static void menu_set_page(int page) {
+  // invalid page type
+  if (!(page == MENU_NONE || page == MENU_SETTINGS || page == MENU_PAUSE ||
+        page == MENU_MAIN || page == MENU_END)) {
+    printf("Invalid page type.\n");
+    return;
+  }
+
+  menu.last_page   = menu.page_number;
+  menu.page_number = page;
+
+  switch (page) {
+    case MENU_NONE: {
+      menu.current_page = 0;
+    } break;
+    case MENU_MAIN: {
+      menu.current_page = &menu.main_page;
+    } break;
+    case MENU_SETTINGS: {
+      menu.current_page = &menu.settings_page;
+    } break;
+    case MENU_PAUSE: {
+      menu.current_page = &menu.pause_page;
+    } break;
+    case MENU_END: {
+      menu.current_page = &menu.end_page;
+    } break;
+    default:
+      printf("Invalid page\n");
+      break;
+  }
+}
+
+void game_end(void) {
+  // set end game
+  menu_set_page(MENU_END);
+  menu.w_title.text = (game_state == GAME_WIN) ? "YOU WON!" : "YOU DIED!";
 }
 
 // setup keybindings / etc
@@ -307,52 +474,6 @@ void init_input(void) {
 
   i_binding_add(input_ctx, "attack", KEY_F, ASTERA_BINDING_KEY);
   i_binding_add_alt(input_ctx, "attack", KEY_SPACE, ASTERA_BINDING_KEY);
-}
-
-// set the menu page based on enum
-static void menu_set_page(int page) {
-  // invalid page type
-  if (!(page == MENU_NONE || page == MENU_SETTINGS || page == MENU_PAUSE ||
-        page == MENU_MAIN)) {
-    printf("Invalid page type.\n");
-    return;
-  }
-
-  menu.last_page   = menu.page_number;
-  menu.page_number = page;
-
-  switch (menu.page_number) {
-    case MENU_NONE: {
-    } break;
-    case MENU_MAIN: {
-      ui_tree_reset(&menu.main_page);
-    } break;
-    case MENU_SETTINGS: {
-      ui_tree_reset(&menu.settings_page);
-    } break;
-    case MENU_PAUSE: {
-      ui_tree_reset(&menu.pause_page);
-    } break;
-    default:
-      break;
-  }
-
-  switch (page) {
-    case MENU_NONE: {
-      menu.current_page = 0;
-    } break;
-    case MENU_MAIN: {
-      menu.current_page = &menu.main_page;
-    } break;
-    case MENU_SETTINGS: {
-      menu.current_page = &menu.settings_page;
-    } break;
-    case MENU_PAUSE: {
-      menu.current_page = &menu.pause_page;
-    } break;
-    default:
-      break;
-  }
 }
 
 void init_ui(void) {
@@ -454,6 +575,7 @@ void init_ui(void) {
   ui_tree_add(u_ctx, &menu.main_page, &menu.play, UI_BUTTON, 1, 1, 1);
   ui_tree_add(u_ctx, &menu.main_page, &menu.settings, UI_BUTTON, 1, 1, 1);
   ui_tree_add(u_ctx, &menu.main_page, &menu.quit, UI_BUTTON, 1, 1, 1);
+  ui_tree_reset(&menu.main_page);
 
   // SETTINGS MENU
   vec2_clear(temp2);
@@ -610,6 +732,7 @@ void init_ui(void) {
   ui_tree_add(u_ctx, &menu.settings_page, &menu.res_dd, UI_DROPDOWN, 1, 1, 1);
   ui_tree_add(u_ctx, &menu.settings_page, &menu.back_button, UI_BUTTON, 1, 1,
               0);
+  ui_tree_reset(&menu.settings_page);
 
   menu.settings_page.loop = 0;
 
@@ -648,6 +771,38 @@ void init_ui(void) {
   ui_tree_add(u_ctx, &menu.pause_page, &menu.p_settings, UI_BUTTON, 1, 1, 2);
   ui_tree_add(u_ctx, &menu.pause_page, &menu.p_quit, UI_BUTTON, 1, 1, 2);
   ui_tree_add(u_ctx, &menu.pause_page, &menu.p_bg, UI_BOX, 0, 0, 0);
+  ui_tree_reset(&menu.pause_page);
+
+  // WIN SCREEN
+
+  menu.w_bg         = ui_box_create(u_ctx, zero, zero);
+  menu.w_bg.size[0] = 1.f;
+  menu.w_bg.size[1] = 1.f;
+  // ui_box_set_colors(&menu.p_bg, menu.red, 0, 0, 0);
+  ui_get_color(menu.w_bg.bg, "000");
+  menu.w_bg.bg[3] = 0.2f;
+
+  vec2_clear(temp2);
+  temp[0] = 0.5f;
+  temp[1] = 0.25f;
+  menu.w_title =
+      ui_text_create(u_ctx, temp, "YOU WON!", 48.f, menu.font, UI_ALIGN_CENTER);
+
+  temp[1] += 0.2f;
+  menu.w_again =
+      ui_button_create(u_ctx, temp, temp2, "GO AGAIN", UI_ALIGN_CENTER, 32.f);
+
+  temp[1] += 0.15f;
+  menu.w_quit =
+      ui_button_create(u_ctx, temp, temp2, "QUIT", UI_ALIGN_CENTER, 32.f);
+
+  menu.end_page      = ui_tree_create(5);
+  menu.end_page.loop = 0;
+  ui_tree_add(u_ctx, &menu.end_page, &menu.w_title, UI_TEXT, 0, 0, 1);
+  ui_tree_add(u_ctx, &menu.end_page, &menu.w_again, UI_BUTTON, 1, 1, 2);
+  ui_tree_add(u_ctx, &menu.end_page, &menu.w_quit, UI_BUTTON, 1, 1, 2);
+  ui_tree_add(u_ctx, &menu.end_page, &menu.w_bg, UI_BOX, 0, 0, 0);
+  ui_tree_reset(&menu.end_page);
 
   // IN GAME
 
@@ -695,13 +850,11 @@ void init_audio() {
 
   a_res.s_enemy_hit  = load_sfx("resources/audio/enemy_hit.wav", "enemy_hit");
   a_res.s_attack     = load_sfx("resources/audio/attack.wav", "attack");
-  a_res.s_eye_die    = load_sfx("resources/audio/eye_die.wav", "eye_die");
   a_res.s_menu_move  = load_sfx("resources/audio/menu_move.wav", "menu_move");
   a_res.s_player_die = load_sfx("resources/audio/player_die.wav", "player_die");
   a_res.s_player_hit = load_sfx("resources/audio/player_hit.wav", "player_hit");
   a_res.s_select     = load_sfx("resources/audio/select.wav", "select");
   a_res.s_goblin_die = load_sfx("resources/audio/goblin_die.wav", "goblin_die");
-  a_res.s_slime_die  = load_sfx("resources/audio/slime_die.wav", "slime_die");
 }
 
 void update_reqs(void) {
@@ -955,19 +1108,19 @@ void init_render(void) {
 
   int     goblin_idle_frames[] = {7, 8, 9, 10, 11, 12};
   r_anim* goblin_idle =
-      load_anim(&character_sheet, "goblin_idle", goblin_idle_frames, 6, 16, 1);
+      load_anim(&character_sheet, "goblin_idle", goblin_idle_frames, 6, 8, 1);
 
   int     goblin_run_frames[] = {14, 15, 16, 17, 18, 19};
   r_anim* goblin_run =
-      load_anim(&character_sheet, "goblin_walk", goblin_run_frames, 6, 19, 1);
+      load_anim(&character_sheet, "goblin_walk", goblin_run_frames, 6, 10, 1);
 
   int     slime_idle_frames[] = {21, 22, 23, 24, 25, 26};
   r_anim* slime_idle =
-      load_anim(&character_sheet, "slime_idle", slime_idle_frames, 6, 16, 1);
+      load_anim(&character_sheet, "slime_idle", slime_idle_frames, 6, 8, 1);
 
   int     slime_bounce_frames[] = {28, 29, 30, 31, 32, 33};
   r_anim* slime_bounce =
-      load_anim(&character_sheet, "slime_walk", slime_bounce_frames, 6, 16, 1);
+      load_anim(&character_sheet, "slime_walk", slime_bounce_frames, 6, 10, 1);
 
   int     player_idle_frames[] = {35, 36, 37, 38, 39, 40};
   r_anim* player_idle =
@@ -992,7 +1145,7 @@ void init_render(void) {
 
   for (int i = 0; i < MAX_PARTICLE_EMITTERS; ++i) {
     r_particles* emitter = &level.emitters[i];
-    *emitter = r_particles_create(50, 500.f, 15, 15, PARTICLE_COLORED, 1, 128);
+    *emitter = r_particles_create(50, 500.f, 15, 15, PARTICLE_COLORED, 1, 32);
     emitter->particle_layer = 100;
     r_particles_set_particle(emitter, particle_color, 500.f, particle_size,
                              particle_velocity);
@@ -1006,9 +1159,13 @@ void init_render(void) {
     r_particles_set_animator(emitter, particle_animate);
   }
 
+  vec2 sprite_size = {6.f, 6.f}, sprite_pos = {0.f, 0.f};
+
   // health orb initialization
   for (int i = 0; i < MAX_HEALTH_ORBS; ++i) {
-    r_sprite sprite;
+    r_sprite sprite = r_sprite_create(shader, sprite_pos, sprite_size);
+    r_sprite_set_tex(&sprite, &character_sheet, 20);
+    sprite.layer                = 127;
     level.health_orbs[i].sprite = sprite;
     level.health_orbs[i].active = 0;
     vec2_clear(level.health_orbs[i].center);
@@ -1057,65 +1214,30 @@ void init_game(void) {
 // (320 / 2) - (16 / 2), (180 / 2) - (16 / 2)
 // centered position
 
-void clear_level(void) { free(level.enemies); }
+void clear_level(void) {
+  free(level.enemies);
+  for (int i = 0; i < MAX_HEALTH_ORBS; ++i) {
+    level.health_orbs[i].active = 0;
+  }
+
+  for (int i = 0; i < MAX_PARTICLE_EMITTERS; ++i) {
+    r_particles_reset(&level.emitters[i]);
+  }
+
+  vec2 player_pos      = {152.f, 82.f};
+  vec2 player_halfsize = {4.5f, 5.f};
+  c_aabb_set(&level.player.aabb, player_pos, player_halfsize);
+  vec2_dup(level.player.center, player_pos);
+  update_player_sprites();
+}
 
 void init_level(void) {
-  level.enemy_count    = rnd_range(16, MAX_ENEMIES);
+  int spawn_count      = rnd_range(4, 16);
   level.enemy_capacity = MAX_ENEMIES;
   level.enemies        = (enemy_t*)calloc(sizeof(enemy_t), MAX_ENEMIES);
 
-  for (int i = 0; i < level.enemy_count; ++i) {
-    // keep within middle 6/8ths of screen
-    int  x        = rnd_range(20, 300);
-    int  y        = rnd_range(20, 160);
-    vec2 position = {x, y};
-
-    int within_range = 0;
-    if ((within_range = within_range_of(level.player.center, 32.f, position))) {
-      while (within_range) {
-        x            = rnd_range(20, 300);
-        y            = rnd_range(20, 160);
-        position[0]  = (float)x;
-        position[1]  = (float)y;
-        within_range = within_range_of(level.player.center, 32.f, position);
-      }
-    }
-
-    vec2     sprite_size = {16.f, 16.f};
-    enemy_t* en          = &level.enemies[i];
-    en->sprite           = r_sprite_create(shader, position, sprite_size);
-    en->sprite.layer     = 4;
-    en->state            = ENEMY_IDLE;
-    en->state_change     = 0;
-    en->type             = rand() % 3;
-    en->damage_timer     = 0.f;
-    en->take_damage      = 0;
-    en->alive            = 1;
-
-    r_anim* anim = 0;
-
-    float radius = 6.f;
-
-    switch (en->type) {
-      case ENEMY_EYE:
-        en->max_health = 2;
-        anim           = r_anim_get_name(render_ctx, "eye_idle");
-        radius         = 5.f;
-        break;
-      case ENEMY_GOBLIN:
-        en->max_health = 4;
-        anim           = r_anim_get_name(render_ctx, "goblin_idle");
-        break;
-      case ENEMY_SLIME:
-        en->max_health = 3;
-        anim           = r_anim_get_name(render_ctx, "slime_idle");
-        break;
-    }
-
-    en->circle = c_circle_create(position, radius);
-    en->health = en->max_health;
-    r_sprite_set_anim(&en->sprite, anim);
-    r_sprite_anim_play(&en->sprite);
+  for (int i = 0; i < spawn_count; ++i) {
+    spawn_enemy();
   }
 }
 
@@ -1144,6 +1266,7 @@ void handle_ui(void) {
       break;
     case MENU_MAIN: { //
       if (ui_tree_check_event(menu.current_page, menu.play.id) == 1) {
+        menu_select_sfx();
         game_state = GAME_PLAY;
         init_level();
         menu_set_page(MENU_NONE);
@@ -1152,10 +1275,12 @@ void handle_ui(void) {
 
       if (ui_tree_check_event(menu.current_page, menu.settings.id) == 1) {
         menu_set_page(MENU_SETTINGS);
+        menu_select_sfx();
       }
 
       if (ui_tree_check_event(menu.current_page, menu.quit.id) == 1) {
         // quit game
+        menu_select_sfx();
         menu_set_page(MENU_NONE);
         game_state = GAME_QUIT;
         return;
@@ -1169,17 +1294,17 @@ void handle_ui(void) {
       if (i_binding_clicked(input_ctx, "right")) {
         if (ui_tree_is_active(u_ctx, menu.current_page, menu.master_vol.id)) {
           ui_slider_next_step(&menu.master_vol);
-          user_prefs.master_vol = menu.master_vol.value;
+          a_listener_set_gain(audio_ctx, menu.master_vol.value);
           menu_move_sfx();
         } else if (ui_tree_is_active(u_ctx, menu.current_page,
                                      menu.sfx_vol.id)) {
           ui_slider_next_step(&menu.sfx_vol);
-          user_prefs.sfx_vol = menu.sfx_vol.value;
+          a_layer_set_gain(audio_ctx, a_res.sfx_layer, menu.sfx_vol.value);
           menu_move_sfx();
         } else if (ui_tree_is_active(u_ctx, menu.current_page,
                                      menu.music_vol.id)) {
           ui_slider_next_step(&menu.music_vol);
-          user_prefs.music_vol = menu.music_vol.value;
+          a_layer_set_gain(audio_ctx, a_res.music_layer, menu.music_vol.value);
           menu_move_sfx();
         }
       }
@@ -1187,17 +1312,17 @@ void handle_ui(void) {
       if (i_binding_clicked(input_ctx, "left")) {
         if (ui_tree_is_active(u_ctx, menu.current_page, menu.master_vol.id)) {
           ui_slider_prev_step(&menu.master_vol);
-          user_prefs.master_vol = menu.master_vol.value;
+          a_listener_set_gain(audio_ctx, menu.master_vol.value);
           menu_move_sfx();
         } else if (ui_tree_is_active(u_ctx, menu.current_page,
                                      menu.sfx_vol.id)) {
           ui_slider_prev_step(&menu.sfx_vol);
-          user_prefs.sfx_vol = menu.sfx_vol.value;
+          a_layer_set_gain(audio_ctx, a_res.sfx_layer, menu.sfx_vol.value);
           menu_move_sfx();
         } else if (ui_tree_is_active(u_ctx, menu.current_page,
                                      menu.music_vol.id)) {
           ui_slider_prev_step(&menu.music_vol);
-          user_prefs.music_vol = menu.music_vol.value;
+          a_layer_set_gain(audio_ctx, a_res.music_layer, menu.music_vol.value);
           menu_move_sfx();
         }
       }
@@ -1222,8 +1347,8 @@ void handle_ui(void) {
         }
 
         a_layer_set_gain(audio_ctx, a_res.sfx_layer, menu.sfx_vol.value);
-        user_prefs.sfx_vol = menu.sfx_vol.value;
       }
+
       if (menu.music_vol.holding) {
         float gain_prev = a_layer_get_gain(audio_ctx, a_res.music_layer);
         if (gain_prev != menu.music_vol.value) {
@@ -1231,7 +1356,6 @@ void handle_ui(void) {
         }
 
         a_layer_set_gain(audio_ctx, a_res.music_layer, menu.music_vol.value);
-        user_prefs.music_vol = menu.music_vol.value;
       }
 
       int32_t event_type = 0;
@@ -1256,15 +1380,19 @@ void handle_ui(void) {
     } break;
     case MENU_PAUSE: {
       if (ui_tree_check_event(menu.current_page, menu.p_settings.id) == 1) {
+        menu_select_sfx();
         menu_set_page(MENU_SETTINGS);
       }
 
       if (ui_tree_check_event(menu.current_page, menu.p_resume.id) == 1) {
+        menu_select_sfx();
         menu_set_page(MENU_NONE);
         game_state = GAME_PLAY;
+        return;
       }
 
       if (ui_tree_check_event(menu.current_page, menu.p_quit.id) == 1) {
+        menu_select_sfx();
         // clear old framebuffer
         r_framebuffer_bind(fbo);
         r_window_clear_color_empty();
@@ -1276,6 +1404,31 @@ void handle_ui(void) {
         return;
       }
     } break;
+    case MENU_END:
+      if (ui_tree_check_event(menu.current_page, menu.w_again.id) == 1) {
+        r_framebuffer_bind(fbo);
+        r_window_clear_color_empty();
+        r_window_clear();
+        r_framebuffer_unbind();
+        clear_level();
+
+        game_state = GAME_PLAY;
+        init_level();
+        menu_set_page(MENU_NONE);
+        return;
+      }
+
+      if (ui_tree_check_event(menu.current_page, menu.w_quit.id) == 1) {
+        r_framebuffer_bind(fbo);
+        r_window_clear_color_empty();
+        r_window_clear();
+        r_framebuffer_unbind();
+
+        clear_level();
+        menu_set_page(MENU_MAIN);
+        game_state = GAME_START;
+      }
+      break;
   }
 }
 
@@ -1283,14 +1436,11 @@ void input(float delta) {
   vec2 mouse_pos = {i_mouse_get_x(input_ctx), i_mouse_get_y(input_ctx)};
   ui_ctx_update(u_ctx, mouse_pos);
 
-  // printf("PAGE NUMBER: %i\n", menu.page_number);
-  // printf("PAGE ADDR: %p\n", menu.current_page);
   if (menu.current_page) {
     int32_t active = ui_tree_check(u_ctx, menu.current_page);
 
     if (i_mouse_clicked(input_ctx, MOUSE_LEFT)) {
       ui_tree_select(u_ctx, menu.current_page, 1, 1);
-      menu_select_sfx();
     }
 
     if (i_mouse_released(input_ctx, MOUSE_LEFT)) {
@@ -1318,6 +1468,9 @@ void input(float delta) {
         case MENU_SETTINGS: {
           // go back a page
           menu_set_page(menu.last_page);
+        } break;
+        case MENU_END: {
+          menu_set_page(MENU_MAIN);
         } break;
       }
     }
@@ -1358,9 +1511,8 @@ void input(float delta) {
   } else {
     if (i_key_clicked(input_ctx, KEY_ESCAPE)) {
       if (game_state == GAME_PLAY) {
-        game_state        = GAME_PAUSE;
-        menu.current_page = &menu.pause_page;
-        menu.page_number  = MENU_PAUSE;
+        game_state = GAME_PAUSE;
+        menu_set_page(MENU_PAUSE);
       }
     }
 
@@ -1442,33 +1594,7 @@ void input(float delta) {
     }
 
     c_aabb_move(&level.player.aabb, move);
-    vec2 center = {0.f};
-
-    vec2 hitbox_pos, hitbox_halfsize = {19.5f, 24.f};
-    vec2_dup(hitbox_pos, level.player.center);
-    hitbox_pos[0] += (level.player.sprite.flip_x) ? -9.75f : 9.75f;
-    vec2_scale(hitbox_halfsize, hitbox_halfsize, 0.5f);
-    c_aabb_set(&level.player.hitbox, hitbox_pos, hitbox_halfsize);
-
-    c_aabb_get_center(center, level.player.aabb);
-    r_sprite_set_pos(&level.player.sprite, center);
-    vec2 sword_pos;
-    vec2_dup(sword_pos, level.player.sprite.position);
-    sword_pos[0] += (level.player.sprite.flip_x) ? -9.f : 9.f;
-    sword_pos[1] -= 2.f;
-
-    level.player.sword.flip_x = level.player.sprite.flip_x;
-    r_sprite_set_pos(&level.player.sword, sword_pos);
-    sword_pos[0] += (level.player.sprite.flip_x) ? -5.f : 5.f;
-    sword_pos[1] += 2.f;
-    if (!swoosh_state)
-      r_sprite_set_pos(&level.player.swoosh, sword_pos);
-
-    if (level.player.sword.flip_x) {
-      level.player.sword.layer = 9;
-    } else {
-      level.player.sword.layer = 5;
-    }
+    update_player_sprites();
   }
 }
 
@@ -1481,6 +1607,7 @@ static void blend(vec4 dst, vec4 a, vec4 b, float weight) {
 
 void update(time_s delta) {
   if (game_state == GAME_PLAY) {
+    uint32_t enemy_count = 0;
     if (level.player.attack_timer > 0.f) {
       level.player.attack_timer -= delta;
     }
@@ -1497,12 +1624,61 @@ void update(time_s delta) {
             level.player.damage_timer / DAMAGE_DURATION);
     }
 
+    // update health orbs
+    for (int i = 0; i < MAX_HEALTH_ORBS; ++i) {
+      health_orb_t* orb = &level.health_orbs[i];
+      if (orb->active) {
+        orb->timer += delta;
+
+        health_orb_t* orb    = &level.health_orbs[i];
+        r_sprite*     sprite = &orb->sprite;
+
+        float remaining = MAX_HEALTH_ORB_LIFE - orb->timer;
+        float fade      = remaining / MAX_HEALTH_ORB_LIFE;
+        float glow      = 0.7f + (sin(orb->timer / 200.159f) / 3.14f);
+        vec2  floating  = {0.f, cos(orb->timer / 400.3f) / 16.f};
+        r_sprite_move(sprite, floating);
+        sprite->color[0] = glow * fade;
+        sprite->color[1] = glow * fade;
+        sprite->color[2] = glow * fade;
+        sprite->color[3] = glow * fade;
+
+        if (orb->timer >= MAX_HEALTH_ORB_LIFE) {
+          orb->active = 0;
+          continue;
+        }
+
+        float dist = vec2_dist(orb->center, level.player.center);
+        if (dist < 30.f && level.player.health < MAX_PLAYER_HEALTH) {
+          // give player health if closer than 9 units
+          if (dist < 9.f) {
+            if (level.player.health < MAX_PLAYER_HEALTH) {
+              orb->active = 0;
+              ++level.player.health;
+            }
+            // move towards player
+          } else {
+            float move_factor = 0.0035f;
+            float dist_factor = 1.f / (30.f / (dist));
+            vec2  move_amount = {(level.player.center[0] - orb->center[0]) *
+                                    delta * dist_factor * move_factor,
+                                (level.player.center[1] - orb->center[1]) *
+                                    delta * dist_factor * move_factor};
+            vec2_add(orb->center, orb->center, move_amount);
+            r_sprite_move(&orb->sprite, move_amount);
+          }
+        }
+      }
+    }
+
     // test player vs enemies
     for (int i = 0; i < level.enemy_count; ++i) {
       enemy_t* en = &level.enemies[i];
 
       if (!en->alive)
         continue;
+
+      ++enemy_count;
 
       // enemy AI
       float dist = vec2_dist(en->circle.center, level.player.center);
@@ -1532,6 +1708,8 @@ void update(time_s delta) {
         vec2_norm(move, move);
         vec2_scale(move, move, move_speed * (delta * move_factor));
         move_enemy(en, move);
+
+        // set animaiton from idle (not walk) to walk
         if (en->state != ENEMY_WALK) {
           en->state = ENEMY_WALK;
 
@@ -1552,6 +1730,7 @@ void update(time_s delta) {
           }
         }
       } else {
+        // set animaiton from walk to idle
         if (en->state == ENEMY_WALK) {
           en->state = ENEMY_IDLE;
 
@@ -1606,6 +1785,10 @@ void update(time_s delta) {
             vec2 zero = {0.f, 0.f};
             if (level.player.health <= 0) {
               play_sfx(a_res.s_player_die);
+              level.player.sprite.visible = 0;
+              level.player.swoosh.visible = 0;
+              level.player.sword.visible  = 0;
+              create_emitter(level.player.center, zero);
             } else {
               play_sfx(a_res.s_player_hit);
             }
@@ -1658,7 +1841,18 @@ void update(time_s delta) {
               en->state = ENEMY_DIE;
               create_emitter(en->circle.center, man.direction);
 
+              int to_spawn = rand() % 2;
+              if (to_spawn) {
+                spawn_health_orb(en->circle.center);
+              }
+
+              to_spawn = rand() % 3;
+
               play_sfx(a_res.s_goblin_die);
+              if (to_spawn) {
+                spawn_enemy();
+                ++enemy_count;
+              }
             } else {
               play_sfx(a_res.s_enemy_hit);
             }
@@ -1676,6 +1870,18 @@ void update(time_s delta) {
     }
 
     c_aabb_get_center(level.player.center, level.player.aabb);
+
+    // win condition
+    if (enemy_count == 0) {
+      game_state = GAME_WIN;
+      game_end();
+    }
+
+    // lose condition
+    if (level.player.health <= 0) {
+      game_state = GAME_LOSE;
+      game_end();
+    }
   }
 }
 
@@ -1796,10 +2002,6 @@ void draw_game(time_s delta) {
     r_sprite_update(&level.player.sword, delta);
     r_sprite_update(&level.player.swoosh, delta);
   }
-  r_sprite_draw_batch(render_ctx, &level.player.sprite);
-
-  // draw the sword
-  r_sprite_draw_batch(render_ctx, &level.player.sword);
 
   // draw (or don't) the swoosh
   int swoosh_state = r_sprite_get_anim_state(&level.player.swoosh);
@@ -1809,7 +2011,20 @@ void draw_game(time_s delta) {
     level.player.swoosh.visible = 1;
   }
 
+  // draw the character sprites
+  r_sprite_draw_batch(render_ctx, &level.player.sprite);
+  r_sprite_draw_batch(render_ctx, &level.player.sword);
   r_sprite_draw_batch(render_ctx, &level.player.swoosh);
+
+  for (int i = 0; i < MAX_HEALTH_ORBS; ++i) {
+    if (level.health_orbs[i].active) {
+      health_orb_t* orb    = &level.health_orbs[i];
+      r_sprite*     sprite = &orb->sprite;
+
+      r_sprite_update(sprite, delta);
+      r_sprite_draw_batch(render_ctx, sprite);
+    }
+  }
 
   // draw the enemies
   for (int i = 0; i < level.enemy_count; ++i) {
@@ -1826,7 +2041,7 @@ void draw_game(time_s delta) {
   for (int i = 0; i < MAX_PARTICLE_EMITTERS; ++i) {
     r_particles* emitter = &level.emitters[i];
     if (!r_particles_finished(emitter)) {
-      if (game_state == GAME_PLAY)
+      if (game_state == GAME_PLAY || game_state == GAME_LOSE)
         r_particles_update(emitter, delta);
       r_particles_draw(render_ctx, emitter, particle_shader);
     }
@@ -1872,17 +2087,12 @@ void render(time_s delta) {
 
 user_preferences load_config(void) {
   // now to patch the very much broken table loading system
-  asset_t* raw_table = asset_get("user_prefs.ini");
+  asset_t* raw_table = asset_get(USER_PREFS_FILE);
 
   user_preferences prefs = {0};
 
   if (raw_table) {
     s_table table = s_table_get(raw_table->data);
-
-    printf("table size: %i\n", table.count);
-    for (int i = 0; i < table.count; ++i) {
-      printf("%s: %s\n", table.keys[i], table.values[i]);
-    }
 
     const char* value = 0;
     value             = s_table_find(&table, "width");
@@ -1904,30 +2114,35 @@ user_preferences load_config(void) {
     prefs.music_vol = (value) ? atof(value) : 1.0f;
 
     s_table_free(table);
+    asset_free(raw_table);
   } else {
-    prefs.master_vol = 1.0f;
+    prefs.master_vol = 0.8f;
     prefs.sfx_vol    = 1.0f;
-    prefs.music_vol  = 1.0f;
+    prefs.music_vol  = 0.75f;
     prefs.res_width  = DEFAULT_WIDTH;
     prefs.res_height = DEFAULT_HEIGHT;
+    free(raw_table);
   }
 
   return prefs;
 }
 
-static char pref_buffer[16] = {0};
-static void table_add_float();
-
 void save_config(void) {
-  s_table table = s_table_create(5);
+  s_table table = s_table_create(8, 1);
 
-  s_table_add_float(&table, "master_vol", user_prefs.master_vol);
-  s_table_add_float(&table, "sfx_vol", user_prefs.sfx_vol);
-  s_table_add_float(&table, "music_vol", user_prefs.music_vol);
-  s_table_add_int(&table, "width", user_prefs.res_width);
-  s_table_add_int(&table, "height", user_prefs.res_height);
+  s_table_add_float(&table, "master", a_listener_get_gain(audio_ctx));
+  s_table_add_float(&table, "sfx",
+                    a_layer_get_gain(audio_ctx, a_res.sfx_layer));
+  float music_layer = a_layer_get_gain(audio_ctx, a_res.music_layer);
+  printf("music: %.2f\n", music_layer);
+  s_table_add_float(&table, "music",
+                    a_layer_get_gain(audio_ctx, a_res.music_layer));
+  int32_t width, height;
+  r_window_get_size(render_ctx, &width, &height);
+  s_table_add_int(&table, "width", width);
+  s_table_add_int(&table, "height", height);
 
-  s_table_write(&table, "user_prefs");
+  s_table_write(&table, USER_PREFS_FILE);
 
   s_table_free(table);
 }
@@ -1980,8 +2195,8 @@ int main(void) {
   init_input();
 
   init_render();
-  r_check_error_loc("Post init");
-  r_anim_list_cache(render_ctx);
+
+  // r_anim_list_cache(render_ctx);
 
   asset_t* icon = asset_get("resources/textures/icon.png");
   r_window_set_icon(render_ctx, icon->data, icon->data_length);
@@ -2039,11 +2254,11 @@ int main(void) {
     }
   }
 
+  save_config();
+
   r_ctx_destroy(render_ctx);
   i_ctx_destroy(input_ctx);
   a_ctx_destroy(audio_ctx);
-
-  save_config();
 
   return 0;
 }

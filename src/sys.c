@@ -164,18 +164,19 @@ char* s_itoa(int32_t value, char* string, int8_t base) {
 #if !defined(ASTERA_NO_CONF)
 void s_table_free(s_table table) {
   if (table.keys) {
-    for (int i = 0; i < table.count; ++i) {
-      if (table.keys[i])
+    for (uint32_t i = 0; i < table.count; ++i) {
+      /*if (table.keys[i] != 0) {
         free(table.keys[i]);
+      }*/
     }
     free(table.keys);
   }
   if (table.values) {
-    for (int i = 0; i < table.count; ++i) {
-      if (table.values[i])
+    for (uint32_t i = 0; i < table.count; ++i) {
+      /*if (table.values[i] != 0) {
         free(table.values[i]);
+      }*/
     }
-
     free(table.values);
   }
 }
@@ -274,15 +275,18 @@ s_table s_table_get(unsigned char* data) {
     line = strtok(NULL, "\n");
   }
 
-  return (s_table){keys, values, line_count};
+  return (s_table){keys, values, .count = line_count, .capacity = line_capacity,
+                   .allow_grow = 0};
 }
 
-s_table s_table_create(uint8_t count) {
+s_table s_table_create(uint32_t capacity, uint8_t allow_grow) {
   s_table table = (s_table){0};
 
-  table.keys   = (const char**)calloc(count, sizeof(char**));
-  table.values = (const char**)calloc(count, sizeof(char**));
-  table.count  = count;
+  table.keys       = (const char**)calloc(capacity, sizeof(char**));
+  table.values     = (const char**)calloc(capacity, sizeof(char**));
+  table.count      = 0;
+  table.capacity   = capacity;
+  table.allow_grow = allow_grow;
 
   return table;
 }
@@ -293,7 +297,11 @@ uint8_t     s_table_add_float(s_table* table, char* key, float value) {
   uint32_t len        = snprintf(conv_buffer, 32, "%.2f", value);
   char*    new_buffer = calloc(len + 1, sizeof(char));
   memcpy(new_buffer, conv_buffer, len * sizeof(char));
-  return s_table_add(table, key, new_buffer);
+  uint8_t table_add = s_table_add(table, key, new_buffer);
+  if (!table_add) {
+    free(new_buffer);
+  }
+  return table_add;
 }
 
 uint8_t s_table_add_int(s_table* table, char* key, int value) {
@@ -301,17 +309,31 @@ uint8_t s_table_add_int(s_table* table, char* key, int value) {
   uint32_t len        = snprintf(conv_buffer, 32, "%i", value);
   char*    new_buffer = calloc(len + 1, sizeof(char));
   memcpy(new_buffer, conv_buffer, len * sizeof(char));
-  return s_table_add(table, key, new_buffer);
+
+  uint8_t table_add = s_table_add(table, key, new_buffer);
+  if (!table_add) {
+    free(new_buffer);
+  }
+  return table_add;
 }
 
 uint8_t s_table_add(s_table* table, char* key, char* value) {
   if (key && value) {
-    table->keys =
-        (const char**)realloc(table->keys, sizeof(char**) * (table->count + 1));
+    if (table->count == table->capacity - 1) {
+      if (table->allow_grow) { // at max capacity and can grow
+        table->keys = (const char**)realloc(
+            table->keys, sizeof(char**) * (table->count + 1));
 
-    table->values = (const char**)realloc(table->values,
-                                          sizeof(char**) * (table->count + 1));
+        table->values = (const char**)realloc(
+            table->values, sizeof(char**) * (table->count + 1));
 
+        ++table->capacity;
+      } else { // at max capacity and not allowed to grow
+        return 0;
+      }
+    }
+
+    // add new key/value pair
     table->keys[table->count]   = key;
     table->values[table->count] = value;
 

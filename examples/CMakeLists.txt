@@ -7,10 +7,7 @@ string(CONCAT opengl-deprecation $<AND:
   $<VERSION_LESS:${CMAKE_SYSTEM_VERSION},18>
 >)
 
-file(GLOB entries LIST_FILES ON "${CMAKE_CURRENT_SOURCE_DIR}/*")
-list(REMOVE_ITEM entries "${CMAKE_CURRENT_SOURCE_DIR}/resources")
-list(REMOVE_ITEM entries "${CMAKE_CURRENT_SOURCE_DIR}/README.md")
-list(REMOVE_ITEM entries "${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt")
+file(GLOB entries LIST_FILES ON "${CMAKE_CURRENT_SOURCE_DIR}/*.c")
 
 add_custom_target(${PROJECT_NAME}-examples-resources ALL
   COMMAND
@@ -25,10 +22,12 @@ foreach(example IN LISTS entries)
 
   set(BUILD_SHARED_LIBS OFF)
 
+
   add_executable(${name})
   target_sources(${name} PRIVATE ${example})
   target_compile_definitions(${name} 
     PRIVATE
     $<${opengl-deprecation}:GL_SILENCE_DEPRECATION>)
+
   target_link_libraries(${name} PRIVATE ${PROJECT_NAME})
 endforeach()

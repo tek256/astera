@@ -210,25 +210,25 @@ typedef enum {
 
 // NOTE: Animation IDs will be non-zero if valid
 typedef struct {
-  // id - the position in r_ctx's cache of this animation
-  // NOTE: It will not be changed after it's assigned
+  /* id - the position in r_ctx's cache of this animation
+   * NOTE: It will not be changed after it's assigned */
   uint32_t id;
 
-  // frames - each individual sub texture (frame)
-  // lengths - the lengths of each frame in milliseconds
+  /* frames - each individual sub texture (frame)
+   * lengths - the lengths of each frame in milliseconds */
   uint32_t* frames;
   time_s*   lengths;
 
-  // curr - current index of frame
-  // count - number of frames
-  // rate - the amount of frames per second
-  //        (if using fixed rate, 0 if non-fixed)
-  // sheet - the texture sheet the animation uses
+  /* curr - current index of frame
+   * count - number of frames
+   * rate - the amount of frames per second
+   *        (if using fixed rate, 0 if non-fixed)
+   * sheet - the texture sheet the animation uses */
   uint32_t count;
   time_s   rate;
   r_sheet* sheet;
 
-  // loop - 1 = yes, 0 = no
+  /* loop - 1 = yes, 0 = no */
   int8_t loop;
 } r_anim;
 
@@ -254,8 +254,8 @@ typedef struct {
   r_shader shader;
   r_sheet* sheet;
 
-  // anim - current animation (if using)
-  // tex - the base texture ID
+  /* anim - current animation (if using)
+   * tex - the base texture ID */
   union {
     r_anim_viewer anim;
     uint32_t      tex;
@@ -311,8 +311,6 @@ typedef struct {
   r_ubo    ubo;
 } r_batch;
 
-// reading uniform buffer docs one sec
-
 typedef struct {
   float   life, last;
   float   rotation;
@@ -335,40 +333,42 @@ typedef void (*r_particle_animator)(r_particles*, r_particle*);
 typedef void (*r_particle_spawner)(r_particles*, r_particle*);
 
 struct r_particles {
-  // list - the array of particles
+  /* list - the array of particles */
   r_particle* list;
 
-  // capacity - the max amount of particles to buffer for
-  // count - the amount of particles within the system currently
-  // max_emission - the max amount of particles to emit (0 = infinite)
-  // emission_count - the amount of particles emitted
+  /* capacity - the max amount of particles to buffer for
+   * count - the amount of particles within the system currently
+   * max_emission - the max amount of particles to emit (0 = infinite)
+   * emission_count - the amount of particles emitted */
   uint32_t capacity, count;
   uint32_t max_emission;
   uint32_t emission_count;
 
-  // particle_layer - the base layer to set a particle to
+  /* particle_layer - the base layer to set a particle to */
   uint8_t particle_layer;
 
-  // particle_life - the lifetime of the particle
-  // system_life - the lifetype of the system (0 = infinite)
-  // spawn_rate - the amount of particles to spawn per second
-  // prespawn - the amount of time to simulate before initial creation
+  /* particle_life - the lifetime of the particle
+   * system_life - the lifetype of the system (0 = infinite)
+   * spawn_rate - the amount of particles to spawn per second
+   * prespawn - the amount of time to simulate before initial creation */
   float particle_life, system_life;
   float spawn_rate, prespawn;
 
-  // time - the internal timer of the particle system
-  // spawn_time - the time remaining to next particle spawn
+  /* time - the internal timer of the particle system
+   * spawn_time - the time remaining to next particle spawn */
   float time, spawn_time;
 
-  // position - The center position of the particle system
-  // size - the size (width, height) of the particle system
-  vec2 position, size;
+  /* position - The center position of the particle system
+   * size - the size (width, height) of the particle system
+   * model - the model matrix of the base system */
+  vec2   position, size;
+  mat4x4 model;
 
-  // particle_size - the size of particles (width, height)
-  // particle_velocity - the default velocity of particles
+  /* particle_size - the size of particles (width, height)
+   * particle_velocity - the default velocity of particles */
   vec2 particle_size, particle_velocity;
 
-  // sheet - the texture sheet to use (note: only needed for PARTICLE_TEXTURED)
+  /* sheet - the texture sheet to use (only needed for PARTICLE_TEXTURED) */
   r_sheet* sheet;
 
   union {
@@ -376,84 +376,82 @@ struct r_particles {
     uint32_t      subtex;
   } render;
 
-  // Overall color of the system
+  /* Overall color of the system */
   vec4 color;
 
-  // GL Uniforms
+  /* GL Uniforms */
   mat4x4*  mats;
   vec4*    colors;
   vec4*    coords;
   uint32_t uniform_count, uniform_cap;
 
-  // For custom movement
+  /* For custom movement/behavior */
   r_particle_animator animator_func;
   r_particle_spawner  spawner_func;
 
-  // Flags
-  // Calculate -- Whether to calculate data for render
-  // Type -- Render type colored (yes | no) && (textured | animated)
-  // Note: (Can color both other types)
-  // Use Animator -- Whether to use custom animator
-  //    function of type `void xxx(r_particles*, r_particle*)`
-  // Use Spawner -- Whether to use custom spawning function
-  //    of type `void xxx(r_particles*, r_particle* particle)
-  // alive - if the particle system is alive and functioning
+  /* Flags
+   * calculate: whether to calculate data for render
+   * type: render type colored (yes | no) && (textured | animated)
+   *       Note: (Can color both other types)
+   * user_animator: Whether to use custom animator function of type
+   *                `void xxx(r_particles*, r_particle*)`
+   * use_spawner: Whether to use custom spawning function of type
+   *              `void xxx(r_particles*, r_particle* particle)
+   * alive: if the particle system is alive and functioning */
   int8_t calculate, type, use_animator, use_spawner, alive;
 };
 
-// typedef struct r_ctx r_ctx;
-
 typedef struct r_ctx {
-  // window - the rendering context's window
-  // camera - the rendering context's camera
+  /* window - the rendering context's window
+   * camera - the rendering context's camera */
   r_window window;
   r_camera camera;
 
-  // framebuffer - the window's framebuffer (if opted-in)
-  // resolution - the target resolution for the rendering system
+  /* framebuffer - the window's framebuffer (if opted-in)
+   * resolution - the target resolution for the rendering system */
   r_framebuffer framebuffer;
   vec2          resolution;
 
-  // default_quad - default quad used to draw things, typically this is created
-  // as 1x1 then expected to be scaled by whatever model matrix
+  /* default_quad - default quad used to draw things, typically this is created
+   * as 1x1 then expected to be scaled by whatever model matrix */
   r_quad default_quad;
 
-  // modes - glfw representations of available video modes for fullscreen
-  // mode_count - the amount of vide modes available
+  /* modes - glfw representations of available video modes for fullscreen
+   * mode_count - the amount of vide modes available */
   const GLFWvidmode* modes;
   uint8_t            mode_count;
 
-  // anims - array of cached animations
-  // anim_names - an array of strings naming each animation (by index)
-  // anim_high - the high mark of animations set in cache
-  // anim_count - the amount of animations currently held
-  // anim_capacity - the max amount of animations that can be held
+  /* anims - array of cached animations
+   * anim_names - an array of strings naming each animation (by index)
+   * anim_high - the high mark of animations set in cache
+   * anim_count - the amount of animations currently held
+   * anim_capacity - the max amount of animations that can be held */
   r_anim*  anims;
   char**   anim_names;
   uint16_t anim_high;
   uint16_t anim_count, anim_capacity;
 
-  // shaders - an array of shaders (Kappa)
-  // shader_names - an array of strings naming each shader (by index)
-  // shader_count - the number of shaders currently held
-  // shader_capacity - the max amount of shaders that can be held
+  /* shaders - an array of shaders
+   * shader_names - an array of strings naming each shader (by index)
+   * shader_count - the number of shaders currently held
+   * shader_capacity - the max amount of shaders that can be held */
   r_shader* shaders;
   char**    shader_names;
   uint8_t   shader_count, shader_capacity;
 
-  // batches - the batches themselves
-  // batch_count - the amount of current batches
-  // batch_capacity - the max amount of current batches
-  // batch_size - the number of sprites each batch can hold
+  /* batches - the batches themselves
+   * batch_count - the amount of current batches
+   * batch_capacity - the max amount of current batches
+   * batch_size - the number of sprites each batch can hold */
   r_batch* batches;
   uint8_t  batch_count, batch_capacity;
   uint32_t batch_size;
 
-  // input_ctx - a pointer to an input context for glfw callbacks
+  /* input_ctx - a pointer to an input context for glfw callbacks */
   i_ctx* input_ctx;
 
-  // allowed - allow rendering
-  // scaled - whether the resolution has changed
+  /* allowed - allow rendering
+   * scaled - whether the resolution has changed */
   uint8_t allowed, scaled;
 } r_ctx;
 
@@ -879,6 +877,17 @@ void r_sprite_set_anim(r_sprite* sprite, r_anim* anim);
  * sheet - the texture sheet to use
  * tex - the subtexture ID to use */
 void r_sprite_set_tex(r_sprite* sprite, r_sheet* sheet, uint32_t tex);
+
+/* Set a sprite's specific color component
+ * sprite - the sprite to affect
+ * index - index of the component (0 = r, 1 = g, 2 = b, 3 = a)
+ * value - value of the component to set */
+void r_sprite_set_colori(r_sprite* sprite, uint8_t index, float value);
+
+/* Set a sprite's color
+ * sprite - the sprite to affect
+ * color - color to set the sprite to */
+void r_sprite_set_color(r_sprite* sprite, vec4 color);
 
 /* Update a sprite for drawing
  * sprite - the sprite to update

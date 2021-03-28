@@ -33,8 +33,8 @@ find_package(OpenGL REQUIRED)
 find_package(OpenALSoft)
 find_package(OpenAL)
 
-if(OPENALSOFT_FOUND)
-  if(OPENALSOFT_FOUND AND NOT TARGET OpenAL::AL)
+if(OpenALSoft_FOUND)
+  if(OpenALSoft_FOUND AND NOT TARGET OpenAL::AL)
     add_library(OpenAL::AL UNKNOWN IMPORTED)
     set_target_properties(OpenAL::AL PROPERTIES
       IMPORTED_LOCATION "${OPENALSOFT_LIBRARY}"
@@ -142,11 +142,11 @@ endif()
 target_link_libraries(${PROJECT_NAME}
   PUBLIC
     OpenGL::GL
-    #    $<$<NOT:$<PLATFORM_ID:Darwin>>:OpenAL::AL>
     $<$<NOT:$<PLATFORM_ID:Windows>>:m>
     glfw
   PRIVATE
     OpenAL::AL)
+
 
 set_property(TARGET astera PROPERTY C_VISIBILITY_PRESET "hidden")
 set_property(TARGET astera PROPERTY VERSION ${PROJECT_VERSION})

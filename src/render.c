@@ -1084,6 +1084,7 @@ void r_particles_reset(r_particles* particles) {
   particles->count          = 0;
   particles->emission_count = 0;
   particles->uniform_count  = 0;
+  particles->alive          = 0;
   memset(particles->mats, 0, sizeof(mat4x4) * particles->uniform_cap);
   memset(particles->colors, 0, sizeof(vec4) * particles->uniform_cap);
   memset(particles->coords, 0, sizeof(vec4) * particles->uniform_cap);
@@ -1158,11 +1159,29 @@ void r_particles_update(r_particles* system, time_s delta) {
     system->spawn_time += (float)delta;
     int32_t to_spawn = (int32_t)system->spawn_time / system->spawn_rate;
 
+    // cap to capacity of the particle system's bufferse
     if (system->count + to_spawn >= system->capacity) {
       to_spawn = system->capacity - system->count;
     }
 
+    // cap to max emission
+    /*if (system->max_emission) {
+      if (to_spawn + system->emission_count > system->max_emission) {
+        to_spawn = system->max_emission - system->emission_count;
+      }
+    }*/
+
     system->spawn_time -= system->spawn_rate * to_spawn;
+    if (((system->time > system->system_life && system->system_life > 0.f) ||
+         (system->emission_count > system->max_emission &&
+          system->max_emission > 0))) {
+      if (system->count == 0) {
+        system->alive = 0;
+        return;
+      } else {
+        to_spawn = 0;
+      }
+    }
 
     for (int i = 0; i < to_spawn; ++i) {
       r_particle* open = 0;
@@ -1200,13 +1219,6 @@ void r_particles_update(r_particles* system, time_s delta) {
 
       ++system->emission_count;
       ++system->count;
-    }
-
-    // kill off the system if we've exceeded max emission or system lifetime
-    if ((system->time > system->system_life && system->system_life > 0.f) ||
-        (system->emission_count > system->max_emission &&
-         system->max_emission > 0)) {
-      system->alive = 0;
     }
   }
 
@@ -1299,6 +1311,7 @@ static void r_particles_render(r_ctx* ctx, r_particles* particles,
 
   r_set_m4(shader, "view", ctx->camera.view);
   r_set_m4(shader, "projection", ctx->camera.projection);
+  // r_set_m4(shader, "model", system->model);
 
   r_set_v4x(shader, particles->uniform_count, "coords", particles->coords);
   r_set_v4x(shader, particles->uniform_count, "colors", particles->colors);
@@ -1335,6 +1348,9 @@ void r_particles_draw(r_ctx* ctx, r_particles* particles, r_shader shader) {
   if (particles->calculate) {
     r_sheet* sheet = particles->sheet;
 
+    mat4x4_translate(particles->model, particles->position[0],
+                     particles->position[1], 0);
+
     for (uint32_t i = 0; i < particles->capacity; ++i) {
       r_particle* particle = &particles->list[i];
 
@@ -1342,7 +1358,8 @@ void r_particles_draw(r_ctx* ctx, r_particles* particles, r_shader shader) {
         mat4x4* mat = &particles->mats[particles->uniform_count];
 
         mat4x4_identity(*mat);
-        mat4x4_translate(*mat, particle->position[0], particle->position[1],
+        mat4x4_translate(*mat, particles->position[0] + particle->position[0],
+                         particles->position[1] + particle->position[1],
                          particle->layer * ASTERA_RENDER_LAYER_MOD);
         mat4x4_scale_aniso(*mat, *mat, particle->size[0], particle->size[1],
                            1.f);
@@ -2016,6 +2033,14 @@ void r_sprite_set_tex(r_sprite* sprite, r_sheet* sheet, uint32_t id) {
   sprite->animated   = 0;
   sprite->render.tex = id;
   sprite->sheet      = sheet;
+}
+
+void r_sprite_set_colori(r_sprite* sprite, uint8_t index, float value) {
+  sprite->color[index] = value;
+}
+
+void r_sprite_set_color(r_sprite* sprite, vec4 color) {
+  vec4_dup(sprite->color, color);
 }
 
 r_sprite r_sprite_create(r_shader shader, vec2 pos, vec2 size) {

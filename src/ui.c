@@ -19,11 +19,11 @@ struct ui_ctx {
   float pixel_scale;
 
   NVGcontext* nvg;
-  uint32_t    global_id; // element assignment id
+  uint32_t    global_id; /* element assignment id */
 
   ui_attrib_map attribs;
 
-  // mouse info
+  /* mouse info */
   vec2    mouse_pos;
   uint8_t use_mouse, antialias;
 };
@@ -702,7 +702,7 @@ int16_t ui_element_contains(ui_ctx* ctx, ui_element element, vec2 point) {
         return 1;
       }
 
-      // button hovering
+      /* button hovering */
       if (point[0] > button_pos[0] &&
           point[0] < button_pos[0] + button_size[0]) {
         if (point[1] > button_pos[1] &&
@@ -737,7 +737,7 @@ int16_t ui_element_contains(ui_ctx* ctx, ui_element element, vec2 point) {
         }
       }
 
-      // bar hovering
+      /* bar hovering */
       if (point[0] > slider_pos[0] &&
           point[0] < slider_pos[0] + slider_size[0]) {
         if (point[1] > slider_pos[1] &&
@@ -1094,7 +1094,7 @@ void ui_progress_draw(ui_ctx* ctx, ui_progress* progress, int8_t focused) {
 
   nvgBeginPath(ctx->nvg);
 
-  // border
+  /* border */
   if (progress->border_size != 0.f) {
     if (progress->border_radius != 0.f) {
       nvgRoundedRect(ctx->nvg, progress_pos[0], progress_pos[1],
@@ -1116,7 +1116,7 @@ void ui_progress_draw(ui_ctx* ctx, ui_progress* progress, int8_t focused) {
     nvgStroke(ctx->nvg);
   }
 
-  // background bar
+  /* background bar */
   if (progress->border_radius != 0.f) {
     nvgRoundedRect(ctx->nvg, progress_pos[0], progress_pos[1], progress_size[0],
                    progress_size[1], progress->border_radius);
@@ -1136,7 +1136,7 @@ void ui_progress_draw(ui_ctx* ctx, ui_progress* progress, int8_t focused) {
 
   if (progress->progress > 0.01f) {
     nvgBeginPath(ctx->nvg);
-    // internal bar
+    /* internal bar */
     if (progress->border_radius != 0.f) {
       if (progress->flip) {
         nvgRoundedRect(ctx->nvg,
@@ -1182,10 +1182,10 @@ void ui_progress_draw(ui_ctx* ctx, ui_progress* progress, int8_t focused) {
 }
 
 void ui_slider_draw(ui_ctx* ctx, ui_slider* slider, int8_t focused) {
-  // Update the slider
+  /* Update the slider */
   float progress = slider->holding_progress;
   if (slider->holding) {
-    // slider stepping
+    /* slider stepping */
     if (slider->steps > 0) {
       float step_perc = 1.f / slider->steps;
       int   step      = (int)(progress / step_perc);
@@ -1307,7 +1307,7 @@ void ui_slider_draw(ui_ctx* ctx, ui_slider* slider, int8_t focused) {
 
   nvgBeginPath(ctx->nvg);
 
-  // border
+  /* border */
   if (slider->border_size != 0.f) {
     if (slider->border_radius != 0.f) {
       nvgRoundedRect(ctx->nvg, slider_pos[0], slider_pos[1], slider_size[0],
@@ -1328,7 +1328,7 @@ void ui_slider_draw(ui_ctx* ctx, ui_slider* slider, int8_t focused) {
     nvgStroke(ctx->nvg);
   }
 
-  // background bar
+  /* background bar */
   if (slider->border_radius != 0.f) {
     nvgRoundedRect(ctx->nvg, slider_pos[0], slider_pos[1], slider_size[0],
                    slider_size[1], slider->border_radius);
@@ -1346,7 +1346,7 @@ void ui_slider_draw(ui_ctx* ctx, ui_slider* slider, int8_t focused) {
 
   nvgFill(ctx->nvg);
 
-  // internal bar
+  /* internal bar */
   if (slider->progress > 0.01f && fill_size[0] > 0.f && fill_size[1] > 0.f) {
     nvgBeginPath(ctx->nvg);
     if (slider->border_radius != 0.f) {
@@ -1386,9 +1386,9 @@ void ui_slider_draw(ui_ctx* ctx, ui_slider* slider, int8_t focused) {
     nvgFill(ctx->nvg);
   }
 
-  // button
+  /* button */
   if (draw_button) {
-    // button border
+    /* button border */
     if (slider->button_border_size != 0.f) {
       nvgBeginPath(ctx->nvg);
 
@@ -1425,7 +1425,7 @@ void ui_slider_draw(ui_ctx* ctx, ui_slider* slider, int8_t focused) {
       nvgStroke(ctx->nvg);
     }
 
-    // button background
+    /* button background */
     nvgBeginPath(ctx->nvg);
 
     if (slider->button_circle) {
@@ -1573,7 +1573,7 @@ void ui_dropdown_draw(ui_ctx* ctx, ui_dropdown* dropdown, int8_t focused) {
 
   nvgFill(ctx->nvg);
 
-  // Showing options
+  /* Showing options */
   nvgFontSize(ctx->nvg, dropdown->font_size);
   nvgFontFaceId(ctx->nvg, dropdown->font);
 
@@ -1612,7 +1612,7 @@ void ui_dropdown_draw(ui_ctx* ctx, ui_dropdown* dropdown, int8_t focused) {
 
         nvgFill(ctx->nvg);
 
-        // Draw overlaying text
+        /* Draw overlaying text */
         nvgFillColor(ctx->nvg, ui_u_color(dropdown->hover_color));
 
         vec2 text_offset = {0.f, option_size[1] * i};
@@ -1787,7 +1787,7 @@ void ui_img_draw(ui_ctx* ctx, ui_img* img, int8_t focused) {
   ui_scale_to_px(ctx, img_position, img->position);
   ui_scale_to_px(ctx, img_size, img->size);
 
-  // Draw border
+  /* Draw border */
   if (img->border_size != 0.f) {
     nvgBeginPath(ctx->nvg);
     if (focused) {
@@ -1800,7 +1800,7 @@ void ui_img_draw(ui_ctx* ctx, ui_img* img, int8_t focused) {
     nvgStroke(ctx->nvg);
   }
 
-  // Draw picture
+  /* Draw picture */
   nvgBeginPath(ctx->nvg);
   NVGpaint img_paint =
       nvgImagePattern(ctx->nvg, img_position[0], img_position[1], img_size[0],
@@ -1896,7 +1896,7 @@ void ui_im_img_draw(ui_ctx* ctx, ui_img img, vec2 pos, vec2 size) {
   ui_scale_to_px(ctx, img_position, pos);
   ui_scale_to_px(ctx, img_size, size);
 
-  // Draw border
+  /* Draw border */
   if (img.border_size != 0.f) {
     nvgBeginPath(ctx->nvg);
     nvgStrokeColor(ctx->nvg, ui_u_color(img.border_color));
@@ -1905,7 +1905,7 @@ void ui_im_img_draw(ui_ctx* ctx, ui_img img, vec2 pos, vec2 size) {
     nvgStroke(ctx->nvg);
   }
 
-  // Draw picture
+  /* Draw picture */
   nvgBeginPath(ctx->nvg);
   NVGpaint img_paint =
       nvgImagePattern(ctx->nvg, img_position[0], img_position[1], img_size[0],
@@ -2190,6 +2190,7 @@ void ui_tree_reset(ui_tree* tree) {
   tree->mouse_hover_index = 0;
   tree->cursor_index      = 0;
   tree->selected_index    = 0;
+  ui_tree_next(tree);
 }
 
 uint32_t ui_tree_get_cursor_id(ui_tree* tree) { return tree->cursor_id; }
@@ -3317,8 +3318,10 @@ float ui_slider_next_step(ui_slider* slider) {
   if (slider->progress > 1.f)
     slider->progress = 1.f;
 
-  return (slider->progress * (slider->max_value - slider->min_value)) +
-         slider->min_value;
+  slider->value = (slider->progress * (slider->max_value - slider->min_value)) +
+                  slider->min_value;
+
+  return slider->value;
 }
 
 float ui_slider_prev_step(ui_slider* slider) {
@@ -3339,12 +3342,14 @@ float ui_slider_prev_step(ui_slider* slider) {
   if (slider->progress < 0.f)
     slider->progress = 0.f;
 
-  return (slider->progress * (slider->max_value - slider->min_value)) +
-         slider->min_value;
+  slider->value = (slider->progress * (slider->max_value - slider->min_value)) +
+                  slider->min_value;
+
+  return slider->value;
 }
 
 ui_font ui_font_get(ui_ctx* ctx, const char* font_name) {
-  // Find the font via NanoVG
+  /* Find the font via NanoVG */
   return nvgFindFont(ctx->nvg, font_name);
 }
 
@@ -3546,8 +3551,8 @@ uint32_t ui_tree_select(ui_ctx* ctx, ui_tree* tree, int32_t event_type,
   return 0;
 }
 
-// NOTE: You're not gonna mouse click something with this function
-/* Return 0 if no element with `id` found */
+/* NOTE: You're not gonna mouse click something with this function
+ * Return 0 if no element with `id` found */
 uint32_t ui_tree_select_id(ui_tree* tree, uint32_t id, int32_t event_type) {
   if (!tree) {
     ASTERA_FUNC_DBG("unable to operate on null or invalid tree\n");
@@ -3675,7 +3680,7 @@ uint32_t ui_tree_prev(ui_tree* tree) {
     return 0;
   }
 
-  // check for unset cursor
+  /* check for unset cursor */
   if (tree->cursor_index == 0) {
     for (uint32_t i = 0; i < tree->count; ++i) {
       if (tree->raw[i].selectable) {
