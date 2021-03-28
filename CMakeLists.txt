@@ -33,8 +33,8 @@ find_package(OpenGL REQUIRED)
 find_package(OpenALSoft)
 find_package(OpenAL)
 
-if(OpenALSoft_FOUND)
-  if(OpenALSoft_FOUND AND NOT TARGET OpenAL::AL)
+if(OPENALSOFT_FOUND)
+  if(OPENALSOFT_FOUND AND NOT TARGET OpenAL::AL)
     add_library(OpenAL::AL UNKNOWN IMPORTED)
     set_target_properties(OpenAL::AL PROPERTIES
       IMPORTED_LOCATION "${OPENALSOFT_LIBRARY}"
