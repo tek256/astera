@@ -33,7 +33,7 @@ Here are the target platforms for this library:
 _NOTE: I'm always open to adding more target platforms!_
 
 ### Building
-Astera and it's dependencies are built using CMake. You can run your own CMake command or try using one of the automated build scripts (they're located in the `tools/` folder).
+Astera and it's dependencies are built using [CMake](https://cmake.org). You can run your own CMake command or try using one of the automated build scripts (they're located in the `tools/` folder).
 
 ```
 Usage build_unix.sh && build_win.bat [-hrcxqq]

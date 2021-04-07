@@ -1,4 +1,3 @@
-// TODO particle system rotation based on hit direction
 #define DEFAULT_WIDTH  1280
 #define DEFAULT_HEIGHT 720
 
@@ -15,7 +14,7 @@
 #include <astera/input.h>
 #include <astera/ui.h>
 
-// #define DEBUG_HITBOXES
+//#define DEBUG_HITBOXES
 
 #define USER_PREFS_FILE "user_prefs.ini"
 
@@ -43,7 +42,6 @@ typedef enum {
 
 typedef struct {
   // --- MAIN ---
-  ui_img    logo_img;
   ui_text   main_title;
   ui_button play, settings, quit;
 
@@ -79,7 +77,7 @@ typedef struct {
 
   // --- OTHER ---
   ui_font  font;
-  asset_t *font_data, *logo_data;
+  asset_t* font_data;
   float    scroll_timer, scroll_duration;
 } menu_t;
 
@@ -103,9 +101,8 @@ typedef enum {
   ENEMY_IDLE = 0,
   ENEMY_WALK,
   ENEMY_HIT,
-  ENEMY_ATTACK,
+  ENEMY_SPAWN,
   ENEMY_DIE,
-  ENEMY_DEAD,
 } ENEMY_STATE;
 
 typedef enum {
@@ -117,18 +114,18 @@ typedef enum {
 typedef struct {
   r_sprite sprite;
   c_circle circle;
-  vec2     stagger;
+  vec2     stagger, exit_point;
   int      health, max_health;
   int      state, state_change;
   int      type, take_damage;
-  float    damage_timer, move_speed;
+  float    damage_timer, move_speed, spawn_timer;
   int      alive;
 } enemy_t;
 
 typedef struct {
   vec2     center;
   c_aabb   aabb, hitbox;
-  int      health, is_idle, take_damage;
+  int      health, is_idle, take_damage, allow_spawns;
   float    damage_timer, damage_duration, attack_timer;
   r_sprite sprite, sword, swoosh;
 } player_t;
@@ -153,6 +150,8 @@ typedef struct {
   float       emitter_rotations[MAX_PARTICLE_EMITTERS];
 
   health_orb_t health_orbs[MAX_HEALTH_ORBS];
+
+  vec2 spawn_points[4];
 } level_t;
 
 typedef struct {
@@ -297,9 +296,9 @@ void create_emitter(vec2 position, vec2 dir) {
   }
 }
 
-void spawn_enemy() {
+int spawn_enemy(void) {
   if (level.enemy_count == level.enemy_capacity - 1) {
-    return;
+    return 0;
   }
 
   enemy_t* en = 0;
@@ -312,28 +311,47 @@ void spawn_enemy() {
 
   if (!en) {
     printf("Unable to find open slot for new enemy");
+    return 0;
   }
 
-  // keep within middle 6/8ths of screen
-  int  x        = rnd_range(20, 300);
-  int  y        = rnd_range(20, 160);
-  vec2 position = {x, y};
+  // up down left right (spawn_dir = opposite)
+  int dir = rand() % 4;
 
   int within_range = 0;
-  if ((within_range = within_range_of(level.player.center, 32.f, position))) {
+  if ((within_range = within_range_of(level.player.center, 32.f,
+                                      level.spawn_points[dir]))) {
     while (within_range) {
-      x            = rnd_range(20, 300);
-      y            = rnd_range(20, 160);
-      position[0]  = (float)x;
-      position[1]  = (float)y;
-      within_range = within_range_of(level.player.center, 32.f, position);
+      dir = rand() % 4;
+      within_range =
+          within_range_of(level.player.center, 32.f, level.spawn_points[dir]);
     }
   }
 
+  switch (dir) {
+    case 0:
+      en->exit_point[0] = 152.f;
+      en->exit_point[1] = 16.f;
+      break;
+    case 1:
+      en->exit_point[0] = 152.f;
+      en->exit_point[1] = 164.f;
+      break;
+    case 2:
+      en->exit_point[0] = 16.f;
+      en->exit_point[1] = 82.f;
+      break;
+    case 3:
+      en->exit_point[0] = 172.f;
+      en->exit_point[1] = 82.f;
+      break;
+    default:
+      break;
+  }
+
   vec2 sprite_size = {16.f, 16.f};
-  en->sprite       = r_sprite_create(shader, position, sprite_size);
+  en->sprite = r_sprite_create(shader, level.spawn_points[dir], sprite_size);
   en->sprite.layer = 4;
-  en->state        = ENEMY_IDLE;
+  en->state        = ENEMY_SPAWN;
   en->state_change = 0;
   en->type         = rand() % 3;
   en->damage_timer = 0.f;
@@ -349,26 +367,30 @@ void spawn_enemy() {
       en->max_health = 2;
       anim           = r_anim_get_name(render_ctx, "eye_idle");
       radius         = 5.f;
+      en->move_speed = 2.f;
       break;
     case ENEMY_GOBLIN:
       en->max_health = 4;
-      anim           = r_anim_get_name(render_ctx, "goblin_idle");
+      anim           = r_anim_get_name(render_ctx, "goblin_walk");
+      en->move_speed = 3.f;
       break;
     case ENEMY_SLIME:
       en->max_health = 3;
-      anim           = r_anim_get_name(render_ctx, "slime_idle");
+      anim           = r_anim_get_name(render_ctx, "slime_walk");
+      en->move_speed = 4.f;
       break;
   }
 
   float rand_anim_advance = (float)(rand() % 1500);
 
-  en->circle = c_circle_create(position, radius);
+  en->circle = c_circle_create(level.spawn_points[dir], radius);
   en->health = en->max_health;
   r_sprite_set_anim(&en->sprite, anim);
   r_sprite_anim_play(&en->sprite);
   r_sprite_update(&en->sprite, rand_anim_advance);
 
   ++level.enemy_count;
+  return 1;
 }
 
 void spawn_health_orb(vec2 pos) {
@@ -449,9 +471,10 @@ static void menu_set_page(int page) {
   }
 }
 
-void game_end(void) {
+void game_end(int won) {
   // set end game
   menu_set_page(MENU_END);
+  game_state        = won ? GAME_WIN : GAME_LOSE;
   menu.w_title.text = (game_state == GAME_WIN) ? "YOU WON!" : "YOU DIED!";
 }
 
@@ -472,7 +495,7 @@ void init_input(void) {
   i_binding_add(input_ctx, "select", KEY_SPACE, ASTERA_BINDING_KEY);
   i_binding_add_alt(input_ctx, "select", KEY_ENTER, ASTERA_BINDING_KEY);
 
-  i_binding_add(input_ctx, "attack", KEY_F, ASTERA_BINDING_KEY);
+  i_binding_add(input_ctx, "attack", KEY_RIGHT_CTRL, ASTERA_BINDING_KEY);
   i_binding_add_alt(input_ctx, "attack", KEY_SPACE, ASTERA_BINDING_KEY);
 }
 
@@ -529,49 +552,32 @@ void init_ui(void) {
 
   // -- MAIN MENU --
   menu.main_title =
-      ui_text_create(u_ctx, temp, "FIGHTER", 48.f, menu.font, UI_ALIGN_CENTER);
-
-  /* vec4 text_bounds;
-  ui_text_bounds(u_ctx, &menu.main_title, text_bounds); */
-
-  // load in the logo data
-  menu.logo_data = asset_get("resources/textures/icon.png");
-
-  // square image based on height
-  /* vec2 temp3 = {0.1f, 0.1f};
-  ui_scale_to_px(u_ctx, temp3, temp3);
-  temp3[0] = temp3[1];
-  ui_px_to_scale(u_ctx, temp3, temp3);
-  temp[0] = text_bounds[0] - temp2[0];
-  menu.logo_img =
-      ui_img_create(u_ctx, menu.logo_data->data, menu.logo_data->data_length,
-                    IMG_NEAREST | IMG_REPEATX | IMG_REPEATY, temp, temp3); */
+      ui_text_create(u_ctx, temp, "FIGHTER", 72.f, menu.font, UI_ALIGN_CENTER);
 
   ui_element tmp_ele;
 
   temp[0] = 0.5f;
   temp[1] += 0.25f; // 0.5f, 0.45f;
   menu.play =
-      ui_button_create(u_ctx, temp, temp2, "PLAY", UI_ALIGN_CENTER, 32.f);
+      ui_button_create(u_ctx, temp, temp2, "PLAY", UI_ALIGN_CENTER, 48.f);
   tmp_ele = ui_element_get(&menu.play, UI_BUTTON);
   ui_element_center_to(tmp_ele, temp);
 
   temp[1] += 0.15f; // 0.5f, 0.6f;
   menu.settings =
-      ui_button_create(u_ctx, temp, temp2, "SETTINGS", UI_ALIGN_CENTER, 32.f);
+      ui_button_create(u_ctx, temp, temp2, "SETTINGS", UI_ALIGN_CENTER, 48.f);
   tmp_ele = ui_element_get(&menu.settings, UI_BUTTON);
   ui_element_center_to(tmp_ele, temp);
 
   temp[1] += 0.15f; // 0.5f, 0.75f
   menu.quit =
-      ui_button_create(u_ctx, temp, temp2, "QUIT", UI_ALIGN_CENTER, 32.f);
+      ui_button_create(u_ctx, temp, temp2, "QUIT", UI_ALIGN_CENTER, 48.f);
   tmp_ele = ui_element_get(&menu.quit, UI_BUTTON);
   ui_element_center_to(tmp_ele, temp);
 
   menu.main_page      = ui_tree_create(8);
   menu.main_page.loop = 1;
   ui_tree_add(u_ctx, &menu.main_page, &menu.main_title, UI_TEXT, 0, 0, 0);
-  ui_tree_add(u_ctx, &menu.main_page, &menu.logo_img, UI_IMG, 0, 0, 0);
   ui_tree_add(u_ctx, &menu.main_page, &menu.play, UI_BUTTON, 1, 1, 1);
   ui_tree_add(u_ctx, &menu.main_page, &menu.settings, UI_BUTTON, 1, 1, 1);
   ui_tree_add(u_ctx, &menu.main_page, &menu.quit, UI_BUTTON, 1, 1, 1);
@@ -583,7 +589,7 @@ void init_ui(void) {
   temp[0] = 0.5f;
   temp[1] = 0.125f;
   menu.settings_title =
-      ui_text_create(u_ctx, temp, "SETTINGS", 32.f, menu.font, UI_ALIGN_CENTER);
+      ui_text_create(u_ctx, temp, "SETTINGS", 48.f, menu.font, UI_ALIGN_CENTER);
 
   temp[1] += 0.15f;
 
@@ -680,8 +686,6 @@ void init_ui(void) {
     }
   }
 
-  printf("closest: %i\n", closest);
-
   // dropdown scrolling
   menu.scroll_timer    = 0.f;
   menu.scroll_duration = 1000.f;
@@ -754,15 +758,15 @@ void init_ui(void) {
 
   temp[1] += 0.2f;
   menu.p_resume =
-      ui_button_create(u_ctx, temp, temp2, "RESUME", UI_ALIGN_CENTER, 32.f);
+      ui_button_create(u_ctx, temp, temp2, "RESUME", UI_ALIGN_CENTER, 48.f);
 
   temp[1] += 0.15f;
   menu.p_settings =
-      ui_button_create(u_ctx, temp, temp2, "SETTINGS", UI_ALIGN_CENTER, 32.f);
+      ui_button_create(u_ctx, temp, temp2, "SETTINGS", UI_ALIGN_CENTER, 48.f);
 
   temp[1] += 0.15f;
   menu.p_quit =
-      ui_button_create(u_ctx, temp, temp2, "QUIT", UI_ALIGN_CENTER, 32.f);
+      ui_button_create(u_ctx, temp, temp2, "QUIT", UI_ALIGN_CENTER, 48.f);
 
   menu.pause_page      = ui_tree_create(8);
   menu.pause_page.loop = 1;
@@ -790,19 +794,21 @@ void init_ui(void) {
 
   temp[1] += 0.2f;
   menu.w_again =
-      ui_button_create(u_ctx, temp, temp2, "GO AGAIN", UI_ALIGN_CENTER, 32.f);
+      ui_button_create(u_ctx, temp, temp2, "GO AGAIN", UI_ALIGN_CENTER, 48.f);
 
   temp[1] += 0.15f;
   menu.w_quit =
-      ui_button_create(u_ctx, temp, temp2, "QUIT", UI_ALIGN_CENTER, 32.f);
+      ui_button_create(u_ctx, temp, temp2, "QUIT", UI_ALIGN_CENTER, 48.f);
 
   menu.end_page      = ui_tree_create(5);
-  menu.end_page.loop = 0;
+  menu.end_page.loop = 1;
   ui_tree_add(u_ctx, &menu.end_page, &menu.w_title, UI_TEXT, 0, 0, 1);
-  ui_tree_add(u_ctx, &menu.end_page, &menu.w_again, UI_BUTTON, 1, 1, 2);
-  ui_tree_add(u_ctx, &menu.end_page, &menu.w_quit, UI_BUTTON, 1, 1, 2);
   ui_tree_add(u_ctx, &menu.end_page, &menu.w_bg, UI_BOX, 0, 0, 0);
+  ui_tree_add(u_ctx, &menu.end_page, &menu.w_again, UI_BUTTON, 1, 1, 1);
+  ui_tree_add(u_ctx, &menu.end_page, &menu.w_quit, UI_BUTTON, 1, 1, 1);
   ui_tree_reset(&menu.end_page);
+  ui_tree_print(&menu.end_page);
+  ui_debug_tree(&menu.end_page);
 
   // IN GAME
 
@@ -920,23 +926,78 @@ void menu_move_sfx() {
 }
 
 void init_collision(void) {
-  for (uint16_t i = 0; i < level.enemy_count; ++i) {}
-
   vec2 level_min = {0.f, 0.f};
   vec2 level_max = {320.f, 180.f};
   vec2 wall_size = {8.f, 8.f};
 
-  level.env_cols = 4;
-  level.env      = (c_aabb*)calloc(sizeof(c_aabb), 4);
+  vec2 gapped_half_max = {(level_max[0] * 0.5f) - 32.f,
+                          (level_max[1] * 0.5f) - 32.f};
 
-  // left
-  vec2 left_size = {wall_size[0], level_max[1]};
-  vec2 left_pos  = {0.f, level_max[1] * 0.5f};
-  level.env[0]   = c_aabb_create(left_pos, left_size);
+  printf("Gapped half max: %.2f %.2f\n", gapped_half_max[0],
+         gapped_half_max[1]);
+
+  // 2x side, gaps in between
+  level.env_cols = 8;
+  level.env      = (c_aabb*)calloc(sizeof(c_aabb), level.env_cols);
+
+  for (int i = 0; i < 4; ++i) {
+    int    vert = i < 2;
+    c_aabb top, bottom;
+    vec2   i_size, i_pos;
+
+    if (vert) {
+      i_size[0] = gapped_half_max[0] * 0.5f;
+      i_size[1] = wall_size[1];
+      i_pos[0]  = (gapped_half_max[0] * 0.5f) + wall_size[0];
+
+      if (i == 0) { // top (dir)
+        i_pos[1] = 0.f;
+      } else { // bottom (dir)
+        i_pos[1] = level_max[1];
+      }
+
+      // top/bottom left
+      top = c_aabb_create(i_pos, i_size);
+      // top/bottom right
+      i_pos[0] = level_max[0] - (gapped_half_max[0] * 0.5f) - (wall_size[0]);
+      bottom   = c_aabb_create(i_pos, i_size);
+    } else {
+      i_size[0] = wall_size[0];
+      i_size[1] = gapped_half_max[1] * 0.5f;
+      i_pos[1]  = (gapped_half_max[1] * 0.5f) + wall_size[1] - 8.f;
+
+      if (i == 2) { // left (dir)
+        i_pos[0] = 0.f;
+      } else { // right (dir)
+        i_pos[0] = level_max[0];
+      }
+
+      // left/right top
+      top = c_aabb_create(i_pos, i_size);
+      // left/right bottom
+      i_pos[1] = level_max[1] - (gapped_half_max[1] * 0.5f) - (wall_size[1]);
+      i_size[1] += 4.f;
+      bottom = c_aabb_create(i_pos, i_size);
+    }
+
+    level.env[(i * 2)]     = top;
+    level.env[(i * 2) + 1] = bottom;
+  }
 
   // right
-  vec2 right_pos = {320.f, left_pos[1]};
-  level.env[1]   = c_aabb_create(right_pos, left_size);
+  /*
+    left vec2 left_size = {wall_size[0], (level_max[1] * 0.5f) - (32.f)};
+
+  // left top
+  vec2 left_bottom_pos = {0.f, level_max[1] * 0.5f};
+  level.env[0]         = c_aabb_create(left_pos, left_size);
+
+  // left bottom
+  vec2 left_bottom_pos = {0.f, level_max[1] * 0.5f};
+  level.env[1]         = c_aabb_create(left_bottom_pos, left_size);
+
+  *vec2 right_pos = {320.f, left_pos[1]};
+  level.env[1]    = c_aabb_create(right_pos, left_size);
 
   // top
   vec2 top_pos  = {level_max[0] * 0.5f, -(wall_size[1] * 0.5f)};
@@ -946,9 +1007,13 @@ void init_collision(void) {
   // bottom
   vec2 bottom_pos = {top_pos[0], level_max[1] + (wall_size[1] * 0.5f)};
   level.env[3]    = c_aabb_create(bottom_pos, top_size);
+  */
 }
 
 void init_render(void) {
+  vec2 window_size;
+  r_window_get_vsize(render_ctx, window_size);
+
   shader = load_shader("resources/shaders/instanced.vert",
                        "resources/shaders/instanced.frag");
 
@@ -967,14 +1032,18 @@ void init_render(void) {
   particle_shader = load_shader("resources/shaders/particles.vert",
                                 "resources/shaders/particles.frag");
 
-  fbo    = r_framebuffer_create(DEFAULT_WIDTH, DEFAULT_HEIGHT, fbo_shader, 0);
-  ui_fbo = r_framebuffer_create(DEFAULT_WIDTH, DEFAULT_HEIGHT, ui_shader, 0);
+  fbo    = r_framebuffer_create((int)window_size[0], (int)window_size[1],
+                             fbo_shader, 0);
+  ui_fbo = r_framebuffer_create((int)window_size[0], (int)window_size[1],
+                                ui_shader, 0);
 
   sheet           = load_sheet("resources/textures/tilemap.png", 16, 16);
   character_sheet = load_sheet("resources/textures/spritesheet.png", 16, 16);
 
   int sheet_width  = (320 / 16) + 1;
   int sheet_height = (180 / 16) + 1;
+  int midpoint_x   = sheet_width / 2;
+  int midpoint_y   = sheet_height / 2;
 
   r_get_color4f(color_red, "#f00");
   r_get_color4f(color_white, "#fff");
@@ -992,57 +1061,88 @@ void init_render(void) {
     int x       = i % sheet_width;
     int y       = i / sheet_width;
 
-    if (x == 0 && y == 0) {
+    if (x == 0 && y == 0) { // top left
       texture = 0;
-    } else if (x >= sheet_width - 1 && y == 0) {
+    } else if (x >= sheet_width - 1 && y == 0) { // top right
       texture = 0;
       flip_x  = 1;
-    } else if (x == 0 && y >= sheet_height - 1) {
+    } else if (x == 0 && y >= sheet_height - 1) { // bottom left
       texture = 40;
-    } else if (x >= sheet_width - 1 && y >= sheet_height - 1) {
+    } else if (x >= sheet_width - 1 && y >= sheet_height - 1) { // top right
       texture = 40;
       flip_x  = 1;
-    } else if (x == 0) {
-      texture = 10;
-    } else if (x >= sheet_width - 1) {
-      texture = 10;
-      flip_x  = 1;
-    } else if (y == 0) {
-      texture = 1;
-    } else if (y >= sheet_height - 1) {
-      texture = 41;
-      // bottom left corner
-    } else if (y == sheet_height - 2 && x == 1) {
+    } else if (x == 0) { // left
+      if (y == midpoint_y - 2) {
+        texture = 13; // top edge
+      } else if (y == midpoint_y) {
+        texture = 32;
+      } else if (y == midpoint_y - 1) {
+        texture = 23;
+      } else {
+        texture = 10;
+      }
+    } else if (x >= sheet_width - 1) { // right
+      if (y == midpoint_y - 2) {
+        texture = 13; // top edge
+      } else if (y == midpoint_y) {
+        texture = 32;
+      } else if (y == midpoint_y - 1) {
+        texture = 23;
+      } else {
+        texture = 10;
+        flip_x  = 1;
+      }
+    } else if (y == 0) { // top
+      if (x == midpoint_x - 1) {
+        // left edge
+        texture = 11;
+      } else if (x == midpoint_x) {
+        texture = 13;
+      } else if (x == midpoint_x + 1) {
+        // right edge
+        texture = 14;
+      } else {
+        texture = 1;
+      }
+    } else if (y >= sheet_height - 1) { // bottom
+      if (x == midpoint_x - 1) {
+        // left edge
+        texture = 31;
+      } else if (x == midpoint_x) {
+        texture = 33;
+      } else if (x == midpoint_x + 1) {
+        // right edge
+        texture = 34;
+      } else {
+        texture = 41;
+      }
+
+    } else if (y == sheet_height - 2 && x == 1) { // bottom left
       texture = 31;
-      // top left corner
-    } else if (y == 1 && x == 1) {
+    } else if (y == 1 && x == 1) { // top left
       texture = 11;
-      // top right corner
-    } else if (x == sheet_width - 2 && y == 1) {
+    } else if (x == sheet_width - 2 && y == 1) { // top right
       texture = 14;
-      // bottom right corner
-    } else if (x == sheet_width - 2 && y == sheet_height - 2) {
+    } else if (x == sheet_width - 2 && y == sheet_height - 2) { // bottom right
       texture = 34;
-      // right edge
-    } else if (x == sheet_width - 2 && !(y == 1 || y == sheet_height - 2)) {
-      texture = 24;
+    } else if (x == sheet_width - 2 &&
+               !(y == 1 || y == sheet_height - 2)) { // right edge
+      texture = (y >= midpoint_y - 2) ? (y <= midpoint_y) ? 23 : 24 : 24;
       flip_y  = rand() % 2;
-      // left edge
-    } else if (x == 1 && !(y == 1 || y == sheet_height - 2)) {
-      texture = 21;
+    } else if (x == 1 && !(y == 1 || y == sheet_height - 2)) { // left edge
+      texture = (y >= midpoint_y - 2) ? (y <= midpoint_y) ? 23 : 21 : 21;
       flip_y  = rand() % 2;
-      // top edge
-    } else if (y == 1 && !(x == 1 || x == sheet_width - 2)) {
-      texture = 13;
+    } else if (y == 1 && !(x == 1 || x == sheet_width - 2)) { // top edge
+      texture = (x >= midpoint_x - 1) ? (x <= midpoint_x + 1) ? 23 : 13 : 13;
       flip_x  = rand() % 2;
-      // bottom edge
-    } else if (y == sheet_height - 1 && !(x == 1 || x == sheet_width - 2)) {
-      texture = 32;
+    } else if (y == sheet_height - 2 &&
+               !(x == 1 || x == sheet_width - 2)) { // bottom edge
+      texture = (x >= midpoint_x - 1) ? (x <= midpoint_x + 1) ? 23 : 32 : 32;
       flip_x  = rand() % 2;
     }
 
     // left side torches
-    if (x == 1 && !(y == 0 || y >= sheet_height - 1) && y % 2 == 1) {
+    if (x == 1 && !(y == 0 || y >= sheet_height - 1) && y % 2 == 1 && y != 5) {
       quads[(sheet_width * sheet_height) + torches_placed] =
           (r_baked_quad){.x      = (float)x * 16.f,
                          .y      = (float)y * 16.f,
@@ -1055,7 +1155,7 @@ void init_render(void) {
       ++torches_placed;
       // right side torches
     } else if (x == sheet_width - 2 && !(y == 0 || y >= sheet_height - 1) &&
-               y % 2 == 1) {
+               y % 2 == 1 && y != 5) {
       quads[(sheet_width * sheet_height) + torches_placed] =
           (r_baked_quad){.x      = (float)x * 16.f,
                          .y      = (float)y * 16.f,
@@ -1067,7 +1167,8 @@ void init_render(void) {
                          .flip_y = 0};
       ++torches_placed;
       // top torches
-    } else if (y == 0 && !(x == 0 || x >= sheet_width - 1) && x % 2 == 1) {
+    } else if (y == 0 && !(x == 0 || x >= sheet_width - 1) && x % 2 == 1 &&
+               x != 9 && x != 11) {
       quads[(sheet_width * sheet_height) + torches_placed] =
           (r_baked_quad){.x      = (float)x * 16.f,
                          .y      = (float)y * 16.f,
@@ -1207,6 +1308,22 @@ void init_game(void) {
   level.player.swoosh.layer = 100;
   r_anim* sword_swoosh      = r_anim_get_name(render_ctx, "sword_swoosh");
   r_sprite_set_anim(&level.player.swoosh, sword_swoosh);
+
+  // up
+  level.spawn_points[0][0] = 152.f;
+  level.spawn_points[0][1] = -16.f;
+
+  // down
+  level.spawn_points[1][0] = 152.f;
+  level.spawn_points[1][1] = 196.f;
+
+  // left
+  level.spawn_points[2][0] = -16.f;
+  level.spawn_points[2][1] = 82.f;
+
+  // right
+  level.spawn_points[3][0] = 336.f;
+  level.spawn_points[3][1] = 82.f;
 }
 
 // initialize player data
@@ -1216,6 +1333,7 @@ void init_game(void) {
 
 void clear_level(void) {
   free(level.enemies);
+  level.enemy_count = 0;
   for (int i = 0; i < MAX_HEALTH_ORBS; ++i) {
     level.health_orbs[i].active = 0;
   }
@@ -1223,19 +1341,28 @@ void clear_level(void) {
   for (int i = 0; i < MAX_PARTICLE_EMITTERS; ++i) {
     r_particles_reset(&level.emitters[i]);
   }
+}
+
+void init_level(void) {
+  // enemies
+  int spawn_count      = rnd_range(MAX_ENEMIES / 2, MAX_ENEMIES);
+  level.enemy_capacity = MAX_ENEMIES;
+  level.enemies        = (enemy_t*)calloc(sizeof(enemy_t), MAX_ENEMIES);
+
+  // player
+  level.player.health         = MAX_PLAYER_HEALTH;
+  level.player.damage_timer   = 0;
+  level.player.sprite.visible = 1;
+  level.player.sword.visible  = 1;
+  level.player.swoosh.visible = 1;
+  level.player.allow_spawns   = 0;
 
   vec2 player_pos      = {152.f, 82.f};
   vec2 player_halfsize = {4.5f, 5.f};
   c_aabb_set(&level.player.aabb, player_pos, player_halfsize);
   vec2_dup(level.player.center, player_pos);
-  update_player_sprites();
-}
 
-void init_level(void) {
-  int spawn_count      = rnd_range(4, 16);
-  level.enemy_capacity = MAX_ENEMIES;
-  level.enemies        = (enemy_t*)calloc(sizeof(enemy_t), MAX_ENEMIES);
-
+  level.enemy_count = 0;
   for (int i = 0; i < spawn_count; ++i) {
     spawn_enemy();
   }
@@ -1290,6 +1417,16 @@ void handle_ui(void) {
       vec3 listener_pos;
       a_listener_get_pos(audio_ctx, listener_pos);
       vec2 play_pos = {listener_pos[0], listener_pos[1]};
+
+      if (i_mouse_up(input_ctx, MOUSE_LEFT)) {
+        if (menu.music_vol.holding) {
+          menu.music_vol.holding = 0;
+        } else if (menu.sfx_vol.holding) {
+          menu.sfx_vol.holding = 0;
+        } else if (menu.master_vol.holding) {
+          menu.master_vol.holding = 0;
+        }
+      }
 
       if (i_binding_clicked(input_ctx, "right")) {
         if (ui_tree_is_active(u_ctx, menu.current_page, menu.master_vol.id)) {
@@ -1405,19 +1542,6 @@ void handle_ui(void) {
       }
     } break;
     case MENU_END:
-      if (ui_tree_check_event(menu.current_page, menu.w_again.id) == 1) {
-        r_framebuffer_bind(fbo);
-        r_window_clear_color_empty();
-        r_window_clear();
-        r_framebuffer_unbind();
-        clear_level();
-
-        game_state = GAME_PLAY;
-        init_level();
-        menu_set_page(MENU_NONE);
-        return;
-      }
-
       if (ui_tree_check_event(menu.current_page, menu.w_quit.id) == 1) {
         r_framebuffer_bind(fbo);
         r_window_clear_color_empty();
@@ -1427,6 +1551,18 @@ void handle_ui(void) {
         clear_level();
         menu_set_page(MENU_MAIN);
         game_state = GAME_START;
+      }
+
+      if (ui_tree_check_event(menu.current_page, menu.w_again.id) == 1) {
+        r_framebuffer_bind(fbo);
+        r_window_clear_color_empty();
+        r_window_clear();
+        r_framebuffer_unbind();
+
+        clear_level();
+        game_state = GAME_PLAY;
+        init_level();
+        menu_set_page(MENU_NONE);
       }
       break;
   }
@@ -1470,6 +1606,14 @@ void input(float delta) {
           menu_set_page(menu.last_page);
         } break;
         case MENU_END: {
+          r_framebuffer_bind(fbo);
+          r_window_clear_color_empty();
+          r_window_clear();
+          r_framebuffer_unbind();
+
+          clear_level();
+
+          game_state = GAME_START;
           menu_set_page(MENU_MAIN);
         } break;
       }
@@ -1680,74 +1824,88 @@ void update(time_s delta) {
 
       ++enemy_count;
 
-      // enemy AI
-      float dist = vec2_dist(en->circle.center, level.player.center);
-      // if within range, move towards
-      if (dist <= 45.f && dist > 7.f) {
-        float move_speed = 2.f;
+      if (en->state != ENEMY_SPAWN) {
+        // enemy AI
+        float dist = vec2_dist(en->circle.center, level.player.center);
+        // if within range, move towards
+        if (dist <= 90.f && dist > 7.f) {
+          int is_left = level.player.center[0] < en->circle.center[0];
+          if (is_left) {
+            en->sprite.flip_x = 1;
+          } else {
+            en->sprite.flip_x = 0;
+          }
 
-        switch (en->type) {
-          case ENEMY_SLIME:
-            move_speed = 4.f;
-            break;
-          case ENEMY_GOBLIN:
-            move_speed = 3.f;
-            break;
-        }
+          float move_factor = 0.005f;
+          vec2  move        = {level.player.center[0] - en->circle.center[0],
+                       level.player.center[1] - en->circle.center[1]};
+          vec2_norm(move, move);
+          vec2_scale(move, move, en->move_speed * (delta * move_factor));
+          move_enemy(en, move);
 
-        int is_left = level.player.center[0] < en->circle.center[0];
-        if (is_left) {
-          en->sprite.flip_x = 1;
-        } else {
-          en->sprite.flip_x = 0;
-        }
+          // set animaiton from idle (not walk) to walk
+          if (en->state != ENEMY_WALK) {
+            en->state = ENEMY_WALK;
 
-        float move_factor = 0.005f;
-        vec2  move        = {level.player.center[0] - en->circle.center[0],
-                     level.player.center[1] - en->circle.center[1]};
-        vec2_norm(move, move);
-        vec2_scale(move, move, move_speed * (delta * move_factor));
-        move_enemy(en, move);
+            // eyes only have the one animation
+            if (en->type != ENEMY_EYE) {
+              r_anim* anim = 0;
+              switch (en->type) {
+                case ENEMY_SLIME:
+                  anim = r_anim_get_name(render_ctx, "slime_walk");
+                  break;
+                case ENEMY_GOBLIN:
+                  anim = r_anim_get_name(render_ctx, "goblin_walk");
+                  break;
+              }
 
-        // set animaiton from idle (not walk) to walk
-        if (en->state != ENEMY_WALK) {
-          en->state = ENEMY_WALK;
-
-          // eyes only have the one animation
-          if (en->type != ENEMY_EYE) {
-            r_anim* anim = 0;
-            switch (en->type) {
-              case ENEMY_SLIME:
-                anim = r_anim_get_name(render_ctx, "slime_walk");
-                break;
-              case ENEMY_GOBLIN:
-                anim = r_anim_get_name(render_ctx, "goblin_walk");
-                break;
+              r_sprite_set_anim(&en->sprite, anim);
+              r_sprite_anim_play(&en->sprite);
             }
+          }
+        } else {
+          // set animaiton from walk to idle
+          if (en->state == ENEMY_WALK) {
+            en->state = ENEMY_IDLE;
 
-            r_sprite_set_anim(&en->sprite, anim);
-            r_sprite_anim_play(&en->sprite);
+            if (en->type != ENEMY_EYE) {
+              r_anim* anim = 0;
+              switch (en->type) {
+                case ENEMY_SLIME:
+                  anim = r_anim_get_name(render_ctx, "slime_idle");
+                  break;
+                case ENEMY_GOBLIN:
+                  anim = r_anim_get_name(render_ctx, "goblin_idle");
+                  break;
+              }
+
+              r_sprite_set_anim(&en->sprite, anim);
+              r_sprite_anim_play(&en->sprite);
+            }
           }
         }
       } else {
-        // set animaiton from walk to idle
-        if (en->state == ENEMY_WALK) {
-          en->state = ENEMY_IDLE;
-
-          if (en->type != ENEMY_EYE) {
-            r_anim* anim = 0;
-            switch (en->type) {
-              case ENEMY_SLIME:
-                anim = r_anim_get_name(render_ctx, "slime_idle");
-                break;
-              case ENEMY_GOBLIN:
-                anim = r_anim_get_name(render_ctx, "goblin_idle");
-                break;
-            }
-
-            r_sprite_set_anim(&en->sprite, anim);
-            r_sprite_anim_play(&en->sprite);
+        // move towards initial spawn point
+        float dist = vec2_dist(en->circle.center, en->exit_point);
+        if (dist <= 4.f) {
+          en->state = ENEMY_WALK;
+        } else {
+          int is_left = level.player.center[0] < en->circle.center[0];
+          if (is_left) {
+            en->sprite.flip_x = 1;
+          } else {
+            en->sprite.flip_x = 0;
           }
+
+          // move towards exit spawn point
+          float move_factor = 0.005f;
+          vec2  move_amount;
+          vec2_sub(move_amount, en->exit_point, en->circle.center);
+          vec2_norm(move_amount, move_amount);
+          vec2_scale(move_amount, move_amount,
+                     en->move_speed * (delta * move_factor));
+          // printf("%.2f %.2f\n", move_amount[0], move_amount[1]);
+          move_enemy(en, move_amount);
         }
       }
 
@@ -1784,7 +1942,6 @@ void update(time_s delta) {
 
             vec2 zero = {0.f, 0.f};
             if (level.player.health <= 0) {
-              play_sfx(a_res.s_player_die);
               level.player.sprite.visible = 0;
               level.player.swoosh.visible = 0;
               level.player.sword.visible  = 0;
@@ -1797,7 +1954,6 @@ void update(time_s delta) {
           }
         }
       }
-
       // enemy vs environment
       for (int i = 0; i < level.env_cols; ++i) {
         c_aabb     col = level.env[i];
@@ -1838,11 +1994,15 @@ void update(time_s delta) {
             if (en->health <= 0) {
               // death animation/etc
               en->alive = 0;
-              en->state = ENEMY_DIE;
               create_emitter(en->circle.center, man.direction);
 
               int to_spawn = rand() % 2;
-              if (to_spawn) {
+              if (level.player.health < 7) {
+                level.player.allow_spawns = 1;
+              }
+
+              if (to_spawn && level.player.allow_spawns &&
+                  level.player.health != 10) {
                 spawn_health_orb(en->circle.center);
               }
 
@@ -1851,7 +2011,8 @@ void update(time_s delta) {
               play_sfx(a_res.s_goblin_die);
               if (to_spawn) {
                 spawn_enemy();
-                ++enemy_count;
+              } else {
+                --level.enemy_count;
               }
             } else {
               play_sfx(a_res.s_enemy_hit);
@@ -1873,14 +2034,12 @@ void update(time_s delta) {
 
     // win condition
     if (enemy_count == 0) {
-      game_state = GAME_WIN;
-      game_end();
+      game_end(1);
     }
 
     // lose condition
     if (level.player.health <= 0) {
-      game_state = GAME_LOSE;
-      game_end();
+      game_end(0);
     }
   }
 }
@@ -1975,7 +2134,6 @@ void draw_ui(void) {
         ui_im_img_draw(u_ctx, menu.heart_full, pos, menu.heart_full.size);
       }
     }
-  } else {
   }
 
   if (game_state != GAME_PLAY) {
@@ -2057,32 +2215,7 @@ void render(time_s delta) {
     draw_game(delta);
   }
 
-  static int page_notif         = 0;
-  static int page_notif_counter = 0;
-  static int ui_change          = 0;
-  if (menu.current_page) {
-    if (ui_change) {
-      ui_change = 0;
-    }
-
-    if (page_notif) {
-      page_notif = 0;
-      ++page_notif_counter;
-    }
-
-    // draw ui
-    draw_ui();
-  } else {
-    // check for changes so the framebuffer is cleared. (technically don't
-    // have to draw it if we don't have an actual target, but just gluing??
-    // this together.
-    draw_ui();
-
-    if (!page_notif && !(game_state == GAME_PLAY || game_state == GAME_PAUSE)) {
-      printf("No current page: %i\n", page_notif_counter);
-      page_notif = 1;
-    }
-  }
+  draw_ui();
 }
 
 user_preferences load_config(void) {
@@ -2134,7 +2267,6 @@ void save_config(void) {
   s_table_add_float(&table, "sfx",
                     a_layer_get_gain(audio_ctx, a_res.sfx_layer));
   float music_layer = a_layer_get_gain(audio_ctx, a_res.music_layer);
-  printf("music: %.2f\n", music_layer);
   s_table_add_float(&table, "music",
                     a_layer_get_gain(audio_ctx, a_res.music_layer));
   int32_t width, height;

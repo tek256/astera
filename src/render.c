@@ -2555,7 +2555,7 @@ uint8_t r_window_create(r_ctx* ctx, r_window_params params) {
   glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-  glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+  glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_COMPAT_PROFILE);
 
 #if defined(ASTERA_DEBUG_GL)
   ASTERA_FUNC_DBG("Debug GL Enabled.\n");

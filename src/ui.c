@@ -33,6 +33,17 @@ static NVGcolor ui_u_color(ui_color v) {
                  (unsigned char)(v[2] * 255), (unsigned char)(v[3] * 255));
 }
 
+void ui_debug_tree(ui_tree* tree) {
+  ASTERA_DBG("tree:\n");
+  ASTERA_DBG("Count: [%i], Capacity: [%i]\n", tree->count, tree->capacity);
+  ASTERA_DBG("mouse_hover_id: [%i], mouse_hover_index: [%i]\n",
+             tree->mouse_hover_id, tree->mouse_hover_index);
+  ASTERA_DBG("cursor_id: [%i], cursor_index: [%i]\n", tree->cursor_id,
+             tree->cursor_index);
+  ASTERA_DBG("selected_index: [%i]\n", tree->selected_index);
+  ASTERA_DBG("loop: [%i]\n", tree->loop);
+}
+
 uint32_t ui_element_get_uid(ui_element element) {
   if (element.data) {
     return *((uint32_t*)element.data);
@@ -1633,14 +1644,6 @@ void ui_dropdown_draw(ui_ctx* ctx, ui_dropdown* dropdown, int8_t focused) {
           text_offset[1] += option_size[1];
         } else {
           text_offset[1] += option_size[1];
-        }
-
-        if (start + i >= dropdown->option_count) {
-          printf("out of bounds cursor %i\n", (start + i));
-          continue;
-        } else if (!dropdown->options[start + i]) {
-          printf("Empty string, cursor: %i\n", (start + i));
-          continue;
         }
 
         nvgText(ctx->nvg, dropdown_position[0] + text_offset[0],
@@ -3454,7 +3457,7 @@ uint32_t ui_tree_select(ui_ctx* ctx, ui_tree* tree, int32_t event_type,
     for (uint32_t i = 0; i < tree->count; ++i) {
       ui_leaf* leaf = &tree->raw[i];
 
-      if (leaf->uid == tree->mouse_hover_id || leaf->uid == tree->cursor_id) {
+      if (leaf->uid == tree->mouse_hover_id) {
         continue;
       }
     }

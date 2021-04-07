@@ -9,6 +9,7 @@
 /* TODO:
  * - Patch sticky mouse click between sliders
  *   (examples/fighter.c settings menu)
+ * - Refactor ui_tree/ctx functions into more sensible names/usages
  */
 
 #ifndef ASTERA_UI_HEADER
@@ -389,13 +390,15 @@ typedef struct {
   ui_leaf** draw_order;
   uint16_t  capacity, count;
 
-  /* new implementation */
   uint32_t mouse_hover_id, cursor_id;
   uint32_t mouse_hover_index, cursor_index, selected_index;
   int      loop;
 } ui_tree;
 
 typedef struct ui_ctx ui_ctx;
+
+/* Output the state of a tree */
+void ui_debug_tree(ui_tree* tree);
 
 /* Duplicate a color from a to dst
  * dst - the destination of the color
@@ -411,11 +414,29 @@ void ui_color_clear(ui_color dst);
  * returns: valid = 1, invalid = 0 */
 uint8_t ui_color_valid(ui_color const a);
 
+/* Create a ui context
+ * screen_size - resolution of the UI (in px)
+ * pixel_scale - the scale of pixels to draw
+ * use_mouse - if the UI should allow mouse input
+ * antialias - if the UI should use antialiasing
+ * attribs - if the UI should track and allow strorage of attrbiutes
+ * returns: malloc'd pointer to ui context */
 ui_ctx* ui_ctx_create(vec2 screen_size, float pixel_scale, uint8_t use_mouse,
                       uint8_t antialias, uint8_t attribs);
-void    ui_ctx_update(ui_ctx* ctx, vec2 mouse_pos);
-void    ui_ctx_resize(ui_ctx* ctx, vec2 screen_size);
-void    ui_ctx_destroy(ui_ctx* ctx);
+
+/* Update a ui context NOTE: Only needed if using mouse
+ * ctx - context to update
+ * mouse_pos - position of the mouse cursor */
+void ui_ctx_update(ui_ctx* ctx, vec2 mouse_pos);
+
+/* Resize the internal system to a screen size
+ * ctx - context to resize
+ * screen_size - the resolution to resize to in px */
+void ui_ctx_resize(ui_ctx* ctx, vec2 screen_size);
+
+/* Destroy a ui context
+ * ctx - the context to destroy */
+void ui_ctx_destroy(ui_ctx* ctx);
 
 /* Square size to match same px count as scale width
  * ctx - context to square to
