@@ -67,26 +67,18 @@ static unsigned char* fs_file_data(const char* path, uint32_t* size_ptr) {
 #if defined(ASTERA_PAK_WRITE)
 
 pak_write_t* pak_write_create(const char* file) {
-  pak_write_t* write = (pak_write_t*)malloc(sizeof(pak_write_t));
+  pak_write_t* write = (pak_write_t*)calloc(1, sizeof(pak_write_t));
 
   if (!write) {
     return 0;
   }
 
-  memset(write, 0, sizeof(pak_write_t));
   write->filepath = file;
   return write;
 }
 
 void pak_write_destroy(pak_write_t* write) {
   if (write->files) {
-    for (uint32_t i = 0; i < write->count; ++i) {
-      pak_wfile_t* wfile = &write->files[i];
-      if (wfile->is_mem) {
-        if (wfile->data.ptr)
-          free(wfile->data.ptr);
-      }
-    }
     free(write->files);
   }
 
@@ -246,7 +238,7 @@ pak_t* pak_open_file(const char* file) {
     return 0;
   }
 
-  pak_t* pak = (pak_t*)malloc(sizeof(pak_t));
+  pak_t* pak = (pak_t*)calloc(1, sizeof(pak_t));
 
   if (!pak) {
     ASTERA_FUNC_DBG("unable to alloc pak_t\n");
@@ -254,15 +246,13 @@ pak_t* pak_open_file(const char* file) {
     return 0;
   }
 
-  memset(pak, 0, sizeof(pak_t));
-  pak->is_mem        = 0;
   pak->count         = header.count;
   pak->data.filepath = file;
 
   // Seek to the end of the header size (start of entries)
   fseek(f, sizeof(pak_header_t), SEEK_SET);
 
-  pak->files = (pak_file_t*)malloc(sizeof(pak_file_t) * header.count);
+  pak->files = (pak_file_t*)calloc(header.count, sizeof(pak_file_t));
 
   if (!pak->files) {
     ASTERA_FUNC_DBG("unable to allocate space for entries\n");
@@ -303,14 +293,12 @@ pak_t* pak_open_mem(unsigned char* data, uint32_t data_length) {
     return 0;
   }
 
-  pak_t* pak = (pak_t*)malloc(sizeof(pak_t));
+  pak_t* pak = (pak_t*)calloc(1, sizeof(pak_t));
 
   if (!pak) {
     ASTERA_FUNC_DBG("unable to allocate space for pak header\n");
     return 0;
   }
-
-  memset(pak, 0, sizeof(pak_t));
 
   pak->is_mem = 1;
   pak->files  = 0;
@@ -342,7 +330,7 @@ unsigned char* pak_extract(pak_t* pak, uint32_t index, uint32_t* size) {
     }
 
     unsigned char* data =
-        (unsigned char*)malloc(sizeof(unsigned char) * (entry->size + 1));
+        (unsigned char*)calloc(entry->size + 1, sizeof(unsigned char));
 
     if (!data) {
       ASTERA_FUNC_DBG("unable to allocate %i bytes\n",
@@ -350,8 +338,6 @@ unsigned char* pak_extract(pak_t* pak, uint32_t index, uint32_t* size) {
       fclose(f);
       return 0;
     }
-
-    memset(data, 0, sizeof(unsigned char) * (entry->size + 1));
 
     fseek(f, entry->offset, SEEK_SET);
     if (!fread(data, sizeof(unsigned char), entry->size, f)) {
@@ -537,13 +523,10 @@ asset_t* asset_map_get(asset_map_t* map, const char* file) {
   }
 
   if (map->pak) {
-    asset_t* asset = (asset_t*)malloc(sizeof(asset_t));
+    asset_t* asset = (asset_t*)calloc(1, sizeof(asset_t));
     asset->name    = file;
     ++map->uid_counter;
-    asset->uid      = map->uid_counter;
-    asset->req      = 0;
-    asset->req_free = 0;
-    asset->fs       = 0;
+    asset->uid = map->uid_counter;
 
     int32_t asset_index = pak_find(map->pak, file);
 
@@ -599,7 +582,7 @@ asset_t* asset_get(const char* file) {
     return 0;
   }
 
-  asset_t* asset = (asset_t*)malloc(sizeof(asset_t));
+  asset_t* asset = (asset_t*)calloc(1, sizeof(asset_t));
 
   FILE* f = fopen(file, "r+b");
 
@@ -642,12 +625,9 @@ asset_t* asset_get(const char* file) {
   asset->data        = data;
   asset->data_length = data_read;
 
-  asset->name     = file;
-  asset->filled   = 1;
-  asset->req      = 0;
-  asset->req_free = 0;
-  asset->chunk    = 0;
-  asset->fs       = 1;
+  asset->name   = file;
+  asset->filled = 1;
+  asset->fs     = 1;
 
   return asset;
 }
@@ -657,8 +637,7 @@ asset_map_t asset_map_create(const char* filename, const char* name,
   asset_map_t map = (asset_map_t){
       .capacity = capacity, .name = name, .filename = filename, 0};
 
-  map.assets = (asset_t**)malloc(sizeof(asset_t*) * capacity);
-  memset(map.assets, 0, sizeof(asset_t*) * capacity);
+  map.assets = (asset_t**)calloc(capacity, sizeof(asset_t*));
 
   if (filename) {
     pak_t* pak = pak_open_file(filename);
@@ -678,8 +657,7 @@ asset_map_t asset_map_create_mem(unsigned char* data, uint32_t data_length,
   asset_map_t map =
       (asset_map_t){.capacity = capacity, .name = name, .filename = 0, 0};
 
-  map.assets = (asset_t**)malloc(sizeof(asset_t*) * capacity);
-  memset(map.assets, 0, sizeof(asset_t*) * capacity);
+  map.assets = (asset_t**)calloc(capacity, sizeof(asset_t*));
 
   if (data && data_length) {
     pak_t* pak = pak_open_mem(data, data_length);
@@ -752,7 +730,7 @@ asset_t* asset_get_chunk(const char* file, uint32_t chunk_start,
     return 0;
   }
 
-  asset_t* asset = (asset_t*)malloc(sizeof(asset_t));
+  asset_t* asset = (asset_t*)calloc(1, sizeof(asset_t));
   FILE*    f     = fopen(file, "r+b");
 
   if (!f) {
@@ -813,8 +791,6 @@ asset_t* asset_get_chunk(const char* file, uint32_t chunk_start,
   asset->filled      = 1;
   asset->chunk       = 1;
   asset->chunk_start = chunk_start;
-  asset->req         = 0;
-  asset->req_free    = 0;
 
   return asset;
 }

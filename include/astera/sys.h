@@ -1,4 +1,7 @@
-// TODO: Multi iterator to parse duplicate keys
+// TODO:
+// - Multi iterator to parse duplicate keys
+// - Threading
+// - System Info
 
 /* MACROS:
  * ASTERA_NO_CONF - Remove INI Loading functionality
@@ -217,12 +220,6 @@ int s_buff_get_i(s_buffer_t* buffer);
  * dst - the destination to place the string
  * return: the string value */
 char* s_buff_get_s(s_buffer_t* buffer, char* dst);
-
-/* Get size of ram in mb */
-uint32_t s_get_ram_size();
-
-/* Get # of cores on the system (affected by SMT) */
-uint32_t s_get_core_count();
 
 #ifdef __cplusplus
 }

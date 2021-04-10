@@ -71,9 +71,7 @@ uint8_t ui_color_valid(ui_color const a) {
 
 ui_ctx* ui_ctx_create(vec2 screen_size, float pixel_scale, uint8_t use_mouse,
                       uint8_t antialias, uint8_t attribs) {
-  ui_ctx* ctx = (ui_ctx*)malloc(sizeof(ui_ctx));
-
-  memset(ctx, 0, sizeof(ui_ctx));
+  ui_ctx* ctx = (ui_ctx*)calloc(1, sizeof(ui_ctx));
 
   vec2_dup(ctx->size, screen_size);
 
@@ -91,9 +89,7 @@ ui_ctx* ui_ctx_create(vec2 screen_size, float pixel_scale, uint8_t use_mouse,
   if (attribs) {
     ctx->attribs.capacity = UI_ATTRIB_LAST;
     ctx->attribs.attribs =
-        malloc(sizeof(ui_attrib_storage) * ctx->attribs.capacity);
-    memset(ctx->attribs.attribs, 0,
-           sizeof(ui_attrib_storage) * ctx->attribs.capacity);
+        calloc(ctx->attribs.capacity, sizeof(ui_attrib_storage));
   } else {
     ctx->attribs.capacity = 0;
   }
@@ -292,25 +288,6 @@ static inline int8_t ui_is_type(int value, int type) {
 }
 
 void ui_frame_end(ui_ctx* ctx) { nvgEndFrame(ctx->nvg); }
-
-static uint16_t ui_attrib_size(ui_attrib_type type) {
-  switch (type) {
-    case UI_INT:
-      return sizeof(int32_t);
-    case UI_FLOAT:
-      return sizeof(float);
-    case UI_VEC2:
-      return sizeof(vec2);
-    case UI_VEC3:
-      return sizeof(vec3);
-    case UI_VEC4:
-      return sizeof(vec4);
-    case UI_COLOR:
-      return sizeof(ui_color);
-    default:
-      return sizeof(char);
-  }
-}
 
 static ui_attrib_storage* _ui_attrib_get_add(ui_ctx* ctx, ui_attrib attrib,
                                              ui_attrib_type type) {
@@ -544,12 +521,10 @@ void ui_element_center_to(ui_element element, vec2 point) {
 
 ui_tree ui_tree_create(uint16_t capacity) {
   ui_tree  tree;
-  ui_leaf* raw = malloc(sizeof(ui_leaf) * (capacity + 1));
-  memset(raw, 0, sizeof(ui_leaf) * (capacity + 1));
-  tree.raw = raw;
+  ui_leaf* raw = calloc(capacity + 1, sizeof(ui_leaf));
+  tree.raw     = raw;
 
-  tree.draw_order = (ui_leaf**)malloc(sizeof(ui_leaf*) * (capacity + 1));
-  memset(raw, 0, sizeof(ui_leaf*) * (capacity + 1));
+  tree.draw_order = (ui_leaf**)calloc(capacity + 1, sizeof(ui_leaf*));
 
   assert(raw != 0);
 
@@ -2676,7 +2651,7 @@ ui_dropdown ui_dropdown_create(ui_ctx* ctx, vec2 pos, vec2 size, char** options,
     dropdown.option_count    = option_count;
     dropdown.option_capacity = option_count + 1;
   } else {
-    dropdown.options         = (char**)malloc(sizeof(char*) * 8);
+    dropdown.options         = (char**)calloc(8, sizeof(char*));
     dropdown.option_count    = 0;
     dropdown.option_capacity = 8;
 

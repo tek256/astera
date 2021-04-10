@@ -16,7 +16,13 @@ typedef enum {
 } usage_modes;
 
 int main(int argc, char** argv) {
-  if (argc == 2) {
+#if defined(ASTERA_PAK_WRITE)
+  if (argc == 1) {
+    printf("Usage: ./pakutil [(m)ake|(c)heck|(d)ata] dst.pak "
+           "file ... "
+           "file n\n");
+    return 0;
+  } else if (argc == 2) {
     if (strcmp(argv[1], "h") == 0 || strcmp(argv[1], "help") == 0 ||
         strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "-help") == 0 ||
         strcmp(argv[1], "--h") == 0 || strcmp(argv[1], "--help") == 0) {
@@ -51,11 +57,6 @@ int main(int argc, char** argv) {
         return 0;
       }
     }
-  }
-
-  if (argc < 3) {
-    printf("Invalid number of arguments passed to packer: %i\n", argc);
-    return 1;
   }
 
   int mode = NONE;
@@ -152,4 +153,9 @@ int main(int argc, char** argv) {
     pak_close(pak);
 
   return 0;
+#else
+  printf("Please enable ASTERA_PAK_WRITE in the build system to get this "
+         "program, thank you!\n");
+  return 0;
+#endif
 }

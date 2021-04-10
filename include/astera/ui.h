@@ -7,8 +7,6 @@
  * NOTE: Scale is the term used to denote normalized size */
 
 /* TODO:
- * - Patch sticky mouse click between sliders
- *   (examples/fighter.c settings menu)
  * - Refactor ui_tree/ctx functions into more sensible names/usages
  */
 

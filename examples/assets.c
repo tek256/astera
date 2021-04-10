@@ -2,11 +2,18 @@
 
 This example is meant to show how to use the various asset functions in Astera.
 
-If ASTERA_PAK_WRITE is enabled in the build it will include a pak writing example as well. _NOTE: You can enable this by setting it in your CMakeLists.txt or passing the argument `-DASTERA_PAK_WRITE=ON` initially._ This is meant to show how to use the Astera pak writing utility to store multiple files into astera's .PAK file type. For more on the specifics of this type, check out the Asset Guide's PAK Files section.
+If ASTERA_PAK_WRITE is enabled in the build it will include a pak writing
+example as well. _NOTE: You can enable this by setting it in your CMakeLists.txt
+or passing the argument `-DASTERA_PAK_WRITE=ON` initially._ This is meant to
+show how to use the Astera pak writing utility to store multiple files into
+astera's .PAK file type. For more on the specifics of this type, check out the
+Asset Guide's PAK Files section.
 
 NOTE:
-If you want to recreate the pak functionality outside of runtime, astera includes a pakutil tool in the tools/ directory. You can enable the compilation of this with the engine by passing -DASTERA_BUILD_TOOLS=ON or setting ASTERA_BUILD_TOOLS to ON in your CMakeLists.txt. 
-*/
+If you want to recreate the pak functionality outside of runtime, astera
+includes a pakutil tool in the tools/ directory. You can enable the compilation
+of this with the engine by passing -DASTERA_BUILD_TOOLS=ON or setting
+ASTERA_BUILD_TOOLS to ON in your CMakeLists.txt. */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -18,6 +25,10 @@ void test_load(const char* asset_path) {
   printf("%s:\n", asset_path);
 
   asset_t* asset = asset_get(asset_path);
+  if (!asset) {
+    printf("Unable to locate file: %s\n", asset_path);
+    return;
+  }
   if (asset->filled) {
     printf("Name: %s\nSize: %i\n", asset->name, asset->data_length);
     // astera_hash hash = asset_hash(asset);
@@ -33,9 +44,9 @@ void test_load(const char* asset_path) {
 int main() {
   printf("--- Asset Test ---\n\n");
 
-  test_load("resources/textures/Dungeon_Tileset.png");
+  test_load("resources/textures/tilemap.png");
   test_load("resources/textures/icon.png");
-  test_load("resources/fonts/monogram.ttf");
+  test_load("resources/fonts/OpenSans-Regular.ttf");
   test_load("resources/shaders/fbo.vert");
   test_load("resources/shaders/fbo.frag");
 
@@ -43,7 +54,7 @@ int main() {
   //        enabled at build time (CMake)
 #if defined(ASTERA_PAK_WRITE)
 
-  printf("\n-- PAK Write Test --\n");
+  printf("-- PAK Write Test --\n");
 
   // Create the pak write structure
   pak_write_t* write = pak_write_create("test.pak");
@@ -65,7 +76,7 @@ int main() {
   // Open up a read only version of the pak file just written
   pak_t* pak = pak_open_file("test.pak");
 
-  printf("# of files in PAK: %i\n", pak_count(pak));
+  printf("# of files in PAK: %i\n\n", pak_count(pak));
 
   uint32_t size = pak_size(pak, 1) + 16;
 

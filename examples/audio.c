@@ -64,10 +64,10 @@ void init_ui() {
 
   ASTERA_FUNC_DBG("Hello world. %i\n", 4);
 
-  font_data = asset_get("resources/fonts/monogram.ttf");
+  font_data = asset_get("resources/fonts/OpenSans-Regular.ttf");
 
   test_font = ui_font_create(u_ctx, font_data->data, font_data->data_length,
-                             "monogram");
+                             "OpenSans");
 
   vec2 explain_pos  = {0.5f, 0.1f};
   vec2 explain2_pos = {0.5f, 0.05f};

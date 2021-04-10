@@ -105,28 +105,23 @@ static void r_batch_check(r_batch* batch) {
   }
 
   if (!batch->mats) {
-    batch->mats = (mat4x4*)malloc(sizeof(mat4x4) * batch->capacity);
-    memset(batch->mats, 0, sizeof(mat4x4) * batch->capacity);
+    batch->mats = (mat4x4*)calloc(batch->capacity, sizeof(mat4x4));
   }
 
   if (!batch->coords) {
-    batch->coords = (vec4*)malloc(sizeof(vec4) * batch->capacity);
-    memset(batch->coords, 0, sizeof(vec4) * batch->capacity);
+    batch->coords = (vec4*)calloc(batch->capacity, sizeof(vec4));
   }
 
   if (!batch->colors) {
-    batch->colors = (vec4*)malloc(sizeof(vec4) * batch->capacity);
-    memset(batch->colors, 0, sizeof(vec4) * batch->capacity);
+    batch->colors = (vec4*)calloc(batch->capacity, sizeof(vec4));
   }
 
   if (!batch->flip_x) {
-    batch->flip_x = (int*)malloc(sizeof(int) * batch->capacity);
-    memset(batch->flip_x, 0, sizeof(int) * batch->capacity);
+    batch->flip_x = (int*)calloc(batch->capacity, sizeof(int));
   }
 
   if (!batch->flip_y) {
-    batch->flip_y = (int*)malloc(sizeof(int) * batch->capacity);
-    memset(batch->flip_y, 0, sizeof(int) * batch->capacity);
+    batch->flip_y = (int*)calloc(batch->capacity, sizeof(int));
   }
 }
 
@@ -1060,8 +1055,7 @@ r_particles r_particles_create(uint32_t emit_rate, float particle_life,
   particles.size[0] = 0.f;
   particles.size[1] = 0.f;
 
-  particles.list = (r_particle*)malloc(sizeof(r_particle) * particle_capacity);
-  memset(particles.list, 0, sizeof(r_particle) * particle_capacity);
+  particles.list = (r_particle*)calloc(particle_capacity, sizeof(r_particle));
 
   particles.capacity = particle_capacity;
   particles.count    = 0;
@@ -2268,8 +2262,7 @@ GLFWvidmode* r_get_vidmodes_by_usize(r_ctx* ctx, uint8_t* count) {
     return 0;
 
   uint16_t     ucount = 0, ucapacity = 8;
-  GLFWvidmode* umodes = malloc(sizeof(GLFWvidmode) * ucapacity);
-  memset(umodes, 0, sizeof(GLFWvidmode) * ucapacity);
+  GLFWvidmode* umodes = (GLFWvidmode*)calloc(ucapacity, sizeof(GLFWvidmode));
   for (uint16_t i = 0; i < ctx->mode_count; ++i) {
     GLFWvidmode current_mode = ctx->modes[i];
     uint8_t     contained    = 0;
@@ -2319,9 +2312,8 @@ GLFWvidmode* r_get_vidmode_options(r_ctx* ctx, uint8_t* count, uint32_t width,
   if (!unique)
     return 0;
 
-  GLFWvidmode* modes = (GLFWvidmode*)malloc(sizeof(GLFWvidmode) * unique);
-  memset(modes, 0, sizeof(GLFWvidmode) * unique);
-  uint8_t mode_index = 0;
+  GLFWvidmode* modes      = (GLFWvidmode*)malloc(sizeof(GLFWvidmode) * unique);
+  uint8_t      mode_index = 0;
 
   for (uint8_t i = 0; i < ctx->mode_count; ++i) {
     GLFWvidmode current_mode = ctx->modes[i];

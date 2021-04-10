@@ -107,10 +107,10 @@ void init_ui() {
 
   vec2 text_pos  = {0.5f, 0.35f};
   vec2 text_pos2 = {0.5f, 0.065f};
-  font_asset     = asset_get("resources/fonts/monogram.ttf");
+  font_asset     = asset_get("resources/fonts/OpenSans-Regular.ttf");
 
   test_font = ui_font_create(u_ctx, font_asset->data, font_asset->data_length,
-                             "monogram");
+                             "OpenSans");
 
   vec2 typed_pos = {0.25f, 0.9f};
   typed = ui_text_create(u_ctx, typed_pos, string_buffer, 24.f, test_font,

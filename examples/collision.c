@@ -41,10 +41,10 @@ void init_render(r_ctx* render_ctx) {
   vec2 screen_size = {(float)params.width, (float)params.height};
   u_ctx            = ui_ctx_create(screen_size, 1.f, 0, 1, 0);
 
-  font_data = asset_get("resources/fonts/monogram.ttf");
+  font_data = asset_get("resources/fonts/OpenSans-Regular.ttf");
 
   font = ui_font_create(u_ctx, font_data->data, font_data->data_length,
-                        "monogram");
+                        "OpenSans");
 
   vec2_clear(overlap_text_pos);
 

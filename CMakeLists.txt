@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(astera VERSION 0.1.0 LANGUAGES C)
+project(astera VERSION 0.0.1 LANGUAGES C)
 
 set(CMAKE_DISABLE_IN_SOURCE_BUILD ON CACHE BOOL "Prevents cmake -S. -B.")
 set(CMAKE_DISABLE_SOURCE_CHANGES ON CACHE BOOL "Prevent writing files to CMAKE_SOURCE_DIR under configure")
@@ -70,7 +70,7 @@ cmake_dependent_option(ASTERA_DEBUG_OUTPUT
 # Enable the inclusion of pak writing in the library
 cmake_dependent_option(ASTERA_PAK_WRITE
   "Include pak writing functions in asset.c/h" ON
-  "CMAKE_BUILD_TYPE STREQUAL Debug" ON)
+  "CMAKE_BUILD_TYPE STREQUAL Debug;CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME" ON)
 
 # Enables ASAN & Pedantic output
 option(ASTERA_DEBUG_ENGINE OFF)
@@ -90,12 +90,15 @@ set(GLFW_VULKAN_STATIC OFF)
 # Add GLFW
 add_subdirectory(${PROJECT_SOURCE_DIR}/dep/glfw EXCLUDE_FROM_ALL)
 
+# Get all of our source files into a list
 file(GLOB sources CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/src/*.c)
 add_library(${PROJECT_NAME} STATIC)
 
+# Add our source files & nanovg
 target_sources(${PROJECT_NAME} PRIVATE ${sources})
 target_sources(${PROJECT_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/dep/nanovg/nanovg.c)
 
+# Include headers
 target_include_directories(${PROJECT_NAME}
   PUBLIC
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
@@ -107,6 +110,7 @@ target_include_directories(${PROJECT_NAME}
     $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include>
     $<INSTALL_INTERFACE:${CMAKE_INCLUDE_INSTALLDIR}>)
 
+# Add all the preprocessor definitions for headers
 target_compile_definitions(${PROJECT_NAME}
   PRIVATE
     $<$<BOOL:${ASTERA_DEBUG_ENGINE}>:ASTERA_DEBUG_OUTPUT>
@@ -119,8 +123,10 @@ target_compile_definitions(${PROJECT_NAME}
     $<$<BOOL:${ASTERA_DISABLE_AUDIO_FX}>:ASTERA_AL_NO_FX>
     $<$<BOOL:${ASTERA_PAK_WRITE}>:ASTERA_PAK_WRITE>)
 
+# Set the C Standard to C99
 target_compile_features(${PROJECT_NAME} PRIVATE c_std_99)
 
+# Add warning output for the different compilers
 target_compile_options(${PROJECT_NAME}
   PRIVATE
   $<$<NOT:$<C_COMPILER_ID:MSVC>>:-Wall -Wextra -pedantic>
@@ -139,6 +145,7 @@ if(ASTERA_DEBUG_ENGINE)
     $<$<NOT:$<C_COMPILER_ID:MSVC>>:-g -fsanitize=address>)
 endif()
 
+# Link against the various libraries we need
 target_link_libraries(${PROJECT_NAME}
   PUBLIC
     OpenGL::GL
@@ -160,7 +167,6 @@ install(EXPORT ${PROJECT_NAME}-targets
 install(DIRECTORY include/ "${PROJECT_BINARY_DIR}/include/"
   TYPE INCLUDE
   FILES_MATCHING PATTERN "*.h")
-
 
 if(ASTERA_BUILD_EXAMPLES)
   if(EXISTS examples)

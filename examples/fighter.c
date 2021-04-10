@@ -9,12 +9,14 @@
 #include <astera/asset.h>
 #include <astera/audio.h>
 #include <astera/col.h>
+#include <astera/debug.h>
 #include <astera/render.h>
 #include <astera/sys.h>
 #include <astera/input.h>
 #include <astera/ui.h>
 
-//#define DEBUG_HITBOXES
+// If to draw hitboxes
+//#define DRAW_HITBOXES
 
 #define USER_PREFS_FILE "user_prefs.ini"
 
@@ -95,8 +97,6 @@ typedef struct {
   int   menu_move_sfx, menu_select_sfx;
 } a_resources;
 
-// game data
-
 typedef enum {
   ENEMY_IDLE = 0,
   ENEMY_WALK,
@@ -110,6 +110,15 @@ typedef enum {
   ENEMY_SLIME  = 1,
   ENEMY_GOBLIN = 2,
 } ENEMY_TYPES;
+
+typedef enum {
+  GAME_START = 0,
+  GAME_PLAY  = 1,
+  GAME_PAUSE = 2,
+  GAME_WIN   = 3,
+  GAME_LOSE  = 4,
+  GAME_QUIT  = -1,
+} GAME_STATE;
 
 typedef struct {
   r_sprite sprite;
@@ -147,7 +156,6 @@ typedef struct {
   player_t player;
 
   r_particles emitters[MAX_PARTICLE_EMITTERS];
-  float       emitter_rotations[MAX_PARTICLE_EMITTERS];
 
   health_orb_t health_orbs[MAX_HEALTH_ORBS];
 
@@ -164,62 +172,32 @@ static menu_t           menu       = {0};
 static a_resources      a_res      = {0};
 static level_t          level      = {0};
 
-static vec4 color_red;
-static vec4 color_white;
+r_ctx*  render_ctx;
+i_ctx*  input_ctx;
+ui_ctx* u_ctx;
+a_ctx*  audio_ctx;
 
-vec2 window_size, ui_scale;
+vec2 window_size;
 
-r_shader shader, baked, fbo_shader, ui_shader, single, particle_shader;
-// r_particles   particles;
+r_shader shader, baked, fbo_shader, particle_shader;
+
 r_baked_sheet baked_sheet;
-r_sprite      sprite;
+r_framebuffer fbo, ui_fbo;
 r_sheet       sheet, character_sheet;
-r_ctx*        render_ctx;
-i_ctx*        input_ctx;
-ui_ctx*       u_ctx;
-a_ctx*        audio_ctx;
 
 static vec2 camera_size;
 
 GLFWvidmode* vidmodes;
 uint8_t      vidmode_count;
 
-// MENU LAYOUT
-// PLAY
-// SETTINGS
-// QUIT
-
-typedef enum {
-  GAME_START = 0,
-  GAME_PLAY  = 1,
-  GAME_PAUSE = 2,
-  GAME_WIN   = 3,
-  GAME_LOSE  = 4,
-  GAME_QUIT  = -1,
-} GAME_STATE;
-
 static int game_state = GAME_START;
-
-r_framebuffer fbo, ui_fbo;
-
-r_sprite* sprites;
 
 s_timer render_timer;
 s_timer update_timer;
 
-int rnd_range(int min, int max) {
+static int rnd_range(int min, int max) {
   int value = rand() % (max - min);
   return value + min;
-}
-
-int rnd_rangef(float min, float max) {
-  return min + (((float)rand() / (float)(RAND_MAX)) * (max - min));
-}
-
-// check if other point is within radius of point
-int within_range_of(vec2 point, float radius, vec2 other_point) {
-  float dist = vec2_dist(point, other_point);
-  return dist < radius;
 }
 
 r_shader load_shader(const char* vs, const char* fs) {
@@ -310,37 +288,43 @@ int spawn_enemy(void) {
   }
 
   if (!en) {
-    printf("Unable to find open slot for new enemy");
+    ASTERA_DBG("Unable to find open slot for new enemy");
     return 0;
   }
 
-  // up down left right (spawn_dir = opposite)
+  // up down left right
   int dir = rand() % 4;
 
   int within_range = 0;
-  if ((within_range = within_range_of(level.player.center, 32.f,
-                                      level.spawn_points[dir]))) {
+
+  if ((within_range =
+           vec2_dist(level.player.center, level.spawn_points[dir]) < 64.f)) {
+    int tries = 0;
     while (within_range) {
       dir = rand() % 4;
       within_range =
-          within_range_of(level.player.center, 32.f, level.spawn_points[dir]);
+          vec2_dist(level.player.center, level.spawn_points[dir]) < 64.f;
+
+      ++tries;
+      if (tries > 16)
+        return 0;
     }
   }
 
   switch (dir) {
-    case 0:
+    case 0: // up
       en->exit_point[0] = 152.f;
       en->exit_point[1] = 16.f;
       break;
-    case 1:
+    case 1: // down
       en->exit_point[0] = 152.f;
       en->exit_point[1] = 164.f;
       break;
-    case 2:
+    case 2: // left
       en->exit_point[0] = 16.f;
       en->exit_point[1] = 82.f;
       break;
-    case 3:
+    case 3: // right
       en->exit_point[0] = 172.f;
       en->exit_point[1] = 82.f;
       break;
@@ -442,7 +426,7 @@ static void menu_set_page(int page) {
   // invalid page type
   if (!(page == MENU_NONE || page == MENU_SETTINGS || page == MENU_PAUSE ||
         page == MENU_MAIN || page == MENU_END)) {
-    printf("Invalid page type.\n");
+    ASTERA_DBG("Invalid page type.\n");
     return;
   }
 
@@ -466,7 +450,7 @@ static void menu_set_page(int page) {
       menu.current_page = &menu.end_page;
     } break;
     default:
-      printf("Invalid page\n");
+      ASTERA_DBG("Invalid page\n");
       break;
   }
 }
@@ -509,9 +493,9 @@ void init_ui(void) {
   ui_get_color(menu.offblack, "444");
   vec4_clear(menu.clear);
 
-  menu.font_data = asset_get("resources/fonts/monogram.ttf");
+  menu.font_data = asset_get("resources/fonts/OpenSans-Regular.ttf");
   menu.font      = ui_font_create(u_ctx, menu.font_data->data,
-                             menu.font_data->data_length, "monogram");
+                             menu.font_data->data_length, "OpenSans");
 
   ui_attrib_setc(u_ctx, UI_DROPDOWN_BG, menu.grey);
   ui_attrib_setc(u_ctx, UI_DROPDOWN_BG_HOVER, menu.white);
@@ -807,8 +791,6 @@ void init_ui(void) {
   ui_tree_add(u_ctx, &menu.end_page, &menu.w_again, UI_BUTTON, 1, 1, 1);
   ui_tree_add(u_ctx, &menu.end_page, &menu.w_quit, UI_BUTTON, 1, 1, 1);
   ui_tree_reset(&menu.end_page);
-  ui_tree_print(&menu.end_page);
-  ui_debug_tree(&menu.end_page);
 
   // IN GAME
 
@@ -933,9 +915,6 @@ void init_collision(void) {
   vec2 gapped_half_max = {(level_max[0] * 0.5f) - 32.f,
                           (level_max[1] * 0.5f) - 32.f};
 
-  printf("Gapped half max: %.2f %.2f\n", gapped_half_max[0],
-         gapped_half_max[1]);
-
   // 2x side, gaps in between
   level.env_cols = 8;
   level.env      = (c_aabb*)calloc(sizeof(c_aabb), level.env_cols);
@@ -983,42 +962,20 @@ void init_collision(void) {
     level.env[(i * 2)]     = top;
     level.env[(i * 2) + 1] = bottom;
   }
-
-  // right
-  /*
-    left vec2 left_size = {wall_size[0], (level_max[1] * 0.5f) - (32.f)};
-
-  // left top
-  vec2 left_bottom_pos = {0.f, level_max[1] * 0.5f};
-  level.env[0]         = c_aabb_create(left_pos, left_size);
-
-  // left bottom
-  vec2 left_bottom_pos = {0.f, level_max[1] * 0.5f};
-  level.env[1]         = c_aabb_create(left_bottom_pos, left_size);
-
-  *vec2 right_pos = {320.f, left_pos[1]};
-  level.env[1]    = c_aabb_create(right_pos, left_size);
-
-  // top
-  vec2 top_pos  = {level_max[0] * 0.5f, -(wall_size[1] * 0.5f)};
-  vec2 top_size = {level_max[0], wall_size[1] + (wall_size[1] * 0.25f)};
-  level.env[2]  = c_aabb_create(top_pos, top_size);
-
-  // bottom
-  vec2 bottom_pos = {top_pos[0], level_max[1] + (wall_size[1] * 0.5f)};
-  level.env[3]    = c_aabb_create(bottom_pos, top_size);
-  */
 }
 
 void init_render(void) {
-  vec2 window_size;
+  // get the vector size of the window
   r_window_get_vsize(render_ctx, window_size);
 
+  // set the window icon
+  asset_t* icon = asset_get("resources/textures/icon.png");
+  r_window_set_icon(render_ctx, icon->data, icon->data_length);
+  asset_free(icon);
+
+  // load in shaders we'll need
   shader = load_shader("resources/shaders/instanced.vert",
                        "resources/shaders/instanced.frag");
-
-  single = load_shader("resources/shaders/single.vert",
-                       "resources/shaders/single.frag");
 
   baked = load_shader("resources/shaders/simple.vert",
                       "resources/shaders/simple.frag");
@@ -1026,27 +983,24 @@ void init_render(void) {
   fbo_shader =
       load_shader("resources/shaders/fbo.vert", "resources/shaders/fbo.frag");
 
-  ui_shader =
-      load_shader("resources/shaders/fbo.vert", "resources/shaders/fbo.frag");
-
   particle_shader = load_shader("resources/shaders/particles.vert",
                                 "resources/shaders/particles.frag");
 
+  // create the two framebuffers we'll use
   fbo    = r_framebuffer_create((int)window_size[0], (int)window_size[1],
                              fbo_shader, 0);
   ui_fbo = r_framebuffer_create((int)window_size[0], (int)window_size[1],
-                                ui_shader, 0);
+                                fbo_shader, 0);
 
+  // load in the texture sheets
   sheet           = load_sheet("resources/textures/tilemap.png", 16, 16);
   character_sheet = load_sheet("resources/textures/spritesheet.png", 16, 16);
 
+  // calculate sizes of the camera's size
   int sheet_width  = (320 / 16) + 1;
   int sheet_height = (180 / 16) + 1;
   int midpoint_x   = sheet_width / 2;
   int midpoint_y   = sheet_height / 2;
-
-  r_get_color4f(color_red, "#f00");
-  r_get_color4f(color_white, "#fff");
 
   int torch_count    = (sheet_height * 2) + (sheet_width);
   int torches_placed = 0;
@@ -1226,16 +1180,10 @@ void init_render(void) {
   int     player_idle_frames[] = {35, 36, 37, 38, 39, 40};
   r_anim* player_idle =
       load_anim(&character_sheet, "player_idle", player_idle_frames, 6, 12, 1);
-  if (!player_idle) {
-    printf("No player walk\n");
-  }
 
   int     player_walk_frames[] = {42, 43, 44, 45, 46, 47};
   r_anim* player_walk =
       load_anim(&character_sheet, "player_walk", player_walk_frames, 6, 19, 1);
-  if (!player_walk) {
-    printf("No player walk\n");
-  }
 
   vec4 particle_color;
   vec2 particle_size     = {1.5f, 1.5f};
@@ -1375,7 +1323,7 @@ void game_resized_to(vec2 size) {
   r_framebuffer_destroy(fbo);
   r_framebuffer_destroy(ui_fbo);
   fbo            = r_framebuffer_create(size[0], size[1], fbo_shader, 0);
-  ui_fbo         = r_framebuffer_create(size[0], size[1], ui_shader, 0);
+  ui_fbo         = r_framebuffer_create(size[0], size[1], fbo_shader, 0);
   window_size[0] = size[0];
   window_size[1] = size[1];
 
@@ -1392,7 +1340,7 @@ void handle_ui(void) {
     case MENU_NONE: // none
       break;
     case MENU_MAIN: { //
-      if (ui_tree_check_event(menu.current_page, menu.play.id) == 1) {
+      if (ui_tree_check_event(&menu.main_page, menu.play.id) == 1) {
         menu_select_sfx();
         game_state = GAME_PLAY;
         init_level();
@@ -1400,12 +1348,12 @@ void handle_ui(void) {
         return;
       }
 
-      if (ui_tree_check_event(menu.current_page, menu.settings.id) == 1) {
+      if (ui_tree_check_event(&menu.main_page, menu.settings.id) == 1) {
         menu_set_page(MENU_SETTINGS);
         menu_select_sfx();
       }
 
-      if (ui_tree_check_event(menu.current_page, menu.quit.id) == 1) {
+      if (ui_tree_check_event(&menu.main_page, menu.quit.id) == 1) {
         // quit game
         menu_select_sfx();
         menu_set_page(MENU_NONE);
@@ -1464,7 +1412,7 @@ void handle_ui(void) {
         }
       }
 
-      if (ui_tree_check_event(menu.current_page, menu.back_button.id) == 1) {
+      if (ui_tree_check_event(&menu.settings_page, menu.back_button.id) == 1) {
         menu_set_page(menu.last_page);
       }
 
@@ -1497,7 +1445,7 @@ void handle_ui(void) {
 
       int32_t event_type = 0;
       if ((event_type =
-               ui_tree_check_event(menu.current_page, menu.res_dd.id)) == 1) {
+               ui_tree_check_event(&menu.settings_page, menu.res_dd.id)) == 1) {
         if (menu.res_dd.showing) {
           menu.res_dd.showing = 0;
         } else {
@@ -1505,10 +1453,8 @@ void handle_ui(void) {
         }
 
         if (ui_dropdown_has_change(&menu.res_dd) && !menu.res_dd.showing) {
-          printf("%i\n", menu.res_dd.selected);
           GLFWvidmode* modes = (GLFWvidmode*)menu.res_dd.data;
           r_select_vidmode(render_ctx, modes[menu.res_dd.selected], 0, 1, 0);
-          vec2 window_size;
           r_window_get_vsize(render_ctx, window_size);
           game_resized_to(window_size);
         }
@@ -1516,19 +1462,19 @@ void handle_ui(void) {
 
     } break;
     case MENU_PAUSE: {
-      if (ui_tree_check_event(menu.current_page, menu.p_settings.id) == 1) {
+      if (ui_tree_check_event(&menu.pause_page, menu.p_settings.id) == 1) {
         menu_select_sfx();
         menu_set_page(MENU_SETTINGS);
       }
 
-      if (ui_tree_check_event(menu.current_page, menu.p_resume.id) == 1) {
+      if (ui_tree_check_event(&menu.pause_page, menu.p_resume.id) == 1) {
         menu_select_sfx();
         menu_set_page(MENU_NONE);
         game_state = GAME_PLAY;
         return;
       }
 
-      if (ui_tree_check_event(menu.current_page, menu.p_quit.id) == 1) {
+      if (ui_tree_check_event(&menu.pause_page, menu.p_quit.id) == 1) {
         menu_select_sfx();
         // clear old framebuffer
         r_framebuffer_bind(fbo);
@@ -1542,7 +1488,7 @@ void handle_ui(void) {
       }
     } break;
     case MENU_END:
-      if (ui_tree_check_event(menu.current_page, menu.w_quit.id) == 1) {
+      if (ui_tree_check_event(&menu.end_page, menu.w_quit.id) == 1) {
         r_framebuffer_bind(fbo);
         r_window_clear_color_empty();
         r_window_clear();
@@ -1553,7 +1499,7 @@ void handle_ui(void) {
         game_state = GAME_START;
       }
 
-      if (ui_tree_check_event(menu.current_page, menu.w_again.id) == 1) {
+      if (ui_tree_check_event(&menu.end_page, menu.w_again.id) == 1) {
         r_framebuffer_bind(fbo);
         r_window_clear_color_empty();
         r_window_clear();
@@ -1587,7 +1533,7 @@ void input(float delta) {
       switch (menu.page_number) {
         case MENU_NONE: {
           // do nothing, this case shouldn't be achievable
-          printf("How'd you get here?!\n");
+          ASTERA_FUNC_DBG("How'd you get here?!\n");
         } break;
         case MENU_MAIN: {
           // quit game
@@ -1762,9 +1708,9 @@ void update(time_s delta) {
         level.player.take_damage = 0;
       }
 
-      blend(level.player.sprite.color, color_white, color_red,
+      blend(level.player.sprite.color, menu.white, menu.red,
             level.player.damage_timer / DAMAGE_DURATION);
-      blend(level.player.sword.color, color_white, color_red,
+      blend(level.player.sword.color, menu.white, menu.red,
             level.player.damage_timer / DAMAGE_DURATION);
     }
 
@@ -1828,7 +1774,7 @@ void update(time_s delta) {
         // enemy AI
         float dist = vec2_dist(en->circle.center, level.player.center);
         // if within range, move towards
-        if (dist <= 90.f && dist > 7.f) {
+        if (dist > 7.f) {
           int is_left = level.player.center[0] < en->circle.center[0];
           if (is_left) {
             en->sprite.flip_x = 1;
@@ -1904,7 +1850,6 @@ void update(time_s delta) {
           vec2_norm(move_amount, move_amount);
           vec2_scale(move_amount, move_amount,
                      en->move_speed * (delta * move_factor));
-          // printf("%.2f %.2f\n", move_amount[0], move_amount[1]);
           move_enemy(en, move_amount);
         }
       }
@@ -1912,7 +1857,7 @@ void update(time_s delta) {
       // animate damaged enemies
       if (en->take_damage) {
         en->damage_timer -= delta;
-        blend(en->sprite.color, color_white, color_red,
+        blend(en->sprite.color, menu.white, menu.red,
               en->damage_timer / DAMAGE_DURATION);
 
         // calculate elapsed time
@@ -2045,7 +1990,7 @@ void update(time_s delta) {
 }
 
 static void debug_circle(vec2 px, float radius_px, vec4 color) {
-#ifdef DEBUG_HITBOXES
+#ifdef DRAW_HITBOXES
   vec2 _px;
   vec2_div(_px, px, camera_size);
   float _radius = radius_px * (window_size[0] / camera_size[0]);
@@ -2054,7 +1999,7 @@ static void debug_circle(vec2 px, float radius_px, vec4 color) {
 }
 
 static void debug_box(vec2 center, vec2 size, vec4 color) {
-#ifdef DEBUG_HITBOXES
+#ifdef DRAW_HITBOXES
   vec2 _center, _size;
 
   center[0] -= size[0] * 0.5f;
@@ -2067,7 +2012,7 @@ static void debug_box(vec2 center, vec2 size, vec4 color) {
 }
 
 void debug_game(void) {
-#ifdef DEBUG_HITBOXES
+#ifdef DRAW_HITBOXES
   ui_frame_start(u_ctx);
 
   vec4 enemy_color, swoosh_color, player_color, env_color;
@@ -2119,8 +2064,6 @@ void draw_ui(void) {
     vec2  pos       = {0.0025f, 0.025f};
     float slot_size = 0.03f;
 
-    // ui_im_text_draw(u_ctx, pos, 16.f, menu.font, "Test goes here");
-
     for (int i = 0; i < (MAX_PLAYER_HEALTH / 2); ++i) {
       pos[0] += slot_size;
       int round = (i + 1) * 2;
@@ -2136,7 +2079,7 @@ void draw_ui(void) {
     }
   }
 
-  if (game_state != GAME_PLAY) {
+  if (game_state != GAME_PLAY && game_state != GAME_QUIT) {
     ui_tree_draw(u_ctx, menu.current_page);
   }
 
@@ -2219,7 +2162,6 @@ void render(time_s delta) {
 }
 
 user_preferences load_config(void) {
-  // now to patch the very much broken table loading system
   asset_t* raw_table = asset_get(USER_PREFS_FILE);
 
   user_preferences prefs = {0};
@@ -2287,7 +2229,7 @@ int main(void) {
   audio_ctx = a_ctx_create(0, 2, 16, 16, 2, 2, 2, 4096 * 4);
 
   if (!audio_ctx) {
-    printf("Unable to initialize audio context, exiting.\n");
+    ASTERA_DBG("Unable to initialize audio context, exiting.\n");
     return 1;
   }
 
@@ -2313,41 +2255,43 @@ int main(void) {
   r_window_clear_color("#0A0A0A");
 
   if (!render_ctx) {
-    printf("Render context failed.\n");
+    ASTERA_DBG("Render context failed.\n");
     return 1;
   }
 
   input_ctx = i_ctx_create(16, 32, 16, 1, 32);
 
   if (!input_ctx) {
-    printf("Input context failed.\n");
+    ASTERA_DBG("Input context failed.\n");
     return 1;
   }
 
+  // setup key bindings
   init_input();
 
+  // setup all the rendering resources
   init_render();
 
-  // r_anim_list_cache(render_ctx);
-
-  asset_t* icon = asset_get("resources/textures/icon.png");
-  r_window_set_icon(render_ctx, icon->data, icon->data_length);
-  asset_free(icon);
-
-  // Setup the render context & input context to talk to eachother
+  // setup the render context & input context to talk to eachother
+  //        (input callback)
   r_ctx_make_current(render_ctx);
   r_ctx_set_i_ctx(render_ctx, input_ctx);
 
+  // create the internal timers
   update_timer = s_timer_create();
   render_timer = s_timer_create();
 
+  // setup the user interface
   init_ui();
 
-  // game -> collision so we have the enemies we need to update
+  // setup in game specific resources
   init_game();
 
+  // setup the collision for everything
   init_collision();
 
+  // while the window isn't requested closed and the game state is still
+  // running, loop over everything!
   while (!r_window_should_close(render_ctx) && game_state != GAME_QUIT) {
     time_s delta = s_timer_update(&update_timer);
 
@@ -2391,6 +2335,7 @@ int main(void) {
   r_ctx_destroy(render_ctx);
   i_ctx_destroy(input_ctx);
   a_ctx_destroy(audio_ctx);
+  ui_ctx_destroy(u_ctx);
 
   return 0;
 }

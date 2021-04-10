@@ -405,8 +405,7 @@ uint8_t a_can_play(a_ctx* ctx) { return ctx->allow; }
 a_ctx* a_ctx_create(const char* device, uint8_t layers, uint16_t max_sfx,
                     uint16_t max_buffers, uint16_t max_songs, uint16_t max_fx,
                     uint16_t max_filters, uint32_t pcm_size) {
-  a_ctx* ctx = (a_ctx*)malloc(sizeof(a_ctx));
-  memset(ctx, 0, sizeof(a_ctx));
+  a_ctx* ctx = (a_ctx*)calloc(1, sizeof(a_ctx));
 
   if (!ctx) {
     ASTERA_FUNC_DBG("unable to malloc initial space for context.\n");
@@ -504,8 +503,7 @@ a_ctx* a_ctx_create(const char* device, uint8_t layers, uint16_t max_sfx,
     ctx->fx_count    = 0;
 
     if (max_fx) {
-      ctx->fx_slots = (a_fx*)malloc(sizeof(a_fx) * ctx->fx_capacity);
-      memset(ctx->fx_slots, 0, sizeof(a_fx) * ctx->fx_capacity);
+      ctx->fx_slots = (a_fx*)calloc(ctx->fx_capacity, sizeof(a_fx));
 
       if (!ctx->fx_slots) {
         ASTERA_FUNC_DBG("unable to allocate %i fx slots\n", ctx->fx_capacity);
@@ -529,8 +527,7 @@ a_ctx* a_ctx_create(const char* device, uint8_t layers, uint16_t max_sfx,
 
     if (max_filters) {
       ctx->filter_slots =
-          (a_filter*)malloc(sizeof(a_filter) * ctx->filter_capacity);
-      memset(ctx->filter_slots, 0, sizeof(a_filter) * ctx->filter_capacity);
+          (a_filter*)calloc(ctx->filter_capacity, sizeof(a_filter));
 
       if (!ctx->filter_slots) {
         ASTERA_FUNC_DBG("unable to allocate %i fx slots\n", ctx->fx_capacity);
@@ -556,8 +553,7 @@ a_ctx* a_ctx_create(const char* device, uint8_t layers, uint16_t max_sfx,
   ctx->pcm_length = pcm_size;
   ctx->pcm_index  = 0;
   if (pcm_size) {
-    ctx->pcm = (uint16_t*)malloc(sizeof(uint16_t) * pcm_size);
-    memset(ctx->pcm, 0, sizeof(uint16_t) * pcm_size);
+    ctx->pcm = (uint16_t*)calloc(pcm_size, sizeof(uint16_t));
   }
 
   // Create the resource arrays
@@ -566,11 +562,8 @@ a_ctx* a_ctx_create(const char* device, uint8_t layers, uint16_t max_sfx,
   ctx->song_high     = 0;
 
   if (max_songs) {
-    ctx->songs      = (a_song*)malloc(sizeof(a_song) * ctx->song_capacity);
-    ctx->song_names = (const char**)malloc(sizeof(char*) * ctx->song_capacity);
-
-    memset(ctx->songs, 0, sizeof(a_song) * ctx->song_capacity);
-    memset(ctx->song_names, 0, sizeof(char*) * ctx->song_capacity);
+    ctx->songs      = (a_song*)calloc(ctx->song_capacity, sizeof(a_song));
+    ctx->song_names = (const char**)calloc(ctx->song_capacity, sizeof(char*));
 
     for (uint16_t i = 0; i < max_songs; ++i) {
       ctx->songs[i].id = i + 1;
@@ -584,13 +577,11 @@ a_ctx* a_ctx_create(const char* device, uint8_t layers, uint16_t max_sfx,
   ctx->buffer_high     = 0;
 
   if (max_buffers) {
-    ctx->buffers      = (a_buf*)malloc(sizeof(a_buf) * max_buffers);
-    ctx->buffer_names = (const char**)malloc(sizeof(char*) * max_buffers);
+    ctx->buffers      = (a_buf*)calloc(max_buffers, sizeof(a_buf));
+    ctx->buffer_names = (const char**)calloc(max_buffers, sizeof(char*));
 
     for (uint16_t i = 0; i < max_buffers; ++i) {
-      ctx->buffers[i].id   = i + 1;
-      ctx->buffers[i].buf  = 0;
-      ctx->buffer_names[i] = 0;
+      ctx->buffers[i].id = i + 1;
     }
   }
 
@@ -598,7 +589,7 @@ a_ctx* a_ctx_create(const char* device, uint8_t layers, uint16_t max_sfx,
   ctx->sfx_count    = 0;
 
   if (max_sfx) {
-    ctx->sfx = (a_sfx*)malloc(sizeof(a_sfx) * ctx->sfx_capacity);
+    ctx->sfx = (a_sfx*)calloc(ctx->sfx_capacity, sizeof(a_sfx));
 
     for (uint16_t i = 0; i < max_sfx; ++i) {
       ctx->sfx[i].id = i + 1;
@@ -611,8 +602,7 @@ a_ctx* a_ctx_create(const char* device, uint8_t layers, uint16_t max_sfx,
   ctx->layer_capacity = layers;
 
   if (layers) {
-    ctx->layers = (a_layer*)malloc(sizeof(a_layer) * layers);
-    memset(ctx->layers, 0, sizeof(a_layer) * layers);
+    ctx->layers = (a_layer*)calloc(layers, sizeof(a_layer));
 
     for (uint16_t i = 0; i < layers; ++i) {
       ctx->layers[i].gain = 1.f;
@@ -722,7 +712,7 @@ void a_song_update_decode(a_ctx* ctx, a_song* song) {
       for (uint16_t p = 0; p < song->packets_per_buffer; ++p) {
         uint32_t pcm_remaining = ctx->pcm_length - pcm_total_length;
 
-        if (pcm_remaining < song->info.max_frame_size) {
+        if ((int)pcm_remaining < song->info.max_frame_size) {
           break;
         }
 
@@ -2034,13 +2024,11 @@ uint16_t a_layer_create(a_ctx* ctx, const char* name, uint32_t max_sfx,
 
   layer->name = name;
 
-  layer->sfx = (uint32_t*)malloc(sizeof(uint32_t) * max_sfx);
-  memset(layer->sfx, 0, sizeof(uint32_t) * max_sfx);
+  layer->sfx          = (uint32_t*)calloc(max_sfx, sizeof(uint32_t));
   layer->sfx_capacity = max_sfx;
   layer->sfx_count    = 0;
 
-  layer->songs = (uint32_t*)malloc(sizeof(uint32_t) * max_songs);
-  memset(layer->songs, 0, sizeof(uint32_t) * max_songs);
+  layer->songs         = (uint32_t*)calloc(max_songs, sizeof(uint32_t));
   layer->song_capacity = max_songs;
   layer->song_count    = 0;
 

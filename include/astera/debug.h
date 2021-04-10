@@ -31,8 +31,8 @@ d_ctx* d_ctx_get();
 void d_set_format_func(log_format_func func);
 
 /* Disable / Enable & set usage of outputting the log to file
- *  log - 1 = use log, 0 = don't
- *  fp - the filepath (optional if disabling) */
+ * log - 1 = use log, 0 = don't
+ * fp - the filepath (optional if disabling) */
 void d_set_log(uint8_t log, const char* fp);
 
 /* Set the file to use for log output
