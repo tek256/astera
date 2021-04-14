@@ -16,7 +16,7 @@
 #include <astera/ui.h>
 
 // If to draw hitboxes
-//#define DRAW_HITBOXES
+#define DRAW_HITBOXES
 
 #define USER_PREFS_FILE "user_prefs.ini"
 
@@ -25,7 +25,7 @@
 
 #define MAX_HEALTH_ORBS     8
 #define MAX_HEALTH_ORB_LIFE 5000 // 5 sec
-#define MAX_PLAYER_HEALTH   10
+#define MAX_PLAYER_HEALTH   6
 #define DAMAGE_DURATION     750 // ms
 #define STAGGER_DURATION    100 // ms
 #define KNOCKBACK_AMOUNT    12  // units
@@ -50,6 +50,7 @@ typedef struct {
   // --- SETTINGS ---
   ui_text   master_label, sfx_label, music_label, settings_title;
   ui_slider master_vol, sfx_vol, music_vol;
+  ui_box    s_bg;
 
   ui_text     res_label;
   ui_dropdown res_dd;
@@ -134,7 +135,7 @@ typedef struct {
 typedef struct {
   vec2     center;
   c_aabb   aabb, hitbox;
-  int      health, is_idle, take_damage, allow_spawns;
+  int      health, is_idle, take_damage, allow_spawns, kill_count;
   float    damage_timer, damage_duration, attack_timer;
   r_sprite sprite, sword, swoosh;
 } player_t;
@@ -153,6 +154,8 @@ typedef struct {
   c_aabb* env;
   int     env_cols;
 
+  c_aabb spawn_cols[4];
+
   player_t player;
 
   r_particles emitters[MAX_PARTICLE_EMITTERS];
@@ -167,10 +170,11 @@ typedef struct {
   int   res_width, res_height;
 } user_preferences;
 
-static user_preferences user_prefs = {0};
-static menu_t           menu       = {0};
-static a_resources      a_res      = {0};
-static level_t          level      = {0};
+static user_preferences user_prefs    = {0};
+static menu_t           menu          = {0};
+static a_resources      a_res         = {0};
+static level_t          level         = {0};
+static int              is_continuous = 0;
 
 r_ctx*  render_ctx;
 i_ctx*  input_ctx;
@@ -325,7 +329,7 @@ int spawn_enemy(void) {
       en->exit_point[1] = 82.f;
       break;
     case 3: // right
-      en->exit_point[0] = 172.f;
+      en->exit_point[0] = 308.f;
       en->exit_point[1] = 82.f;
       break;
     default:
@@ -508,7 +512,7 @@ void init_ui(void) {
   ui_attrib_setf(u_ctx, UI_DROPDOWN_FONT_SIZE, 24.f);
   ui_attrib_seti(u_ctx, UI_DROPDOWN_FONT, menu.font);
   ui_attrib_setc(u_ctx, UI_BUTTON_BG, menu.clear);
-  ui_attrib_setc(u_ctx, UI_BUTTON_BG_HOVER, menu.black);
+  ui_attrib_setc(u_ctx, UI_BUTTON_BG_HOVER, menu.clear);
   ui_attrib_seti(u_ctx, UI_BUTTON_TEXT_ALIGN, UI_ALIGN_CENTER);
   ui_attrib_setc(u_ctx, UI_BUTTON_COLOR, menu.grey);
   ui_attrib_setc(u_ctx, UI_BUTTON_COLOR_HOVER, menu.white);
@@ -533,6 +537,14 @@ void init_ui(void) {
   ui_attrib_setf(u_ctx, UI_SLIDER_BORDER_RADIUS, 5.f);
 
   vec2 temp = {0.5f, 0.2f}, temp2 = {0.25f, 0.1f};
+  vec2 zero = {0.f, 0.f};
+
+  // for main, pause, and settings menu usage
+  menu.p_bg         = ui_box_create(u_ctx, zero, zero);
+  menu.p_bg.size[0] = 1.f;
+  menu.p_bg.size[1] = 1.f;
+  ui_get_color(menu.p_bg.bg, "000");
+  menu.p_bg.bg[3] = 0.4f;
 
   // -- MAIN MENU --
   menu.main_title =
@@ -565,7 +577,42 @@ void init_ui(void) {
   ui_tree_add(u_ctx, &menu.main_page, &menu.play, UI_BUTTON, 1, 1, 1);
   ui_tree_add(u_ctx, &menu.main_page, &menu.settings, UI_BUTTON, 1, 1, 1);
   ui_tree_add(u_ctx, &menu.main_page, &menu.quit, UI_BUTTON, 1, 1, 1);
+  ui_tree_add(u_ctx, &menu.main_page, &menu.p_bg, UI_BOX, 0, 0, -1);
+
   ui_tree_reset(&menu.main_page);
+
+  // WIN SCREEN
+
+  menu.w_bg         = ui_box_create(u_ctx, zero, zero);
+  menu.w_bg.size[0] = 1.f;
+  menu.w_bg.size[1] = 1.f;
+  ui_get_color(menu.w_bg.bg, "000");
+  menu.w_bg.bg[3] = 0.2f;
+
+  vec2_clear(temp2);
+  temp2[0] = 0.25f;
+  temp2[1] = 0.1f;
+  temp[0]  = 0.5f;
+  temp[1]  = 0.25f;
+  menu.w_title =
+      ui_text_create(u_ctx, temp, "YOU WON!", 48.f, menu.font, UI_ALIGN_CENTER);
+
+  temp[0] = 0.375f;
+  temp[1] += 0.2f;
+  menu.w_again =
+      ui_button_create(u_ctx, temp, temp2, "KEEP GOING", UI_ALIGN_CENTER, 48.f);
+
+  temp[1] += 0.15f;
+  menu.w_quit =
+      ui_button_create(u_ctx, temp, temp2, "QUIT", UI_ALIGN_CENTER, 48.f);
+
+  menu.end_page      = ui_tree_create(5);
+  menu.end_page.loop = 1;
+  ui_tree_add(u_ctx, &menu.end_page, &menu.w_title, UI_TEXT, 0, 0, 1);
+  ui_tree_add(u_ctx, &menu.end_page, &menu.w_bg, UI_BOX, 0, 0, 0);
+  ui_tree_add(u_ctx, &menu.end_page, &menu.w_again, UI_BUTTON, 1, 1, 18);
+  ui_tree_add(u_ctx, &menu.end_page, &menu.w_quit, UI_BUTTON, 1, 1, 18);
+  ui_tree_reset(&menu.end_page);
 
   // SETTINGS MENU
   vec2_clear(temp2);
@@ -720,6 +767,7 @@ void init_ui(void) {
   ui_tree_add(u_ctx, &menu.settings_page, &menu.res_dd, UI_DROPDOWN, 1, 1, 1);
   ui_tree_add(u_ctx, &menu.settings_page, &menu.back_button, UI_BUTTON, 1, 1,
               0);
+  ui_tree_add(u_ctx, &menu.settings_page, &menu.p_bg, UI_BOX, 0, 0, -1);
   ui_tree_reset(&menu.settings_page);
 
   menu.settings_page.loop = 0;
@@ -727,20 +775,16 @@ void init_ui(void) {
   // --- PAUSE MENU ---
 
   vec2_clear(temp2);
+  temp2[0] = 0.25f;
+  temp2[1] = 0.1f;
+
   temp[0] = 0.5f;
   temp[1] = 0.25f;
   menu.p_title =
-      ui_text_create(u_ctx, temp, "SETTINGS", 48.f, menu.font, UI_ALIGN_CENTER);
+      ui_text_create(u_ctx, temp, "PAUSED", 72.f, menu.font, UI_ALIGN_CENTER);
 
-  vec2 zero         = {0.f, 0.f};
-  menu.p_bg         = ui_box_create(u_ctx, zero, zero);
-  menu.p_bg.size[0] = 1.f;
-  menu.p_bg.size[1] = 1.f;
-  // ui_box_set_colors(&menu.p_bg, menu.red, 0, 0, 0);
-  ui_get_color(menu.p_bg.bg, "000");
-  menu.p_bg.bg[3] = 0.2f;
-
-  temp[1] += 0.2f;
+  temp[0] = 0.375f;
+  temp[1] += 0.15f;
   menu.p_resume =
       ui_button_create(u_ctx, temp, temp2, "RESUME", UI_ALIGN_CENTER, 48.f);
 
@@ -761,38 +805,7 @@ void init_ui(void) {
   ui_tree_add(u_ctx, &menu.pause_page, &menu.p_bg, UI_BOX, 0, 0, 0);
   ui_tree_reset(&menu.pause_page);
 
-  // WIN SCREEN
-
-  menu.w_bg         = ui_box_create(u_ctx, zero, zero);
-  menu.w_bg.size[0] = 1.f;
-  menu.w_bg.size[1] = 1.f;
-  // ui_box_set_colors(&menu.p_bg, menu.red, 0, 0, 0);
-  ui_get_color(menu.w_bg.bg, "000");
-  menu.w_bg.bg[3] = 0.2f;
-
-  vec2_clear(temp2);
-  temp[0] = 0.5f;
-  temp[1] = 0.25f;
-  menu.w_title =
-      ui_text_create(u_ctx, temp, "YOU WON!", 48.f, menu.font, UI_ALIGN_CENTER);
-
-  temp[1] += 0.2f;
-  menu.w_again =
-      ui_button_create(u_ctx, temp, temp2, "GO AGAIN", UI_ALIGN_CENTER, 48.f);
-
-  temp[1] += 0.15f;
-  menu.w_quit =
-      ui_button_create(u_ctx, temp, temp2, "QUIT", UI_ALIGN_CENTER, 48.f);
-
-  menu.end_page      = ui_tree_create(5);
-  menu.end_page.loop = 1;
-  ui_tree_add(u_ctx, &menu.end_page, &menu.w_title, UI_TEXT, 0, 0, 1);
-  ui_tree_add(u_ctx, &menu.end_page, &menu.w_bg, UI_BOX, 0, 0, 0);
-  ui_tree_add(u_ctx, &menu.end_page, &menu.w_again, UI_BUTTON, 1, 1, 1);
-  ui_tree_add(u_ctx, &menu.end_page, &menu.w_quit, UI_BUTTON, 1, 1, 1);
-  ui_tree_reset(&menu.end_page);
-
-  // IN GAME
+  // -- IN GAME --
 
   vec2 img_pos = {0.f, 0.f}, img_size = {0.025f, 0.015};
   img_size[1]    = ui_square_width(u_ctx, img_size[0]);
@@ -911,9 +924,10 @@ void init_collision(void) {
   vec2 level_min = {0.f, 0.f};
   vec2 level_max = {320.f, 180.f};
   vec2 wall_size = {8.f, 8.f};
+  vec2 gap       = {32.f, 32.f};
 
-  vec2 gapped_half_max = {(level_max[0] * 0.5f) - 32.f,
-                          (level_max[1] * 0.5f) - 32.f};
+  vec2 gapped_half_max = {(level_max[0] * 0.5f) - gap[0],
+                          (level_max[1] * 0.5f) - gap[1]};
 
   // 2x side, gaps in between
   level.env_cols = 8;
@@ -962,6 +976,25 @@ void init_collision(void) {
     level.env[(i * 2)]     = top;
     level.env[(i * 2) + 1] = bottom;
   }
+
+  vec2 i_size = {gap[0] - wall_size[0], wall_size[1]},
+       i_pos  = {level_max[0] * 0.5f, -8.f};
+  // top
+  level.spawn_cols[0] = c_aabb_create(i_pos, i_size);
+
+  // bottom
+  i_pos[1]            = level_max[1] + 8.f;
+  level.spawn_cols[1] = c_aabb_create(i_pos, i_size);
+  // left
+  i_size[0]           = i_size[1];
+  i_size[1]           = gap[1] - wall_size[1];
+  i_pos[0]            = -8.f;
+  i_pos[1]            = (level_max[1] * 0.5f) - (wall_size[1] * 0.5f);
+  level.spawn_cols[2] = c_aabb_create(i_pos, i_size);
+
+  // right
+  i_pos[0]            = level_max[0] + 8.f;
+  level.spawn_cols[3] = c_aabb_create(i_pos, i_size);
 }
 
 void init_render(void) {
@@ -1305,6 +1338,10 @@ void init_level(void) {
   level.player.swoosh.visible = 1;
   level.player.allow_spawns   = 0;
 
+  if (!is_continuous) {
+    level.player.kill_count = 0;
+  }
+
   vec2 player_pos      = {152.f, 82.f};
   vec2 player_halfsize = {4.5f, 5.f};
   c_aabb_set(&level.player.aabb, player_pos, player_halfsize);
@@ -1483,7 +1520,8 @@ void handle_ui(void) {
         r_framebuffer_unbind();
         clear_level();
         menu_set_page(MENU_MAIN);
-        game_state = GAME_START;
+        game_state    = GAME_START;
+        is_continuous = 0;
         return;
       }
     } break;
@@ -1505,6 +1543,12 @@ void handle_ui(void) {
         r_window_clear();
         r_framebuffer_unbind();
 
+        if (game_state == GAME_WIN) {
+          is_continuous = 1;
+        } else {
+          is_continuous = 0;
+        }
+
         clear_level();
         game_state = GAME_PLAY;
         init_level();
@@ -1517,6 +1561,10 @@ void handle_ui(void) {
 void input(float delta) {
   vec2 mouse_pos = {i_mouse_get_x(input_ctx), i_mouse_get_y(input_ctx)};
   ui_ctx_update(u_ctx, mouse_pos);
+
+  if (i_key_clicked(input_ctx, 'P')) {
+    printf("%p\n", menu.current_page);
+  }
 
   if (menu.current_page) {
     int32_t active = ui_tree_check(u_ctx, menu.current_page);
@@ -1942,18 +1990,19 @@ void update(time_s delta) {
               create_emitter(en->circle.center, man.direction);
 
               int to_spawn = rand() % 2;
-              if (level.player.health < 7) {
+              if (level.player.health < (MAX_PLAYER_HEALTH / 3) + 1) {
                 level.player.allow_spawns = 1;
               }
 
               if (to_spawn && level.player.allow_spawns &&
-                  level.player.health != 10) {
+                  level.player.health != MAX_PLAYER_HEALTH) {
                 spawn_health_orb(en->circle.center);
               }
 
               to_spawn = rand() % 3;
 
               play_sfx(a_res.s_goblin_die);
+              ++level.player.kill_count;
               if (to_spawn) {
                 spawn_enemy();
               } else {
@@ -1970,6 +2019,15 @@ void update(time_s delta) {
     // test player vs environment
     for (int i = 0; i < level.env_cols; ++i) {
       c_manifold man = c_aabb_vs_aabb_man(level.player.aabb, level.env[i]);
+      if (man.distance != 0.f) {
+        c_aabb_adjust(&level.player.aabb, man);
+      }
+    }
+
+    // test player vs spawn colliders (prevents out of bounds thru spawn routes)
+    for (int i = 0; i < 4; ++i) {
+      c_manifold man =
+          c_aabb_vs_aabb_man(level.player.aabb, level.spawn_cols[i]);
       if (man.distance != 0.f) {
         c_aabb_adjust(&level.player.aabb, man);
       }
@@ -2015,15 +2073,17 @@ void debug_game(void) {
 #ifdef DRAW_HITBOXES
   ui_frame_start(u_ctx);
 
-  vec4 enemy_color, swoosh_color, player_color, env_color;
+  vec4 enemy_color, swoosh_color, player_color, env_color, spawn_col_color;
   r_get_color4f(enemy_color, "#0f0");
   r_get_color4f(swoosh_color, "#f0f");
   r_get_color4f(player_color, "#fff");
   r_get_color4f(env_color, "#f00");
-  enemy_color[3]  = 0.4f;
-  swoosh_color[3] = 0.4f;
-  player_color[3] = 0.3f;
-  env_color[3]    = 0.3f;
+  r_get_color4f(spawn_col_color, "#ff0");
+  enemy_color[3]     = 0.4f;
+  swoosh_color[3]    = 0.4f;
+  player_color[3]    = 0.3f;
+  env_color[3]       = 0.3f;
+  spawn_col_color[3] = 0.3f;
 
   for (int i = 0; i < level.enemy_count; ++i) {
     enemy_t* en = &level.enemies[i];
@@ -2040,6 +2100,14 @@ void debug_game(void) {
 
   for (int i = 0; i < level.env_cols; ++i) {
     c_aabb level_col = level.env[i];
+    c_aabb_get_center(center, level_col);
+    c_aabb_get_size(size, level_col);
+    debug_box(center, size, env_color);
+  }
+
+  // spawn hitboxes
+  for (int i = 0; i < 4; ++i) {
+    c_aabb level_col = level.spawn_cols[i];
     c_aabb_get_center(center, level_col);
     c_aabb_get_size(size, level_col);
     debug_box(center, size, env_color);
@@ -2077,6 +2145,12 @@ void draw_ui(void) {
         ui_im_img_draw(u_ctx, menu.heart_full, pos, menu.heart_full.size);
       }
     }
+
+    pos[0]                          = 0.0325f;
+    pos[1]                          = 0.1f;
+    static char kill_count_text[16] = {0};
+    snprintf(kill_count_text, 16, "KILL COUNT: %i", level.player.kill_count);
+    ui_im_text_draw(u_ctx, pos, 32.f, menu.font, kill_count_text);
   }
 
   if (game_state != GAME_PLAY && game_state != GAME_QUIT) {
@@ -2226,7 +2300,7 @@ int main(void) {
 
   user_prefs = load_config();
 
-  audio_ctx = a_ctx_create(0, 2, 16, 16, 2, 2, 2, 4096 * 4);
+  audio_ctx = a_ctx_create(0, 2, 32, 16, 2, 2, 2, 4096 * 4);
 
   if (!audio_ctx) {
     ASTERA_DBG("Unable to initialize audio context, exiting.\n");

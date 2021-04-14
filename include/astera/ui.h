@@ -8,6 +8,7 @@
 
 /* TODO:
  * - Refactor ui_tree/ctx functions into more sensible names/usages
+ * - Button text shadow option
  */
 
 #ifndef ASTERA_UI_HEADER
@@ -376,7 +377,7 @@ typedef struct {
 
 typedef struct {
   uint32_t   uid;
-  uint32_t   index;
+  int32_t    index;
   int8_t     selectable, priority;
   ui_element element;
   int32_t    event;

@@ -33,17 +33,6 @@ static NVGcolor ui_u_color(ui_color v) {
                  (unsigned char)(v[2] * 255), (unsigned char)(v[3] * 255));
 }
 
-void ui_debug_tree(ui_tree* tree) {
-  ASTERA_DBG("tree:\n");
-  ASTERA_DBG("Count: [%i], Capacity: [%i]\n", tree->count, tree->capacity);
-  ASTERA_DBG("mouse_hover_id: [%i], mouse_hover_index: [%i]\n",
-             tree->mouse_hover_id, tree->mouse_hover_index);
-  ASTERA_DBG("cursor_id: [%i], cursor_index: [%i]\n", tree->cursor_id,
-             tree->cursor_index);
-  ASTERA_DBG("selected_index: [%i]\n", tree->selected_index);
-  ASTERA_DBG("loop: [%i]\n", tree->loop);
-}
-
 uint32_t ui_element_get_uid(ui_element element) {
   if (element.data) {
     return *((uint32_t*)element.data);
@@ -521,7 +510,7 @@ void ui_element_center_to(ui_element element, vec2 point) {
 
 ui_tree ui_tree_create(uint16_t capacity) {
   ui_tree  tree;
-  ui_leaf* raw = calloc(capacity + 1, sizeof(ui_leaf));
+  ui_leaf* raw = (ui_leaf*)calloc(capacity + 1, sizeof(ui_leaf));
   tree.raw     = raw;
 
   tree.draw_order = (ui_leaf**)calloc(capacity + 1, sizeof(ui_leaf*));
@@ -818,6 +807,11 @@ uint32_t ui_tree_check(ui_ctx* ctx, ui_tree* tree) {
     return 0;
   }
 
+  if (!tree) {
+    ASTERA_FUNC_DBG("No tree passed\n");
+    return 0;
+  }
+
   vec2 mouse_pos;
   vec2_dup(mouse_pos, ctx->mouse_pos);
 
@@ -853,7 +847,7 @@ uint32_t ui_tree_check(ui_ctx* ctx, ui_tree* tree) {
   }
 
   if (potential_index != -1) {
-    if (tree->selected_index) {
+    if (tree->selected_index > -1) {
       if (tree->selected_index == (uint32_t)potential_index) {
         tree->mouse_hover_id    = potential_uid;
         tree->mouse_hover_index = potential_index;
@@ -1626,10 +1620,10 @@ void ui_dropdown_draw(ui_ctx* ctx, ui_dropdown* dropdown, int8_t focused) {
                 dropdown->options[cursor_index], 0);
       } else {
         if (start + i >= dropdown->option_count) {
-          printf("out of bounds cursor %i\n", (start + i));
+          ASTERA_FUNC_DBG("out of bounds cursor %i\n", (start + i));
           continue;
         } else if (!dropdown->options[start + i]) {
-          printf("Empty string, cursor: %i\n", (start + i));
+          ASTERA_FUNC_DBG("Empty string, cursor: %i\n", (start + i));
           continue;
         }
 
@@ -3221,7 +3215,7 @@ void ui_dropdown_prev(ui_dropdown* dropdown) {
 
 void ui_dropdown_set_to_cursor(ui_dropdown* dropdown) {
   if (dropdown->cursor >= dropdown->option_capacity) {
-    printf("Preemptive\n");
+    ASTERA_FUNC_DBG("Preemptive\n");
     dropdown->cursor = dropdown->option_capacity - 1;
     return;
   }
@@ -3450,7 +3444,6 @@ uint32_t ui_tree_select(ui_ctx* ctx, ui_tree* tree, int32_t event_type,
                 ctx, tree->raw[tree->mouse_hover_index].element,
                 ctx->mouse_pos);
 
-            printf("%i\n", selection);
             if (selection > -1 && dropdown->showing) {
               ui_dropdown_set(
                   dropdown,
@@ -3577,6 +3570,8 @@ uint32_t ui_tree_scroll_down(ui_tree* tree, uint16_t amount, uint8_t is_mouse) {
 
   if (cursor->element.type == UI_DROPDOWN) {
     ui_dropdown_scroll_down((ui_dropdown*)cursor->element.data, amount);
+  } else if (cursor->element.type == UI_SLIDER) {
+    ui_slider_prev_step((ui_slider*)cursor->element.data);
   }
 
   return cursor->uid;
@@ -3596,6 +3591,8 @@ uint32_t ui_tree_scroll_up(ui_tree* tree, uint16_t amount, uint8_t is_mouse) {
 
   if (cursor->element.type == UI_DROPDOWN) {
     ui_dropdown_scroll_up((ui_dropdown*)cursor->element.data, amount);
+  } else if (cursor->element.type == UI_SLIDER) {
+    ui_slider_next_step((ui_slider*)cursor->element.data);
   }
 
   return cursor->uid;
