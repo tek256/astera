@@ -14,7 +14,7 @@ Astera is a 2D game library written in C99 focused on portability.
 ### Features
 ```
 - Deferred & Forward Rendering
-- Collision Dection + Resolution
+- Collision Detection + Resolution
 - 3D Audio + basic Audio Effects & Filters
 - Asset Management
 - UI System
