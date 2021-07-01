@@ -480,7 +480,8 @@ void asset_free(asset_t* asset) {
   asset->name   = 0;
   asset->filled = 0;
   asset->req    = 0;
-  free(asset->data);
+  if (asset->data)
+    free(asset->data);
 
   // these pointers are allocated independent of anything
   if (asset->fs)
@@ -575,14 +576,12 @@ asset_t asset_create(void* data_ptr, uint32_t data_length) {
   return (asset_t){.data = data_ptr, .data_length = data_length, 0};
 }
 
-// NOTE: Local System
+// NOTE: local filesystem
 asset_t* asset_get(const char* file) {
   if (!file) {
     ASTERA_FUNC_DBG("no file requested.\n");
     return 0;
   }
-
-  asset_t* asset = (asset_t*)calloc(1, sizeof(asset_t));
 
   FILE* f = fopen(file, "r+b");
 
@@ -601,7 +600,6 @@ asset_t* asset_get(const char* file) {
   if (!data) {
     ASTERA_FUNC_DBG("Unable to allocate %i bytes for file %s\n", file_size,
                     file);
-    free(asset);
     fclose(f);
     return 0;
   }
@@ -613,7 +611,6 @@ asset_t* asset_get(const char* file) {
     ASTERA_FUNC_DBG("Incomplete read: %i expeceted, %i read.\n", file_size,
                     data_read);
     free(data);
-    free(asset);
     return 0;
   }
 
@@ -622,6 +619,7 @@ asset_t* asset_get(const char* file) {
 
   fclose(f);
 
+  asset_t* asset     = (asset_t*)calloc(1, sizeof(asset_t));
   asset->data        = data;
   asset->data_length = data_read;
 

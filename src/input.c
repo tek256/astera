@@ -611,7 +611,7 @@ uint16_t i_mouse_down(i_ctx* ctx, uint16_t button) {
 }
 
 uint16_t i_mouse_up(i_ctx* ctx, uint16_t button) {
-  return !i_contains(button, ctx->mouse_b.curr, ctx->mouse_b.curr_count);
+  return !i_mouse_down(ctx, button);
 }
 
 uint16_t i_mouse_clicked(i_ctx* ctx, uint16_t button) {
@@ -656,10 +656,7 @@ uint16_t i_key_down(i_ctx* ctx, uint16_t key) {
                     ctx->keyboard.concurrent_count);
 }
 
-uint16_t i_key_up(i_ctx* ctx, uint16_t key) {
-  return !i_contains(key, ctx->keyboard.concurrent,
-                     ctx->keyboard.concurrent_count);
-}
+uint16_t i_key_up(i_ctx* ctx, uint16_t key) { return !i_key_down(ctx, key); }
 
 uint16_t i_key_clicked(i_ctx* ctx, uint16_t key) {
   return i_contains(key, ctx->keyboard.curr, ctx->keyboard.curr_count) &&
@@ -999,57 +996,7 @@ uint8_t i_binding_down(i_ctx* ctx, const char* key_binding) {
 }
 
 uint8_t i_binding_up(i_ctx* ctx, const char* key_binding) {
-  for (int i = 0; i < ctx->binding_count; i++) {
-    int len = strlen(ctx->bindings[i].name);
-    len     = (len > 8) ? 8 : len;
-    if (!strncmp(ctx->bindings[i].name, key_binding, len)) {
-      int val = 0;
-
-      switch (ctx->bindings[i].type) {
-        case ASTERA_BINDING_JOYB:
-          val = i_joy_up(ctx, ctx->bindings[i].source, ctx->bindings[i].value);
-          break;
-        case ASTERA_BINDING_MB:
-          val = i_mouse_up(ctx, ctx->bindings[i].value);
-          break;
-        case ASTERA_BINDING_KEY:
-          val = i_key_up(ctx, ctx->bindings[i].value);
-          break;
-        case ASTERA_BINDING_JOYA:
-          val = (i_joy_axis(ctx, ctx->bindings[i].source,
-                            ctx->bindings[i].value) > 0.f)
-                    ? 1
-                    : 0;
-          break;
-      }
-
-      if (val) {
-        return 1;
-      }
-
-      switch (ctx->bindings[i].alt_type) {
-        case ASTERA_BINDING_JOYB:
-          val =
-              i_joy_up(ctx, ctx->bindings[i].alt_source, ctx->bindings[i].alt);
-          break;
-        case ASTERA_BINDING_MB:
-          val = i_mouse_up(ctx, ctx->bindings[i].alt);
-          break;
-        case ASTERA_BINDING_KEY:
-          val = i_key_up(ctx, ctx->bindings[i].alt);
-          break;
-        case ASTERA_BINDING_JOYA:
-          val = (i_joy_axis(ctx, ctx->bindings[i].alt_source,
-                            ctx->bindings[i].value) > 0.f)
-                    ? 1
-                    : 0;
-          break;
-      }
-
-      return val;
-    }
-  }
-  return 0;
+  return !i_binding_down(ctx, key_binding);
 }
 
 float i_binding_val(i_ctx* ctx, const char* key_binding) {
@@ -1264,48 +1211,7 @@ uint8_t i_bindingi_down(i_ctx* ctx, uint16_t binding_id) {
 }
 
 uint8_t i_bindingi_up(i_ctx* ctx, uint16_t binding_id) {
-  if (binding_id > ctx->binding_count + 1) {
-    return 0;
-  }
-
-  i_binding binding = ctx->bindings[binding_id - 1];
-  uint8_t   val     = 0;
-
-  switch (binding.type) {
-    case ASTERA_BINDING_JOYB:
-      val = i_joy_up(ctx, binding.source, binding.value);
-      break;
-    case ASTERA_BINDING_MB:
-      val = i_mouse_up(ctx, binding.value);
-      break;
-    case ASTERA_BINDING_KEY:
-      val = i_key_up(ctx, binding.value);
-      break;
-    case ASTERA_BINDING_JOYA:
-      val = (i_joy_axis(ctx, binding.source, binding.value) > 0.f) ? 1 : 0;
-      break;
-  }
-
-  if (val) {
-    return 1;
-  }
-
-  switch (binding.alt_type) {
-    case ASTERA_BINDING_JOYB:
-      val = i_joy_up(ctx, binding.alt_source, binding.alt);
-      break;
-    case ASTERA_BINDING_MB:
-      val = i_mouse_up(ctx, binding.alt);
-      break;
-    case ASTERA_BINDING_KEY:
-      val = i_key_up(ctx, binding.alt);
-      break;
-    case ASTERA_BINDING_JOYA:
-      val = (i_joy_axis(ctx, binding.alt_source, binding.value) > 0.f) ? 1 : 0;
-      break;
-  }
-
-  return val;
+  return i_bindingi_up(ctx, binding_id);
 }
 
 float i_bindingi_val(i_ctx* ctx, uint16_t binding_id) {

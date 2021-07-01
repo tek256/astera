@@ -16,11 +16,13 @@
 #include <astera/ui.h>
 
 // If to draw hitboxes
-#define DRAW_HITBOXES
+//#define DRAW_HITBOXES
 
 #define USER_PREFS_FILE "user_prefs.ini"
 
-#define MAX_ENEMIES           32
+#define MAX_ENEMIES           24
+#define MAX_PRESPAWN          6
+#define MAX_SPAWN_RATE        1500 // ms between enemy spawns
 #define MAX_PARTICLE_EMITTERS 8
 
 #define MAX_HEALTH_ORBS     8
@@ -88,14 +90,19 @@ typedef struct {
 typedef struct {
   int sfx_layer, music_layer;
 
-  int s_enemy_hit, s_menu_move, s_player_die, s_player_hit, s_select,
-      s_goblin_die, s_attack;
+  int s_enemy_hit, s_menu_move, s_player_die, s_player_hit, s_menu_select,
+      s_enemy_die, s_attack;
 
-  a_req reqs[16];
+  /* 0 - attack
+   * 1 - player hit
+   * 2 - player die
+   * 2 - menu select
+   * 3 - menu move
+   * 4 - enemy hit
+   * 5 - enemy die */
+  a_req reqs[8];
+  int   slots[8];
   int   req_count;
-
-  a_req menu_move_req, menu_select_req;
-  int   menu_move_sfx, menu_select_sfx;
 } a_resources;
 
 typedef enum {
@@ -127,7 +134,7 @@ typedef struct {
   vec2     stagger, exit_point;
   int      health, max_health;
   int      state, state_change;
-  int      type, take_damage;
+  int      type, take_damage, can_take_damage;
   float    damage_timer, move_speed, spawn_timer;
   int      alive;
 } enemy_t;
@@ -138,6 +145,14 @@ typedef struct {
   int      health, is_idle, take_damage, allow_spawns, kill_count;
   float    damage_timer, damage_duration, attack_timer;
   r_sprite sprite, sword, swoosh;
+  // I'm doing this bit for my friend dan so he can know what I'm talking about
+  // when I say most recent key press > standard if else statements for input
+  // direction
+  // What we're going to do is write out which key on each axis was most
+  // recently pressed, and if something was pressed sooner on that axis we
+  // switch to it instead of the old stale one
+  int hori, vert;
+  int left_priority, right_priority, up_priority, down_priority;
 } player_t;
 
 typedef struct {
@@ -162,19 +177,22 @@ typedef struct {
 
   health_orb_t health_orbs[MAX_HEALTH_ORBS];
 
-  vec2 spawn_points[4];
+  vec2   spawn_points[4];
+  int    to_spawn;
+  time_s spawn_timer;
 } level_t;
 
 typedef struct {
-  float master_vol, sfx_vol, music_vol;
-  int   res_width, res_height;
+  asset_t* raw_table;
+  float    master_vol, sfx_vol, music_vol;
+  int      res_width, res_height;
 } user_preferences;
 
 static user_preferences user_prefs    = {0};
 static menu_t           menu          = {0};
 static a_resources      a_res         = {0};
 static level_t          level         = {0};
-static int              is_continuous = 0;
+static int              is_continuous = 0, cont_round = 0;
 
 r_ctx*  render_ctx;
 i_ctx*  input_ctx;
@@ -198,6 +216,17 @@ static int game_state = GAME_START;
 
 s_timer render_timer;
 s_timer update_timer;
+
+static void debug_output(void) {
+  for (int i = 0; i < level.enemy_capacity; ++i) {
+    if (level.enemies[i].health != 0 && !level.enemies[i].alive) {
+      printf("!!! %i is dead but has %i hp !!!\n", i, level.enemies[i].health);
+    }
+
+    printf("%i: [hp: %i alive: %i]\n", i, level.enemies[i].health,
+           level.enemies[i].alive);
+  }
+}
 
 static int rnd_range(int min, int max) {
   int value = rand() % (max - min);
@@ -280,9 +309,11 @@ void create_emitter(vec2 position, vec2 dir) {
 
 int spawn_enemy(void) {
   if (level.enemy_count == level.enemy_capacity - 1) {
+    printf("No open slots for new enemy\n");
     return 0;
   }
 
+  // find slot
   enemy_t* en = 0;
   for (int i = 0; i < level.enemy_capacity; ++i) {
     if (!level.enemies[i].alive) {
@@ -292,9 +323,15 @@ int spawn_enemy(void) {
   }
 
   if (!en) {
-    ASTERA_DBG("Unable to find open slot for new enemy");
+    printf("Unable to find open slot for new enemy");
     return 0;
   }
+
+  // I think I might do a drop test/collision test for spawns and move them
+  // horizontally away from spawn if they collide with others, to prevent
+  // stacking on spawn, then once they're in the actual play area I'll probably
+  // do an enemy vs enemy collision test to keep it harder to kill giant mobs
+  // all at once
 
   // up down left right
   int dir = rand() % 4;
@@ -338,13 +375,13 @@ int spawn_enemy(void) {
 
   vec2 sprite_size = {16.f, 16.f};
   en->sprite = r_sprite_create(shader, level.spawn_points[dir], sprite_size);
-  en->sprite.layer = 4;
-  en->state        = ENEMY_SPAWN;
-  en->state_change = 0;
-  en->type         = rand() % 3;
-  en->damage_timer = 0.f;
-  en->take_damage  = 0;
-  en->alive        = 1;
+  en->sprite.layer    = 4;
+  en->state           = ENEMY_SPAWN;
+  en->state_change    = 0;
+  en->type            = rand() % 3;
+  en->damage_timer    = 0.f;
+  en->can_take_damage = 1;
+  en->take_damage     = 0;
 
   r_anim* anim = 0;
 
@@ -377,6 +414,43 @@ int spawn_enemy(void) {
   r_sprite_anim_play(&en->sprite);
   r_sprite_update(&en->sprite, rand_anim_advance);
 
+  // placement check
+  for (int i = 0; i < level.enemy_capacity; ++i) {
+    enemy_t* other = &level.enemies[i];
+    int      tries = 0;
+    if (other != en) {
+      if (other->alive) {
+        c_manifold man = c_circle_vs_circle_man(en->circle, other->circle);
+        while (man.distance != 0.f && tries < 4) {
+          vec2  adjust     = {0.f, 0.f};
+          float rnd_adjust = (float)rnd_range(6, 10);
+          // adjust position
+          switch (dir) {
+            case 0: // up
+              adjust[1] = -rnd_adjust;
+              break;
+            case 1: // down
+              adjust[1] = rnd_adjust;
+              break;
+            case 2: // left
+              adjust[0] = -rnd_adjust;
+              break;
+            case 3: // right
+              adjust[0] = rnd_adjust;
+              break;
+          }
+          move_enemy(en, adjust);
+          man = c_circle_vs_circle_man(en->circle, other->circle);
+          ++tries;
+        }
+      }
+      if (tries == 8) {
+        return 0;
+      }
+    }
+  }
+
+  en->alive = 1;
   ++level.enemy_count;
   return 1;
 }
@@ -610,8 +684,8 @@ void init_ui(void) {
   menu.end_page.loop = 1;
   ui_tree_add(u_ctx, &menu.end_page, &menu.w_title, UI_TEXT, 0, 0, 1);
   ui_tree_add(u_ctx, &menu.end_page, &menu.w_bg, UI_BOX, 0, 0, 0);
-  ui_tree_add(u_ctx, &menu.end_page, &menu.w_again, UI_BUTTON, 1, 1, 18);
-  ui_tree_add(u_ctx, &menu.end_page, &menu.w_quit, UI_BUTTON, 1, 1, 18);
+  ui_tree_add(u_ctx, &menu.end_page, &menu.w_again, UI_BUTTON, 1, 1, 1);
+  ui_tree_add(u_ctx, &menu.end_page, &menu.w_quit, UI_BUTTON, 1, 1, 1);
   ui_tree_reset(&menu.end_page);
 
   // SETTINGS MENU
@@ -854,24 +928,8 @@ void init_audio() {
   a_res.s_menu_move  = load_sfx("resources/audio/menu_move.wav", "menu_move");
   a_res.s_player_die = load_sfx("resources/audio/player_die.wav", "player_die");
   a_res.s_player_hit = load_sfx("resources/audio/player_hit.wav", "player_hit");
-  a_res.s_select     = load_sfx("resources/audio/select.wav", "select");
-  a_res.s_goblin_die = load_sfx("resources/audio/goblin_die.wav", "goblin_die");
-}
-
-void update_reqs(void) {
-  for (int i = 0; i < a_res.req_count; ++i) {
-    a_req* req = &a_res.reqs[i];
-    if (req->state != AL_PLAYING) {
-      if (i != a_res.req_count) {
-        a_req tmp                   = a_res.reqs[a_res.req_count];
-        a_res.reqs[a_res.req_count] = a_res.reqs[i];
-        a_res.reqs[i]               = tmp;
-      } else {
-        memset(&a_res.reqs[i], 0, sizeof(a_req));
-      }
-      --a_res.req_count;
-    }
-  }
+  a_res.s_menu_select = load_sfx("resources/audio/select.wav", "select");
+  a_res.s_enemy_die   = load_sfx("resources/audio/enemy_die.wav", "enemy_die");
 }
 
 void play_sfx(int sfx_id) {
@@ -879,45 +937,39 @@ void play_sfx(int sfx_id) {
     return;
   }
 
-  a_req* req = 0;
-  update_reqs();
-  if (a_res.req_count < 16) {
-    req = &a_res.reqs[a_res.req_count];
-    ++a_res.req_count;
+  int   slot_index = 0;
+  float gain       = 1.f;
+
+  if (sfx_id == a_res.s_attack) {
+    slot_index = 0;
+    gain       = 0.8f;
+  } else if (sfx_id == a_res.s_player_hit) {
+    slot_index = 1;
+  } else if (sfx_id == a_res.s_player_die) {
+    slot_index = 2;
+  } else if (sfx_id == a_res.s_menu_select) {
+    slot_index = 3;
+  } else if (sfx_id == a_res.s_menu_move) {
+    slot_index = 4;
+  } else if (sfx_id == a_res.s_enemy_hit) {
+    slot_index = 5;
+  } else if (sfx_id == a_res.s_enemy_die) {
+    slot_index = 6;
+  } else {
+    return;
   }
+
+  a_req* req  = &a_res.reqs[slot_index];
+  int*   slot = &a_res.slots[slot_index];
+
+  if (*slot) {
+    a_sfx_stop(audio_ctx, *slot);
+  }
+
   vec3 a_pos = {0.f, 0.f, 0.f};
-  *req       = a_req_create(a_pos, 1.f, 0.f, 0, 0, 0, 0, 0);
-  a_sfx_play(audio_ctx, a_res.sfx_layer, sfx_id, req);
-}
 
-void menu_select_sfx() {
-  if (!a_can_play(audio_ctx)) {
-    return;
-  }
-
-  if (a_res.menu_select_sfx) {
-    a_sfx_stop(audio_ctx, a_res.menu_select_sfx);
-  }
-
-  vec3 pos              = {0.f, 0.f, 0.f};
-  a_res.menu_select_req = a_req_create(pos, 1.f, 0.f, 0, 0, 0, 0, 0);
-  a_res.menu_select_sfx = a_sfx_play(audio_ctx, a_res.sfx_layer, a_res.s_select,
-                                     &a_res.menu_select_req);
-}
-
-void menu_move_sfx() {
-  if (!a_can_play(audio_ctx)) {
-    return;
-  }
-
-  if (a_res.menu_move_sfx) {
-    a_sfx_stop(audio_ctx, a_res.menu_move_sfx);
-  }
-
-  vec3 pos            = {0.f, 0.f, 0.f};
-  a_res.menu_move_req = a_req_create(pos, 1.f, 0.f, 0, 0, 0, 0, 0);
-  a_res.menu_move_sfx = a_sfx_play(audio_ctx, a_res.sfx_layer,
-                                   a_res.s_menu_move, &a_res.menu_move_req);
+  *req  = a_req_create(a_pos, gain, 0.f, 0, 0, 0, 0, 0);
+  *slot = a_sfx_play(audio_ctx, a_res.sfx_layer, sfx_id, req);
 }
 
 void init_collision(void) {
@@ -1256,7 +1308,9 @@ void init_render(void) {
   // 16x9 * 20
   camera_size[0] = 320.f;
   camera_size[1] = 180.f;
+  // vec2 camera_offset = {-120.f, -80.f};
   r_camera_set_size(r_ctx_get_camera(render_ctx), camera_size);
+  // r_camera_set_position(r_ctx_get_camera(render_ctx), camera_offset);
 }
 
 void init_game(void) {
@@ -1313,7 +1367,8 @@ void init_game(void) {
 // centered position
 
 void clear_level(void) {
-  free(level.enemies);
+  if (level.enemies)
+    free(level.enemies);
   level.enemy_count = 0;
   for (int i = 0; i < MAX_HEALTH_ORBS; ++i) {
     level.health_orbs[i].active = 0;
@@ -1324,9 +1379,21 @@ void clear_level(void) {
   }
 }
 
+// brb -- water (also thinking about what equation I want to use for round
+// number growth)
+
 void init_level(void) {
   // enemies
-  int spawn_count      = rnd_range(MAX_ENEMIES / 2, MAX_ENEMIES);
+  /*level.to_spawn =
+      rnd_range((MAX_ENEMIES * (cont_round % 4)) / ((cont_round % 4) + 1),
+                (MAX_ENEMIES * ((cont_round % 4) + 1)) /
+                    ((cont_round % 4) + 2)) *
+      ((cont_round / 4) + 1);*/
+  int to_spawn = 2;
+  for (int i = 0; i < cont_round; ++i) {
+    to_spawn += 3 * (int)pow(2, (i / 7));
+  }
+  level.to_spawn       = to_spawn;
   level.enemy_capacity = MAX_ENEMIES;
   level.enemies        = (enemy_t*)calloc(sizeof(enemy_t), MAX_ENEMIES);
 
@@ -1347,9 +1414,12 @@ void init_level(void) {
   c_aabb_set(&level.player.aabb, player_pos, player_halfsize);
   vec2_dup(level.player.center, player_pos);
 
-  level.enemy_count = 0;
-  for (int i = 0; i < spawn_count; ++i) {
-    spawn_enemy();
+  int max_pre = level.to_spawn > MAX_PRESPAWN ? MAX_PRESPAWN : level.to_spawn;
+
+  for (int i = 0; i < max_pre; ++i) {
+    if (spawn_enemy()) {
+      --level.to_spawn;
+    }
   }
 }
 
@@ -1378,7 +1448,7 @@ void handle_ui(void) {
       break;
     case MENU_MAIN: { //
       if (ui_tree_check_event(&menu.main_page, menu.play.id) == 1) {
-        menu_select_sfx();
+        play_sfx(a_res.s_menu_select);
         game_state = GAME_PLAY;
         init_level();
         menu_set_page(MENU_NONE);
@@ -1387,22 +1457,18 @@ void handle_ui(void) {
 
       if (ui_tree_check_event(&menu.main_page, menu.settings.id) == 1) {
         menu_set_page(MENU_SETTINGS);
-        menu_select_sfx();
+        play_sfx(a_res.s_menu_select);
       }
 
       if (ui_tree_check_event(&menu.main_page, menu.quit.id) == 1) {
         // quit game
-        menu_select_sfx();
+        play_sfx(a_res.s_menu_select);
         menu_set_page(MENU_NONE);
         game_state = GAME_QUIT;
         return;
       }
     } break;
     case MENU_SETTINGS: {
-      vec3 listener_pos;
-      a_listener_get_pos(audio_ctx, listener_pos);
-      vec2 play_pos = {listener_pos[0], listener_pos[1]};
-
       if (i_mouse_up(input_ctx, MOUSE_LEFT)) {
         if (menu.music_vol.holding) {
           menu.music_vol.holding = 0;
@@ -1417,17 +1483,17 @@ void handle_ui(void) {
         if (ui_tree_is_active(u_ctx, menu.current_page, menu.master_vol.id)) {
           ui_slider_next_step(&menu.master_vol);
           a_listener_set_gain(audio_ctx, menu.master_vol.value);
-          menu_move_sfx();
+          play_sfx(a_res.s_menu_move);
         } else if (ui_tree_is_active(u_ctx, menu.current_page,
                                      menu.sfx_vol.id)) {
           ui_slider_next_step(&menu.sfx_vol);
           a_layer_set_gain(audio_ctx, a_res.sfx_layer, menu.sfx_vol.value);
-          menu_move_sfx();
+          play_sfx(a_res.s_menu_move);
         } else if (ui_tree_is_active(u_ctx, menu.current_page,
                                      menu.music_vol.id)) {
           ui_slider_next_step(&menu.music_vol);
           a_layer_set_gain(audio_ctx, a_res.music_layer, menu.music_vol.value);
-          menu_move_sfx();
+          play_sfx(a_res.s_menu_move);
         }
       }
 
@@ -1435,28 +1501,29 @@ void handle_ui(void) {
         if (ui_tree_is_active(u_ctx, menu.current_page, menu.master_vol.id)) {
           ui_slider_prev_step(&menu.master_vol);
           a_listener_set_gain(audio_ctx, menu.master_vol.value);
-          menu_move_sfx();
+          play_sfx(a_res.s_menu_move);
         } else if (ui_tree_is_active(u_ctx, menu.current_page,
                                      menu.sfx_vol.id)) {
           ui_slider_prev_step(&menu.sfx_vol);
           a_layer_set_gain(audio_ctx, a_res.sfx_layer, menu.sfx_vol.value);
-          menu_move_sfx();
+          play_sfx(a_res.s_menu_move);
         } else if (ui_tree_is_active(u_ctx, menu.current_page,
                                      menu.music_vol.id)) {
           ui_slider_prev_step(&menu.music_vol);
           a_layer_set_gain(audio_ctx, a_res.music_layer, menu.music_vol.value);
-          menu_move_sfx();
+          play_sfx(a_res.s_menu_move);
         }
       }
 
       if (ui_tree_check_event(&menu.settings_page, menu.back_button.id) == 1) {
+        play_sfx(a_res.s_menu_select);
         menu_set_page(menu.last_page);
       }
 
       if (menu.master_vol.holding) {
         float gain_prev = a_listener_get_gain(audio_ctx);
         if (gain_prev != menu.master_vol.value) {
-          menu_move_sfx();
+          play_sfx(a_res.s_menu_move);
         }
         a_listener_set_gain(audio_ctx, menu.master_vol.value);
         user_prefs.master_vol = menu.master_vol.value;
@@ -1465,7 +1532,7 @@ void handle_ui(void) {
       if (menu.sfx_vol.holding) {
         float gain_prev = a_layer_get_gain(audio_ctx, a_res.sfx_layer);
         if (gain_prev != menu.sfx_vol.value) {
-          menu_move_sfx();
+          play_sfx(a_res.s_menu_move);
         }
 
         a_layer_set_gain(audio_ctx, a_res.sfx_layer, menu.sfx_vol.value);
@@ -1474,7 +1541,7 @@ void handle_ui(void) {
       if (menu.music_vol.holding) {
         float gain_prev = a_layer_get_gain(audio_ctx, a_res.music_layer);
         if (gain_prev != menu.music_vol.value) {
-          menu_move_sfx();
+          play_sfx(a_res.s_menu_move);
         }
 
         a_layer_set_gain(audio_ctx, a_res.music_layer, menu.music_vol.value);
@@ -1500,19 +1567,19 @@ void handle_ui(void) {
     } break;
     case MENU_PAUSE: {
       if (ui_tree_check_event(&menu.pause_page, menu.p_settings.id) == 1) {
-        menu_select_sfx();
+        play_sfx(a_res.s_menu_select);
         menu_set_page(MENU_SETTINGS);
       }
 
       if (ui_tree_check_event(&menu.pause_page, menu.p_resume.id) == 1) {
-        menu_select_sfx();
+        play_sfx(a_res.s_menu_select);
         menu_set_page(MENU_NONE);
         game_state = GAME_PLAY;
         return;
       }
 
       if (ui_tree_check_event(&menu.pause_page, menu.p_quit.id) == 1) {
-        menu_select_sfx();
+        play_sfx(a_res.s_menu_select);
         // clear old framebuffer
         r_framebuffer_bind(fbo);
         r_window_clear_color_empty();
@@ -1534,7 +1601,8 @@ void handle_ui(void) {
 
         clear_level();
         menu_set_page(MENU_MAIN);
-        game_state = GAME_START;
+        game_state              = GAME_START;
+        level.player.kill_count = 0;
       }
 
       if (ui_tree_check_event(&menu.end_page, menu.w_again.id) == 1) {
@@ -1545,6 +1613,7 @@ void handle_ui(void) {
 
         if (game_state == GAME_WIN) {
           is_continuous = 1;
+          ++cont_round;
         } else {
           is_continuous = 0;
         }
@@ -1562,10 +1631,6 @@ void input(float delta) {
   vec2 mouse_pos = {i_mouse_get_x(input_ctx), i_mouse_get_y(input_ctx)};
   ui_ctx_update(u_ctx, mouse_pos);
 
-  if (i_key_clicked(input_ctx, 'P')) {
-    printf("%p\n", menu.current_page);
-  }
-
   if (menu.current_page) {
     int32_t active = ui_tree_check(u_ctx, menu.current_page);
 
@@ -1578,11 +1643,8 @@ void input(float delta) {
     }
 
     if (i_key_clicked(input_ctx, KEY_ESCAPE)) {
+      play_sfx(a_res.s_menu_select);
       switch (menu.page_number) {
-        case MENU_NONE: {
-          // do nothing, this case shouldn't be achievable
-          ASTERA_FUNC_DBG("How'd you get here?!\n");
-        } break;
         case MENU_MAIN: {
           // quit game
           game_state = GAME_QUIT;
@@ -1613,23 +1675,19 @@ void input(float delta) {
       }
     }
 
-    vec3 listener_pos;
-    a_listener_get_pos(audio_ctx, listener_pos);
-    vec2 play_pos = {listener_pos[0], listener_pos[1]};
-
     if (i_binding_clicked(input_ctx, "down")) {
       ui_tree_next(menu.current_page);
-      menu_move_sfx();
+      play_sfx(a_res.s_menu_move);
     }
 
     if (i_binding_clicked(input_ctx, "up")) {
       ui_tree_prev(menu.current_page);
-      menu_move_sfx();
+      play_sfx(a_res.s_menu_move);
     }
 
     if (i_binding_clicked(input_ctx, "select")) {
       ui_tree_select(u_ctx, menu.current_page, 1, 0);
-      menu_move_sfx();
+      play_sfx(a_res.s_menu_move);
     }
 
     if (menu.scroll_timer > menu.scroll_duration) {
@@ -1654,13 +1712,82 @@ void input(float delta) {
       }
     }
 
+#ifdef DRAW_HITBOXES
+    if (i_key_clicked(input_ctx, KEY_P)) {
+      debug_output();
+    }
+#endif
+
     // Handle User Input normally now
     vec2 move = {0.f};
-    if (i_binding_down(input_ctx, "up")) {
-      move[1] = -1.f;
-    } else if (i_binding_down(input_ctx, "down")) {
-      move[1] = 1.f;
+    int  vert = 0, hori = 0;
+
+    if (i_binding_up(input_ctx, "up")) {
+      level.player.up_priority = 0;
     }
+
+    if (i_binding_up(input_ctx, "down")) {
+      level.player.down_priority = 0;
+    }
+
+    if (i_binding_clicked(input_ctx, "up")) {
+      level.player.down_priority = 0;
+      level.player.up_priority   = 1;
+    }
+
+    if (i_binding_clicked(input_ctx, "down")) {
+      level.player.down_priority = 1;
+      level.player.up_priority   = 0;
+    }
+
+    if (i_binding_up(input_ctx, "up")) {
+      level.player.up_priority = 0;
+    }
+
+    if (i_binding_up(input_ctx, "down")) {
+      level.player.down_priority = 0;
+    }
+
+    if (i_binding_down(input_ctx, "up") && !level.player.down_priority) {
+      vert = 1;
+    }
+
+    if (i_binding_down(input_ctx, "down") && !level.player.up_priority) {
+      level.player.down_priority = 0;
+      vert                       = -1;
+    }
+
+    level.player.vert = vert;
+    move[1]           = -(float)vert;
+
+    if (i_binding_clicked(input_ctx, "left")) {
+      level.player.left_priority  = 1;
+      level.player.right_priority = 0;
+    }
+
+    if (i_binding_clicked(input_ctx, "right")) {
+      level.player.left_priority  = 0;
+      level.player.right_priority = 1;
+    }
+
+    if (i_binding_up(input_ctx, "right")) {
+      level.player.right_priority = 0;
+    }
+
+    if (i_binding_up(input_ctx, "left")) {
+      level.player.left_priority = 0;
+    }
+
+    if (i_binding_down(input_ctx, "left") && !level.player.right_priority) {
+      hori = -1;
+    }
+
+    if (i_binding_down(input_ctx, "right") && !level.player.left_priority) {
+      hori = 1;
+    }
+
+    level.player.hori = hori;
+    move[0]           = (float)hori;
 
     if (i_binding_clicked(input_ctx, "attack")) {
       if (level.player.attack_timer <= 0.f) {
@@ -1668,25 +1795,6 @@ void input(float delta) {
         play_sfx(a_res.s_attack);
         level.player.attack_timer = ATTACK_COOLDOWN;
       }
-    }
-
-    // it's a bit like godmode, but less interesting
-    if (i_key_clicked(input_ctx, 'E')) {
-      play_sfx(a_res.s_enemy_hit);
-      for (int i = 0; i < level.enemy_count; ++i) {
-        enemy_t* en     = &level.enemies[i];
-        en->take_damage = 1;
-
-        // update enemy state
-        en->state        = ENEMY_HIT;
-        en->damage_timer = DAMAGE_DURATION;
-      }
-    }
-
-    if (i_binding_down(input_ctx, "left")) {
-      move[0] = -1.f;
-    } else if (i_binding_down(input_ctx, "right")) {
-      move[0] = 1.f;
     }
 
     int swoosh_state = r_sprite_get_anim_state(&level.player.swoosh);
@@ -1745,9 +1853,19 @@ static void blend(vec4 dst, vec4 a, vec4 b, float weight) {
 
 void update(time_s delta) {
   if (game_state == GAME_PLAY) {
-    uint32_t enemy_count = 0;
     if (level.player.attack_timer > 0.f) {
       level.player.attack_timer -= delta;
+    }
+
+    if (level.to_spawn != 0) {
+      level.spawn_timer -= delta;
+      if (level.spawn_timer <= 0 &&
+          level.enemy_count < level.enemy_capacity - 1) {
+        level.spawn_timer = rnd_range((MAX_SPAWN_RATE / 4) * 3, MAX_SPAWN_RATE);
+        if (spawn_enemy()) {
+          --level.to_spawn;
+        }
+      }
     }
 
     if (level.player.take_damage) {
@@ -1810,13 +1928,12 @@ void update(time_s delta) {
     }
 
     // test player vs enemies
-    for (int i = 0; i < level.enemy_count; ++i) {
+    for (int i = 0; i < level.enemy_capacity; ++i) {
       enemy_t* en = &level.enemies[i];
 
-      if (!en->alive)
+      if (!en->alive) {
         continue;
-
-      ++enemy_count;
+      }
 
       if (en->state != ENEMY_SPAWN) {
         // enemy AI
@@ -1905,6 +2022,11 @@ void update(time_s delta) {
       // animate damaged enemies
       if (en->take_damage) {
         en->damage_timer -= delta;
+        if (en->damage_timer < (DAMAGE_DURATION * 0.66f)) {
+          en->can_take_damage = 1;
+        } else {
+          en->can_take_damage = 0;
+        }
         blend(en->sprite.color, menu.white, menu.red,
               en->damage_timer / DAMAGE_DURATION);
 
@@ -1914,13 +2036,15 @@ void update(time_s delta) {
           float lerp =
               f_invquad(0.f, STAGGER_DURATION, elapsed) / STAGGER_DURATION;
 
-          vec2 move_amount;
-          vec2_scale(move_amount, en->stagger, lerp);
+          float stagger_scale = 0.7f;
+          vec2  move_amount;
+          vec2_scale(move_amount, en->stagger, lerp * stagger_scale);
           move_enemy(en, move_amount);
         }
 
         if (en->damage_timer <= 0.f) {
           en->take_damage = 0;
+          vec2_clear(en->stagger);
         }
       }
 
@@ -1961,21 +2085,21 @@ void update(time_s delta) {
     }
 
     int swoosh_state = r_sprite_get_anim_state(&level.player.swoosh);
-    if (swoosh_state) {
+    if (swoosh_state == R_ANIM_PLAY) {
       // test sword vs enemies
-      for (int i = 0; i < level.enemy_count; ++i) {
+      for (int i = 0; i < level.enemy_capacity; ++i) {
         enemy_t* en = &level.enemies[i];
 
         // only allow damage after a 3rd of the damage timer has elapsed
-        if (en->damage_timer < (DAMAGE_DURATION * 0.66f)) {
+        if (en->can_take_damage) {
           c_manifold man =
               c_aabb_vs_circle_man(level.player.hitbox, en->circle);
           if (man.distance != 0.f) {
-            en->take_damage = 1;
-
+            en->take_damage  = 1;
             en->state        = ENEMY_HIT;
             en->damage_timer = DAMAGE_DURATION;
-            en->health--;
+            en->health -= 1;
+            en->can_take_damage = 0;
 
             vec2 a = {0.f, 0.f};
             vec2_sub(a, en->circle.center, level.player.center);
@@ -1985,10 +2109,11 @@ void update(time_s delta) {
 
             // apply opposite directional force to enemy
             if (en->health <= 0) {
-              // death animation/etc
               en->alive = 0;
+              // death animation/etc
               create_emitter(en->circle.center, man.direction);
 
+              // health orb
               int to_spawn = rand() % 2;
               if (level.player.health < (MAX_PLAYER_HEALTH / 3) + 1) {
                 level.player.allow_spawns = 1;
@@ -1999,15 +2124,15 @@ void update(time_s delta) {
                 spawn_health_orb(en->circle.center);
               }
 
-              to_spawn = rand() % 3;
+              // ENEMY RESPAWN
+              // to_spawn = rand() % 3;
 
-              play_sfx(a_res.s_goblin_die);
+              play_sfx(a_res.s_enemy_die);
               ++level.player.kill_count;
-              if (to_spawn) {
-                spawn_enemy();
-              } else {
-                --level.enemy_count;
-              }
+              --level.enemy_count;
+              // if (to_spawn == 2) {
+              //  ++level.to_spawn;
+              //}
             } else {
               play_sfx(a_res.s_enemy_hit);
             }
@@ -2024,7 +2149,8 @@ void update(time_s delta) {
       }
     }
 
-    // test player vs spawn colliders (prevents out of bounds thru spawn routes)
+    // test player vs spawn colliders (prevents out of bounds thru spawn
+    // routes)
     for (int i = 0; i < 4; ++i) {
       c_manifold man =
           c_aabb_vs_aabb_man(level.player.aabb, level.spawn_cols[i]);
@@ -2035,13 +2161,11 @@ void update(time_s delta) {
 
     c_aabb_get_center(level.player.center, level.player.aabb);
 
-    // win condition
-    if (enemy_count == 0) {
+    if (level.enemy_count == 0) {
       game_end(1);
     }
 
-    // lose condition
-    if (level.player.health <= 0) {
+    if (level.player.health == 0) {
       game_end(0);
     }
   }
@@ -2085,10 +2209,10 @@ void debug_game(void) {
   env_color[3]       = 0.3f;
   spawn_col_color[3] = 0.3f;
 
-  for (int i = 0; i < level.enemy_count; ++i) {
+  for (int i = 0; i < level.enemy_capacity; ++i) {
     enemy_t* en = &level.enemies[i];
-
-    debug_circle(en->circle.center, en->circle.radius, enemy_color);
+    if (en->alive)
+      debug_circle(en->circle.center, en->circle.radius, enemy_color);
   }
 
   vec2 center = {0.f, 0.f}, size = {0.f, 0.f};
@@ -2151,13 +2275,19 @@ void draw_ui(void) {
     static char kill_count_text[16] = {0};
     snprintf(kill_count_text, 16, "KILL COUNT: %i", level.player.kill_count);
     ui_im_text_draw(u_ctx, pos, 32.f, menu.font, kill_count_text);
+    memset(kill_count_text, 0, sizeof(char) * 16);
+    pos[1] = 0.95f;
+    snprintf(kill_count_text, 16, "ROUND: %i", cont_round + 1);
+    ui_im_text_draw(u_ctx, pos, 32.f, menu.font, kill_count_text);
   }
 
   if (game_state != GAME_PLAY && game_state != GAME_QUIT) {
     ui_tree_draw(u_ctx, menu.current_page);
   }
 
-  debug_game();
+  if (game_state == GAME_PLAY || game_state == GAME_PAUSE) {
+    debug_game();
+  }
 
   ui_frame_end(u_ctx);
 }
@@ -2202,14 +2332,13 @@ void draw_game(time_s delta) {
   }
 
   // draw the enemies
-  for (int i = 0; i < level.enemy_count; ++i) {
-    if (!level.enemies[i].alive)
-      continue;
+  for (int i = 0; i < level.enemy_capacity; ++i) {
+    if (level.enemies[i].alive) {
+      if (game_state == GAME_PLAY)
+        r_sprite_update(&level.enemies[i].sprite, delta);
 
-    if (game_state == GAME_PLAY)
-      r_sprite_update(&level.enemies[i].sprite, delta);
-
-    r_sprite_draw_batch(render_ctx, &level.enemies[i].sprite);
+      r_sprite_draw_batch(render_ctx, &level.enemies[i].sprite);
+    }
   }
 
   // draw particle effects
@@ -2236,9 +2365,8 @@ void render(time_s delta) {
 }
 
 user_preferences load_config(void) {
-  asset_t* raw_table = asset_get(USER_PREFS_FILE);
-
-  user_preferences prefs = {0};
+  user_preferences prefs     = {0};
+  asset_t*         raw_table = asset_get(USER_PREFS_FILE);
 
   if (raw_table) {
     s_table table = s_table_get(raw_table->data);
@@ -2262,22 +2390,21 @@ user_preferences load_config(void) {
     value           = s_table_find(&table, "music");
     prefs.music_vol = (value) ? atof(value) : 1.0f;
 
-    s_table_free(table);
     asset_free(raw_table);
+    s_table_free(&table);
   } else {
     prefs.master_vol = 0.8f;
     prefs.sfx_vol    = 1.0f;
     prefs.music_vol  = 0.75f;
     prefs.res_width  = DEFAULT_WIDTH;
     prefs.res_height = DEFAULT_HEIGHT;
-    free(raw_table);
   }
 
   return prefs;
 }
 
 void save_config(void) {
-  s_table table = s_table_create(8, 1);
+  s_table table = s_table_create(512, 8, 1);
 
   s_table_add_float(&table, "master", a_listener_get_gain(audio_ctx));
   s_table_add_float(&table, "sfx",
@@ -2292,7 +2419,7 @@ void save_config(void) {
 
   s_table_write(&table, USER_PREFS_FILE);
 
-  s_table_free(table);
+  s_table_free(&table);
 }
 
 int main(void) {
@@ -2377,7 +2504,6 @@ int main(void) {
 
     if (a_can_play(audio_ctx)) {
       a_ctx_update(audio_ctx);
-      update_reqs();
     }
 
     if (r_can_render(render_ctx)) {

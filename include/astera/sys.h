@@ -61,15 +61,18 @@ typedef struct {
 
 #if !defined(ASTERA_NO_CONF)
 typedef struct {
-  /* keys - an array of the key strings
+  /* data - the raw data array/string
+     keys - an array of the key strings
      values - an array of the value strings
      count - the number of strings (length of each array individually)
      capacity - the max number of strings in the arrays
-     allow_grow - if to allow for array growth */
+     allow_grow - if to allow for array growth
+     data_owned - if we own the allocated data (have to free it)*/
+  const char*  data;
   const char** keys;
   const char** values;
-  uint32_t     count, capacity;
-  uint8_t      allow_grow;
+  uint32_t     count, capacity, data_capacity, data_cursor;
+  uint8_t      allow_grow, data_owned;
 } s_table;
 
 /* Parse data as a psuedo-ini loader
@@ -78,10 +81,12 @@ typedef struct {
 s_table s_table_get(unsigned char* data);
 
 /* Create a table with count
+ * data_capacity - the max number of characteres to store
  * capacity - the max number of key/value pairs in array
  * allow_grow - if to allow for the table to auto grow when adding at capacity
  * returns: basic table structure */
-s_table s_table_create(uint32_t capacity, uint8_t allow_grow);
+s_table s_table_create(uint32_t data_capacity, uint32_t capacity,
+                       uint8_t allow_grow);
 
 /* Add a key/(int) value to a table
  * returns: 1 = success, 0 = fail */
@@ -105,7 +110,7 @@ const char* s_table_find(s_table* table, char* key);
 
 /* Free a table struct's contents
    table - the table you want to free */
-void s_table_free(s_table table);
+void s_table_free(s_table* table);
 
 /* Write a psuedo INI file from a table
    table - the table to write to file
@@ -119,6 +124,9 @@ uint8_t s_table_write(s_table* table, char* filepath);
    returns: 1 = success, 0 = fail */
 uint8_t s_table_write_mem(s_table* table, unsigned char* data,
                           uint32_t dst_length, uint32_t* write_length);
+
+/* Output a table to stdout */
+void s_table_print(s_table* table);
 
 #endif
 

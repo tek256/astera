@@ -162,45 +162,46 @@ char* s_itoa(int32_t value, char* string, int8_t base) {
 }
 
 #if !defined(ASTERA_NO_CONF)
-void s_table_free(s_table table) {
-  if (table.keys) {
-    for (uint32_t i = 0; i < table.count; ++i) {
-      /*if (table.keys[i] != 0) {
-        free(table.keys[i]);
-      }*/
-    }
-    free(table.keys);
+void s_table_free(s_table* table) {
+  if (table->keys) {
+    free(table->keys);
   }
-  if (table.values) {
-    for (uint32_t i = 0; i < table.count; ++i) {
-      /*if (table.values[i] != 0) {
-        free(table.values[i]);
-      }*/
-    }
-    free(table.values);
+  if (table->values) {
+    free(table->values);
+  }
+
+  if (table->data && table->data_owned) {
+    free(table->data);
   }
 }
 
-static char* s_cleaned_str(const char* str, uint32_t* size, char* str_end) {
+/* In place clean a string (removes leading & trailing whitespace)
+ * str - string to clean
+ * n_size - new size
+ * str_end - the end of the string
+ * returns: new start pointer for string */
+static char* s_clean_str(char* str, uint32_t* n_size, char* str_end) {
   if (!str) {
-    ASTERA_FUNC_DBG("Unable to clean null string.\n");
+    ASTERA_FUNC_DBG("Unable to clean null string\n");
     return 0;
   }
 
   uint32_t str_size = 0;
-
   if (str_end) {
-    while (isspace(*str) && str < str_end)
+    while (isspace(*str) && str < str_end) {
       str++;
+    }
   } else {
-    while (isspace(*str))
+    while (isspace(*str)) {
       str++;
+    }
   }
 
-  if (str == 0)
+  if (str == 0) {
     return 0;
+  }
 
-  const char* start = str;
+  char* start = str;
   if (str_end) {
     while (!isspace(*str) && str < str_end) {
       ++str_size;
@@ -217,23 +218,24 @@ static char* s_cleaned_str(const char* str, uint32_t* size, char* str_end) {
     }
   }
 
-  char* new_str = (char*)malloc(sizeof(char) * (str_size + 1));
-  strncpy(new_str, start, str_size);
-  new_str[str_size] = '\0';
+  if (n_size) {
+    *n_size = str_size;
+  }
 
-  if (size)
-    *size = str_size;
-
-  return new_str;
+  return start;
 }
 
 static void s_kv_get(char* src, char** key, char** value, uint32_t* key_length,
                      uint32_t* value_length) {
-  char* split = strstr(src, "=");
+  uint32_t str_len = strlen(src);
+  char*    split   = strstr(src, "=");
 
   uint32_t _key_len, _value_len;
-  *key   = s_cleaned_str(src, &_key_len, split);
-  *value = s_cleaned_str(split + 1, &_value_len, 0);
+  *key   = s_clean_str(src, &_key_len, split);
+  *value = s_clean_str(split + 1, &_value_len, src + str_len);
+
+  char* term     = *key;
+  term[_key_len] = 0;
 
   if (key_length) {
     *key_length = _key_len;
@@ -275,18 +277,30 @@ s_table s_table_get(unsigned char* data) {
     line = strtok(NULL, "\n");
   }
 
-  return (s_table){keys, values, .count = line_count, .capacity = line_capacity,
-                   .allow_grow = 0};
+  return (s_table){.keys          = keys,
+                   .values        = values,
+                   .count         = line_count,
+                   .capacity      = line_capacity,
+                   .allow_grow    = 0,
+                   .data          = data,
+                   .data_cursor   = 0,
+                   .data_capacity = strlen(data),
+                   .data_owned    = 0};
 }
 
-s_table s_table_create(uint32_t capacity, uint8_t allow_grow) {
+s_table s_table_create(uint32_t data_cap, uint32_t capacity,
+                       uint8_t allow_grow) {
   s_table table = (s_table){0};
 
-  table.keys       = (const char**)calloc(capacity, sizeof(char**));
-  table.values     = (const char**)calloc(capacity, sizeof(char**));
-  table.count      = 0;
-  table.capacity   = capacity;
-  table.allow_grow = allow_grow;
+  table.data          = (char*)calloc(data_cap, sizeof(char));
+  table.keys          = (const char**)calloc(capacity, sizeof(char**));
+  table.values        = (const char**)calloc(capacity, sizeof(char**));
+  table.count         = 0;
+  table.capacity      = capacity;
+  table.allow_grow    = allow_grow;
+  table.data_cursor   = 0;
+  table.data_capacity = data_cap;
+  table.data_owned    = 1;
 
   return table;
 }
@@ -294,31 +308,29 @@ s_table s_table_create(uint32_t capacity, uint8_t allow_grow) {
 static char conv_buffer[32] = {0};
 uint8_t     s_table_add_float(s_table* table, char* key, float value) {
   memset(conv_buffer, 0, sizeof(char) * 32);
-  uint32_t len        = snprintf(conv_buffer, 32, "%.2f", value);
-  char*    new_buffer = calloc(len + 1, sizeof(char));
-  memcpy(new_buffer, conv_buffer, len * sizeof(char));
-  uint8_t table_add = s_table_add(table, key, new_buffer);
-  if (!table_add) {
-    free(new_buffer);
-  }
+  uint32_t len       = snprintf(conv_buffer, 32, "%.2f", value);
+  uint8_t  table_add = s_table_add(table, key, conv_buffer);
   return table_add;
 }
 
 uint8_t s_table_add_int(s_table* table, char* key, int value) {
   memset(conv_buffer, 0, sizeof(char) * 32);
-  uint32_t len        = snprintf(conv_buffer, 32, "%i", value);
-  char*    new_buffer = calloc(len + 1, sizeof(char));
-  memcpy(new_buffer, conv_buffer, len * sizeof(char));
-
-  uint8_t table_add = s_table_add(table, key, new_buffer);
-  if (!table_add) {
-    free(new_buffer);
-  }
+  uint32_t len       = snprintf(conv_buffer, 32, "%i", value);
+  uint8_t  table_add = s_table_add(table, key, conv_buffer);
   return table_add;
 }
 
 uint8_t s_table_add(s_table* table, char* key, char* value) {
+  int key_len = 0, value_len = 0;
   if (key && value) {
+    key_len   = strlen(key);
+    value_len = strlen(value);
+
+    // TODO dynamically rebuild array of string ptrs
+    if (table->data_cursor + key_len + value_len > table->data_capacity) {
+      return 0;
+    }
+
     if (table->count == table->capacity - 1) {
       if (table->allow_grow) { // at max capacity and can grow
         table->keys = (const char**)realloc(
@@ -333,9 +345,20 @@ uint8_t s_table_add(s_table* table, char* key, char* value) {
       }
     }
 
+    // add to data
+    char* n_key   = &table->data[table->data_cursor];
+    char* n_value = n_key + (sizeof(char) * (strlen(key) + 1));
+
+    strncpy(n_key, key, sizeof(char) * key_len);
+    n_key[key_len] = 0;
+    strncpy(n_value, value, sizeof(char) * value_len);
+    n_value[value_len] = 0;
+
+    table->data_cursor += key_len + value_len + 2;
+
     // add new key/value pair
-    table->keys[table->count]   = key;
-    table->values[table->count] = value;
+    table->keys[table->count]   = n_key;
+    table->values[table->count] = n_value;
 
     ++table->count;
 
@@ -447,6 +470,12 @@ uint8_t s_table_write_mem(s_table* table, unsigned char* dst,
   }
 
   return 1;
+}
+
+void s_table_print(s_table* table) {
+  for (int i = 0; i < table->count; ++i) {
+    printf("[%i] %s: %s\n", i, table->keys[i], table->values[i]);
+  }
 }
 
 uint32_t s_strnify(char* dst, uint32_t dst_capacity, const char* src,
