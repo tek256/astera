@@ -605,7 +605,7 @@ void ui_attrib_get4f(ui_ctx* ctx, ui_attrib attrib, vec4 dst);
 /* Check if an attribute has been set */
 uint8_t ui_attrib_exists(ui_ctx* ctx, ui_attrib attrib);
 
-/* Get a font based on it's assigned name
+/* Get a font based on its assigned name
  * ctx - the context to check
  * font_name - the name of the font given on creation
  * returns: the font ID */
@@ -823,10 +823,10 @@ float ui_slider_next_step(ui_slider* slider);
 /* Move a slider to the previous step value (doesn't work without steps) */
 float ui_slider_prev_step(ui_slider* slider);
 
-/* Destroy an image & it's contents */
+/* Destroy an image & its contents */
 void ui_img_destroy(ui_ctx* ctx, ui_img* img);
 
-/* Destroy a dropdown & it's contents */
+/* Destroy a dropdown & its contents */
 void ui_dropdown_destroy(ui_ctx* ctx, ui_dropdown* dropdown);
 
 void ui_button_destroy(ui_button* button);

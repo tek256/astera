@@ -177,7 +177,7 @@ uint32_t i_ctx_current_keys(i_ctx* ctx);
  * output current keyboard states */
 void i_ctx_debug_out(i_ctx* ctx);
 
-/* Destroy an input context and all of it's resources
+/* Destroy an input context and all of its resources
  * ctx - the context to destroy */
 void i_ctx_destroy(i_ctx* ctx);
 

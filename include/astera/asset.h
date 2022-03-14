@@ -157,7 +157,7 @@ pak_t* pak_open_file(const char* file);
  * pak structure, don't free it if you still want to use the pak struct */
 pak_t* pak_open_mem(unsigned char* data, uint32_t data_length);
 
-/* Close out a pak file & free all it's resources
+/* Close out a pak file & free all its resources
  *  returns: success = 1, fail = 0 */
 uint8_t pak_close(pak_t* pak);
 
@@ -281,7 +281,7 @@ void asset_map_free(asset_map_t* map);
 uint8_t asset_write_data(const char* file_path, void* data,
                          uint32_t data_length);
 
-/* Write an asset & it's data to the file system */
+/* Write an asset & its data to the file system */
 uint8_t asset_write(const char* filepath, asset_t* asset);
 
 #ifdef __cplusplus

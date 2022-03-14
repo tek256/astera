@@ -259,7 +259,7 @@ a_ctx* a_ctx_create(const char* device, uint8_t layers, uint16_t max_sfx,
                     uint16_t max_buffers, uint16_t max_songs, uint16_t max_fx,
                     uint16_t max_filters, uint32_t pcm_size);
 
-/* Destroy the Audio Context & all of it's contents */
+/* Destroy the Audio Context & all of its contents */
 uint8_t a_ctx_destroy(a_ctx* ctx);
 
 /* Update the Audio Context
@@ -274,13 +274,13 @@ void a_ctx_update(a_ctx* ctx);
  * returns: the ID of the sfx (non-zero, 0 = error) */
 uint16_t a_sfx_play(a_ctx* ctx, uint16_t layer, uint16_t buf_id, a_req* req);
 
-/* Stops and removes the SFX from it's slot
+/* Stops and removes the SFX from its slot
  * ctx - the context to use to find the sfx
  * sfx_id - the ID of the SFX returned when played
  * returns: success = 1, fail = 0 */
 uint8_t a_sfx_stop(a_ctx* ctx, uint16_t sfx_id);
 
-/* Pause a SFX in it's slot
+/* Pause a SFX in its slot
  * ctx - the context to use to find the sfx
  * sfx_id - the ID of the SFX returned when played
  * returns: success = 1, fail = 0 */
@@ -303,7 +303,7 @@ uint16_t a_song_create(a_ctx* ctx, unsigned char* data, uint32_t data_length,
                        const char* name, uint16_t packets_per_buffer,
                        uint8_t buffers, uint32_t max_buffer_size);
 
-/* Destroy a song & it's contents
+/* Destroy a song & its contents
  * ctx - the context the song is contained within
  * id - the ID of the song from creation */
 uint8_t a_song_destroy(a_ctx* ctx, uint16_t id);
@@ -317,7 +317,7 @@ a_song* a_song_get_ptr(a_ctx* ctx, uint16_t song_id);
 /* Play a song
  * ctx - the context the song is within
  * layer_id - the layer to play the song on (optional, 0 for none)
- * song_id - the song ID from it's creation
+ * song_id - the song ID from its creation
  * req - the request on where / how to play the song */
 uint8_t a_song_play(a_ctx* ctx, uint16_t layer_id, uint16_t song_id,
                     a_req* req);
@@ -377,7 +377,7 @@ uint8_t a_song_reset(a_ctx* ctx, uint16_t song_id);
  * returns: song's state (OpenAL Enum) */
 uint32_t a_song_get_state(a_ctx* ctx, uint16_t song_id);
 
-/* Find the ID of a song based on it's name
+/* Find the ID of a song based on its name
  * returns: song's ID */
 uint16_t a_song_get_id(a_ctx* ctx, const char* name);
 
@@ -538,7 +538,7 @@ uint16_t a_filter_create(a_ctx* ctx, a_filter_type type, float gain, float hf,
  * filter_id - the ID of the filter returned on creation */
 uint8_t a_filter_update(a_ctx* ctx, uint16_t filter_id);
 
-/* Remove a filter from usage & free up it's slot
+/* Remove a filter from usage & free up its slot
  * ctx - the context containing the filter
  * filter_id - the ID of the filter returned on creation
  * returns: success = 1, fail = 0 */

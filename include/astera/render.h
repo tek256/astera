@@ -502,7 +502,7 @@ void r_ctx_destroy(r_ctx* ctx);
  * Currently just camera_update */
 void r_ctx_update(r_ctx* ctx);
 
-/* Call for the context to draw it's contents */
+/* Call for the context to draw its contents */
 void r_ctx_draw(r_ctx* ctx);
 
 /* Check if OpenGL has thrown an error */
@@ -552,7 +552,7 @@ void r_get_color4f(vec4 dst, const char* v);
 r_framebuffer r_framebuffer_create(uint32_t width, uint32_t height,
                                    r_shader shader, uint8_t color_only);
 
-/* Destroy the OpenGL Framebuffer and it's quad (the shader is unaffected)
+/* Destroy the OpenGL Framebuffer and its quad (the shader is unaffected)
  * fbo - the framebuffer to destroy */
 void r_framebuffer_destroy(r_framebuffer fbo);
 
@@ -565,7 +565,7 @@ void r_framebuffer_bind(r_framebuffer fbo);
 /* Bind the base window framebuffer for drawing */
 void r_framebuffer_unbind(void);
 
-/* Draw a framebuffer to it's quad
+/* Draw a framebuffer to its quad
  * ctx - the context to get the gamma parameter from
  * fbo - the framebuffer to draw */
 void r_framebuffer_draw(r_ctx* ctx, r_framebuffer fbo);
@@ -603,7 +603,7 @@ r_sheet r_sheet_create_tiled(unsigned char* data, uint32_t length,
                              uint32_t sub_width, uint32_t sub_height,
                              uint32_t width_pad, uint32_t height_pad);
 
-/* Destroy a texture sheet's OpenGL Buffer & free it's subsprite contents
+/* Destroy a texture sheet's OpenGL Buffer & free its subsprite contents
  * sheet - the sheet to destroy */
 void r_sheet_destroy(r_sheet* sheet);
 
@@ -1346,7 +1346,7 @@ void r_window_set_pos(r_ctx* ctx, int32_t x, int32_t y);
  * returns: 1 = resizable, 0 = not resizable */
 uint8_t r_window_is_resizable(r_ctx* ctx);
 
-/* Call for the window to swap it's buffers (show next frame)
+/* Call for the window to swap its buffers (show next frame)
  * ctx - render context to affect */
 void r_window_swap_buffers(r_ctx* ctx);
 

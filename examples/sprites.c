@@ -135,7 +135,7 @@ void init_render(r_ctx* ctx) {
 
   asset_t* sprite_sheet_data = asset_get("resources/textures/spritesheet.png");
   sprite_sheet               = r_sheet_create_tiled(
-      sprite_sheet_data->data, sprite_sheet_data->data_length, 16, 16, 0, 0);
+                    sprite_sheet_data->data, sprite_sheet_data->data_length, 16, 16, 0, 0);
   asset_free(sprite_sheet_data);
 
   // variable time animations
