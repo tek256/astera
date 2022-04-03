@@ -34,6 +34,15 @@ typedef enum {
 } c_types;
 
 typedef struct {
+  union {
+    c_aabb   aabb;
+    c_circle circle;
+    c_ray    ray;
+  } col;
+  c_types type;
+} c_shape;
+
+typedef struct {
   vec2  point, direction;
   float distance;
 } c_manifold;
@@ -88,6 +97,11 @@ void c_aabb_get_center(vec2 dst, c_aabb aabb);
  * radius - the radius of the circle
  * returns: circle structure */
 c_circle c_circle_create(vec2 center, float radius);
+
+/* Create an AABB from cirlce dimensions
+ * circle - dimensions to use
+ * returns: aabb representation of circle's dimension */
+c_aabb c_circle_to_aabb(c_circle circle);
 
 /* Test a ray vs aabb
  * a - the ray to test
@@ -172,9 +186,13 @@ c_manifold c_circle_vs_aabb_man(c_circle a, c_aabb b);
 
 /* Test 2 Collider types
  * a - 1st collider
- * a_type - the 1st collider type
  * b - 2nd collider
- * b_type - the 2nd collider type */
-c_manifold c_test(void* a, c_types a_type, void* b, c_types b_type);
+ * returns: manifold, 0 length = fail/not colliding */
+c_manifold c_test(c_shape a, c_shape b);
+
+/* Get an AABB encompasing all shapes in the list
+ * shapes - the list of shapes to check
+ * count - the number of shapes */
+c_aabb c_reduce(c_shape* shapes, uint32_t count);
 
 #endif

@@ -30,6 +30,15 @@ c_circle c_circle_create(vec2 center, float radius) {
   return circle;
 }
 
+c_aabb c_circle_to_aabb(c_circle circle) {
+  c_aabb aabb = (c_aabb){0};
+  vec2_set(aabb.min, circle.center[0] - circle.radius,
+           circle.center[1] - circle.radius);
+  vec2_set(aabb.min, circle.center[0] + circle.radius,
+           circle.center[1] + circle.radius);
+  return aabb;
+}
+
 void c_aabb_move(c_aabb* aabb, vec2 distance) {
   vec2_add(aabb->min, aabb->min, distance);
   vec2_add(aabb->max, aabb->max, distance);
@@ -454,52 +463,42 @@ c_manifold c_circle_vs_aabb_man(c_circle a, c_aabb b) {
   return man;
 }
 
-c_manifold c_test(void* a, c_types a_type, void* b, c_types b_type) {
+c_manifold c_test(c_shape a, c_shape b) {
   // zeroed out manifold for returning fail
   c_manifold manifold = (c_manifold){0};
 
-  // We don't want to test against nothing
-  if (a_type == C_NONE || b_type == C_NONE) {
-    return manifold;
-  }
-
-  if (!a || !b) {
-    ASTERA_FUNC_DBG("invalid parameters passed.\n");
-    return manifold;
-  }
-
-  switch (a_type) {
+  switch (a.type) {
     case C_AABB:
-      switch (b_type) {
+      switch (b.type) {
         case C_AABB:
-          return c_aabb_vs_aabb_man(*(c_aabb*)a, *(c_aabb*)a);
+          return c_aabb_vs_aabb_man(a.col.aabb, b.col.aabb);
         case C_CIRCLE:
-          return c_aabb_vs_circle_man(*(c_aabb*)a, *(c_circle*)b);
+          return c_aabb_vs_circle_man(a.col.aabb, b.col.circle);
         case C_RAY:
-          return c_ray_vs_aabb_man(*(c_ray*)b, *(c_aabb*)a);
+          return c_ray_vs_aabb_man(a.col.ray, b.col.aabb);
         case C_NONE:
           return manifold;
       }
 
       break;
     case C_CIRCLE:
-      switch (b_type) {
+      switch (b.type) {
         case C_AABB:
-          return c_aabb_vs_circle_man(*(c_aabb*)b, *(c_circle*)a);
+          return c_aabb_vs_circle_man(b.col.aabb, a.col.circle);
         case C_CIRCLE:
-          return c_circle_vs_circle_man(*(c_circle*)b, *(c_circle*)a);
+          return c_circle_vs_circle_man(b.col.circle, a.col.circle);
         case C_RAY:
-          return c_ray_vs_circle_man(*(c_ray*)b, *(c_circle*)a);
+          return c_ray_vs_circle_man(b.col.ray, a.col.circle);
         case C_NONE:
           return manifold;
       }
       break;
     case C_RAY:
-      switch (b_type) {
+      switch (b.type) {
         case C_AABB:
-          return c_ray_vs_aabb_man(*(c_ray*)a, *(c_aabb*)b);
+          return c_ray_vs_aabb_man(a.col.ray, b.col.aabb);
         case C_CIRCLE:
-          return c_ray_vs_circle_man(*(c_ray*)a, *(c_circle*)b);
+          return c_ray_vs_circle_man(a.col.ray, b.col.circle);
         case C_RAY:
           return manifold; // TODO ray vs ray
         case C_NONE:
@@ -511,4 +510,25 @@ c_manifold c_test(void* a, c_types a_type, void* b, c_types b_type) {
   }
 
   return manifold;
+}
+
+c_aabb c_reduce(c_shape* shapes, uint32_t count) {
+  c_aabb col = (c_aabb){0};
+
+  for (uint32_t i = 0; i < count; ++i) {
+    c_shape shape = shapes[i];
+    switch (shapes[i].type) {
+      case C_AABB:
+        vec2_min(col.min, shape.col.aabb.min, col.min);
+        vec2_max(col.max, shape.col.aabb.max, col.max);
+        break;
+      case C_CIRCLE: {
+        c_aabb cirlce_rep = c_circle_to_aabb(shape.col.circle);
+        vec2_min(col.min, shape.col.aabb.min, col.min);
+        vec2_max(col.max, shape.col.aabb.max, col.max);
+      } break;
+    }
+  }
+
+  return col;
 }
