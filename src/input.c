@@ -1,9 +1,14 @@
 #include <astera/input.h>
 #include <astera/debug.h>
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
+
+// For controller vibration
+#if defined(WIN32)
+#include <xinput.h>
+#endif
 
 typedef struct {
   double x, y;
@@ -182,13 +187,11 @@ i_ctx* i_ctx_create(uint16_t max_mouse_buttons, uint16_t max_keys,
   return ctx;
 }
 
-uint32_t i_ctx_current_keys(i_ctx* ctx) { return ctx->keyboard.curr_count; }
+uint32_t i_ctx_current_keys(i_ctx* ctx) {
+  return ctx->keyboard.curr_count;
+}
 
 void i_ctx_debug_out(i_ctx* ctx) {
-  /*  uint16_t concurrent_count;
-  uint16_t curr_count;
-  uint16_t prev_count;
-*/
   printf("Curr:\n");
   for (int i = 0; i < ctx->keyboard.curr_count; ++i) {
     printf("%i ", ctx->keyboard.curr[i]);
@@ -241,7 +244,6 @@ void i_ctx_update(i_ctx* ctx) {
         uint8_t present = (uint8_t)glfwJoystickPresent(i);
 
         if (present) {
-          // printf("%i is present.\n", i);
           int8_t open = -1;
           for (uint8_t j = 0; j < ctx->joy_capacity; ++j) {
             if (ctx->joys[j].id == i) {
@@ -303,7 +305,9 @@ void i_ctx_update(i_ctx* ctx) {
   }
 }
 
-void i_poll_events() { glfwPollEvents(); }
+void i_poll_events() {
+  glfwPollEvents();
+}
 
 void i_ctx_destroy(i_ctx* ctx) {
   free(ctx->mouse_b.curr);
@@ -352,6 +356,7 @@ int8_t i_joy_create(i_ctx* ctx, uint8_t joy_id) {
   ctx->joys[open].id         = joy_id;
   ctx->joys[open].is_gamepad = glfwJoystickIsGamepad(joy_id);
   ++ctx->joy_count;
+  ctx->joy_exists = 1;
 
   return open;
 }
@@ -362,7 +367,9 @@ int8_t i_joy_is_gamepad(i_ctx* ctx, uint8_t joy_id) {
   return ctx->joys[joy_id - 1].is_gamepad;
 }
 
-uint8_t i_joy_connected(i_ctx* ctx) { return ctx->joy_count > 0; }
+uint8_t i_joy_connected(i_ctx* ctx) {
+  return ctx->joy_count > 0;
+}
 
 uint8_t i_joy_first(i_ctx* ctx) {
   if (ctx->joy_count == 0)
@@ -390,7 +397,22 @@ float i_joy_axis_delta(i_ctx* ctx, uint8_t joy_id, uint8_t axis) {
   return ctx->joys[joy_id].curr.axes[axis] - ctx->joys[joy_id].prev.axes[axis];
 }
 
-const char* i_get_joy_name(uint8_t joy) { return glfwGetJoystickName(joy); }
+void i_joy_set_vibration(i_ctx* ctx, uint8_t joy_id, float left, float right) {
+#if defined(WIN32)
+  XINPUT_VIBRATION effect;
+
+  memset(&effect, 0, sizeof(XINPUT_VIBRATION));
+
+  effect.wLeftMotorSpeed  = (WORD)(65535.0f * left);
+  effect.wRightMotorSpeed = (WORD)(65535.0f * right);
+
+  (int)(XInputSetState(joy_id, &effect));
+#endif
+}
+
+const char* i_get_joy_name(uint8_t joy) {
+  return glfwGetJoystickName(joy);
+}
 
 uint16_t i_get_joy_type(uint8_t joy) {
   if (!glfwJoystickPresent(joy)) {
@@ -492,7 +514,9 @@ void i_set_char_tracking(i_ctx* ctx, int tracking) {
   ctx->char_track = tracking;
 }
 
-int i_get_char_tracking(i_ctx* ctx) { return ctx->char_track; }
+int i_get_char_tracking(i_ctx* ctx) {
+  return ctx->char_track;
+}
 
 void i_char_callback(i_ctx* ctx, uint32_t c) {
   if (!ctx->char_track) {
@@ -515,7 +539,9 @@ int i_get_chars(i_ctx* ctx, char* dst, uint16_t count) {
   return cpy_count;
 }
 
-int i_get_char_count(i_ctx* ctx) { return ctx->char_count; }
+int i_get_char_count(i_ctx* ctx) {
+  return ctx->char_count;
+}
 
 void i_clear_chars(i_ctx* ctx) {
   memset(ctx->chars, 0, sizeof(char) * ctx->max_chars);
@@ -604,7 +630,9 @@ void i_scroll_reset(i_ctx* ctx) {
   ctx->mouse_s.dy = 0.0;
 }
 
-uint16_t i_key_binding_track(i_ctx* ctx) { return ctx->binding_track; }
+uint16_t i_key_binding_track(i_ctx* ctx) {
+  return ctx->binding_track;
+}
 
 uint16_t i_mouse_down(i_ctx* ctx, uint16_t button) {
   return i_contains(button, ctx->mouse_b.curr, ctx->mouse_b.curr_count);
@@ -625,38 +653,56 @@ uint16_t i_mouse_released(i_ctx* ctx, uint16_t button) {
          i_contains(button, ctx->mouse_b.prev, ctx->mouse_b.prev_count);
 }
 
-double i_scroll_get_x(i_ctx* ctx) { return ctx->mouse_s.x; }
+double i_scroll_get_x(i_ctx* ctx) {
+  return ctx->mouse_s.x;
+}
 
-double i_scroll_get_y(i_ctx* ctx) { return ctx->mouse_s.y; }
+double i_scroll_get_y(i_ctx* ctx) {
+  return ctx->mouse_s.y;
+}
 
-double i_scroll_get_dx(i_ctx* ctx) { return ctx->mouse_s.dx; }
+double i_scroll_get_dx(i_ctx* ctx) {
+  return ctx->mouse_s.dx;
+}
 
-double i_scroll_get_dy(i_ctx* ctx) { return ctx->mouse_s.dy; }
+double i_scroll_get_dy(i_ctx* ctx) {
+  return ctx->mouse_s.dy;
+}
 
 void i_mouse_get_pos(i_ctx* ctx, double* x, double* y) {
   *x = ctx->mouse_p.x;
   *y = ctx->mouse_p.y;
 }
 
-double i_mouse_get_x(i_ctx* ctx) { return ctx->mouse_p.x; }
+double i_mouse_get_x(i_ctx* ctx) {
+  return ctx->mouse_p.x;
+}
 
-double i_mouse_get_y(i_ctx* ctx) { return ctx->mouse_p.y; }
+double i_mouse_get_y(i_ctx* ctx) {
+  return ctx->mouse_p.y;
+}
 
 void i_mouse_get_delta(i_ctx* ctx, double* x, double* y) {
   *x = ctx->mouse_p.dx;
   *y = ctx->mouse_p.dy;
 }
 
-double i_mouse_get_dx(i_ctx* ctx) { return ctx->mouse_p.dx; }
+double i_mouse_get_dx(i_ctx* ctx) {
+  return ctx->mouse_p.dx;
+}
 
-double i_mouse_get_dy(i_ctx* ctx) { return ctx->mouse_p.dy; }
+double i_mouse_get_dy(i_ctx* ctx) {
+  return ctx->mouse_p.dy;
+}
 
 uint16_t i_key_down(i_ctx* ctx, uint16_t key) {
   return i_contains(key, ctx->keyboard.concurrent,
                     ctx->keyboard.concurrent_count);
 }
 
-uint16_t i_key_up(i_ctx* ctx, uint16_t key) { return !i_key_down(ctx, key); }
+uint16_t i_key_up(i_ctx* ctx, uint16_t key) {
+  return !i_key_down(ctx, key);
+}
 
 uint16_t i_key_clicked(i_ctx* ctx, uint16_t key) {
   return i_contains(key, ctx->keyboard.curr, ctx->keyboard.curr_count) &&
@@ -796,7 +842,9 @@ uint16_t i_binding_get_id(i_ctx* ctx, const char* name) {
   return 0;
 }
 
-uint16_t i_binding_track(i_ctx* ctx) { return ctx->binding_track; }
+uint16_t i_binding_track(i_ctx* ctx) {
+  return ctx->binding_track;
+}
 
 void i_binding_track_callback(i_ctx* ctx, int source, int value, int type) {
   if (!ctx->binding_track)

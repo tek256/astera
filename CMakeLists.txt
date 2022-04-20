@@ -151,6 +151,7 @@ target_link_libraries(${PROJECT_NAME}
     OpenGL::GL
     $<$<NOT:$<PLATFORM_ID:Windows>>:m>
     glfw
+    $<$<PLATFORM_ID:Windows>:XInput>
   PRIVATE
     OpenAL::AL)
 
@@ -169,17 +170,17 @@ install(DIRECTORY include/ "${PROJECT_BINARY_DIR}/include/"
   FILES_MATCHING PATTERN "*.h")
 
 if(ASTERA_BUILD_EXAMPLES)
-  if(EXISTS examples)
-    add_subdirectory(examples)
+  if(EXISTS "${PROJECT_SOURCE_DIR}/examples")
+    add_subdirectory("${PROJECT_SOURCE_DIR}/examples")
   else()
-    message(WARNING "Unable to find exampels directory, disabling ASTERA_BUILD_EXAMPLES")
+    message(WARNING "Unable to find examples directory, disabling ASTERA_BUILD_EXAMPLES")
     set(ASTERA_BUILD_EXAMPLES OFF)
   endif()
 endif()
 
 if(ASTERA_BUILD_TOOLS)
-  if(EXISTS tools)
-    add_subdirectory(tools)
+  if(EXISTS "${PROJECT_SOURCE_DIR}/tools")
+    add_subdirectory("${PROJECT_SOURCE_DIR}/tools")
   else()
     message(WARNING "Unable to find tools directory, disabling ASTERA_BUILD_TOOLS")
     set(ASTERA_BUILD_TOOLS OFF)

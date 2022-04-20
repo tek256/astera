@@ -265,7 +265,19 @@ const char* i_get_joy_name(uint8_t joy);
  * returns: XBOX_360_PAD, PS3_PAD, GENERIC_PAD, etc */
 uint16_t i_get_joy_type(uint8_t joy);
 
+/* Get the delta of a joystick axis in the last frame
+ * ctx - the context to check
+ * joy_id - the ID of the joystick
+ * axis - the axis of the controller to check
+ * returns: change in axis between current and last frame */
 float i_joy_axis_delta(i_ctx* ctx, uint8_t joy_id, uint8_t axis);
+
+/* Set controller vibration
+ * ctx - the context to update
+ * joy_id - the ID of the joystick to modify
+ * left - the amount of vibration to apply (0.0-1.0f) for the left motor
+ * right - the amount of vibration to apply (0.0-1.0f for the right motor */
+void i_joy_set_vibration(i_ctx* ctx, uint8_t joy_id, float left, float right);
 
 /* the glfw key callback
  * ctx - context to update
@@ -599,4 +611,3 @@ uint8_t i_bindingi_defined(i_ctx* ctx, uint16_t binding_id);
 }
 #endif
 #endif
-

@@ -24,7 +24,7 @@ Tab - Toggle text capture
 #define BAKED_SHEET_SIZE  2048
 #define BAKED_SHEET_WIDTH 64
 
-#define BATCH_SIZE  256
+#define BATCH_SIZE  32
 #define USE_BATCHES 1
 
 r_shader      shader, baked, particle, fbo_shader, ui_shader;
@@ -262,7 +262,9 @@ void input(float delta) {
   r_camera_move(r_ctx_get_camera(render_ctx), camera_move);
 }
 
-void update(float delta) { r_particles_update(&particles, delta); }
+void update(float delta) {
+  r_particles_update(&particles, delta);
+}
 
 void render(void) {
   r_framebuffer_bind(fbo);
@@ -293,7 +295,7 @@ int main(void) {
   r_window_params params =
       r_window_params_create(1280, 720, 0, 0, 1, 0, 60, "Sprites Example");
 
-  render_ctx = r_ctx_create(params, 3, 128, 128, 4);
+  render_ctx = r_ctx_create(params, 3, 32, 128, 4);
   r_window_clear_color("#0A0A0A");
 
   if (!render_ctx) {

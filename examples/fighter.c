@@ -34,6 +34,9 @@
 
 #define ATTACK_COOLDOWN 400 // ms
 
+#define JOY_ID       0
+#define JOY_DEADZONE 0.1f
+
 // ui stuff
 
 typedef enum {
@@ -84,6 +87,7 @@ typedef struct {
   ui_font  font;
   asset_t* font_data;
   float    scroll_timer, scroll_duration;
+  float    joy_timer;
 } menu_t;
 
 // audio data
@@ -248,7 +252,7 @@ r_shader load_shader(const char* vs, const char* fs) {
 r_sheet load_sheet(const char* sheet_file, int sub_width, int sub_height) {
   asset_t* sheet_data = asset_get(sheet_file);
   r_sheet  sheet      = r_sheet_create_tiled(
-      sheet_data->data, sheet_data->data_length, sub_width, sub_height, 0, 0);
+            sheet_data->data, sheet_data->data_length, sub_width, sub_height, 0, 0);
   asset_free(sheet_data);
   return sheet;
 }
@@ -559,6 +563,8 @@ void init_input(void) {
 
   i_binding_add(input_ctx, "attack", KEY_RIGHT_CTRL, ASTERA_BINDING_KEY);
   i_binding_add_alt(input_ctx, "attack", KEY_SPACE, ASTERA_BINDING_KEY);
+
+  i_joy_create(input_ctx, JOY_ID);
 }
 
 void init_ui(void) {
@@ -573,7 +579,7 @@ void init_ui(void) {
 
   menu.font_data = asset_get("resources/fonts/OpenSans-Regular.ttf");
   menu.font      = ui_font_create(u_ctx, menu.font_data->data,
-                             menu.font_data->data_length, "OpenSans");
+                                  menu.font_data->data_length, "OpenSans");
 
   ui_attrib_setc(u_ctx, UI_DROPDOWN_BG, menu.grey);
   ui_attrib_setc(u_ctx, UI_DROPDOWN_BG_HOVER, menu.white);
@@ -711,7 +717,7 @@ void init_ui(void) {
   temp[1] += 0.05f;
   float master_percent = a_listener_get_gain(audio_ctx);
   menu.master_vol      = ui_slider_create(u_ctx, temp, temp2, temp3, 1,
-                                     master_percent, 0.f, 1.f, 20);
+                                          master_percent, 0.f, 1.f, 20);
 
   tmp_ele = ui_element_get(&menu.master_vol, UI_SLIDER);
   ui_element_center_to(tmp_ele, temp);
@@ -794,6 +800,9 @@ void init_ui(void) {
   // dropdown scrolling
   menu.scroll_timer    = 0.f;
   menu.scroll_duration = 1000.f;
+
+  // Joystick repeating
+  menu.joy_timer = 0.0f;
 
   menu.res_dd =
       ui_dropdown_create(u_ctx, temp, temp2, option_list, vidmode_count);
@@ -1073,7 +1082,7 @@ void init_render(void) {
 
   // create the two framebuffers we'll use
   fbo    = r_framebuffer_create((int)window_size[0], (int)window_size[1],
-                             fbo_shader, 0);
+                                fbo_shader, 0);
   ui_fbo = r_framebuffer_create((int)window_size[0], (int)window_size[1],
                                 fbo_shader, 0);
 
@@ -1244,7 +1253,7 @@ void init_render(void) {
 
   int     sword_swoosh_frames[] = {4, 5, 6};
   r_anim* sword_swoosh          = load_anim(&character_sheet, "sword_swoosh",
-                                   sword_swoosh_frames, 3, 24, 0);
+                                            sword_swoosh_frames, 3, 24, 0);
 
   int     goblin_idle_frames[] = {7, 8, 9, 10, 11, 12};
   r_anim* goblin_idle =
@@ -1479,39 +1488,55 @@ void handle_ui(void) {
         }
       }
 
-      if (i_binding_clicked(input_ctx, "right")) {
+      uint8_t can_joy  = menu.joy_timer <= 0.0f;
+      float   joy_hori = i_joy_axis(input_ctx, JOY_ID, XBOX_L_X);
+      float   joy_vert = i_joy_axis(input_ctx, JOY_ID, XBOX_L_Y) * -1.0f;
+
+      if (fabs(joy_vert) > fabs(joy_hori)) {
+        joy_hori = 0.0f;
+      }
+
+      if (i_binding_clicked(input_ctx, "right") ||
+          (can_joy && joy_hori > JOY_DEADZONE)) {
         if (ui_tree_is_active(u_ctx, menu.current_page, menu.master_vol.id)) {
           ui_slider_next_step(&menu.master_vol);
           a_listener_set_gain(audio_ctx, menu.master_vol.value);
           play_sfx(a_res.s_menu_move);
+          menu.joy_timer = 150.0f;
         } else if (ui_tree_is_active(u_ctx, menu.current_page,
                                      menu.sfx_vol.id)) {
           ui_slider_next_step(&menu.sfx_vol);
           a_layer_set_gain(audio_ctx, a_res.sfx_layer, menu.sfx_vol.value);
           play_sfx(a_res.s_menu_move);
+          menu.joy_timer = 150.0f;
         } else if (ui_tree_is_active(u_ctx, menu.current_page,
                                      menu.music_vol.id)) {
           ui_slider_next_step(&menu.music_vol);
           a_layer_set_gain(audio_ctx, a_res.music_layer, menu.music_vol.value);
           play_sfx(a_res.s_menu_move);
+          menu.joy_timer = 150.0f;
         }
       }
 
-      if (i_binding_clicked(input_ctx, "left")) {
+      if (i_binding_clicked(input_ctx, "left") ||
+          (can_joy && joy_hori < -JOY_DEADZONE)) {
         if (ui_tree_is_active(u_ctx, menu.current_page, menu.master_vol.id)) {
           ui_slider_prev_step(&menu.master_vol);
           a_listener_set_gain(audio_ctx, menu.master_vol.value);
           play_sfx(a_res.s_menu_move);
+          menu.joy_timer = 150.0f;
         } else if (ui_tree_is_active(u_ctx, menu.current_page,
                                      menu.sfx_vol.id)) {
           ui_slider_prev_step(&menu.sfx_vol);
           a_layer_set_gain(audio_ctx, a_res.sfx_layer, menu.sfx_vol.value);
           play_sfx(a_res.s_menu_move);
+          menu.joy_timer = 150.0f;
         } else if (ui_tree_is_active(u_ctx, menu.current_page,
                                      menu.music_vol.id)) {
           ui_slider_prev_step(&menu.music_vol);
           a_layer_set_gain(audio_ctx, a_res.music_layer, menu.music_vol.value);
           play_sfx(a_res.s_menu_move);
+          menu.joy_timer = 150.0f;
         }
       }
 
@@ -1642,10 +1667,15 @@ void input(float delta) {
       ui_tree_select(u_ctx, menu.current_page, 0, 1);
     }
 
-    if (i_key_clicked(input_ctx, KEY_ESCAPE)) {
+    uint8_t joy_b = i_joy_clicked(input_ctx, JOY_ID, XBOX_B);
+    if (i_key_clicked(input_ctx, KEY_ESCAPE) || joy_b) {
       play_sfx(a_res.s_menu_select);
       switch (menu.page_number) {
         case MENU_MAIN: {
+          // Don't quit the game when B is pressed
+          if (joy_b)
+            break;
+
           // quit game
           game_state = GAME_QUIT;
           menu_set_page(MENU_NONE);
@@ -1675,17 +1705,40 @@ void input(float delta) {
       }
     }
 
-    if (i_binding_clicked(input_ctx, "down")) {
+    float   joy_vert = i_joy_axis(input_ctx, JOY_ID, XBOX_L_Y) * -1.0f;
+    float   joy_hori = i_joy_axis(input_ctx, JOY_ID, XBOX_L_X);
+    uint8_t can_joy  = menu.joy_timer <= 0.0f;
+
+    float abs_vert = fabs(joy_vert);
+    float abs_hori = fabs(joy_hori);
+
+    // Clamp to single direction at a time for menuing
+    if (abs_hori > abs_vert) {
+      joy_vert = 0.0f;
+    } else if (abs_vert > abs_hori) {
+      joy_hori = 0.0f;
+    }
+
+    if (i_binding_clicked(input_ctx, "down") ||
+        (joy_vert <= -JOY_DEADZONE && can_joy)) {
+      menu.joy_timer = 250.0f;
       ui_tree_next(menu.current_page);
       play_sfx(a_res.s_menu_move);
     }
 
-    if (i_binding_clicked(input_ctx, "up")) {
+    if (i_binding_clicked(input_ctx, "up") ||
+        (joy_vert >= JOY_DEADZONE && can_joy)) {
+      menu.joy_timer = 250.0f;
       ui_tree_prev(menu.current_page);
       play_sfx(a_res.s_menu_move);
     }
 
-    if (i_binding_clicked(input_ctx, "select")) {
+    if (menu.joy_timer > 0.0f) {
+      menu.joy_timer -= delta;
+    }
+
+    if (i_binding_clicked(input_ctx, "select") ||
+        i_joy_clicked(input_ctx, JOY_ID, XBOX_A)) {
       ui_tree_select(u_ctx, menu.current_page, 1, 0);
       play_sfx(a_res.s_menu_move);
     }
@@ -1705,7 +1758,8 @@ void input(float delta) {
 
     handle_ui();
   } else {
-    if (i_key_clicked(input_ctx, KEY_ESCAPE)) {
+    if (i_key_clicked(input_ctx, KEY_ESCAPE) ||
+        i_joy_clicked(input_ctx, JOY_ID, XBOX_START)) {
       if (game_state == GAME_PLAY) {
         game_state = GAME_PAUSE;
         menu_set_page(MENU_PAUSE);
@@ -1719,40 +1773,48 @@ void input(float delta) {
 #endif
 
     // Handle User Input normally now
-    vec2 move = {0.f};
-    int  vert = 0, hori = 0;
+    vec2  move = {0.f};
+    int   vert = 0, hori = 0;
+    float joy_vert = 0.0f, joy_hori = 0.0f;
 
-    if (i_binding_up(input_ctx, "up")) {
+    if (i_joy_exists(input_ctx, JOY_ID)) {
+      joy_vert = i_joy_axis(input_ctx, JOY_ID, XBOX_L_Y) * -1.0f;
+      joy_hori = i_joy_axis(input_ctx, JOY_ID, XBOX_L_X);
+    }
+
+    if (i_binding_up(input_ctx, "up") && joy_vert <= -JOY_DEADZONE) {
       level.player.up_priority = 0;
     }
 
-    if (i_binding_up(input_ctx, "down")) {
+    if (i_binding_up(input_ctx, "down") && joy_vert >= JOY_DEADZONE) {
       level.player.down_priority = 0;
     }
 
-    if (i_binding_clicked(input_ctx, "up")) {
+    if (i_binding_clicked(input_ctx, "up") || joy_vert > JOY_DEADZONE) {
       level.player.down_priority = 0;
       level.player.up_priority   = 1;
     }
 
-    if (i_binding_clicked(input_ctx, "down")) {
+    if (i_binding_clicked(input_ctx, "down") || joy_vert < -JOY_DEADZONE) {
       level.player.down_priority = 1;
       level.player.up_priority   = 0;
     }
 
-    if (i_binding_up(input_ctx, "up")) {
+    if (i_binding_up(input_ctx, "up") && joy_vert <= JOY_DEADZONE) {
       level.player.up_priority = 0;
     }
 
-    if (i_binding_up(input_ctx, "down")) {
+    if (i_binding_up(input_ctx, "down") && joy_vert >= -JOY_DEADZONE) {
       level.player.down_priority = 0;
     }
 
-    if (i_binding_down(input_ctx, "up") && !level.player.down_priority) {
+    if ((i_binding_down(input_ctx, "up") || joy_vert > JOY_DEADZONE) &&
+        !level.player.down_priority) {
       vert = 1;
     }
 
-    if (i_binding_down(input_ctx, "down") && !level.player.up_priority) {
+    if ((i_binding_down(input_ctx, "down") || joy_vert < -JOY_DEADZONE) &&
+        !level.player.up_priority) {
       level.player.down_priority = 0;
       vert                       = -1;
     }
@@ -1760,36 +1822,39 @@ void input(float delta) {
     level.player.vert = vert;
     move[1]           = -(float)vert;
 
-    if (i_binding_clicked(input_ctx, "left")) {
+    if (i_binding_clicked(input_ctx, "left") || joy_hori < -JOY_DEADZONE) {
       level.player.left_priority  = 1;
       level.player.right_priority = 0;
     }
 
-    if (i_binding_clicked(input_ctx, "right")) {
+    if (i_binding_clicked(input_ctx, "right") || joy_hori > JOY_DEADZONE) {
       level.player.left_priority  = 0;
       level.player.right_priority = 1;
     }
 
-    if (i_binding_up(input_ctx, "right")) {
+    if (i_binding_up(input_ctx, "right") && joy_hori <= JOY_DEADZONE) {
       level.player.right_priority = 0;
     }
 
-    if (i_binding_up(input_ctx, "left")) {
+    if (i_binding_up(input_ctx, "left") && joy_hori >= -JOY_DEADZONE) {
       level.player.left_priority = 0;
     }
 
-    if (i_binding_down(input_ctx, "left") && !level.player.right_priority) {
+    if ((i_binding_down(input_ctx, "left") || joy_hori < -JOY_DEADZONE) &&
+        !level.player.right_priority) {
       hori = -1;
     }
 
-    if (i_binding_down(input_ctx, "right") && !level.player.left_priority) {
+    if ((i_binding_down(input_ctx, "right") || joy_hori > JOY_DEADZONE) &&
+        !level.player.left_priority) {
       hori = 1;
     }
 
     level.player.hori = hori;
     move[0]           = (float)hori;
 
-    if (i_binding_clicked(input_ctx, "attack")) {
+    if (i_binding_clicked(input_ctx, "attack") ||
+        i_joy_clicked(input_ctx, JOY_ID, XBOX_A)) {
       if (level.player.attack_timer <= 0.f) {
         r_sprite_anim_play(&level.player.swoosh);
         play_sfx(a_res.s_attack);
@@ -1870,9 +1935,20 @@ void update(time_s delta) {
 
     if (level.player.take_damage) {
       level.player.damage_timer -= delta;
+
+      float vibration_amount =
+          sin((level.player.damage_timer / DAMAGE_DURATION) * 6.28f) * 0.2f;
+
+      if (level.player.damage_timer <= DAMAGE_DURATION * 0.5f) {
+        vibration_amount = 0.0f;
+      }
+
       if (level.player.damage_timer <= 0.f) {
         level.player.take_damage = 0;
       }
+
+      i_joy_set_vibration(input_ctx, JOY_ID, vibration_amount,
+                          vibration_amount);
 
       blend(level.player.sprite.color, menu.white, menu.red,
             level.player.damage_timer / DAMAGE_DURATION);
@@ -2452,7 +2528,7 @@ int main(void) {
   window_size[0] = params.width;
   window_size[1] = params.height;
 
-  render_ctx = r_ctx_create(params, 4, 128, 128, 16);
+  render_ctx = r_ctx_create(params, 4, 32, 128, 16);
   r_window_clear_color("#0A0A0A");
 
   if (!render_ctx) {

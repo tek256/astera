@@ -1,5 +1,5 @@
 #version 330
-#define MAX_BATCH_SIZE 256
+#define MAX_BATCH_SIZE 32
 
 layout(location = 0) in vec3 in_pos;
 layout(location = 1) in vec2 in_texc;
