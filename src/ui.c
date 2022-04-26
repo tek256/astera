@@ -1998,7 +1998,7 @@ uint32_t ui_tree_add(ui_ctx* ctx, ui_tree* tree, void* data,
     return 0;
   }
 
-  if (tree->count == tree->capacity - 1) {
+  if (tree->count == tree->capacity) {
     ASTERA_FUNC_DBG("No free space in tree.\n");
     return 0;
   }
