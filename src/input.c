@@ -7,6 +7,7 @@
 
 // For controller vibration
 #if defined(WIN32)
+#include <windows.h>
 #include <xinput.h>
 #endif
 
