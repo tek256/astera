@@ -461,7 +461,9 @@ char* pak_name(pak_t* pak, uint32_t index) {
   return (index < pak->count) ? pak->files[index].name : 0;
 }
 
-uint32_t asset_fnv1a_init(void) { return (uint32_t)ASTERA_HASH_INITIAL; }
+uint32_t asset_fnv1a_init(void) {
+  return (uint32_t)ASTERA_HASH_INITIAL;
+}
 
 void asset_fnv1a_hash(uint32_t* hash, const void* data, uint32_t size) {
   const unsigned char* d = data;

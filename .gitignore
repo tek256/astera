@@ -4,6 +4,7 @@
 # Vim files
 .swp
 :w
+tags
 
 # VSCode
 .vscode/

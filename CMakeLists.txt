@@ -33,23 +33,24 @@ find_package(OpenGL REQUIRED)
 find_package(OpenALSoft)
 find_package(OpenAL)
 
-if(OPENALSOFT_FOUND)
+if(OpenALSoft_FOUND)
   if(OPENALSOFT_FOUND AND NOT TARGET OpenAL::AL)
+    message("OpenALSoft FOUND ${OPENAL-SOFTFOUND}")
     add_library(OpenAL::AL UNKNOWN IMPORTED)
     set_target_properties(OpenAL::AL PROPERTIES
       IMPORTED_LOCATION "${OPENALSOFT_LIBRARY}"
       INTERFACE_INCLUDE_DIRECTORIES "${OPENALSOFT_INCLUDE_DIR}")
    endif()
-elseif(OPENAL_FOUND)
-  message("ALSOFT FOUND ${OPENAL-SOFTFOUND}")
+elseif(OpenAL_FOUND)
   if(OPENAL_FOUND AND NOT TARGET OpenAL::AL)
+    message("OpenAL FOUND ${OPENAL-SOFTFOUND}")
     add_library(OpenAL::AL UNKNOWN IMPORTED)
     set_target_properties(OpenAL::AL PROPERTIES
       IMPORTED_LOCATION "${OPENAL_LIBRARY}"
       INTERFACE_INCLUDE_DIRECTORIES "${OPENAL_INCLUDE_DIR}")
   endif()
 else()
-  message(FATAL_ERROR "Could not find OpenAL or OpenAL-Soft")
+  message(FATAL_ERROR "Could not find OpenAL or OpenALSoft")
 endif()
 
 # If to build the `examples/` folder
@@ -153,7 +154,7 @@ target_link_libraries(${PROJECT_NAME}
     glfw
     $<$<PLATFORM_ID:Windows>:XInput>
   PRIVATE
-    OpenAL::AL)
+  $<$<NOT:$<PLATFORM_ID:Darwin>>:OpenAL::AL>)
 
 
 set_property(TARGET astera PROPERTY C_VISIBILITY_PRESET "hidden")

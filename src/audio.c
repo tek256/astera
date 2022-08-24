@@ -400,7 +400,9 @@ const char* a_ctx_get_device(a_ctx* ctx, uint8_t* string_length) {
   return name;
 }
 
-uint8_t a_can_play(a_ctx* ctx) { return ctx->allow; }
+uint8_t a_can_play(a_ctx* ctx) {
+  return ctx->allow;
+}
 
 a_ctx* a_ctx_create(const char* device, uint8_t layers, uint16_t max_sfx,
                     uint16_t max_buffers, uint16_t max_songs, uint16_t max_fx,
@@ -1525,7 +1527,9 @@ a_buf* a_buf_get_open(a_ctx* ctx) {
   return 0;
 }
 
-float a_listener_get_gain(a_ctx* ctx) { return ctx->listener.gain; }
+float a_listener_get_gain(a_ctx* ctx) {
+  return ctx->listener.gain;
+}
 
 void a_listener_get_pos(a_ctx* ctx, vec3 dst) {
   vec3_dup(dst, ctx->listener.position);

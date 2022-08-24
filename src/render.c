@@ -253,7 +253,9 @@ static void r_batch_draw(r_ctx* ctx, r_batch* batch) {
   r_shader_bind(0);
 }
 
-uint32_t r_check_error(void) { return glGetError(); }
+uint32_t r_check_error(void) {
+  return glGetError();
+}
 
 uint32_t r_check_error_loc(const char* loc) {
   uint32_t error = glGetError();
@@ -441,11 +443,17 @@ r_ctx* r_ctx_create(r_window_params params, uint8_t batch_count,
   return ctx;
 }
 
-r_camera* r_ctx_get_camera(r_ctx* ctx) { return &ctx->camera; }
+r_camera* r_ctx_get_camera(r_ctx* ctx) {
+  return &ctx->camera;
+}
 
-void r_ctx_make_current(r_ctx* ctx) { _r_ctx = ctx; }
+void r_ctx_make_current(r_ctx* ctx) {
+  _r_ctx = ctx;
+}
 
-void r_ctx_set_i_ctx(r_ctx* ctx, i_ctx* input) { ctx->input_ctx = input; }
+void r_ctx_set_i_ctx(r_ctx* ctx, i_ctx* input) {
+  ctx->input_ctx = input;
+}
 
 void r_ctx_destroy(r_ctx* ctx) {
   if (ctx->anims) {
@@ -504,7 +512,9 @@ void r_ctx_destroy(r_ctx* ctx) {
   free(ctx);
 }
 
-void r_ctx_update(r_ctx* ctx) { r_camera_update(&ctx->camera); }
+void r_ctx_update(r_ctx* ctx) {
+  r_camera_update(&ctx->camera);
+}
 
 void r_ctx_draw(r_ctx* ctx) {
   for (uint32_t i = 0; i < ctx->batch_capacity; ++i) {
@@ -680,7 +690,9 @@ r_framebuffer r_framebuffer_create(uint32_t width, uint32_t height,
   return fbo;
 }
 
-void r_framebuffer_unbind(void) { glBindFramebuffer(GL_FRAMEBUFFER, 0); }
+void r_framebuffer_unbind(void) {
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
 
 void r_framebuffer_destroy(r_framebuffer fbo) {
   glDeleteFramebuffers(1, &fbo.fbo);
@@ -752,7 +764,9 @@ r_tex r_tex_create(unsigned char* data, uint32_t length) {
   return (r_tex){id, (uint32_t)w, (uint32_t)h};
 }
 
-void r_tex_destroy(r_tex* tex) { glDeleteTextures(1, &tex->id); }
+void r_tex_destroy(r_tex* tex) {
+  glDeleteTextures(1, &tex->id);
+}
 
 r_sheet r_sheet_create(unsigned char* data, uint32_t length, vec4* sub_sprites,
                        vec2* origins, uint32_t subsprite_count) {
@@ -1068,9 +1082,13 @@ void r_particles_start(r_particles* particles) {
   particles->alive = 1;
 }
 
-void r_particles_stop(r_particles* particles) { particles->alive = 0; }
+void r_particles_stop(r_particles* particles) {
+  particles->alive = 0;
+}
 
-void r_particles_resume(r_particles* particles) { particles->alive = 1; }
+void r_particles_resume(r_particles* particles) {
+  particles->alive = 1;
+}
 
 void r_particles_reset(r_particles* particles) {
   particles->time           = 0.f;
@@ -1633,7 +1651,9 @@ void r_shader_cache(r_ctx* ctx, r_shader shader, const char* name) {
   ++ctx->shader_count;
 }
 
-void r_shader_bind(r_shader shader) { glUseProgram(shader); }
+void r_shader_bind(r_shader shader) {
+  glUseProgram(shader);
+}
 
 void r_shader_destroy(r_ctx* ctx, r_shader shader) {
   glDeleteProgram(shader);
@@ -2110,13 +2130,17 @@ void r_set_uniformf(r_shader shader, const char* name, float value) {
   glUniform1f(glGetUniformLocation(shader, name), value);
 }
 
-void r_set_uniformfi(int loc, float value) { glUniform1f(loc, value); }
+void r_set_uniformfi(int loc, float value) {
+  glUniform1f(loc, value);
+}
 
 void r_set_uniformi(r_shader shader, const char* name, int value) {
   glUniform1i(glGetUniformLocation(shader, name), value);
 }
 
-void r_set_uniformii(int loc, int val) { glUniform1i(loc, val); }
+void r_set_uniformii(int loc, int val) {
+  glUniform1i(loc, val);
+}
 
 void r_set_v4(r_shader shader, const char* name, vec4 value) {
   glUniform4f(glGetUniformLocation(shader, name), value[0], value[1], value[2],
@@ -2131,13 +2155,17 @@ void r_set_v3(r_shader shader, const char* name, vec3 value) {
   glUniform3f(glGetUniformLocation(shader, name), value[0], value[1], value[2]);
 }
 
-void r_set_v3i(int loc, vec3 val) { glUniform3f(loc, val[0], val[1], val[2]); }
+void r_set_v3i(int loc, vec3 val) {
+  glUniform3f(loc, val[0], val[1], val[2]);
+}
 
 void r_set_v2(r_shader shader, const char* name, vec2 value) {
   glUniform2f(glGetUniformLocation(shader, name), value[0], value[1]);
 }
 
-void r_set_v2i(int loc, vec2 val) { glUniform2f(loc, val[0], val[1]); }
+void r_set_v2i(int loc, vec2 val) {
+  glUniform2f(loc, val[0], val[1]);
+}
 
 void r_set_m4(r_shader shader, const char* name, mat4x4 value) {
   glUniformMatrix4fv(glGetUniformLocation(shader, name), 1, GL_FALSE,
@@ -2470,17 +2498,29 @@ GLFWwindow* r_window_get_glfw(r_ctx* ctx) {
   return ctx->window.glfw;
 }
 
-uint8_t r_get_vidmode_count(r_ctx* ctx) { return ctx->mode_count; }
+uint8_t r_get_vidmode_count(r_ctx* ctx) {
+  return ctx->mode_count;
+}
 
-uint8_t r_can_render(r_ctx* ctx) { return ctx->allowed; }
+uint8_t r_can_render(r_ctx* ctx) {
+  return ctx->allowed;
+}
 
-void r_set_can_render(r_ctx* ctx, uint8_t allowed) { ctx->allowed = allowed; }
+void r_set_can_render(r_ctx* ctx, uint8_t allowed) {
+  ctx->allowed = allowed;
+}
 
-uint8_t r_is_vsync(r_ctx* ctx) { return ctx->window.params.vsync; }
+uint8_t r_is_vsync(r_ctx* ctx) {
+  return ctx->window.params.vsync;
+}
 
-uint8_t r_is_fullscreen(r_ctx* ctx) { return ctx->window.params.fullscreen; }
+uint8_t r_is_fullscreen(r_ctx* ctx) {
+  return ctx->window.params.fullscreen;
+}
 
-uint8_t r_is_borderless(r_ctx* ctx) { return ctx->window.params.borderless; }
+uint8_t r_is_borderless(r_ctx* ctx) {
+  return ctx->window.params.borderless;
+}
 
 static void r_window_get_modes(r_ctx* ctx) {
   int count;
@@ -2736,13 +2776,17 @@ void r_window_destroy(r_ctx* ctx) {
   ctx->window.params.vsync        = 0;
 }
 
-void r_window_request_close(r_ctx* ctx) { ctx->window.close_requested = 1; }
+void r_window_request_close(r_ctx* ctx) {
+  ctx->window.close_requested = 1;
+}
 
 uint8_t r_window_should_close(r_ctx* ctx) {
   return ctx->window.close_requested;
 }
 
-void r_window_swap_buffers(r_ctx* ctx) { glfwSwapBuffers(ctx->window.glfw); }
+void r_window_swap_buffers(r_ctx* ctx) {
+  glfwSwapBuffers(ctx->window.glfw);
+}
 
 void r_window_clear(void) {
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -2754,9 +2798,13 @@ void r_window_clear_color(const char* str) {
   glClearColor(color[0], color[1], color[2], color[3]);
 }
 
-void r_window_clear_color_empty(void) { glClearColor(0.f, 0.f, 0.f, 0.f); }
+void r_window_clear_color_empty(void) {
+  glClearColor(0.f, 0.f, 0.f, 0.f);
+}
 
-float r_window_get_gamma(r_ctx* ctx) { return ctx->window.params.gamma; }
+float r_window_get_gamma(r_ctx* ctx) {
+  return ctx->window.params.gamma;
+}
 
 void r_window_set_gamma(r_ctx* ctx, float gamma) {
   ctx->window.params.gamma = gamma;
@@ -2777,13 +2825,17 @@ void r_window_show(r_ctx* ctx) {
   ctx->allowed = 1;
 }
 
-uint32_t r_window_max_width(r_ctx* ctx) { return ctx->window.params.max_width; }
+uint32_t r_window_max_width(r_ctx* ctx) {
+  return ctx->window.params.max_width;
+}
 
 uint32_t r_window_max_height(r_ctx* ctx) {
   return ctx->window.params.max_height;
 }
 
-uint32_t r_window_min_width(r_ctx* ctx) { return ctx->window.params.min_width; }
+uint32_t r_window_min_width(r_ctx* ctx) {
+  return ctx->window.params.min_width;
+}
 
 uint32_t r_window_min_height(r_ctx* ctx) {
   return ctx->window.params.min_height;

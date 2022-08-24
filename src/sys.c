@@ -92,7 +92,9 @@ time_s s_sleep(time_s duration) {
 }
 
 /* Returns time in milliseconds */
-time_s s_get_time() { return s_get_ns() / NS_TO_MS; }
+time_s s_get_time() {
+  return s_get_ns() / NS_TO_MS;
+}
 
 /* Update a timer with current time & calculate delta from last update */
 time_s s_timer_update(s_timer* t) {
@@ -103,7 +105,9 @@ time_s s_timer_update(s_timer* t) {
 }
 
 /* Create the timer structure with current time */
-s_timer s_timer_create() { return (s_timer){s_get_time(), 0}; }
+s_timer s_timer_create() {
+  return (s_timer){s_get_time(), 0};
+}
 
 /* String reversal */
 static char* s_reverse(char* string, uint32_t length) {
@@ -307,10 +311,10 @@ s_table s_table_create(uint32_t data_cap, uint32_t capacity,
 
 static char conv_buffer[32] = {0};
 uint8_t     s_table_add_float(s_table* table, char* key, float value) {
-  memset(conv_buffer, 0, sizeof(char) * 32);
-  uint32_t len       = snprintf(conv_buffer, 32, "%.2f", value);
-  uint8_t  table_add = s_table_add(table, key, conv_buffer);
-  return table_add;
+      memset(conv_buffer, 0, sizeof(char) * 32);
+      uint32_t len       = snprintf(conv_buffer, 32, "%.2f", value);
+      uint8_t  table_add = s_table_add(table, key, conv_buffer);
+      return table_add;
 }
 
 uint8_t s_table_add_int(s_table* table, char* key, int value) {
@@ -563,9 +567,13 @@ s_buffer_t s_buff_read(const char* data) {
   return buff;
 }
 
-void s_buff_destroy(s_buffer_t* buffer) { free(buffer->data); }
+void s_buff_destroy(s_buffer_t* buffer) {
+  free(buffer->data);
+}
 
-void s_buff_rewind(s_buffer_t* buffer) { buffer->cursor = buffer->data; }
+void s_buff_rewind(s_buffer_t* buffer) {
+  buffer->cursor = buffer->data;
+}
 
 static void s_buffer_to_space(s_buffer_t* buffer) {
   while (*buffer->cursor) {

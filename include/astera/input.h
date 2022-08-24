@@ -1,6 +1,3 @@
-// TODO
-// - Controller Vibration support
-
 #ifndef ASTERA_INPUT_HEADER
 #define ASTERA_INPUT_HEADER
 
@@ -264,6 +261,9 @@ const char* i_get_joy_name(uint8_t joy);
  * joy - the ID of the joystick
  * returns: XBOX_360_PAD, PS3_PAD, GENERIC_PAD, etc */
 uint16_t i_get_joy_type(uint8_t joy);
+
+/* Printf all the stuff in a joy lol*/
+void i_joy_debug_output(i_ctx* ctx, uint8_t joy);
 
 /* Get the delta of a joystick axis in the last frame
  * ctx - the context to check

@@ -69,7 +69,9 @@ void c_aabb_get_center(vec2 dst, c_aabb aabb) {
 }
 
 // signed distance point to plane one dimensional
-static inline float _sdpo(float p, float n, float d) { return p * n - d * n; }
+static inline float _sdpo(float p, float n, float d) {
+  return p * n - d * n;
+}
 
 // one dimensional day vs plane
 static inline float _r2plane(float da, float db) {

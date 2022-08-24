@@ -87,11 +87,17 @@ ui_ctx* ui_ctx_create(vec2 screen_size, float pixel_scale, uint8_t use_mouse,
   return ctx;
 }
 
-uint8_t ui_ctx_is_mouse(ui_ctx* ctx) { return ctx->use_mouse; }
+uint8_t ui_ctx_is_mouse(ui_ctx* ctx) {
+  return ctx->use_mouse;
+}
 
-uint8_t ui_ctx_is_antialias(ui_ctx* ctx) { return ctx->antialias; }
+uint8_t ui_ctx_is_antialias(ui_ctx* ctx) {
+  return ctx->antialias;
+}
 
-void ui_ctx_set_mouse(ui_ctx* ctx, uint8_t mouse) { ctx->use_mouse = mouse; }
+void ui_ctx_set_mouse(ui_ctx* ctx, uint8_t mouse) {
+  ctx->use_mouse = mouse;
+}
 
 void ui_ctx_update(ui_ctx* ctx, vec2 mouse_pos) {
   if (ctx->use_mouse) {
@@ -266,7 +272,9 @@ void ui_ctx_scale_set(ui_ctx* ctx, vec2 size_px) {
   vec2_dup(ctx->size, size_px);
 }
 
-void ui_ctx_scale_get(ui_ctx* ctx, vec2 dst_px) { vec2_dup(dst_px, ctx->size); }
+void ui_ctx_scale_get(ui_ctx* ctx, vec2 dst_px) {
+  vec2_dup(dst_px, ctx->size);
+}
 
 void ui_frame_start(ui_ctx* ctx) {
   nvgBeginFrame(ctx->nvg, ctx->size[0], ctx->size[1], ctx->pixel_scale);
@@ -276,7 +284,9 @@ static inline int8_t ui_is_type(int value, int type) {
   return ((value) & (type)) == type;
 }
 
-void ui_frame_end(ui_ctx* ctx) { nvgEndFrame(ctx->nvg); }
+void ui_frame_end(ui_ctx* ctx) {
+  nvgEndFrame(ctx->nvg);
+}
 
 static ui_attrib_storage* _ui_attrib_get_add(ui_ctx* ctx, ui_attrib attrib,
                                              ui_attrib_type type) {
@@ -521,6 +531,7 @@ ui_tree ui_tree_create(uint16_t capacity) {
   tree.mouse_hover_id = 0;
 
   tree.cursor_index      = 0;
+  tree.selected_index    = 0;
   tree.mouse_hover_index = 0;
 
   tree.count    = 0;
@@ -2165,7 +2176,9 @@ void ui_tree_reset(ui_tree* tree) {
   ui_tree_next(tree);
 }
 
-uint32_t ui_tree_get_cursor_id(ui_tree* tree) { return tree->cursor_id; }
+uint32_t ui_tree_get_cursor_id(ui_tree* tree) {
+  return tree->cursor_id;
+}
 
 static int compare_leaf(const void* a, const void* b) {
   ui_leaf** leaf_a = (ui_leaf**)a;
