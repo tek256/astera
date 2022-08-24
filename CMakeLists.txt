@@ -41,6 +41,7 @@ if(OpenALSoft_FOUND)
       IMPORTED_LOCATION "${OPENALSOFT_LIBRARY}"
       INTERFACE_INCLUDE_DIRECTORIES "${OPENALSOFT_INCLUDE_DIR}")
    endif()
+   set(AL_INCLUDE ${OPENALSOFT_INCLUDE_DIR})
 elseif(OpenAL_FOUND)
   if(OPENAL_FOUND AND NOT TARGET OpenAL::AL)
     message("OpenAL FOUND ${OPENAL-SOFTFOUND}")
@@ -49,8 +50,14 @@ elseif(OpenAL_FOUND)
       IMPORTED_LOCATION "${OPENAL_LIBRARY}"
       INTERFACE_INCLUDE_DIRECTORIES "${OPENAL_INCLUDE_DIR}")
   endif()
+   set(AL_INCLUDE ${OPENAL_INCLUDE_DIR})
 else()
   message(FATAL_ERROR "Could not find OpenAL or OpenALSoft")
+endif()
+
+# Require just OpenALSoft if on apple
+if(APPLE AND NOT OpenALSoft_FOUND)
+  message(FATAL_ERROR "Could not find OpenALSoft")
 endif()
 
 # If to build the `examples/` folder
@@ -105,7 +112,7 @@ target_include_directories(${PROJECT_NAME}
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/dep/glad/include>
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/dep>
-    $<$<NOT:$<PLATFORM_ID:Darwin>>:$<BUILD_INTERFACE:${OPENAL_INCLUDE_DIR}>>
+    $<BUILD_INTERFACE:${AL_INCLUDE}>
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/dep/stb>
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
     $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include>
