@@ -36,8 +36,8 @@ jobs:
           brew update
           brew install pkg-config
           brew install openal-soft
-          echo 'export PATH="/usr/local/opt/openal-soft/bin:$PATH"' >> /Users/runner/.bash_profile
-          export PKG_CONFIG_PATH="/usr/local/opt/openal-soft/lib/pkgconfig"
+          echo "OPENALDIR=/usr/local/opt/openal-soft" >> $GITHUB_ENV
+          echo "/usr/local/opt/openal-soft/bin" >> $GITHUB_PATH
       - name: Configure
         run: >-
           cmake -Bbuild -S${{ github.workspace }} 
