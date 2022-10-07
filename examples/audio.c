@@ -266,7 +266,17 @@ void init() {
 
   i_joy_create(input_ctx, 0);
 
-  audio_ctx = a_ctx_create(0, 4, 8, 8, 2, 2, 2, 4096 * 4);
+  a_ctx_info ctx_info = (a_ctx_info) {
+    .device = 0,
+    .max_layers = 2,
+    .max_buffers = 8,
+    .max_sfx = 8,
+    .max_fx = 2,
+    .max_filters = 2,
+    .pcm_size = 4096 * 4,
+  };
+
+  audio_ctx = a_ctx_create(ctx_info);
   a_listener_set_gain(audio_ctx, 0.5f);
 
   if (!audio_ctx) {

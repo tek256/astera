@@ -1,47 +1,51 @@
-#ifndef ASTERA_AUDIO_HEADER
-#define ASTERA_AUDIO_HEADER
+#ifndef ASTERA_ASTERA_HEADER
+#define ASTERA_ASTERA_HEADER
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#include <astera/sys.h>
-#include <astera/linmath.h>
-#include <stdint.h>
-
-/* NOTE: These are relative includes for portability's sake
- *       the cmake find_package exports them as relative so it'll work
- *       cross platform as expected */
 #if defined(__APPLE__)
 #include <OpenAL/alc.h>
 #include <OpenAL/al.h>
 #else
 #include <alc.h>
 #include <al.h>
-#endif /* defined(__APPLE__) */
+#endif
 
 #define STB_VORBIS_HEADER_ONLY
 #include <stb_vorbis.c>
+#include <stdint.h>
 
-#if !defined(ASTERA_SONG_MAX_FAILS)
-#define ASTERA_SONG_MAX_FAILS 3
+#if defined(ASTERA_LOWP_TIME)
+typedef float time_s;
+#else
+typedef double time_s;
 #endif
 
-#if !defined(ASTERA_DEFAUT_SFX_RANGE)
-#define ASTERA_DEFAUT_SFX_RANGE 20
-#endif
+typedef float a_vec3[3];
 
 typedef struct {
+  /* gain - the gain of the listener */
   float gain;
-  vec3  position, orientation, velocity;
-  float _ori[6];
+  /* position - the position in 3D space of the listener
+   * orientation - the euler rotation of the listener in 3D space
+   * velocity - the velocity the listener is moving at
+   * _ori - private representation of orientation for OpenAL (vec3: at, up) */
+  a_vec3 position, orientation, velocity;
+  float  _ori[6];
 } a_listener;
 
 typedef struct {
+  /* id - the context specific ID */
   uint16_t id;
+  /* buf - the OpenAL buffer ID */
   uint32_t buf;
+  /* channels - the # of channels the buffer uses */
   uint16_t channels;
+  /* length - the length in samples the buffer */
   uint32_t length;
+  /* sample_rate - the samples per second that the buffer uses */
   uint32_t sample_rate;
 } a_buf;
 
@@ -52,40 +56,40 @@ typedef enum {
 } a_fx_type;
 
 typedef struct {
-  float  density;               // [0.0, 1.0],   default 1.0
-  float  diffusion;             // [0.0, 1.0],   default 1.0
-  float  gain;                  // [0.0, 1.0],   default 0.32
-  float  gainhf;                // [0.0, 1.0],   default 0.89
-  float  decay;                 // [0.1, 20.0],  default 1.49
-  float  decay_hfratio;         // [0.1, 2.0],   default 0.83
-  float  refl_gain;             // [0.0, 3.16],  default 0.05
-  float  refl_delay;            // [0.0, 0.3],   default 0.007
-  float  late_gain;             // [0.0, 10.0],  default 1.26
-  float  late_delay;            // [0.0, 0.1],   default 0.011
-  float  air_absorption_gainhf; // [0.892, 1.0], default 0.994
-  float  room_rolloff_factor;   // [0.0, 10.0],  default: 0.0
-  int8_t decay_hflimit;         // [0, 1],       default 1
+  float  density;               /* [0.0, 1.0],   default 1.0 */
+  float  diffusion;             /* [0.0, 1.0],   default 1.0 */
+  float  gain;                  /* [0.0, 1.0],   default 0.32 */
+  float  gainhf;                /* [0.0, 1.0],   default 0.89 */
+  float  decay;                 /* [0.1, 20.0],  default 1.49 */
+  float  decay_hfratio;         /* [0.1, 2.0],   default 0.83 */
+  float  refl_gain;             /* [0.0, 3.16],  default 0.05 */
+  float  refl_delay;            /* [0.0, 0.3],   default 0.007 */
+  float  late_gain;             /* [0.0, 10.0],  default 1.26 */
+  float  late_delay;            /* [0.0, 0.1],   default 0.011 */
+  float  air_absorption_gainhf; /* [0.892, 1.0], default 0.994 */
+  float  room_rolloff_factor;   /* [0.0, 10.0],  default: 0.0 */
+  int8_t decay_hflimit;         /* [0, 1],       default 1 */
 } a_fx_reverb;
 
 typedef struct {
-  float low_gain;    // default: 1        [0.126, 7.943]
-  float low_cutoff;  // hz, default: 200  [50.0, 800.0]
-  float mid1_gain;   // default: 1        [0.126, 7.943]
-  float mid1_center; // hz, default: 500  [200.0, 3000.0]
-  float mid1_width;  // default: 1        [0.01, 1.0]
-  float mid2_gain;   // default: 1        [0.126, 7.943]
-  float mid2_center; // hz, default: 3000 [1000.0, 8000.0]
-  float mid2_width;  // default: 1        [0.01, 1.0]
-  float high_gain;   // default 1.0       [0.126, 7.943]
-  float high_cutoff; // hz, default: 6000 [4000.0 - 16000.0]
+  float low_gain;    /* default: 1        [0.126, 7.943] */
+  float low_cutoff;  /* hz, default: 200  [50.0, 800.0] */
+  float mid1_gain;   /* default: 1        [0.126, 7.943] */
+  float mid1_center; /* hz, default: 500  [200.0, 3000.0] */
+  float mid1_width;  /* default: 1        [0.01, 1.0] */
+  float mid2_gain;   /* default: 1        [0.126, 7.943] */
+  float mid2_center; /* hz, default: 3000 [1000.0, 8000.0] */
+  float mid2_width;  /* default: 1        [0.01, 1.0] */
+  float high_gain;   /* default 1.0       [0.126, 7.943] */
+  float high_cutoff; /* hz, default: 6000 [4000.0 - 16000.0] */
 } a_fx_eq;
 
 typedef struct {
   uint16_t id;
 
-  // AL effect ID
+  /* AL effect ID */
   uint32_t effect_id;
-  // AL auxiliary effect slot ID
+  /* AL auxiliary effect slot ID */
   uint32_t slot_id;
 
   float gain;
@@ -135,8 +139,8 @@ typedef struct {
    * velocity - the velocity to set the sound/song (doesn't move it)
    * gain - the gain of the sound/song
    * range - the range of the sound/song */
-  vec3  position, velocity;
-  float gain, range;
+  a_vec3 position, velocity;
+  float  gain, range;
 
   /* max_loop - the max amount of times the sound/song can loop */
   uint16_t max_loop;
@@ -217,21 +221,100 @@ typedef struct {
   a_req* req;
 } a_sfx;
 
+typedef enum {
+  EASE_NONE = 0,
+  EASE_IN,
+  EASE_OUT,
+  EASE_EASE,
+} a_keyframe_ease;
+
+/* A key pair value with attributes */
 typedef struct {
+  /* time - the time in ms of this keyframe */
+  float time;
+  /* value - the value that should be at this keyframe */
+  float value;
+  /* ease - how to interpolate towards/away from this keyframe */
+  a_keyframe_ease ease;
+} a_keyframe;
+
+/* A struct for holding a series of keyframes */
+typedef struct {
+  /* keyframes - all the data of the keyframe timeline */
+  a_keyframe* keyframes;
+  /* keyframe_count - the # of keyframes in this timeline */
+  uint32_t keyframe_count;
+} a_timeline;
+
+/* A struct for viewing/moving around a timeline without copying all of the
+ * timeline data */
+typedef struct {
+  /* time - the current time in ms
+   * value - the current value calculated from the keyframes */
+  float time;
+  float value;
+
+  /* current_index - the current index within keyframes the timeline is at */
+  uint32_t current_index;
+  /* timeline - the source data of keyframes we reference */
+  a_timeline* timeline;
+
+  /* output - where to apply the current value */
+  float* output;
+} a_timeline_view;
+
+typedef struct {
+  /* id - the context specific ID of this layer (used to reference it) */
   uint16_t id;
 
+  /* name - the name of this layer */
   const char* name;
 
+  /* sfx - the sfx IDs for this layer
+   * songs - the song IDs for this layer */
   uint32_t *sfx, *songs;
 
+  /* sfx_count - the # of sfx currently in the layer
+   * sfx_capacity - the max # of sfx allowed in this layer */
   uint32_t sfx_count, sfx_capacity;
+
+  /* song_count - the # of songs currently in the layer
+   * song_capacity - the max # of songs allowed in this layer */
   uint32_t song_count, song_capacity;
 
+  /* gain - gain that affects all sfx/songs in this layer */
   float gain;
 } a_layer;
 
-// See audio.c for a_ctx definition
+/* Structure for creating an audio context with parameters */
+typedef struct {
+  /* device - device to target (0/null = OS default) */
+  const char* device;
+  /* max_layers - max number of layers sfx/songs are assignable to */
+  uint8_t max_layers;
+  /* max_buffers - max # of buffers (sounds) you can have at one time */
+  uint16_t max_buffers;
+  /* max_buffers - max # of sfx that can be playing at one time */
+  uint16_t max_sfx;
+  /* max_songs - max # of songs that can be playing at one time */
+  uint16_t max_songs;
+  /* max_filters - max # of audio filters that can be used at once */
+  uint16_t max_filters;
+  /* max_fx - max # of audio effects that can be used at once */
+  uint16_t max_fx;
+  /* max_mono_sources - max # of mono sources that can exist at once */
+  uint16_t max_mono_sources;
+  /* max_stereo_sources - max # of stereo sources that can exist at once */
+  uint16_t max_stereo_sources;
+  /* pcm_size - size of the PCM buffer for updating songs (bigger the better) */
+  uint32_t pcm_size;
+} a_ctx_info;
+
+/* See audio.c for a_ctx definition */
 typedef struct a_ctx a_ctx;
+
+/* Quick set a_vec3 variable values */
+void a_vec3_set(a_vec3 dst, float x, float y, float z);
 
 /* Print various info about the OpenAL EFX Extension capabilities on this
  * machine */
@@ -247,17 +330,14 @@ const char* a_ctx_get_device(a_ctx* ctx, uint8_t* string_length);
  * returns 1 = yes, 0 = no */
 uint8_t a_can_play(a_ctx* ctx);
 
+/* Get a  default formatted context info for creating a context
+ * returns: Formatted a_ctx_info struct with defaults */
+a_ctx_info a_ctx_info_default(void);
+
 /* Create an audio context for playback
- * device - the device's name to use (NULL for default)
- * layers - the number of layers to create for managing sounds
- * max_sfx - the max amount of sfx for the context to handle
- * max_buffers - the max amount of audio buffers for the context to handle
- * max_fx - the max amount of audio fx for the context to handle
- * max_songs - the max amount of songs for the context to handle
- * pcm_size - the size of the PCM buffer for OGG vorbis decoding */
-a_ctx* a_ctx_create(const char* device, uint8_t layers, uint16_t max_sfx,
-                    uint16_t max_buffers, uint16_t max_songs, uint16_t max_fx,
-                    uint16_t max_filters, uint32_t pcm_size);
+ * ctx_info - the parameters/info needed to create the context requested
+ * Returns: allocated audio context structure used for playback */
+a_ctx* a_ctx_create(a_ctx_info ctx_info);
 
 /* Destroy the Audio Context & all of its contents */
 uint8_t a_ctx_destroy(a_ctx* ctx);
@@ -302,6 +382,17 @@ uint8_t a_sfx_resume(a_ctx* ctx, uint16_t sfx_id);
 uint16_t a_song_create(a_ctx* ctx, unsigned char* data, uint32_t data_length,
                        const char* name, uint16_t packets_per_buffer,
                        uint8_t buffers, uint32_t max_buffer_size);
+
+/* Create a song from filesystem
+ * ctx - the context to create the song within
+ * file_path - the filepath to get the song data from
+ * packets_per_buffer - the amount of packets to put into a buffer
+ * buffers - the number of OpenAL buffers to use
+ * data_ptr - a pointer to hold buffer created from getting file from disk
+ * returns: the song ID (non-zero = success, 0 = fail) */
+uint16_t a_song_create_fs(a_ctx* ctx, const char* file_path, const char* name,
+                          uint16_t packets_per_buffer, uint8_t buffers,
+                          uint32_t max_buffer_size, unsigned char** data_ptr);
 
 /* Destroy a song & its contents
  * ctx - the context the song is contained within
@@ -361,7 +452,7 @@ time_s a_song_get_length(a_ctx* ctx, uint16_t song_id);
 /* Set a song to play from a given time
  * ctx - the context that contains the song
  * song_id - the ID of the song returned on creation
- * from_start - the time (in Milliseconds) from the start of the song
+ * from_start - the time (in milliseconds) from the start of the song
  * returns: success = 1, fail = 0 */
 uint8_t a_song_set_time(a_ctx* ctx, uint16_t song_id, time_s from_start);
 
@@ -390,6 +481,15 @@ uint16_t a_song_get_id(a_ctx* ctx, const char* name);
  * returns: ID of the buffer in the context (non-zero, 0 = fail) */
 uint16_t a_buf_create(a_ctx* ctx, unsigned char* data, uint32_t data_length,
                       const char* name, uint8_t is_ogg);
+
+/* Create an audio buffer (generally small sounds) from file
+ * ctx - the context to manage the buffer with
+ * file_path - the filepath of the audio file to load in
+ * name - a string name for the buffer (optional)
+ * is_ogg - if you want to decode using OGG or WAV format (1 = ogg, 0 = wav)
+ * returns: ID of the buffer in the context (non-zero, 0 = fail) */
+uint16_t a_buf_create_fs(a_ctx* ctx, const char* file_path, const char* name,
+                         uint8_t is_ogg);
 
 /* Destroy an audio buffer
  * ctx - the context that contains the audio buffer
@@ -421,7 +521,7 @@ float a_listener_get_gain(a_ctx* ctx);
 /* Get the listener position
  * ctx - the context to check
  * dst - the vector to store the data in */
-void a_listener_get_pos(a_ctx* ctx, vec3 dst);
+void a_listener_get_pos(a_ctx* ctx, a_vec3 dst);
 
 /* Get the listener orientation
  * ctx - the context to check
@@ -432,7 +532,7 @@ void a_listener_get_ori(a_ctx* ctx, float dst[6]);
 /* Get the listener velocity
  * ctx - the context to check
  * dst - the vector to store the data in */
-void a_listener_get_vel(a_ctx* ctx, vec3 dst);
+void a_listener_get_vel(a_ctx* ctx, a_vec3 dst);
 
 /* Set the listener's gain
  * ctx - the context of the listener
@@ -442,7 +542,7 @@ void a_listener_set_gain(a_ctx* ctx, float gain);
 /* Set the current listener position
  * ctx - the context to affect
  * position - the position to change to */
-void a_listener_set_pos(a_ctx* ctx, vec3 position);
+void a_listener_set_pos(a_ctx* ctx, a_vec3 position);
 
 /* Set the listener's orientation
  * ctx - the context to affect
@@ -453,7 +553,7 @@ void a_listener_set_ori(a_ctx* ctx, float ori[6]);
  * ctx - the context to affect
  * velocity - the velocity to change to
  * NOTE: This doesn't move the listener just sets the velocity effects */
-void a_listener_set_vel(a_ctx* ctx, vec3 velocity);
+void a_listener_set_vel(a_ctx* ctx, a_vec3 velocity);
 
 /* Create a request structure
  * position - the position in 3D space to play the song/sound
@@ -465,7 +565,7 @@ void a_listener_set_vel(a_ctx* ctx, vec3 velocity);
  * filters - a list of filter IDs to use
  * filter_count - the number of filters to use
  * returns: formatted request structure */
-a_req a_req_create(vec3 position, float gain, float range, uint8_t loop,
+a_req a_req_create(a_vec3 position, float gain, float range, uint8_t loop,
                    uint16_t* fx, uint16_t fx_count, uint16_t* filters,
                    uint16_t filter_count);
 
@@ -501,7 +601,7 @@ a_fx_type a_fx_get_type(a_ctx* ctx, uint16_t fx_id);
 a_fx* a_fx_get_slot(a_ctx* ctx, uint16_t fx_id);
 
 /* Create a the default preset of the reverb effect
- *              (see struct definition for values) */
+ *               (see struct definition for values) */
 a_fx_reverb a_fx_reverb_default(void);
 
 /* Create an instance of the reverb effect
@@ -512,6 +612,10 @@ a_fx_reverb a_fx_reverb_create(float density, float diffusion, float gain,
                                float late_gain, float late_delay,
                                float air_absorption_gainhf,
                                float room_rolloff_factor, int8_t decay_hflimit);
+
+/* Create a default preset of the EQ effect
+ *       (see struct definition for values) */
+a_fx_eq a_fx_eq_default(void);
 
 /* Create an instance of the EQ effect
  * returns: the formatted EQ effect structure */
@@ -611,6 +715,52 @@ uint8_t a_layer_set_gain(a_ctx* ctx, uint16_t layer_id, float gain);
  * layer_id - the ID of the layer
  * returns: the gain of the layer, -1.f if not found */
 float a_layer_get_gain(a_ctx* ctx, uint16_t layer_id);
+
+/* Create a keyframe timeline
+ * times - the timestamp of each keyframe
+ * values - the value of each keyframe
+ * eases - how each keyframe should ease
+ * count - the number of keyframes
+ * returns: a keyframe timeline */
+a_timeline a_timeline_create(float* times, float* values,
+                             a_keyframe_ease* eases, uint32_t count);
+
+/* Free all the data from the timeline */
+void a_timeline_destroy(a_timeline* timeline);
+
+/* Create a view of a timeline
+ * timeline - timeline data to follow
+ * returns: view of a timeline */
+a_timeline_view a_timeline_create_view(a_timeline* timeline);
+
+/* Get the current value from a timeline view
+ * view - the current view of a timeline
+ * returns: value based on current time within the timeline */
+float a_timeline_get_value(a_timeline_view* view);
+
+/* Update a timeline view
+ * view - the current view of a timeline to update
+ * dt - the delta time to change */
+void a_timeline_update(a_timeline_view* view, float dt);
+
+/* Set a timeline view's time
+ * view - the view of a timeline to update
+ * time - the time in ms to set the view to */
+void a_timeline_set_time(a_timeline_view* view, float time);
+
+/* Set where to output the value of a timeline view when updated
+ * view - timeline view to output current values from
+ * output - pointer to update with values */
+void a_timeline_set_output(a_timeline_view* view, float* output);
+
+/* Calculate a given value from a specific time
+ * timeline - timeline to follow/calculate from
+ * time - the time in ms to calculate the value at
+ * returns: calculated value from the timeline */
+float a_timeline_calc_value_at(a_timeline* timeline, float time);
+
+/* Reset the time of a timeline and values along with it */
+void a_timeline_reset(a_timeline_view* view);
 
 #ifdef __cplusplus
 }

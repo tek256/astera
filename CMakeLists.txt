@@ -9,56 +9,31 @@ set(CMAKE_POLICY_DEFAULT_CMP0075 NEW)
 
 set(CMAKE_VISIBILITY_INLINES_HIDDEN ON)
 set(CMAKE_C_STANDARD_REQUIRED ON)
-set(CMAKE_FIND_FRAMEWORK FIRST)
+set(CMAKE_FIND_FRAMEWORK LAST)
 
 include(CMakeDependentOption)
 include(GenerateExportHeader)
 include(FetchContent)
 
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/dep/cmake")
-
-# Use OpenAL-Soft's binaries for Windows
+FetchContent_Declare(openal-windows
+  DOWNLOAD_EXTRACT_TIMESTAMP YES
+  URL "https://openal-soft.org/openal-binaries/openal-soft-1.20.1-bin.zip")
 if (WIN32)
-  FetchContent_Declare(openalwin
-    URL "https://openal-soft.org/openal-binaries/openal-soft-1.20.1-bin.zip")
-  if (NOT openalwin_POPULATED)
-    FetchContent_Populate(openalwin)
-  endif()
-  list(APPEND CMAKE_PREFIX_PATH "${openalwin_SOURCE_DIR}")
+  FetchContent_MakeAvailable(openal-windows)
+  set(ENV{OPENALDIR} "${openal-windows_SOURCE_DIR}")
+endif()
+
+find_package(OpenAL REQUIRED)
+
+if (OPENAL_FOUND AND NOT TARGET OpenAL::OpenAL)
+  add_library(OpenAL::OpenAL UNKNOWN IMPORTED)
+  set_target_properties(OpenAL::OpenAL
+    PROPERTIES
+      IMPORTED_LOCATION "${OPENAL_LIBRARY}"
+      INTERFACE_INCLUDE_DIRECTORIES "${OPENAL_INCLUDE_DIR}")
 endif()
 
 find_package(OpenGL REQUIRED)
-
-# OpenAL must be installed on the system, env "OPENALDIR" must be set
-find_package(OpenALSoft)
-find_package(OpenAL)
-
-if(OpenALSoft_FOUND)
-  if(OPENALSOFT_FOUND AND NOT TARGET OpenAL::AL)
-    message("OpenALSoft FOUND ${OPENAL-SOFTFOUND}")
-    add_library(OpenAL::AL UNKNOWN IMPORTED)
-    set_target_properties(OpenAL::AL PROPERTIES
-      IMPORTED_LOCATION "${OPENALSOFT_LIBRARY}"
-      INTERFACE_INCLUDE_DIRECTORIES "${OPENALSOFT_INCLUDE_DIR}")
-   endif()
-   set(AL_INCLUDE ${OPENALSOFT_INCLUDE_DIR})
-elseif(OpenAL_FOUND)
-  if(OPENAL_FOUND AND NOT TARGET OpenAL::AL)
-    message("OpenAL FOUND ${OPENAL-SOFTFOUND}")
-    add_library(OpenAL::AL UNKNOWN IMPORTED)
-    set_target_properties(OpenAL::AL PROPERTIES
-      IMPORTED_LOCATION "${OPENAL_LIBRARY}"
-      INTERFACE_INCLUDE_DIRECTORIES "${OPENAL_INCLUDE_DIR}")
-  endif()
-   set(AL_INCLUDE ${OPENAL_INCLUDE_DIR})
-else()
-  message(FATAL_ERROR "Could not find OpenAL or OpenALSoft")
-endif()
-
-# Require just OpenALSoft if on apple
-if(APPLE AND NOT OpenALSoft_FOUND)
-  message(FATAL_ERROR "Could not find OpenALSoft")
-endif()
 
 # If to build the `examples/` folder
 cmake_dependent_option(ASTERA_BUILD_EXAMPLES 
@@ -112,7 +87,6 @@ target_include_directories(${PROJECT_NAME}
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/src>
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/dep/glad/include>
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/dep>
-    $<BUILD_INTERFACE:${AL_INCLUDE}>
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/dep/stb>
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
     $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include>
@@ -160,9 +134,7 @@ target_link_libraries(${PROJECT_NAME}
     $<$<NOT:$<PLATFORM_ID:Windows>>:m>
     glfw
     $<$<PLATFORM_ID:Windows>:XInput>
-  PRIVATE
-  $<$<NOT:$<PLATFORM_ID:Darwin>>:OpenAL::AL>)
-
+    OpenAL::OpenAL)
 
 set_property(TARGET astera PROPERTY C_VISIBILITY_PRESET "hidden")
 set_property(TARGET astera PROPERTY VERSION ${PROJECT_VERSION})

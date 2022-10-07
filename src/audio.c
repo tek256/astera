@@ -1,18 +1,7 @@
 #include <astera/audio.h>
-#include <astera/debug.h>
-
-#if defined(__APPLE__)
-#if !defined(ASTERA_AL_NO_FX)
-#define ASTERA_AL_NO_FX
-#endif
-#endif
 
 #if !defined(ASTERA_AL_DISTANCE_MODEL)
 #define ASTERA_AL_DISTANCE_MODEL AL_INVERSE_DISTANCE
-#endif
-
-#if !defined(ASTERA_AL_ROLLOFF_FACTOR)
-#define ASTERA_AL_ROLLOFF_FACTOR 1.f
 #endif
 
 #undef STB_VORBIS_HEADER_ONLY
@@ -23,71 +12,87 @@
 #include <stdio.h>
 #include <string.h>
 
+#ifndef ASTERA_FUNC_DBG
+#define ASTERA_FUNC_DBG(fmt, ...) \
+  printf("%s ", __func__);       \
+  printf(fmt, ##__VA_ARGS__);
+#endif
+
 struct a_ctx {
-  // context - the OpenAL-Soft Context
-  // device - the device OpenAL-Soft is using
+  /* context - the OpenAL-Soft Context
+     device - the device OpenAL-Soft is using */
   ALCcontext* context;
   ALCdevice*  device;
 
-  // listener - the listener values for OpenAL
+  /* info - the info used to create the context */
+  a_ctx_info info;
+
+  /* listener - the listener values for OpenAL */
   a_listener listener;
 
-  // songs - the list of songs
-  // song_names - a list of song names
-  // song_count - the current amount of songs
-  // song_capacity - the max amount of songs
-  // song_high - the high water mark for songs in the song list
+  /* songs - the list of songs
+   * song_names - a list of song names
+   * song_count - the current amount of songs
+   * song_capacity - the max amount of songs
+   * song_high - the high water mark for songs in the song list */
   a_song*      songs;
   const char** song_names;
   uint16_t     song_count, song_capacity, song_high;
 
-  // sfx - the list of sound effects (sounds)
-  // sfx_count - the current amount of sfx
-  // sfx_capacity - the max amount of sfx
+  /* sfx - the list of sound effects (sounds)
+   * sfx_count - the current amount of sfx
+   * sfx_capacity - the max amount of sfx */
   a_sfx*   sfx;
   uint16_t sfx_count, sfx_capacity;
 
-  // buffers - the list of audio buffers (sounds / raw data)
-  // buffer_names - a list of names for audio buffers in the list
-  // buffer_count - the current amount of buffers in the list
-  // buffer_capacity - the max amount of buffers
-  // buffer_high - the high water mark for buffers in the the list
+  /* buffers - the list of audio buffers (sounds / raw data)
+   * buffer_names - a list of names for audio buffers in the list
+   * buffer_count - the current amount of buffers in the list
+   * buffer_capacity - the max amount of buffers
+   * buffer_high - the high water mark for buffers in the the list */
   a_buf*       buffers;
   const char** buffer_names;
   uint16_t     buffer_count, buffer_capacity, buffer_high;
 
-  // fx_slots - a list of slots for OpenAL Effects
-  // fx_count - the amount of effects currently in the list
-  // fx_capacity - the max amount of effects
-  // fx_high - the high water mark for the effects in the list
+  /* fx_slots - a list of slots for OpenAL Effects
+   * fx_count - the amount of effects currently in the list
+   * fx_capacity - the max amount of effects
+   * fx_high - the high water mark for the effects in the list */
   a_fx*    fx_slots;
   uint16_t fx_count, fx_capacity;
 
   a_filter* filter_slots;
   uint16_t  filter_count, filter_capacity;
 
-  // fx_per_source - the OpenAL Defined max FX per source
-  // max_fx - the OpenAL defined max FX
+  /* fx_per_source - the OpenAL Defined max FX per source
+   * max_fx - the OpenAL defined max FX */
   uint16_t fx_per_source, max_fx;
 
-  uint8_t resizable; // allow for dynamic resizing of arrays
-  uint8_t allow;     // allow playback
-  uint8_t use_fx;    // allow effect usage
+  uint8_t resizable; /* allow for dynamic resizing of arrays */
+  uint8_t allow;     /* allow playback */
+  uint8_t use_fx;    /* allow effect usage */
 
-  // pcm - a buffer for decoding
-  // pcm_length - the number of shorts the pcm can hold
-  // pcm_index - the index of the last element in the pcm
+  /* pcm - a buffer for decoding
+   * pcm_length - the number of shorts the pcm can hold
+   * pcm_index - the index of the last element in the pcm */
   uint16_t* pcm;
   uint32_t  pcm_length, pcm_index;
 
-  // layers - array of layers used to manage playback
-  // layer_count - the number of layers in the array currently
-  // layer_capacity - the max number of layers in array
+  /* layers - array of layers used to manage playback
+   * layer_count - the number of layers in the array currently
+   * layer_capacity - the max number of layers in array */
   a_layer* layers;
   uint16_t layer_count, layer_capacity;
 
-  // error - the last error value set
+  /* error - the last error value set */
   int32_t error;
+
+  /* max_mono - max number of mono sources
+   * max_stereo - max number of stereo sources
+   * max_buffers - max number of buffers */
+  uint32_t max_mono;
+  uint32_t max_stereo;
+  uint32_t max_buffers;
 };
 
 #if !defined(ASTERA_AL_NO_FX)
@@ -123,6 +128,48 @@ static LPALGETAUXILIARYEFFECTSLOTF    alGetAuxiliaryEffectSlotf;
 static LPALGETAUXILIARYEFFECTSLOTFV   alGetAuxiliaryEffectSlotfv;
 #endif
 
+void a_vec3_set(a_vec3 dst, float x, float y, float z) {
+  dst[0] = x;
+  dst[1] = y;
+  dst[2] = z;
+}
+
+static unsigned char* _a_get_file(const char* file, uint32_t* size_ptr) {
+  FILE* f = fopen(file, "rb+");
+  if (!f) {
+    return 0;
+  }
+
+  uint32_t data_len = 0;
+
+  fseek(f, 0, SEEK_END);
+  data_len = ftell(f);
+  rewind(f);
+
+  unsigned char* data = (unsigned char*)calloc(data_len, sizeof(unsigned char));
+  if (!data) {
+    ASTERA_FUNC_DBG("Unable to get file data from: %s\n", file)
+    fclose(f);
+    return 0;
+  }
+
+  uint32_t read_amount =
+      (uint32_t)fread(data, sizeof(unsigned char), data_len, f);
+  fclose(f);
+
+  if (read_amount != data_len) {
+    ASTERA_FUNC_DBG("Invalid read size compare\n");
+    free(data);
+    return 0;
+  }
+
+  if (size_ptr) {
+    *size_ptr = data_len;
+  }
+
+  return data;
+}
+
 static inline float _a_clamp(float value, float min, float max, float def) {
   return (value == -1.f) ? def
          : (value < min) ? min
@@ -130,19 +177,11 @@ static inline float _a_clamp(float value, float min, float max, float def) {
                          : value;
 }
 
-/* static float a_sfx_get_source_gain(a_ctx* ctx, uint16_t source) {
-  for (uint16_t i = 0; i < ctx->sfx_capacity; ++i) {
-    if (ctx->sfx[i].source == source) {
-      if (ctx->sfx[i].req) {
-        return ctx->sfx[i].req->gain;
-      } else {
-        return 0;
-      }
-    }
-  }
-
-  return 0;
-} */
+static inline void a_vec3_dup(a_vec3 dst, a_vec3 src) {
+  dst[0] = src[0];
+  dst[1] = src[1];
+  dst[2] = src[2];
+}
 
 static a_layer* _a_get_layer(a_ctx* ctx, uint16_t layer_id) {
   return (ctx->layers[layer_id - 1].id == 0) ? 0 : &ctx->layers[layer_id - 1];
@@ -150,14 +189,14 @@ static a_layer* _a_get_layer(a_ctx* ctx, uint16_t layer_id) {
 
 static uint8_t _a_layer_add(a_layer* layer, uint32_t id, uint8_t is_sfx) {
   if (is_sfx) {
-    if (layer->sfx_count == layer->sfx_capacity - 1) {
+    if (layer->sfx_count == layer->sfx_capacity) {
       ASTERA_FUNC_DBG("no free sfx slots in layer\n");
       return 0;
     }
 
     for (uint16_t i = 0; i < layer->sfx_capacity; ++i) {
       if (layer->sfx[i] == id) {
-        ASTERA_FUNC_DBG("sfx id already in layer\n");
+        ASTERA_FUNC_DBG("sfx id [%i] already in layer\n", id);
         return 0;
       }
 
@@ -168,7 +207,7 @@ static uint8_t _a_layer_add(a_layer* layer, uint32_t id, uint8_t is_sfx) {
       }
     }
   } else {
-    if (layer->song_count == layer->song_capacity - 1) {
+    if (layer->song_count == layer->song_capacity) {
       ASTERA_FUNC_DBG("no free song slots in layer\n");
       return 0;
     }
@@ -212,7 +251,7 @@ static uint8_t _a_layer_remove(a_layer* layer, uint32_t id, uint8_t is_sfx) {
     }
 
     if (start) {
-      layer->sfx[layer->sfx_count] = 0;
+      layer->sfx[layer->sfx_count - 1] = 0;
       --layer->sfx_count;
       return 1;
     }
@@ -240,7 +279,7 @@ static uint8_t _a_layer_remove(a_layer* layer, uint32_t id, uint8_t is_sfx) {
   return 0;
 }
 
-// Get the gain of the containing layer for a resource
+/* Get the gain of the containing layer for a resource */
 static float _a_get_layered_gain(a_ctx* ctx, uint32_t id, uint8_t is_sfx) {
   for (uint16_t i = 0; i < ctx->layer_capacity; ++i) {
     a_layer* layer = &ctx->layers[i];
@@ -316,9 +355,9 @@ static uint8_t _a_song_reset(a_ctx* ctx, a_song* song) {
 
   stb_vorbis_seek_start(song->vorbis);
 
-  // uint32_t error = stb_vorbis_get_error(song->vorbis);
+  /* uint32_t error = stb_vorbis_get_error(song->vorbis); */
 
-  // Unqueue anything existing
+  /* Unqueue anything existing */
   alSourceStop(song->source);
   alSourceUnqueueBuffers(song->source, song->buffer_count, song->buffers);
 
@@ -400,13 +439,24 @@ const char* a_ctx_get_device(a_ctx* ctx, uint8_t* string_length) {
   return name;
 }
 
-uint8_t a_can_play(a_ctx* ctx) {
-  return ctx->allow;
+uint8_t a_can_play(a_ctx* ctx) { return ctx->allow; }
+
+a_ctx_info a_ctx_info_default() {
+  return (a_ctx_info){
+      .device             = 0,
+      .max_layers         = 4,
+      .max_buffers        = 16,
+      .max_sfx            = 16,
+      .max_songs          = 2,
+      .max_filters        = 0,
+      .max_fx             = 0,
+      .max_mono_sources   = 256,
+      .max_stereo_sources = 256,
+      .pcm_size           = 4096 * 4,
+  };
 }
 
-a_ctx* a_ctx_create(const char* device, uint8_t layers, uint16_t max_sfx,
-                    uint16_t max_buffers, uint16_t max_songs, uint16_t max_fx,
-                    uint16_t max_filters, uint32_t pcm_size) {
+a_ctx* a_ctx_create(a_ctx_info ctx_info) {
   a_ctx* ctx = (a_ctx*)calloc(1, sizeof(a_ctx));
 
   if (!ctx) {
@@ -414,7 +464,7 @@ a_ctx* a_ctx_create(const char* device, uint8_t layers, uint16_t max_sfx,
     return 0;
   }
 
-  ALCdevice* al_device = alcOpenDevice(device);
+  ALCdevice* al_device = alcOpenDevice(ctx_info.device);
 
 #if !defined(ASTERA_AL_NO_FX)
   if (alcIsExtensionPresent(al_device, "ALC_EXT_EFX") == AL_FALSE) {
@@ -423,22 +473,27 @@ a_ctx* a_ctx_create(const char* device, uint8_t layers, uint16_t max_sfx,
     ctx->use_fx = 1;
   }
 
-  // Disable effects if we're not using any of them
-  if (!max_fx && !max_filters) {
+  /* Disable effects if we're not using any of them */
+  if (!ctx_info.max_fx && !ctx_info.max_filters) {
     ctx->use_fx = 0;
   }
 #else
   ctx->use_fx = 0;
 #endif
 
-  int attribs[4] = {0};
+  int attribs[6] = {0};
 
 #if !defined(ASTERA_AL_NO_FX) && defined(ALC_MAX_AUXILIARY_SENDS)
   if (ctx->use_fx) {
-    attribs[0] = ALC_MAX_AUXILIARY_SENDS;
-    attribs[1] = 4;
+    attribs[4] = ALC_MAX_AUXILIARY_SENDS;
+    attribs[5] = 4;
   }
 #endif
+
+  attribs[0] = ALC_STEREO_SOURCES;
+  attribs[1] = ctx_info.max_stereo_sources;
+  attribs[2] = ALC_MONO_SOURCES;
+  attribs[3] = ctx_info.max_mono_sources;
 
   ALCcontext* context = alcCreateContext(al_device, attribs);
 
@@ -450,6 +505,10 @@ a_ctx* a_ctx_create(const char* device, uint8_t layers, uint16_t max_sfx,
 
   ctx->context = context;
   ctx->device  = al_device;
+  ctx->info    = ctx_info;
+
+  alcGetIntegerv(al_device, ALC_MONO_SOURCES, 1, &ctx->max_mono);
+  alcGetIntegerv(al_device, ALC_STEREO_SOURCES, 1, &ctx->max_stereo);
 
 #if defined(ASTERA_AL_DISTANCE_MODEL)
   alDistanceModel(ASTERA_AL_DISTANCE_MODEL);
@@ -501,10 +560,10 @@ a_ctx* a_ctx_create(const char* device, uint8_t layers, uint16_t max_sfx,
 
 #undef LOAD_PROC
 
-    ctx->fx_capacity = max_fx;
+    ctx->fx_capacity = ctx_info.max_fx;
     ctx->fx_count    = 0;
 
-    if (max_fx) {
+    if (ctx_info.max_fx) {
       ctx->fx_slots = (a_fx*)calloc(ctx->fx_capacity, sizeof(a_fx));
 
       if (!ctx->fx_slots) {
@@ -525,9 +584,9 @@ a_ctx* a_ctx_create(const char* device, uint8_t layers, uint16_t max_sfx,
     }
 
     ctx->filter_count    = 0;
-    ctx->filter_capacity = max_filters;
+    ctx->filter_capacity = ctx_info.max_filters;
 
-    if (max_filters) {
+    if (ctx_info.max_filters) {
       ctx->filter_slots =
           (a_filter*)calloc(ctx->filter_capacity, sizeof(a_filter));
 
@@ -543,7 +602,7 @@ a_ctx* a_ctx_create(const char* device, uint8_t layers, uint16_t max_sfx,
         return 0;
       }
 
-      for (uint16_t i = 0; i < max_filters; ++i) {
+      for (uint16_t i = 0; i < ctx_info.max_filters; ++i) {
         ctx->filter_slots[i].id = i + 1;
       }
     } else {
@@ -552,22 +611,22 @@ a_ctx* a_ctx_create(const char* device, uint8_t layers, uint16_t max_sfx,
   }
 #endif
 
-  ctx->pcm_length = pcm_size;
+  ctx->pcm_length = ctx_info.pcm_size;
   ctx->pcm_index  = 0;
-  if (pcm_size) {
-    ctx->pcm = (uint16_t*)calloc(pcm_size, sizeof(uint16_t));
+  if (ctx_info.pcm_size) {
+    ctx->pcm = (uint16_t*)calloc(ctx_info.pcm_size, sizeof(uint16_t));
   }
 
-  // Create the resource arrays
-  ctx->song_capacity = max_songs;
+  /* Create the resource arrays */
+  ctx->song_capacity = ctx_info.max_songs;
   ctx->song_count    = 0;
   ctx->song_high     = 0;
 
-  if (max_songs) {
+  if (ctx_info.max_songs) {
     ctx->songs      = (a_song*)calloc(ctx->song_capacity, sizeof(a_song));
     ctx->song_names = (const char**)calloc(ctx->song_capacity, sizeof(char*));
 
-    for (uint16_t i = 0; i < max_songs; ++i) {
+    for (uint16_t i = 0; i < ctx_info.max_songs; ++i) {
       ctx->songs[i].id = i + 1;
       alGenSources(1, &ctx->songs[i].source);
       ctx->songs[i].req = 0;
@@ -575,25 +634,26 @@ a_ctx* a_ctx_create(const char* device, uint8_t layers, uint16_t max_sfx,
   }
 
   ctx->buffer_count    = 0;
-  ctx->buffer_capacity = max_buffers;
+  ctx->buffer_capacity = ctx_info.max_buffers;
   ctx->buffer_high     = 0;
 
-  if (max_buffers) {
-    ctx->buffers      = (a_buf*)calloc(max_buffers, sizeof(a_buf));
-    ctx->buffer_names = (const char**)calloc(max_buffers, sizeof(char*));
+  if (ctx_info.max_buffers) {
+    ctx->buffers = (a_buf*)calloc(ctx_info.max_buffers, sizeof(a_buf));
+    ctx->buffer_names =
+        (const char**)calloc(ctx_info.max_buffers, sizeof(char*));
 
-    for (uint16_t i = 0; i < max_buffers; ++i) {
+    for (uint16_t i = 0; i < ctx_info.max_buffers; ++i) {
       ctx->buffers[i].id = i + 1;
     }
   }
 
-  ctx->sfx_capacity = max_sfx;
+  ctx->sfx_capacity = ctx_info.max_sfx;
   ctx->sfx_count    = 0;
 
-  if (max_sfx) {
+  if (ctx_info.max_sfx) {
     ctx->sfx = (a_sfx*)calloc(ctx->sfx_capacity, sizeof(a_sfx));
 
-    for (uint16_t i = 0; i < max_sfx; ++i) {
+    for (uint16_t i = 0; i < ctx_info.max_sfx; ++i) {
       ctx->sfx[i].id = i + 1;
       alGenSources(1, &ctx->sfx[i].source);
       ctx->sfx[i].req = 0;
@@ -601,12 +661,12 @@ a_ctx* a_ctx_create(const char* device, uint8_t layers, uint16_t max_sfx,
   }
 
   ctx->layer_count    = 0;
-  ctx->layer_capacity = layers;
+  ctx->layer_capacity = ctx_info.max_layers;
 
-  if (layers) {
-    ctx->layers = (a_layer*)calloc(layers, sizeof(a_layer));
+  if (ctx_info.max_layers) {
+    ctx->layers = (a_layer*)calloc(ctx_info.max_layers, sizeof(a_layer));
 
-    for (uint16_t i = 0; i < layers; ++i) {
+    for (uint16_t i = 0; i < ctx_info.max_layers; ++i) {
       ctx->layers[i].gain = 1.f;
     }
   }
@@ -621,41 +681,81 @@ uint8_t a_ctx_destroy(a_ctx* ctx) {
     return 0;
   }
 
-  for (uint16_t i = 0; i < ctx->song_capacity; ++i) {
-    a_song* song = &ctx->songs[i];
+  if (ctx->songs) {
+    for (uint16_t i = 0; i < ctx->song_capacity; ++i) {
+      a_song* song = &ctx->songs[i];
 
-    if (song->vorbis)
-      stb_vorbis_close(song->vorbis);
+      if (song->id) {
+        if (song->buffers) {
+          /* Cleanup OpenAL Resources*/
+          alDeleteBuffers(song->buffer_count, song->buffers);
+          free(song->buffers);
+        }
 
-    if (song->buffers)
-      free(song->buffers);
+        if (song->buffer_sizes)
+          free(song->buffer_sizes);
 
-    if (song->buffer_sizes)
-      free(song->buffer_sizes);
+        if (song->source)
+          alDeleteSources(1, &song->source);
+
+        if (song->vorbis)
+          stb_vorbis_close(song->vorbis);
+      }
+    }
+    free(ctx->songs);
   }
 
-  if (ctx->fx_capacity && ctx->fx_slots) {
-    free(ctx->fx_slots);
-  }
+#if !defined(ASTERA_AL_NO_FX)
+  if (ctx->use_fx) {
+    if (ctx->fx_capacity && ctx->fx_slots) {
+      for (uint16_t i = 0; i < ctx->fx_capacity; ++i) {
+        a_fx* fx = &ctx->fx_slots[i];
+        if (fx->effect_id != 0) {
+          alDeleteEffects(1, &fx->effect_id);
+        }
 
-  if (ctx->filter_capacity && ctx->filter_slots) {
-    free(ctx->filter_slots);
-  }
+        if (fx->slot_id != 0) {
+          alDeleteAuxiliaryEffectSlots(1, &fx->slot_id);
+        }
+      }
+      free(ctx->fx_slots);
+    }
 
-  if (ctx->buffers)
+    if (ctx->filter_capacity && ctx->filter_slots) {
+      for (uint16_t i = 0; i < ctx->filter_capacity; ++i) {
+        if (ctx->filter_slots[i].al_id != 0) {
+          alDeleteFilters(1, &ctx->filter_slots[i].al_id);
+        }
+      }
+
+      free(ctx->filter_slots);
+    }
+  }
+#endif
+  if (ctx->buffers) {
+    for (uint16_t i = 0; i < ctx->buffer_capacity; ++i) {
+      if (ctx->buffers[i].buf != 0) {
+        alDeleteBuffers(1, &ctx->buffers[i].buf);
+      }
+    }
     free(ctx->buffers);
+  }
 
   if (ctx->buffer_names)
     free(ctx->buffer_names);
 
-  if (ctx->songs)
-    free(ctx->songs);
-
   if (ctx->song_names)
     free(ctx->song_names);
 
-  if (ctx->sfx)
+  if (ctx->sfx) {
+    for (uint16_t i = 0; i < ctx->sfx_capacity; ++i) {
+      a_sfx* sfx = &ctx->sfx[i];
+      if (sfx->source != 0) {
+        alDeleteSources(1, &sfx->source);
+      }
+    }
     free(ctx->sfx);
+  }
 
   if (ctx->pcm)
     free(ctx->pcm);
@@ -815,8 +915,7 @@ void a_ctx_update(a_ctx* ctx) {
     ALenum state;
     alGetSourcei(sfx->source, AL_SOURCE_STATE, &state);
 
-    int8_t remove =
-        (state != AL_PLAYING && sfx->req->time > 0.f) || sfx->req->stop;
+    int8_t remove = (state != AL_PLAYING) || sfx->req->stop;
 
     if (remove) {
       for (uint16_t j = 0; j < ctx->layer_capacity; ++j) {
@@ -861,7 +960,7 @@ void a_ctx_update(a_ctx* ctx) {
 }
 
 uint16_t a_sfx_play(a_ctx* ctx, uint16_t layer, uint16_t buf_id, a_req* req) {
-  if (ctx->sfx_count == ctx->sfx_capacity - 1) {
+  if (ctx->sfx_count == ctx->sfx_capacity) {
     ASTERA_FUNC_DBG("no free sfx slots.\n");
     return 0;
   }
@@ -870,7 +969,7 @@ uint16_t a_sfx_play(a_ctx* ctx, uint16_t layer, uint16_t buf_id, a_req* req) {
   if (layer) {
     a_layer* _layer = _a_get_layer(ctx, layer);
     gain *= _layer->gain;
-    if (_layer->sfx_count == _layer->sfx_capacity - 1) {
+    if (_layer->sfx_count == _layer->sfx_capacity) {
       ASTERA_FUNC_DBG("no free slots in layer\n");
       return 0;
     }
@@ -884,16 +983,18 @@ uint16_t a_sfx_play(a_ctx* ctx, uint16_t layer, uint16_t buf_id, a_req* req) {
 
   a_sfx* slot = 0;
   for (uint16_t i = 0; i < ctx->sfx_capacity; ++i) {
-    if (ctx->sfx[i].source) {
-      uint32_t buffer_id;
-      alGetSourcei(ctx->sfx[i].source, AL_BUFFER, &buffer_id);
-      if (buffer_id == 0) {
-        slot = &ctx->sfx[i];
+    a_sfx*   cursor    = &ctx->sfx[i];
+    uint32_t buffer_id = 0;
+    alGetSourcei(cursor->source, AL_BUFFER, &buffer_id);
+    if (buffer_id == 0) {
+      /* We want to make sure that we don't have anything queued to play on the
+         slot */
+      uint32_t queue_count = 0;
+      alGetSourcei(cursor->source, AL_BUFFERS_QUEUED, &queue_count);
+      if (queue_count == 0) {
+        slot = cursor;
         break;
       }
-    } else {
-      slot = &ctx->sfx[i];
-      break;
     }
   }
 
@@ -906,13 +1007,26 @@ uint16_t a_sfx_play(a_ctx* ctx, uint16_t layer, uint16_t buf_id, a_req* req) {
     alGenSources(1, &slot->source);
   }
 
-  alSourcei(slot->source, AL_BUFFER, buf->buf);
+  if (req->loop_count > 0) {
+    /* Queue buffer to play x times */
+    for (uint8_t i = 0; i < req->loop_count; ++i) {
+      alSourceQueueBuffers(slot->source, 1, &buf->id);
+    }
+  } else if (req->loop) {
+    alSourcei(slot->source, AL_LOOPING, req->loop);
+  } else {
+    alSourcei(slot->source, AL_LOOPING, AL_FALSE);
+  }
+
+  if (req->loop_count == 0) {
+    alSourcei(slot->source, AL_BUFFER, buf->buf);
+  }
 
 #if !defined(ASTERA_AL_NO_FX)
-  // Apply fx
+  /* Apply fx */
   if (req->fx_count > 0) {
     for (uint16_t i = 0; i < req->fx_count; ++i) {
-      // Make sure it's valid within the range of filters
+      /* Make sure it's valid within the range of filters */
       if (req->fx[i] <= ctx->fx_capacity && req->fx[i] > 0) {
         alSource3i(slot->source, AL_AUXILIARY_SEND_FILTER,
                    (ALint)ctx->fx_slots[req->fx[i] - 1].slot_id, i, 0);
@@ -920,7 +1034,7 @@ uint16_t a_sfx_play(a_ctx* ctx, uint16_t layer, uint16_t buf_id, a_req* req) {
     }
   }
 
-  // Apply filters
+  /* Apply filters */
   if (req->filter_count > 0) {
     for (uint16_t i = 0; i < req->filter_count; ++i) {
       if (req->filters[i] <= ctx->filter_capacity && req->filters[i] > 0) {
@@ -938,12 +1052,11 @@ uint16_t a_sfx_play(a_ctx* ctx, uint16_t layer, uint16_t buf_id, a_req* req) {
   uint32_t size;
   alGetBufferi(buf->buf, AL_SIZE, (ALint*)&size);
 
-  alSourcef(slot->source, AL_GAIN, req->gain);
+  alSourcef(slot->source, AL_GAIN, gain);
   alSource3f(slot->source, AL_POSITION, req->position[0], req->position[1],
              req->position[2]);
   alSource3f(slot->source, AL_VELOCITY, req->velocity[0], req->velocity[1],
              req->velocity[2]);
-  alSourcei(slot->source, AL_LOOPING, req->loop);
 
   alSourcePlay(slot->source);
 
@@ -1046,7 +1159,7 @@ uint16_t a_song_create(a_ctx* ctx, unsigned char* data, uint32_t data_length,
     song->req  = 0;
 
     ASTERA_FUNC_DBG("Unable to load vorbis, that sucks VORBIS Error: %i\n",
-                    error);
+                   error);
 
     free(song->vorbis);
 
@@ -1057,10 +1170,10 @@ uint16_t a_song_create(a_ctx* ctx, unsigned char* data, uint32_t data_length,
 
   song->info = stb_vorbis_get_info(song->vorbis);
 
-  if (max_buffer_size < song->info.max_frame_size) {
+  if (max_buffer_size < (uint32_t)song->info.max_frame_size) {
     ASTERA_FUNC_DBG("max_buffer_size is smaller than the listed max "
-                    "frame size of this OGG file: %i vs %i\n",
-                    max_buffer_size, song->info.max_frame_size);
+                   "frame size of this OGG file: %i vs %i\n",
+                   max_buffer_size, song->info.max_frame_size);
 
     free(song->vorbis);
     song->data = 0;
@@ -1089,7 +1202,7 @@ uint16_t a_song_create(a_ctx* ctx, unsigned char* data, uint32_t data_length,
     free(song->vorbis);
 
     ASTERA_FUNC_DBG("unable to allocate %i bytes for buffer IDs",
-                    (buffers * sizeof(int32_t)));
+                   (buffers * sizeof(int32_t)));
 
     return 0;
   }
@@ -1100,7 +1213,7 @@ uint16_t a_song_create(a_ctx* ctx, unsigned char* data, uint32_t data_length,
   for (uint8_t i = 0; i < buffers; ++i) {
     uint32_t buffer = song->buffers[i], pcm_total_length = 0;
 
-    // clear out the pcm for each buffer
+    /* clear out the pcm for each buffer */
     memset(ctx->pcm, 0, sizeof(uint16_t) * ctx->pcm_length);
 
     for (uint16_t j = 0; j < packets_per_buffer; ++j) {
@@ -1135,6 +1248,25 @@ uint16_t a_song_create(a_ctx* ctx, unsigned char* data, uint32_t data_length,
   return song->id;
 }
 
+uint16_t a_song_create_fs(a_ctx* ctx, const char* file_path, const char* name,
+                          uint16_t packets_per_buffer, uint8_t buffers,
+                          uint32_t max_buffer_size, unsigned char** data_ptr) {
+  uint32_t       data_length = 0;
+  unsigned char* data        = _a_get_file(file_path, &data_length);
+
+  if (!data) {
+    ASTERA_FUNC_DBG("No data acquired from: %s\n", file_path);
+    return 0;
+  }
+
+  if (data_ptr) {
+    *data_ptr = data;
+  }
+
+  return a_song_create(ctx, data, data_length, name, packets_per_buffer,
+                       buffers, max_buffer_size);
+}
+
 uint8_t a_song_destroy(a_ctx* ctx, uint16_t id) {
   if (ctx->song_high < id - 1) {
     ASTERA_FUNC_DBG("no song in context with ID %i\n", id);
@@ -1143,17 +1275,25 @@ uint8_t a_song_destroy(a_ctx* ctx, uint16_t id) {
 
   a_song* song = &ctx->songs[id - 1];
 
+  alSourceStop(song->source);
+  alSourceUnqueueBuffers(song->source, song->buffer_count, song->buffers);
+
   alDeleteBuffers(song->buffer_count, song->buffers);
   alDeleteSources(1, &song->source);
 
   stb_vorbis_close(song->vorbis);
 
+  if (song->buffer_sizes)
+    free(song->buffer_sizes);
+
+  if (song->buffers)
+    free(song->buffers);
+
   for (uint16_t i = 0; i < ctx->layer_capacity; ++i) {
     _a_layer_remove(&ctx->layers[i], id, 0);
   }
 
-  free(song->buffers);
-  free(song->vorbis);
+  memset(song, 0, sizeof(a_song));
 
   return 1;
 }
@@ -1193,10 +1333,10 @@ uint8_t a_song_play(a_ctx* ctx, uint16_t layer_id, uint16_t song_id,
   a_song* song = &ctx->songs[song_id - 1];
 
 #if !defined(ASTERA_AL_NO_FX)
-  // Apply fx
+  /* Apply fx */
   if (req->fx_count > 0) {
     for (uint16_t i = 0; i < req->fx_count; ++i) {
-      // Make sure it's valid within the range of effects
+      /* Make sure it's valid within the range of effects */
       if (req->fx[i] <= ctx->fx_capacity && req->fx[i] > 0) {
         alSource3i(song->source, AL_AUXILIARY_SEND_FILTER,
                    (ALint)ctx->fx_slots[req->fx[i] - 1].slot_id, i, 0);
@@ -1206,10 +1346,10 @@ uint8_t a_song_play(a_ctx* ctx, uint16_t layer_id, uint16_t song_id,
     }
   }
 
-  // Apply filters
+  /* Apply filters */
   if (req->filter_count > 0) {
     for (uint16_t i = 0; i < req->filter_count; ++i) {
-      // Make sure it's valid within the range of filters
+      /* Make sure it's valid within the range of filters */
       if (req->filters[i] <= ctx->filter_capacity && req->filters[i] > 0) {
         alSourcei(song->source, AL_DIRECT_FILTER,
                   ctx->filter_slots[req->filters[i] - 1].al_id);
@@ -1321,7 +1461,7 @@ uint8_t a_song_set_time(a_ctx* ctx, uint16_t song_id, time_s from_start) {
 
   if (approx_sample > song->sample_count) {
     ASTERA_FUNC_DBG("sample requested %i out of range of song %i\n",
-                    approx_sample, song->sample_count);
+                   approx_sample, song->sample_count);
     return 0;
   }
 
@@ -1365,7 +1505,7 @@ uint16_t a_song_get_id(a_ctx* ctx, const char* name) {
 
   for (uint16_t i = 0; i < ctx->song_high; ++i) {
     if (strcmp(ctx->song_names[i], name) == 0) {
-      // Song IDs are their index + 1
+      /* Song IDs are their index + 1 */
       return i + 1;
     }
   }
@@ -1395,7 +1535,7 @@ uint16_t a_buf_create(a_ctx* ctx, unsigned char* data, uint32_t data_length,
 
   a_buf* buffer = 0;
 
-  // Find open buffer
+  /* Find open buffer */
   for (uint16_t i = 0; i < ctx->buffer_high; ++i) {
     if (ctx->buffers[i].buf == 0) {
       buffer = &ctx->buffers[i];
@@ -1442,7 +1582,7 @@ uint16_t a_buf_create(a_ctx* ctx, unsigned char* data, uint32_t data_length,
   } else {
     int16_t channels    = _a_load_int16(data, 22);
     int32_t sample_rate = _a_load_int32(data, 24);
-    // int32_t byte_rate   = _a_load_int32(data, 28);
+    /* int32_t byte_rate   = _a_load_int32(data, 28); */
     int32_t bps = _a_load_int16(data, 34);
 
     if (strncmp((const char*)&data[36], "data", 4) != 0) {
@@ -1477,6 +1617,19 @@ uint16_t a_buf_create(a_ctx* ctx, unsigned char* data, uint32_t data_length,
 
   ++ctx->buffer_count;
   return buffer->id;
+}
+
+uint16_t a_buf_create_fs(a_ctx* ctx, const char* file_path, const char* name,
+                         uint8_t is_ogg) {
+  uint32_t       data_length = 0;
+  unsigned char* data        = _a_get_file(file_path, &data_length);
+
+  if (!data) {
+    ASTERA_FUNC_DBG("Unable to retrieve data from: %s\n", file_path);
+    return 0;
+  }
+
+  return a_buf_create(ctx, data, data_length, name, is_ogg);
 }
 
 uint8_t a_buf_destroy(a_ctx* ctx, uint16_t buf_id) {
@@ -1527,12 +1680,10 @@ a_buf* a_buf_get_open(a_ctx* ctx) {
   return 0;
 }
 
-float a_listener_get_gain(a_ctx* ctx) {
-  return ctx->listener.gain;
-}
+float a_listener_get_gain(a_ctx* ctx) { return ctx->listener.gain; }
 
-void a_listener_get_pos(a_ctx* ctx, vec3 dst) {
-  vec3_dup(dst, ctx->listener.position);
+void a_listener_get_pos(a_ctx* ctx, a_vec3 dst) {
+  a_vec3_dup(dst, ctx->listener.position);
 }
 
 void a_listener_get_ori(a_ctx* ctx, float dst[6]) {
@@ -1541,8 +1692,8 @@ void a_listener_get_ori(a_ctx* ctx, float dst[6]) {
   }
 }
 
-void a_listener_get_vel(a_ctx* ctx, vec3 dst) {
-  vec3_dup(dst, ctx->listener.velocity);
+void a_listener_get_vel(a_ctx* ctx, a_vec3 dst) {
+  a_vec3_dup(dst, ctx->listener.velocity);
 }
 
 void a_listener_set_gain(a_ctx* ctx, float gain) {
@@ -1550,8 +1701,8 @@ void a_listener_set_gain(a_ctx* ctx, float gain) {
   alListenerf(AL_GAIN, gain);
 }
 
-void a_listener_set_pos(a_ctx* ctx, vec3 position) {
-  vec3_dup(ctx->listener.position, position);
+void a_listener_set_pos(a_ctx* ctx, a_vec3 position) {
+  a_vec3_dup(ctx->listener.position, position);
   alListener3f(AL_POSITION, position[0], position[1], position[2]);
 }
 
@@ -1563,12 +1714,12 @@ void a_listener_set_ori(a_ctx* ctx, float ori[6]) {
   alListenerfv(AL_ORIENTATION, ctx->listener._ori);
 }
 
-void a_listener_set_vel(a_ctx* ctx, vec3 velocity) {
-  vec3_dup(ctx->listener.velocity, velocity);
+void a_listener_set_vel(a_ctx* ctx, a_vec3 velocity) {
+  a_vec3_dup(ctx->listener.velocity, velocity);
   alListener3f(AL_VELOCITY, velocity[0], velocity[1], velocity[2]);
 }
 
-a_req a_req_create(vec3 position, float gain, float range, uint8_t loop,
+a_req a_req_create(a_vec3 position, float gain, float range, uint8_t loop,
                    uint16_t* fx, uint16_t fx_count, uint16_t* filters,
                    uint16_t filter_count) {
   a_req req = (a_req){.gain         = gain,
@@ -1580,7 +1731,7 @@ a_req a_req_create(vec3 position, float gain, float range, uint8_t loop,
                       .filter_count = filter_count,
                       0};
 
-  vec3_dup(req.position, position);
+  a_vec3_dup(req.position, position);
 
   return req;
 }
@@ -1667,8 +1818,8 @@ uint16_t a_fx_create(a_ctx* ctx, a_fx_type type, void* data) {
 
   alAuxiliaryEffectSloti(slot->slot_id, AL_EFFECTSLOT_EFFECT, slot->effect_id);
 
-  // NOTE: slot->id is the index + 1 of the slot in the context's array of
-  // slots
+  /* NOTE: slot->id is the index + 1 of the slot in the context's array of
+     slots */
   return slot->id;
 #else
   ASTERA_FUNC_DBG("ASTERA_AL_NO_FX is defined\n");
@@ -1851,6 +2002,11 @@ a_fx_reverb a_fx_reverb_create(float density, float diffusion, float gain,
   ASTERA_FUNC_DBG("ASTERA_AL_NO_FX is defined\n");
   return (a_fx_reverb){0};
 #endif
+}
+
+a_fx_eq a_fx_eq_default(void) {
+  return a_fx_eq_create(1.0f, 200.0f, 1.0f, 500.0f, 1.0f, 1.0f, 3000.0f, 1.0f,
+                        1.0f, 6000.0f);
 }
 
 a_fx_eq a_fx_eq_create(float low_gain, float low_cutoff, float mid1_gain,
@@ -2122,3 +2278,165 @@ float a_layer_get_gain(a_ctx* ctx, uint16_t layer_id) {
   return layer->gain;
 }
 
+static int keyframe_compare(const void* a, const void* b) {
+  const a_keyframe* a_frame = (const a_keyframe*)a;
+  const a_keyframe* b_frame = (const a_keyframe*)b;
+
+  return (a_frame->time - b_frame->time);
+}
+
+a_timeline a_timeline_create(float* times, float* values,
+                             a_keyframe_ease* eases, uint32_t count) {
+  a_timeline timeline = (a_timeline){.keyframe_count = count};
+
+  timeline.keyframes = calloc(count, sizeof(a_keyframe));
+  for (uint32_t i = 0; i < count; ++i) {
+    timeline.keyframes[i] = (a_keyframe){
+        .time  = times[i],
+        .value = values[i],
+        .ease  = eases[i],
+    };
+  }
+
+  qsort(timeline.keyframes, count, sizeof(a_keyframe), keyframe_compare);
+
+  return timeline;
+}
+
+void a_timeline_destroy(a_timeline* timeline) { free(timeline->keyframes); }
+
+a_timeline_view a_timeline_create_view(a_timeline* timeline) {
+  a_timeline_view view = (a_timeline_view){.timeline = timeline, 0};
+
+  // Start with the first keyframe's value
+  if (timeline->keyframe_count > 0) {
+    view.value = timeline->keyframes[0].value;
+  }
+
+  view.time          = 0.0f;
+  view.current_index = 0;
+
+  return view;
+}
+
+static float smooth_step(float t) { return t * t * (3.0f - 2.0f * t); }
+
+float a_timeline_get_value(a_timeline_view* view) { return view->value; }
+
+void a_timeline_update(a_timeline_view* view, float dt) {
+  if (view->output) {
+    *view->output = view->value;
+  }
+
+  if (dt > 0.0f) {
+    view->time += dt;
+
+    if (view->current_index < view->timeline->keyframe_count) {
+      a_keyframe* next_keyframe =
+          &view->timeline->keyframes[view->current_index + 1];
+
+      // If we have a new next keyframe, make sure to iterate!
+      if (view->time > next_keyframe->time) {
+        view->current_index++;
+      }
+
+      // Is there a potential for a next keyframe?
+      if (view->current_index < view->timeline->keyframe_count) {
+        a_keyframe* prev_keyframe = next_keyframe;
+        next_keyframe = &view->timeline->keyframes[view->current_index];
+
+        float time_progress = (view->time - prev_keyframe->time) /
+                              (next_keyframe->time - prev_keyframe->time);
+
+        // Do we need to smoothstep?
+        if (((next_keyframe->ease == EASE_IN ||
+              next_keyframe->ease == EASE_EASE) &&
+             time_progress > 0.5f) ||
+            ((prev_keyframe->ease == EASE_OUT ||
+              prev_keyframe->ease == EASE_EASE) &&
+             time_progress < 0.5f)) {
+          view->value = (smooth_step(time_progress) *
+                         (next_keyframe->value - prev_keyframe->value)) +
+                        prev_keyframe->value;
+        } else { // If not just lerp the value!
+          view->value =
+              (time_progress * (next_keyframe->value - prev_keyframe->value)) +
+              prev_keyframe->value;
+        }
+
+        if (view->output) {
+          *view->output = view->value;
+        }
+      } else { // If not we just stick with the value of the most recent one
+        view->value = next_keyframe->value;
+      }
+    }
+  }
+}
+
+void a_timeline_set_time(a_timeline_view* view, float time) {
+  for (uint32_t i = 0; i < view->timeline->keyframe_count; ++i) {
+    if (view->timeline->keyframes[i].time > time) {
+      if (i > 0)
+        view->current_index = i - 1;
+      else
+        view->current_index = 0;
+    }
+
+    if (i == view->timeline->keyframe_count - 1) {
+      view->current_index = i;
+    }
+  }
+
+  view->time  = time;
+  view->value = a_timeline_calc_value_at(view->timeline, view->time);
+}
+
+void a_timeline_set_output(a_timeline_view* view, float* output) {
+  view->output = output;
+
+  if (view->output) {
+    *view->output = view->value;
+  }
+}
+
+float a_timeline_calc_value_at(a_timeline* timeline, float time) {
+  uint32_t prev_index = 0;
+  uint32_t next_index = 0;
+  for (uint32_t i = 0; i < timeline->keyframe_count; ++i) {
+    if (timeline->keyframes[i].time > time) {
+      if (i > 0)
+        prev_index = i - 1;
+      next_index = i;
+      break;
+    }
+  }
+
+  if (next_index == prev_index) {
+    return timeline->keyframes[next_index].value;
+  }
+
+  a_keyframe prev = timeline->keyframes[prev_index];
+  a_keyframe next = timeline->keyframes[next_index];
+
+  // 0-1 time progress across the keyframes
+  float current_time = (time - prev.time) / (next.time - prev.time);
+  float progress     = (current_time * (next.value - prev.value)) + prev.value;
+
+  // Do we need to ease in or is it a linear change?
+  if (prev.ease == EASE_OUT || next.ease == EASE_IN || prev.ease == EASE_EASE ||
+      next.ease == EASE_EASE) {
+    float step =
+        (smooth_step(current_time) * (next.value - prev.value)) + prev.value;
+    return step;
+  }
+
+  return progress;
+}
+
+void a_timeline_reset(a_timeline_view* view) {
+  view->time          = 0.0f;
+  view->current_index = 0;
+  if (view->timeline->keyframe_count > 0)
+    view->value = view->timeline->keyframes[0].value;
+}

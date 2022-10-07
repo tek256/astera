@@ -2503,7 +2503,17 @@ int main(void) {
 
   user_prefs = load_config();
 
-  audio_ctx = a_ctx_create(0, 2, 32, 16, 2, 2, 2, 4096 * 4);
+    a_ctx_info ctx_info = (a_ctx_info) {
+    .device = 0,
+    .max_layers = 2,
+    .max_buffers = 32,
+    .max_sfx = 32,
+    .max_fx = 2,
+    .max_filters = 2,
+    .pcm_size = 4096 * 4,
+  };
+
+  audio_ctx = a_ctx_create(ctx_info);
 
   if (!audio_ctx) {
     ASTERA_DBG("Unable to initialize audio context, exiting.\n");
