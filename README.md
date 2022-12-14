@@ -3,7 +3,7 @@
       <b>astera</b><br>
   	  <span font-size="16px">a cross platform game library</span><br>
       <span font-size="12px">Made by <a href="http://tek256.com">Devon</a> with love.</span><br><br>
-      <span><a href="https://github.com/tek256/astera/wiki/Build-Guide">Setup</a> | <a href="https://discordapp.com/invite/63GvpMh">Discord</a> | <a href="https://github.com/sponsors/tek256">Support</a></span><br><br>
+      <span><a href="https://github.com/tek256/astera/wiki/Build-Guide">Setup</a></span><br><br>
       <span><img src="https://github.com/tek256/astera/workflows/Build%20Astera/badge.svg"></span>
     </p>
 </div>
