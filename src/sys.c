@@ -589,7 +589,7 @@ static void s_buffer_to_space(s_buffer_t* buffer) {
 }
 
 void s_buff_move_to(s_buffer_t* buffer, uint32_t index) {
-  buffer->cursor = buffer->data[index];
+  buffer->cursor = &buffer->data[index];
 }
 
 uint8_t s_buff_add_s(s_buffer_t* buffer, const char* string) {
