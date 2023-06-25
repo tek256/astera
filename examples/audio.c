@@ -24,7 +24,8 @@ i_ctx*  input_ctx;
 ui_ctx* u_ctx;
 
 ui_font   test_font;
-ui_slider slider, master_vol, sfx_vol, music_vol;
+ui_progress progress;
+ui_slider master_vol, sfx_vol, music_vol;
 ui_text   master_vol_label, sfx_vol_label, music_vol_label;
 ui_tree   tree;
 ui_text   explain, timecode, explain2;
@@ -97,18 +98,16 @@ void init_ui() {
   vec2 progress_pos  = {0.5f, 0.35f};
 
   vec2 button_size = {0.025f, 0.15f};
-  slider = ui_slider_create(u_ctx, progress_pos, progress_size, button_size, 0,
-                            0.f, 0.f, 1.f, 0);
+  progress = ui_progress_create(u_ctx, progress_pos, progress_size, 0.0f);
 
-  ui_element slider_ele = ui_element_get(&slider, UI_SLIDER);
-  ui_element_center_to(slider_ele, progress_pos);
+  ui_element progress_ele = ui_element_get(&progress, UI_PROGRESS);
+  ui_element_center_to(progress_ele, progress_pos);
 
-  ui_slider_set_colors(&slider, clear, clear, red, red, white, white, clear,
-                       clear, clear, clear);
+  ui_progress_set_colors(&progress, clear, clear, red, red, white, white);
 
-  slider.fill_padding  = 6.f;
-  slider.border_size   = 2.f;
-  slider.border_radius = 5.f;
+  progress.fill_padding  = 6.f;
+  progress.border_size   = 2.f;
+  progress.border_radius = 5.f;
 
   float left_pos = 0.5f - (progress_size[0] / 2.f);
   float tmp_pos  = progress_pos[0];
@@ -131,7 +130,7 @@ void init_ui() {
   master_vol = ui_slider_create(u_ctx, progress_pos, progress_size, button_size,
                                 0, 1.f, 0.f, 1.f, 0);
 
-  slider_ele = ui_element_get(&master_vol, UI_SLIDER);
+  ui_element slider_ele = ui_element_get(&master_vol, UI_SLIDER);
   ui_element_center_to(slider_ele, progress_pos);
 
   ui_slider_set_colors(&master_vol, clear, clear, red, red, white, white, clear,
@@ -200,7 +199,7 @@ void init_ui() {
   // We'll just make it 16 for now
   tree = ui_tree_create(16);
   ui_tree_add(u_ctx, &tree, &timecode, UI_TEXT, 0, 0, 0);
-  ui_tree_add(u_ctx, &tree, &slider, UI_SLIDER, 1, 1, 1);
+  ui_tree_add(u_ctx, &tree, &progress, UI_PROGRESS, 1, 0, 1);
   ui_tree_add(u_ctx, &tree, &sfx_vol, UI_SLIDER, 1, 1, 1);
   ui_tree_add(u_ctx, &tree, &music_vol, UI_SLIDER, 1, 1, 1);
   ui_tree_add(u_ctx, &tree, &master_vol, UI_SLIDER, 1, 1, 1);
@@ -272,6 +271,7 @@ void init() {
     .max_buffers = 8,
     .max_sfx = 8,
     .max_fx = 2,
+    .max_songs = 1,
     .max_filters = 2,
     .pcm_size = 4096 * 4,
   };
@@ -304,7 +304,7 @@ void render(time_s delta) {
     int len_sec = (int)(length - (len_min * 60000.f)) / 1000;
 
     float prog      = time / length;
-    slider.progress = prog;
+    progress.progress = prog;
 
     memset(timecode_str, 0, sizeof(char) * 16);
     snprintf(timecode_str, 16, "%i:%.2i / %i:%.2i", time_min, time_sec, len_min,
