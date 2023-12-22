@@ -98,7 +98,8 @@ uint8_t s_table_add_float(s_table* table, char* key, float value);
 
 /* Add a key/value to a table
  * returns: 1 = success, 0 = fail */
-uint8_t s_table_add(s_table* table, char* key, char* value);
+uint8_t s_table_add(s_table* table, char* key, uint32_t key_len, char* value,
+                    uint32_t value_len);
 
 /* Remove the first key matched from table
  * returns: 1 = success, 0 = fail */

@@ -146,7 +146,6 @@ void init_ui() {
   ui_color_dup(text.color, white);
   ui_color_dup(text.shadow, text_shadow_color);
 
-  // ok so use_box is obviously breaking something
   text.use_box = 1;
   vec2_clear(text.bounds);
   text.bounds[0] = 0.7f;
@@ -450,7 +449,8 @@ void input(time_s delta) {
   }
 }
 
-void update(time_s delta) {}
+void update(time_s delta) {
+}
 
 int main(void) {
   init();

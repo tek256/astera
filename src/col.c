@@ -525,9 +525,13 @@ c_aabb c_reduce(c_shape* shapes, uint32_t count) {
         vec2_max(col.max, shape.col.aabb.max, col.max);
         break;
       case C_CIRCLE: {
-        c_aabb cirlce_rep = c_circle_to_aabb(shape.col.circle);
         vec2_min(col.min, shape.col.aabb.min, col.min);
         vec2_max(col.max, shape.col.aabb.max, col.max);
+      } break;
+      case C_NONE:
+      case C_RAY: // todo, cause I'm lazy
+      default: {
+        // uhhh, it's nothing
       } break;
     }
   }

@@ -14,7 +14,7 @@
 
 #ifndef ASTERA_FUNC_DBG
 #define ASTERA_FUNC_DBG(fmt, ...) \
-  printf("%s ", __func__);       \
+  printf("%s ", __func__);        \
   printf(fmt, ##__VA_ARGS__);
 #endif
 
@@ -439,7 +439,9 @@ const char* a_ctx_get_device(a_ctx* ctx, uint8_t* string_length) {
   return name;
 }
 
-uint8_t a_can_play(a_ctx* ctx) { return ctx->allow; }
+uint8_t a_can_play(a_ctx* ctx) {
+  return ctx->allow;
+}
 
 a_ctx_info a_ctx_info_default() {
   return (a_ctx_info){
@@ -1159,7 +1161,7 @@ uint16_t a_song_create(a_ctx* ctx, unsigned char* data, uint32_t data_length,
     song->req  = 0;
 
     ASTERA_FUNC_DBG("Unable to load vorbis, that sucks VORBIS Error: %i\n",
-                   error);
+                    error);
 
     free(song->vorbis);
 
@@ -1172,8 +1174,8 @@ uint16_t a_song_create(a_ctx* ctx, unsigned char* data, uint32_t data_length,
 
   if (max_buffer_size < (uint32_t)song->info.max_frame_size) {
     ASTERA_FUNC_DBG("max_buffer_size is smaller than the listed max "
-                   "frame size of this OGG file: %i vs %i\n",
-                   max_buffer_size, song->info.max_frame_size);
+                    "frame size of this OGG file: %i vs %i\n",
+                    max_buffer_size, song->info.max_frame_size);
 
     free(song->vorbis);
     song->data = 0;
@@ -1202,7 +1204,7 @@ uint16_t a_song_create(a_ctx* ctx, unsigned char* data, uint32_t data_length,
     free(song->vorbis);
 
     ASTERA_FUNC_DBG("unable to allocate %i bytes for buffer IDs",
-                   (buffers * sizeof(int32_t)));
+                    (buffers * sizeof(int32_t)));
 
     return 0;
   }
@@ -1461,7 +1463,7 @@ uint8_t a_song_set_time(a_ctx* ctx, uint16_t song_id, time_s from_start) {
 
   if (approx_sample > song->sample_count) {
     ASTERA_FUNC_DBG("sample requested %i out of range of song %i\n",
-                   approx_sample, song->sample_count);
+                    approx_sample, song->sample_count);
     return 0;
   }
 
@@ -1680,7 +1682,9 @@ a_buf* a_buf_get_open(a_ctx* ctx) {
   return 0;
 }
 
-float a_listener_get_gain(a_ctx* ctx) { return ctx->listener.gain; }
+float a_listener_get_gain(a_ctx* ctx) {
+  return ctx->listener.gain;
+}
 
 void a_listener_get_pos(a_ctx* ctx, a_vec3 dst) {
   a_vec3_dup(dst, ctx->listener.position);
@@ -2303,7 +2307,9 @@ a_timeline a_timeline_create(float* times, float* values,
   return timeline;
 }
 
-void a_timeline_destroy(a_timeline* timeline) { free(timeline->keyframes); }
+void a_timeline_destroy(a_timeline* timeline) {
+  free(timeline->keyframes);
+}
 
 a_timeline_view a_timeline_create_view(a_timeline* timeline) {
   a_timeline_view view = (a_timeline_view){.timeline = timeline, 0};
@@ -2319,9 +2325,13 @@ a_timeline_view a_timeline_create_view(a_timeline* timeline) {
   return view;
 }
 
-static float smooth_step(float t) { return t * t * (3.0f - 2.0f * t); }
+static float smooth_step(float t) {
+  return t * t * (3.0f - 2.0f * t);
+}
 
-float a_timeline_get_value(a_timeline_view* view) { return view->value; }
+float a_timeline_get_value(a_timeline_view* view) {
+  return view->value;
+}
 
 void a_timeline_update(a_timeline_view* view, float dt) {
   if (view->output) {

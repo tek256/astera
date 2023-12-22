@@ -50,6 +50,11 @@ cmake_dependent_option(ASTERA_DEBUG_OUTPUT
   "Enable Astera's internal debug output" ON 
   "CMAKE_BUILD_TYPE STREQUAL Debug" ON)
 
+# Enables hardened compiler flags for astera 
+cmake_dependent_option(ASTERA_HARDEN_ENGINE
+  "Enable hardening compiler flags for astera " OFF
+  "CMAKE_BUILD_TYPE STREQUAL Release" ON)
+
 # Enable the inclusion of pak writing in the library
 cmake_dependent_option(ASTERA_PAK_WRITE
   "Include pak writing functions in asset.c/h" ON
@@ -75,6 +80,7 @@ add_subdirectory(${PROJECT_SOURCE_DIR}/dep/glfw EXCLUDE_FROM_ALL)
 
 # Get all of our source files into a list
 file(GLOB sources CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/src/*.c)
+#add_library(${PROJECT_NAME} STATIC)
 add_library(${PROJECT_NAME} STATIC)
 
 # Add our source files & nanovg
@@ -97,6 +103,7 @@ target_compile_definitions(${PROJECT_NAME}
   PRIVATE
     $<$<BOOL:${ASTERA_DEBUG_ENGINE}>:ASTERA_DEBUG_OUTPUT>
     $<$<BOOL:${ASTERA_DEBUG_OUTPUT}>:ASTERA_DEBUG_OUTPUT>
+    $<$<BOOL:${ASTERA_HARDEN_ENGINE}>:ASTERA_HARDEN_ENGINE>
     $<$<PLATFORM_ID:FreeBSD>:FreeBSD>
     $<$<PLATFORM_ID:OpenBSD>:OpenBSD>
     $<$<PLATFORM_ID:NetBSD>:NetBSD>
@@ -125,6 +132,12 @@ if(ASTERA_DEBUG_ENGINE)
     PUBLIC
     $<$<C_COMPILER_ID:MSVC>:/fsanitize=address>
     $<$<NOT:$<C_COMPILER_ID:MSVC>>:-g -fsanitize=address>)
+endif()
+
+if(ASTERA_HARDEN_ENGINE)
+  target_compile_options(${PROJECT_NAME} 
+      PUBLIC
+      $<$<NOT:$<C_COMPILER_ID:MSVC>>: -O2 -Wall -Wformat=2 -Wconversion -Wtrampolines -Wimplicit-fallthrough -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3 -D_GLIBCXX_ASSERTIONS -fstrict-flex-arrays=3 -fstack-clash-protection -fstack-protector-strong -Wl,-z,nodlopen -Wl,-z,noexecstack -Wl,-z,relro -Wl,-z,now -fcf-protection=full>)
 endif()
 
 # Link against the various libraries we need

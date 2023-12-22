@@ -33,6 +33,10 @@ static NVGcolor ui_u_color(ui_color v) {
                  (unsigned char)(v[2] * 255), (unsigned char)(v[3] * 255));
 }
 
+static uint8_t ui_color_cmp(ui_color a, ui_color b) {
+  return a[0] == b[0] && a[1] == b[1] && a[2] == b[2] && a[3] == b[3];
+}
+
 uint32_t ui_element_get_uid(ui_element element) {
   if (element.data) {
     return *((uint32_t*)element.data);
@@ -859,7 +863,7 @@ uint32_t ui_tree_check(ui_ctx* ctx, ui_tree* tree) {
 
   if (potential_index != -1) {
     if (tree->selected_index > -1) {
-      if (tree->selected_index == (uint32_t)potential_index) {
+      if (tree->selected_index == potential_index) {
         tree->mouse_hover_id    = potential_uid;
         tree->mouse_hover_index = potential_index;
       } else {
@@ -1308,8 +1312,9 @@ void ui_slider_draw(ui_ctx* ctx, ui_slider* slider, int8_t focused) {
               slider_size[1]);
     }
 
-    if (focused ||
-        ((slider->active || slider->holding) && slider->active_border_color)) {
+    if (focused || ((slider->active || slider->holding) &&
+                    ui_color_cmp(slider->active_border_color,
+                                 slider->border_color) == 0)) {
       nvgStrokeColor(ctx->nvg, ui_u_color(slider->active_border_color));
     } else {
       nvgStrokeColor(ctx->nvg, ui_u_color(slider->border_color));
@@ -1982,7 +1987,7 @@ void ui_tree_destroy(ui_ctx* ctx, ui_tree* tree) {
           ui_img_destroy(ctx, (ui_img*)cursor->element.data);
           break;
         case UI_DROPDOWN:
-          ui_dropdown_destroy(ctx, (ui_dropdown*)cursor->element.data);
+          ui_dropdown_destroy((ui_dropdown*)cursor->element.data);
           break;
         case UI_OPTION:
           ui_option_destroy(ctx, (ui_option*)cursor->element.data);
@@ -3393,7 +3398,7 @@ void ui_img_destroy(ui_ctx* ctx, ui_img* img) {
   nvgDeleteImage(ctx->nvg, img->handle);
 }
 
-void ui_dropdown_destroy(ui_ctx* ctx, ui_dropdown* dropdown) {
+void ui_dropdown_destroy(ui_dropdown* dropdown) {
   for (uint16_t i = 0; i < dropdown->option_count; ++i) {
     free(dropdown->options[i]);
   }
@@ -3695,7 +3700,7 @@ uint32_t ui_tree_prev(ui_tree* tree) {
   }
 
   int32_t closest = -1;
-  for (uint32_t i = 0; i < tree->cursor_index; ++i) {
+  for (int32_t i = 0; i < tree->cursor_index; ++i) {
     if (tree->raw[i].selectable) {
       closest = i;
     }
@@ -3708,7 +3713,7 @@ uint32_t ui_tree_prev(ui_tree* tree) {
   }
 
   if (tree->loop) {
-    for (uint32_t i = tree->cursor_index + 1; i < tree->count; ++i) {
+    for (int32_t i = tree->cursor_index + 1; i < tree->count; ++i) {
       if (tree->raw[i].selectable) {
         closest = i;
       }

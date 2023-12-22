@@ -14,12 +14,6 @@
 #include <sys/ioctl.h>
 #include <linux/input.h>
 #include <unistd.h>
-#define LINUX_CONTROLLER_1_PATH    "/dev/input/js0"
-#define LINUX_CONTROLLER_2_PATH    "/dev/input/js1"
-#define LINUX_CONTROLLER_3_PATH    "/dev/input/js2"
-#define LINUX_CONTROLLER_4_PATH    "/dev/input/js3"
-#define LINUX_EVENT_INTERFACE      "/dev/input/event"
-#define MAX_LINUX_EVENT_INTERFACES 32
 #endif
 
 typedef struct {
@@ -53,13 +47,6 @@ typedef struct {
 
   // if we should use gamepad functions
   uint8_t is_gamepad;
-
-#if defined(__linux__)
-  int                device_fd;
-  int                ff_fd;
-  struct ff_effect   ff_fx;
-  struct input_event ff_play;
-#endif
 } i_joy;
 
 typedef struct {
@@ -377,30 +364,6 @@ int8_t i_joy_create(i_ctx* ctx, uint8_t joy_id) {
   ++ctx->joy_count;
   ctx->joy_exists = 1;
 
-#if defined(__linux__)
-  i_joy* joy = &ctx->joys[open];
-  for (uint8_t i = 0; i < MAX_LINUX_EVENT_INTERFACES; ++i) {
-    static char device[16] = {0};
-    sprintf(device, "%s%i", LINUX_EVENT_INTERFACE, i);
-    int32_t fd = shm_open((const char*)device, O_RDWR);
-    if (fd >= 0) {
-      joy->ff_fd = fd;
-      break;
-    }
-  }
-
-  if (joy->ff_fd >= 0) {
-    joy->ff_fx.type                      = FF_RUMBLE;
-    joy->ff_fx.id                        = -1;
-    joy->ff_fx.u.rumble.strong_magnitude = 0;
-    joy->ff_fx.u.rumble.weak_magnitude   = 0;
-    joy->ff_fx.replay.length             = 0x7fff;
-    joy->ff_fx.replay.delay              = 0;
-    joy->ff_play.type                    = EV_FF;
-    joy->ff_play.value                   = 1;
-  }
-#endif
-
   return open;
 }
 
@@ -450,18 +413,6 @@ void i_joy_set_vibration(i_ctx* ctx, uint8_t joy_id, float left, float right) {
   effect.wRightMotorSpeed = (WORD)(65535.0f * right);
 
   (int)(XInputSetState(joy_id, &effect));
-#elif defined(__linux__)
-  i_joy* joy                           = &ctx->joys[joy_id - 1];
-  joy->ff_fx.u.rumble.strong_magnitude = left;
-  joy->ff_fx.u.rumble.weak_magnitude   = right;
-  if (ioctl(joy->ff_fd, EVIOCSFF, &joy->ff_fx) == -1) {
-    ASTERA_FUNC_DBG("Unable to write force feedback effect\n");
-    return;
-  }
-  joy->ff_play.code = joy->ff_fx.id;
-  if (write(joy->ff_fd, &joy->ff_play, sizeof(joy->ff_play)) == -1) {
-    ASTERA_FUNC_DBG("Error playing force feedback effect\n");
-  }
 #endif
 }
 
@@ -497,7 +448,7 @@ uint16_t i_get_joy_type(uint8_t joy) {
 void i_joy_debug_output(i_ctx* ctx, uint8_t joy_id) {
   if (!ctx->joy_exists)
     return;
-  i_joy* joy = &ctx->joys[joy_id].id;
+  i_joy* joy = &ctx->joys[joy_id];
 
   printf("Buttons: [");
   // Buttons
@@ -1334,7 +1285,7 @@ uint8_t i_bindingi_down(i_ctx* ctx, uint16_t binding_id) {
 }
 
 uint8_t i_bindingi_up(i_ctx* ctx, uint16_t binding_id) {
-  return i_bindingi_up(ctx, binding_id);
+  return !i_bindingi_down(ctx, binding_id);
 }
 
 float i_bindingi_val(i_ctx* ctx, uint16_t binding_id) {

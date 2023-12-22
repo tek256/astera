@@ -15,8 +15,7 @@
 #include <astera/input.h>
 #include <astera/ui.h>
 
-// If to draw hitboxes
-//#define DRAW_HITBOXES
+// #define DRAW_HITBOXES
 
 #define USER_PREFS_FILE "user_prefs.ini"
 
@@ -149,14 +148,8 @@ typedef struct {
   int      health, is_idle, take_damage, allow_spawns, kill_count;
   float    damage_timer, damage_duration, attack_timer;
   r_sprite sprite, sword, swoosh;
-  // I'm doing this bit for my friend dan so he can know what I'm talking about
-  // when I say most recent key press > standard if else statements for input
-  // direction
-  // What we're going to do is write out which key on each axis was most
-  // recently pressed, and if something was pressed sooner on that axis we
-  // switch to it instead of the old stale one
-  int hori, vert;
-  int left_priority, right_priority, up_priority, down_priority;
+  int      hori, vert;
+  int      left_priority, right_priority, up_priority, down_priority;
 } player_t;
 
 typedef struct {
@@ -252,7 +245,7 @@ r_shader load_shader(const char* vs, const char* fs) {
 r_sheet load_sheet(const char* sheet_file, int sub_width, int sub_height) {
   asset_t* sheet_data = asset_get(sheet_file);
   r_sheet  sheet      = r_sheet_create_tiled(
-            sheet_data->data, sheet_data->data_length, sub_width, sub_height, 0, 0);
+      sheet_data->data, sheet_data->data_length, sub_width, sub_height, 0, 0);
   asset_free(sheet_data);
   return sheet;
 }
@@ -330,12 +323,6 @@ int spawn_enemy(void) {
     printf("Unable to find open slot for new enemy");
     return 0;
   }
-
-  // I think I might do a drop test/collision test for spawns and move them
-  // horizontally away from spawn if they collide with others, to prevent
-  // stacking on spawn, then once they're in the actual play area I'll probably
-  // do an enemy vs enemy collision test to keep it harder to kill giant mobs
-  // all at once
 
   // up down left right
   int dir = rand() % 4;
@@ -1388,9 +1375,6 @@ void clear_level(void) {
   }
 }
 
-// brb -- water (also thinking about what equation I want to use for round
-// number growth)
-
 void init_level(void) {
   // enemies
   /*level.to_spawn =
@@ -1993,9 +1977,9 @@ void update(time_s delta) {
             float move_factor = 0.0035f;
             float dist_factor = 1.f / (30.f / (dist));
             vec2  move_amount = {(level.player.center[0] - orb->center[0]) *
-                                    delta * dist_factor * move_factor,
-                                (level.player.center[1] - orb->center[1]) *
-                                    delta * dist_factor * move_factor};
+                                     delta * dist_factor * move_factor,
+                                 (level.player.center[1] - orb->center[1]) *
+                                     delta * dist_factor * move_factor};
             vec2_add(orb->center, orb->center, move_amount);
             r_sprite_move(&orb->sprite, move_amount);
           }
@@ -2025,7 +2009,7 @@ void update(time_s delta) {
 
           float move_factor = 0.005f;
           vec2  move        = {level.player.center[0] - en->circle.center[0],
-                       level.player.center[1] - en->circle.center[1]};
+                               level.player.center[1] - en->circle.center[1]};
           vec2_norm(move, move);
           vec2_scale(move, move, en->move_speed * (delta * move_factor));
           move_enemy(en, move);
@@ -2503,14 +2487,14 @@ int main(void) {
 
   user_prefs = load_config();
 
-    a_ctx_info ctx_info = (a_ctx_info) {
-    .device = 0,
-    .max_layers = 2,
-    .max_buffers = 32,
-    .max_sfx = 32,
-    .max_fx = 2,
-    .max_filters = 2,
-    .pcm_size = 4096 * 4,
+  a_ctx_info ctx_info = (a_ctx_info){
+      .device      = 0,
+      .max_layers  = 2,
+      .max_buffers = 32,
+      .max_sfx     = 32,
+      .max_fx      = 2,
+      .max_filters = 2,
+      .pcm_size    = 4096 * 4,
   };
 
   audio_ctx = a_ctx_create(ctx_info);

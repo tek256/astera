@@ -17,17 +17,21 @@ add_custom_target(${PROJECT_NAME}-examples-resources ALL
   COMMENT "Copying resources directory"
   VERBATIM)
 
+find_package(OpenAL REQUIRED)
+
 foreach(example IN LISTS entries)
   get_filename_component(name "${example}" NAME_WLE)
 
   set(BUILD_SHARED_LIBS OFF)
-
-
+  
   add_executable(${name})
   target_sources(${name} PRIVATE ${example})
   target_compile_definitions(${name} 
     PRIVATE
     $<${opengl-deprecation}:GL_SILENCE_DEPRECATION>)
 
-  target_link_libraries(${name} PRIVATE ${PROJECT_NAME})
-endforeach()
+  target_link_libraries(${name} 
+        PRIVATE 
+          ${PROJECT_NAME})
+
+          endforeach()

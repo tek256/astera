@@ -1,8 +1,14 @@
+/* DEBUG EXAMPLE
+    This example is meant to show how to use the debug system within astera
+*/
+
 #include <astera/debug.h>
 #include <time.h>
 
 // add "YES:" to the start of debug outputs
-char* log_prepend(void) { return "YES: "; }
+char* log_prepend(void) {
+  return "YES: ";
+}
 
 int main(void) {
   // enable timestampping in the log outputs

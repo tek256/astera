@@ -175,7 +175,7 @@ void s_table_free(s_table* table) {
   }
 
   if (table->data && table->data_owned) {
-    free(table->data);
+    free((char*)table->data);
   }
 }
 
@@ -231,7 +231,7 @@ static char* s_clean_str(char* str, uint32_t* n_size, char* str_end) {
 
 static void s_kv_get(char* src, char** key, char** value, uint32_t* key_length,
                      uint32_t* value_length) {
-  uint32_t str_len = strlen(src);
+  uint32_t str_len = (uint32_t)strlen(src);
   char*    split   = strstr(src, "=");
 
   uint32_t _key_len, _value_len;
@@ -286,9 +286,9 @@ s_table s_table_get(unsigned char* data) {
                    .count         = line_count,
                    .capacity      = line_capacity,
                    .allow_grow    = 0,
-                   .data          = data,
+                   .data          = (const char*)data,
                    .data_cursor   = 0,
-                   .data_capacity = strlen(data),
+                   .data_capacity = (uint32_t)strlen((const char*)data),
                    .data_owned    = 0};
 }
 
@@ -311,25 +311,26 @@ s_table s_table_create(uint32_t data_cap, uint32_t capacity,
 
 static char conv_buffer[32] = {0};
 uint8_t     s_table_add_float(s_table* table, char* key, float value) {
-      memset(conv_buffer, 0, sizeof(char) * 32);
-      uint32_t len       = snprintf(conv_buffer, 32, "%.2f", value);
-      uint8_t  table_add = s_table_add(table, key, conv_buffer);
-      return table_add;
+  memset(conv_buffer, 0, sizeof(char) * 32);
+  uint32_t key_len = (uint32_t)strlen(key);
+  int      len     = snprintf(conv_buffer, 32, "%.2f", value);
+  uint8_t  table_add =
+      s_table_add(table, key, key_len, conv_buffer, (uint32_t)len);
+  return table_add;
 }
 
 uint8_t s_table_add_int(s_table* table, char* key, int value) {
   memset(conv_buffer, 0, sizeof(char) * 32);
-  uint32_t len       = snprintf(conv_buffer, 32, "%i", value);
-  uint8_t  table_add = s_table_add(table, key, conv_buffer);
+  uint32_t key_len = (uint32_t)strlen(key);
+  int      len     = snprintf(conv_buffer, 32, "%i", value);
+  uint8_t  table_add =
+      s_table_add(table, key, key_len, conv_buffer, (uint32_t)len);
   return table_add;
 }
 
-uint8_t s_table_add(s_table* table, char* key, char* value) {
-  int key_len = 0, value_len = 0;
+uint8_t s_table_add(s_table* table, char* key, uint32_t key_len, char* value,
+                    uint32_t value_len) {
   if (key && value) {
-    key_len   = strlen(key);
-    value_len = strlen(value);
-
     // TODO dynamically rebuild array of string ptrs
     if (table->data_cursor + key_len + value_len > table->data_capacity) {
       return 0;
@@ -350,7 +351,7 @@ uint8_t s_table_add(s_table* table, char* key, char* value) {
     }
 
     // add to data
-    char* n_key   = &table->data[table->data_cursor];
+    char* n_key   = (char*)&table->data[table->data_cursor];
     char* n_value = n_key + (sizeof(char) * (strlen(key) + 1));
 
     strncpy(n_key, key, sizeof(char) * key_len);
@@ -429,7 +430,7 @@ uint8_t s_table_write(s_table* table, char* filepath) {
     str_size =
         snprintf(str_buff, 128, "%s = %s\n", table->keys[i], table->values[i]);
     // write new line
-    uint32_t written = fwrite(str_buff, str_size, sizeof(char), f);
+    uint32_t written = (uint32_t)fwrite(str_buff, str_size, sizeof(char), f);
 
     // if error exit
     if (written == 0) {
@@ -477,7 +478,7 @@ uint8_t s_table_write_mem(s_table* table, unsigned char* dst,
 }
 
 void s_table_print(s_table* table) {
-  for (int i = 0; i < table->count; ++i) {
+  for (uint32_t i = 0; i < table->count; ++i) {
     printf("[%i] %s: %s\n", i, table->keys[i], table->values[i]);
   }
 }
@@ -578,9 +579,7 @@ void s_buff_rewind(s_buffer_t* buffer) {
 static void s_buffer_to_space(s_buffer_t* buffer) {
   while (*buffer->cursor) {
     if (isspace(*buffer->cursor)) {
-      if (buffer->cursor + 1) {
-        ++buffer->cursor;
-      }
+      ++buffer->cursor;
 
       return;
     }
@@ -597,18 +596,18 @@ uint8_t s_buff_add_s(s_buffer_t* buffer, const char* string) {
     return 0;
   }
 
-  uint32_t len = strlen(string);
+  uint32_t len = (uint32_t)strlen(string);
 
   if (buffer->capacity - buffer->length < len) {
     return 0;
   }
 
-  uint32_t length = snprintf(buffer->cursor, buffer->capacity - buffer->length,
-                             "%s ", string);
+  int length = snprintf(buffer->cursor, buffer->capacity - buffer->length,
+                        "%s ", string);
 
   // Move cursor forward
   buffer->cursor += length;
-  buffer->length += length;
+  buffer->length += (uint32_t)length;
 
   return 1;
 }
@@ -618,12 +617,12 @@ uint8_t s_buff_add_i(s_buffer_t* buffer, int value) {
     return 0;
   }
 
-  uint32_t length =
+  int length =
       snprintf(buffer->cursor, buffer->capacity - buffer->length, "%i ", value);
 
   // Move cursor forward
   buffer->cursor += length;
-  buffer->length += length;
+  buffer->length += (uint32_t)length;
 
   return 1;
 }
@@ -633,12 +632,12 @@ uint8_t s_buff_add_f(s_buffer_t* buffer, float value) {
     return 0;
   }
 
-  uint32_t length =
+  int length =
       snprintf(buffer->cursor, buffer->capacity - buffer->length, "%f ", value);
 
   // Move cursor forward
   buffer->cursor += length;
-  buffer->length += length;
+  buffer->length += (uint32_t)length;
 
   return 1;
 }

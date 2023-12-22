@@ -389,9 +389,9 @@ typedef struct {
   ui_leaf** draw_order;
   uint16_t  capacity, count;
 
-  uint32_t mouse_hover_id, cursor_id;
-  uint32_t mouse_hover_index, cursor_index, selected_index;
-  int      loop;
+  int32_t mouse_hover_id, cursor_id;
+  int32_t mouse_hover_index, cursor_index, selected_index;
+  int     loop;
 } ui_tree;
 
 typedef struct ui_ctx ui_ctx;
@@ -827,7 +827,7 @@ float ui_slider_prev_step(ui_slider* slider);
 void ui_img_destroy(ui_ctx* ctx, ui_img* img);
 
 /* Destroy a dropdown & its contents */
-void ui_dropdown_destroy(ui_ctx* ctx, ui_dropdown* dropdown);
+void ui_dropdown_destroy(ui_dropdown* dropdown);
 
 void ui_button_destroy(ui_button* button);
 void ui_option_destroy(ui_ctx* ctx, ui_option* option);

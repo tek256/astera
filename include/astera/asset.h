@@ -46,8 +46,8 @@ typedef struct {
   uint8_t is_mem;
 
   union {
-    char* filepath;
-    void* ptr;
+    const char* filepath;
+    void*       ptr;
   } data;
 } pak_wfile_t;
 
@@ -80,8 +80,8 @@ typedef struct {
   uint32_t    count;
 
   union {
-    unsigned char* ptr;
-    const char*    filepath;
+    const void* ptr;
+    const char* filepath;
   } data;
 
   /* data_size - the size of the pak file (bytes)
