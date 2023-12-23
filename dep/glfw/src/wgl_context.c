@@ -73,18 +73,13 @@ static int choosePixelFormat(_GLFWwindow* window,
     int attribs[40];
     int values[sizeof(attribs) / sizeof(attribs[0])];
 
+    nativeCount = DescribePixelFormat(window->context.wgl.dc,
+                                      1,
+                                      sizeof(PIXELFORMATDESCRIPTOR),
+                                      NULL);
+
     if (_glfw.wgl.ARB_pixel_format)
     {
-        const int attrib = WGL_NUMBER_PIXEL_FORMATS_ARB;
-
-        if (!wglGetPixelFormatAttribivARB(window->context.wgl.dc,
-                                          1, 0, 1, &attrib, &nativeCount))
-        {
-            _glfwInputErrorWin32(GLFW_PLATFORM_ERROR,
-                                 "WGL: Failed to retrieve pixel format attribute");
-            return 0;
-        }
-
         addAttrib(WGL_SUPPORT_OPENGL_ARB);
         addAttrib(WGL_DRAW_TO_WINDOW_ARB);
         addAttrib(WGL_PIXEL_TYPE_ARB);
@@ -122,13 +117,6 @@ static int choosePixelFormat(_GLFWwindow* window,
                 addAttrib(WGL_COLORSPACE_EXT);
         }
     }
-    else
-    {
-        nativeCount = DescribePixelFormat(window->context.wgl.dc,
-                                          1,
-                                          sizeof(PIXELFORMATDESCRIPTOR),
-                                          NULL);
-    }
 
     usableConfigs = calloc(nativeCount, sizeof(_GLFWfbconfig));
 
@@ -165,6 +153,9 @@ static int choosePixelFormat(_GLFWwindow* window,
             if (findAttribValue(WGL_ACCELERATION_ARB) == WGL_NO_ACCELERATION_ARB)
                 continue;
 
+            if (findAttribValue(WGL_DOUBLE_BUFFER_ARB) != fbconfig->doublebuffer)
+                continue;
+
             u->redBits = findAttribValue(WGL_RED_BITS_ARB);
             u->greenBits = findAttribValue(WGL_GREEN_BITS_ARB);
             u->blueBits = findAttribValue(WGL_BLUE_BITS_ARB);
@@ -182,8 +173,6 @@ static int choosePixelFormat(_GLFWwindow* window,
 
             if (findAttribValue(WGL_STEREO_ARB))
                 u->stereo = GLFW_TRUE;
-            if (findAttribValue(WGL_DOUBLE_BUFFER_ARB))
-                u->doublebuffer = GLFW_TRUE;
 
             if (_glfw.wgl.ARB_multisample)
                 u->samples = findAttribValue(WGL_SAMPLES_ARB);
@@ -239,6 +228,9 @@ static int choosePixelFormat(_GLFWwindow* window,
             if (pfd.iPixelType != PFD_TYPE_RGBA)
                 continue;
 
+            if (!!(pfd.dwFlags & PFD_DOUBLEBUFFER) != fbconfig->doublebuffer)
+                continue;
+
             u->redBits = pfd.cRedBits;
             u->greenBits = pfd.cGreenBits;
             u->blueBits = pfd.cBlueBits;
@@ -256,8 +248,6 @@ static int choosePixelFormat(_GLFWwindow* window,
 
             if (pfd.dwFlags & PFD_STEREO)
                 u->stereo = GLFW_TRUE;
-            if (pfd.dwFlags & PFD_DOUBLEBUFFER)
-                u->doublebuffer = GLFW_TRUE;
         }
 
         u->handle = pixelFormat;
@@ -343,6 +333,7 @@ static void swapBuffersWGL(_GLFWwindow* window)
 static void swapIntervalWGL(int interval)
 {
     _GLFWwindow* window = _glfwPlatformGetTls(&_glfw.contextSlot);
+    assert(window != NULL);
 
     window->context.wgl.interval = interval;
 
@@ -785,7 +776,7 @@ GLFWAPI HGLRC glfwGetWGLContext(GLFWwindow* handle)
     _GLFWwindow* window = (_GLFWwindow*) handle;
     _GLFW_REQUIRE_INIT_OR_RETURN(NULL);
 
-    if (window->context.client == GLFW_NO_API)
+    if (window->context.source != GLFW_NATIVE_CONTEXT_API)
     {
         _glfwInputError(GLFW_NO_WINDOW_CONTEXT, NULL);
         return NULL;

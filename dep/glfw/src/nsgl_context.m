@@ -51,7 +51,7 @@ static void swapBuffersNSGL(_GLFWwindow* window)
 
     // HACK: Simulate vsync with usleep as NSGL swap interval does not apply to
     //       windows with a non-visible occlusion state
-    if (!([window->ns.object occlusionState] & NSWindowOcclusionStateVisible))
+    if (window->ns.occluded)
     {
         int interval = 0;
         [window->context.nsgl.object getValues:&interval
@@ -81,11 +81,10 @@ static void swapIntervalNSGL(int interval)
     @autoreleasepool {
 
     _GLFWwindow* window = _glfwPlatformGetTls(&_glfw.contextSlot);
-    if (window)
-    {
-        [window->context.nsgl.object setValues:&interval
-                                  forParameter:NSOpenGLContextParameterSwapInterval];
-    }
+    assert(window != NULL);
+
+    [window->context.nsgl.object setValues:&interval
+                              forParameter:NSOpenGLContextParameterSwapInterval];
 
     } // autoreleasepool
 }
@@ -365,7 +364,7 @@ GLFWAPI id glfwGetNSGLContext(GLFWwindow* handle)
     _GLFWwindow* window = (_GLFWwindow*) handle;
     _GLFW_REQUIRE_INIT_OR_RETURN(nil);
 
-    if (window->context.client == GLFW_NO_API)
+    if (window->context.source != GLFW_NATIVE_CONTEXT_API)
     {
         _glfwInputError(GLFW_NO_WINDOW_CONTEXT, NULL);
         return nil;

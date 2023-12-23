@@ -20,7 +20,7 @@
 #ifndef __WINE_XINPUT_H
 #define __WINE_XINPUT_H
 
-#include <windows.h>
+#include <windef.h>
 
 /*
  * Bitmasks for the joysticks buttons, determines what has
