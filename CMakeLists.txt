@@ -87,6 +87,10 @@ add_library(${PROJECT_NAME} STATIC)
 target_sources(${PROJECT_NAME} PRIVATE ${sources})
 target_sources(${PROJECT_NAME} PRIVATE ${PROJECT_SOURCE_DIR}/dep/nanovg/nanovg.c)
 
+if(APPLE)
+  set(ASTERA_DISABLE_AUDIO_FX ON)
+endif()
+
 # Include headers
 target_include_directories(${PROJECT_NAME}
   PUBLIC
