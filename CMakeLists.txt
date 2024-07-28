@@ -137,7 +137,7 @@ endif()
 if(ASTERA_HARDEN_ENGINE)
   target_compile_options(${PROJECT_NAME} 
       PUBLIC
-      $<$<NOT:$<C_COMPILER_ID:MSVC>>: -O2 -Wall -Wformat=2 -Wconversion -Wtrampolines -Wimplicit-fallthrough -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3 -D_GLIBCXX_ASSERTIONS -fstack-clash-protection -fstack-protector-strong -Wl,-z,nodlopen -Wl,-z,noexecstack -Wl,-z,relro -Wl,-z,now -fcf-protection=full>)
+      $<$<NOT:$<C_COMPILER_ID:MSVC>>: -O2 -Wall -Wformat=2 -Wconversion -Wtrampolines -Wimplicit-fallthrough -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3 -D_GLIBCXX_ASSERTIONS -fstack-clash-protection -fstack-protector-strong -Wl,-z,nodlopen -Wl,-z,noexecstack -Wl,-z,relro -Wl,-z,now>)
 endif()
 
 # Link against the various libraries we need
