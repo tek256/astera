@@ -2271,8 +2271,10 @@ void r_window_get_size(r_ctx* ctx, int* w, int* h) {
 }
 
 void r_window_get_vsize(r_ctx* ctx, vec2 vec) {
-  vec[0] = (float)ctx->window.params.width;
-  vec[1] = (float)ctx->window.params.height;
+  int width, height;
+  glfwGetFramebufferSize(ctx->window.glfw, &width, &height);
+  vec[0] = (float)width;
+  vec[1] = (float)height;
 }
 
 uint8_t r_window_set_size(r_ctx* ctx, uint32_t width, uint32_t height) {
