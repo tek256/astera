@@ -11,6 +11,7 @@
 ### About
 Astera is a 2D game library written in C99 focused on portability. 
 
+
 ### Features
 ```
 - Deferred & Forward Rendering
@@ -29,6 +30,8 @@ Here are the target platforms for this library:
 - Mac OSX 
 - BSD
 ``` 
+
+Wayland support, coming soon!
 
 _NOTE: I'm always open to adding more target platforms!_
 
