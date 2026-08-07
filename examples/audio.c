@@ -23,12 +23,12 @@ r_ctx*  render_ctx;
 i_ctx*  input_ctx;
 ui_ctx* u_ctx;
 
-ui_font   test_font;
+ui_font     test_font;
 ui_progress progress;
-ui_slider master_vol, sfx_vol, music_vol;
-ui_text   master_vol_label, sfx_vol_label, music_vol_label;
-ui_tree   tree;
-ui_text   explain, timecode, explain2;
+ui_slider   master_vol, sfx_vol, music_vol;
+ui_text     master_vol_label, sfx_vol_label, music_vol_label;
+ui_tree     tree;
+ui_text     explain, timecode, explain2;
 
 int16_t blip_id;
 
@@ -234,7 +234,7 @@ void init_audio() {
 
   song_data = asset_get("resources/audio/thingy.ogg");
   song_id   = a_song_create(audio_ctx, song_data->data, song_data->data_length,
-                          "test", 32, 4, 4096 * 4);
+                            "test", 32, 4, 4096 * 4);
 
   if (!song_id) {
     printf("Unable to load song.\n");
@@ -265,15 +265,15 @@ void init() {
 
   i_joy_create(input_ctx, 0);
 
-  a_ctx_info ctx_info = (a_ctx_info) {
-    .device = 0,
-    .max_layers = 2,
-    .max_buffers = 8,
-    .max_sfx = 8,
-    .max_fx = 2,
-    .max_songs = 1,
-    .max_filters = 2,
-    .pcm_size = 4096 * 4,
+  a_ctx_info ctx_info = (a_ctx_info){
+      .device      = 0,
+      .max_layers  = 2,
+      .max_buffers = 8,
+      .max_sfx     = 8,
+      .max_fx      = 2,
+      .max_songs   = 1,
+      .max_filters = 2,
+      .pcm_size    = 4096 * 4,
   };
 
   audio_ctx = a_ctx_create(ctx_info);
@@ -303,7 +303,7 @@ void render(time_s delta) {
     int len_min = (int)floor(length / (60.f * 1000.f));
     int len_sec = (int)(length - (len_min * 60000.f)) / 1000;
 
-    float prog      = time / length;
+    float prog        = time / length;
     progress.progress = prog;
 
     memset(timecode_str, 0, sizeof(char) * 16);
@@ -439,6 +439,5 @@ int main(void) {
   free(master_vol_label.text);
   free(music_vol_label.text);
 
-  return 0;
+  return EXIT_SUCCESS;
 }
-

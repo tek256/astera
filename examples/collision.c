@@ -420,5 +420,5 @@ int main(void) {
   r_ctx_destroy(render_ctx);
   i_ctx_destroy(input_ctx);
 
-  return 0;
+  return EXIT_SUCCESS;
 }

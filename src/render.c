@@ -32,8 +32,14 @@ static void glfw_window_size_cb(GLFWwindow* window, int w, int h) {
   if (_r_ctx->window.glfw == window) {
     _r_ctx->window.params.width  = w;
     _r_ctx->window.params.height = h;
+    _r_ctx->scaled               = 1;
+  }
+}
+
+static void glfw_framebuffer_size_cb(GLFWwindow* window, int w, int h) {
+  if (_r_ctx->window.glfw == window) {
+    printf("viewport: %ix%i\n", w, h);
     glViewport(0, 0, w, h);
-    _r_ctx->scaled = 1;
   }
 }
 
@@ -664,7 +670,7 @@ r_framebuffer r_framebuffer_create(uint32_t width, uint32_t height,
     verts[i + 1] *= 2;
   }
 
-  uint16_t indices[6] = {0, 1, 2, 2, 3, 0};
+  uint16_t indices[6] = {0, 3, 2, 2, 1, 0};
 
   glGenVertexArrays(1, &fbo.vao);
   glGenBuffers(1, &fbo.vbo);
@@ -692,6 +698,11 @@ r_framebuffer r_framebuffer_create(uint32_t width, uint32_t height,
 
 void r_framebuffer_unbind(void) {
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  if (_r_ctx && _r_ctx->window.glfw) {
+    int fb_w, fb_h;
+    glfwGetFramebufferSize(_r_ctx->window.glfw, &fb_w, &fb_h);
+    glViewport(0, 0, fb_w, fb_h);
+  }
 }
 
 void r_framebuffer_destroy(r_framebuffer fbo) {
@@ -703,6 +714,8 @@ void r_framebuffer_destroy(r_framebuffer fbo) {
 
 void r_framebuffer_bind(r_framebuffer fbo) {
   glBindFramebuffer(GL_FRAMEBUFFER, fbo.fbo);
+  printf("fbo bind: %ix%i\n", fbo.width, fbo.height);
+  glViewport(0, 0, fbo.width, fbo.height);
   if (!fbo.color_only) {
     glEnable(GL_DEPTH_TEST);
     glDepthMask(GL_TRUE);
@@ -2271,8 +2284,10 @@ void r_window_get_size(r_ctx* ctx, int* w, int* h) {
 }
 
 void r_window_get_vsize(r_ctx* ctx, vec2 vec) {
-  vec[0] = (float)ctx->window.params.width;
-  vec[1] = (float)ctx->window.params.height;
+  int width, height;
+  glfwGetFramebufferSize(ctx->window.glfw, &width, &height);
+  vec[0] = (float)width;
+  vec[1] = (float)height;
 }
 
 uint8_t r_window_set_size(r_ctx* ctx, uint32_t width, uint32_t height) {
@@ -2425,6 +2440,7 @@ uint8_t r_select_vidmode(r_ctx* ctx, GLFWvidmode mode, int8_t fullscreen,
 
     ctx->window.params.refresh_rate = mode.refreshRate;
 
+    printf("rez: %ix%i\n", mode.width, mode.height);
     ctx->resolution[0]        = (float)mode.width;
     ctx->resolution[1]        = (float)mode.height;
     ctx->window.params.width  = mode.width;
@@ -2442,6 +2458,7 @@ uint8_t r_select_vidmode(r_ctx* ctx, GLFWvidmode mode, int8_t fullscreen,
 
     if ((uint32_t)mode.width != ctx->window.params.width ||
         (uint32_t)mode.height != ctx->window.params.height) {
+      printf("rez: %ix%i\n", mode.width, mode.height);
       glfwSetWindowSize(ctx->window.glfw, mode.width, mode.height);
       ctx->resolution[0] = (float)mode.width;
       ctx->resolution[1] = (float)mode.height;
@@ -2587,7 +2604,7 @@ uint8_t r_window_create(r_ctx* ctx, r_window_params params) {
   glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-  glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_COMPAT_PROFILE);
+  glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
 #if defined(ASTERA_DEBUG_GL)
   ASTERA_FUNC_DBG("Debug GL Enabled.\n");
@@ -2685,9 +2702,14 @@ uint8_t r_window_create(r_ctx* ctx, r_window_params params) {
   glfwGetWindowPos(ctx->window.glfw, &ctx->window.params.x,
                    &ctx->window.params.y);
 
+  int fb_w, fb_h;
+  glfwGetFramebufferSize(ctx->window.glfw, &fb_w, &fb_h);
+  glViewport(0, 0, fb_w, fb_h);
+
 #if !defined(CUSTOM_GLFW_CALLBACKS)
   glfwSetWindowPosCallback(ctx->window.glfw, glfw_window_pos_cb);
   glfwSetWindowSizeCallback(ctx->window.glfw, glfw_window_size_cb);
+  glfwSetFramebufferSizeCallback(ctx->window.glfw, glfw_framebuffer_size_cb);
   glfwSetWindowCloseCallback(ctx->window.glfw, glfw_window_close_cb);
   glfwSetKeyCallback(ctx->window.glfw, glfw_key_cb);
   glfwSetCharCallback(ctx->window.glfw, glfw_char_cb);

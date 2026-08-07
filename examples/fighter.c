@@ -2607,5 +2607,5 @@ int main(void) {
   a_ctx_destroy(audio_ctx);
   ui_ctx_destroy(u_ctx);
 
-  return 0;
+  return EXIT_SUCCESS;
 }

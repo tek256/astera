@@ -107,5 +107,5 @@ int main() {
 
 #endif
 
-  return 0;
+  return EXIT_SUCCESS;
 }

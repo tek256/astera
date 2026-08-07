@@ -467,5 +467,5 @@ int main(void) {
   r_ctx_destroy(render_ctx);
   ui_ctx_destroy(u_ctx);
 
-  return 0;
+  return EXIT_SUCCESS;
 }

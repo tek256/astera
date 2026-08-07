@@ -33,5 +33,5 @@ int main(void) {
 
   // test output again!
   _l("Test me here!\n");
-  return 0;
+  return 1;
 }
